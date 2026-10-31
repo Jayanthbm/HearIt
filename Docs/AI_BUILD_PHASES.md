@@ -151,5 +151,6 @@ Status legend: `Not started` · `In progress (cloud, not locally verified)` · `
 
 | Phase | Status |
 |---|---|
-| P00 Documentation foundation | In progress (cloud, not locally verified) |
-| P01–P20 | Not started |
+| P00 Documentation foundation | Cloud complete, not locally verified |
+| P01 Core domain: modules + eligibility rules (part 1) | Cloud complete, not locally verified |
+| P02–P20 | Not started |

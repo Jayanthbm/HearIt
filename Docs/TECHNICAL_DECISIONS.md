@@ -33,6 +33,7 @@ Format: one ADR per decision — context, decision, alternatives, consequences. 
 - **Status:** Accepted (master prompt §6)
 - **Context:** Many interacting conditions (screen, lock, output, length, DND, calls, keywords, privacy, mute, priority mode) with required precedence.
 - **Decision:** one pure function `evaluate(snapshot, settings, state) -> Decision` in `:core:rules`. Inputs are immutable, time comes from an injected `Clock`, output is `Announce | Skip(reason) | Queue(reason)`. No Android types inside. The pipeline never mutates queue/history state itself.
+- **Implementation note (P01):** the `Announce | Skip(reason)` half lands in P01 with the enabled/mute/screen/lock families; the `Queue(reason)` variant lands in P05 together with the announcement queue, and the injected `Clock` with the first rule family that needs time (text length in P02 needs no clock; queue expiry in P05 does).
 - **Alternatives:** scattered `if` checks inside the service (untestable, precedence drifts); rule objects with hidden ordering (hard to audit).
 - **Consequences:** every skip reason is explicit and observable in history; precedence is centralized in ADR-006; unit tests can cover every branch without a device.
 

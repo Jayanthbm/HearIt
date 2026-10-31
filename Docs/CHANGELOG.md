@@ -7,6 +7,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ### Added
 - Full documentation set: phase plan, architecture, global standards, technical decisions (ADRs), manual test checklist.
+- `:core:common` and `:core:rules` Kotlin/JVM modules (P01): notification snapshot, eligibility settings with per-app inheritance, runtime state, skip reasons, and the deterministic announcement-eligibility pipeline covering the enabled-app list, temporary mute and screen/lock with the Priority Announce override. JVM unit tests written for all three rule families — not yet executed (cloud-agent restriction).
 
 ### Changed
 - Nothing yet.
