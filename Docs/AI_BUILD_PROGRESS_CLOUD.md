@@ -116,7 +116,7 @@ Tracks cloud implementation, code review and theoretical validation. Cloud work 
 - **Build status:** Not run (cloud-agent restriction).
 - **Test execution status:** Not run (cloud-agent restriction).
 - **Local verification:** Not locally verified — the local agent records results here after the build.
-- **Commit:** (recorded after commit)
+- **Commit:** `7bb6fff` — `docs(rules): refine ADR-006 precedence and ADR-015 defaults (P02 amend)`
 
 ---
 
