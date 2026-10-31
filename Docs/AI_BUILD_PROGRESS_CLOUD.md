@@ -120,6 +120,39 @@ Tracks cloud implementation, code review and theoretical validation. Cloud work 
 
 ---
 
+## Phase P03 — Eligibility rules (part 3): audio output, DND and calls (2026-10-31)
+
+- **Files changed:**
+  - **`core/common/.../model/AudioOutput.kt`** (new) — `AudioOutputKind` enum (`WIRED`, `BLUETOOTH`, `PHONE_SPEAKER`, `OTHER`) and `AudioOutput(kind, id, name)` with no Android types; `id` null fails an explicit allow-list, `name` never matches.
+  - **`core/common/.../model/AudioOutputSettings.kt`** (new) — whole-group settings `allowWired=true`, `allowBluetooth=true`, `allowPhoneSpeaker=false` (master-mandated), `allowedBluetoothIds=null`, `allowUnidentifiedOutput=true` (ADR-017).
+  - **`core/common/.../model/RuntimeState.kt`** — three required, no-default fields: `isCallActive`, `isDndActive`, `activeOutput: AudioOutput?` (null = unobserved → allowed).
+  - **`core/common/.../model/NotificationSnapshot.kt`** — `isSilentChannel: Boolean = false` added so channel policy is modelled yet provably distinct from DND.
+  - **`core/common/.../model/EligibilitySettings.kt`** — `respectDnd=true` and `queueDuringCall=false` (field-level inheritance like screen/lock) plus `audioOutput` as a whole group in `EligibilitySettings`, `AppEligibilityOverride` and `resolveWith`/`inheritsEveryValue`.
+  - **`core/common/.../model/SkipReason.kt`** — `CALL_ACTIVE`, `DND`, `OUTPUT_NOT_ALLOWED` (17 total).
+  - **`core/rules/.../EligibilityDecision.kt`** — new `Queue(reason)` variant with the P05 re-evaluation contract in its KDoc.
+  - **`core/rules/.../EligibilityRules.kt`** — pipeline now runs steps 1, 2, 3, 4, 5, 7, 8, 9, 10; only step 6 (hide content, P04) remains. Call returns `Queue(CALL_ACTIVE)` when `queueDuringCall`, DND reads only `state.isDndActive`, output evaluated last via new `evaluateOutput` helper.
+  - **Docs:** new **ADR-017** in `Docs/TECHNICAL_DECISIONS.md`; ADR-006 implementation note (all steps except 6 done; Queue landed in P03); ADR-004 note (Queue variant early, Clock/queue machinery still P05); phase status table and CHANGELOG.
+- **Static review performed:**
+  - *Kotlin correctness:* reviewed by inspection — precedence order matches ADR-006 exactly (call → DND → privacy → keyword → length → screen/lock → output); smart-cast on `output.id` is safe (data-class `val`); all existing `RuntimeState(...)` constructions across the four prior test files updated to the seven-field form; `activeOutput = null` needs no import; enum names (`ScreenCondition.OFF/BOTH`, `LockCondition.BOTH`) verified against definitions; constructor named-argument names verified against each model class.
+  - *Master-prompt conformance:* never speak during a call; queueing off by default and never bypassing (tested vs app-disabled, mute and Priority mode); DND on by default with per-app lift; phone speaker off by default; Priority Announce bypasses screen/lock only (tested vs call, DND and output).
+  - *Android/API considerations:* pure Kotlin; the interruption-filter → `isDndActive` and channel → `isSilentChannel` mappings are explicitly the platform layer's job (P07/P10).
+- **Tests added (written, NOT executed) — 36 total:**
+  - `CallAndDndEligibilityTest` (16) — `evaluate_callActive_skipsWithCallActiveReason`, `evaluate_callActive_queueDuringCallEnabled_queuesInsteadOfSkipping`, `evaluate_queueDuringCallIsOffByDefault_andCallInactive_announces`, `evaluate_callActive_appDisabled_reportsAppDisabledFirst`, `evaluate_callActive_muted_reportsMutedFirst`, `evaluate_callActive_priorityModeActiveStillReportsCallActive`, `evaluate_dndActive_respectedByDefault_skipsWithDndReason`, `evaluate_dndActive_perAppOverrideLiftsDnd_announces`, `evaluate_dndInactive_announces`, `evaluate_dndActive_muted_reportsMutedFirst`, `evaluate_dndActive_callActive_reportsCallActiveFirst`, `evaluate_dndActive_privacyExcluded_reportsDndBeforePrivacy`, `evaluate_dndActive_priorityModeActiveStillReportsDnd`, `evaluate_silentChannel_dndInactive_announces`, `evaluate_silentChannel_dndActive_reportsDeviceDndReason`, `evaluate_callEnds_queuedItemIsReEvaluatedThroughTheFullPipeline`.
+  - `AudioOutputEligibilityTest` (17) — `evaluate_defaultSettings_wiredOutput_announces`, `evaluate_defaultSettings_bluetoothOutput_announces`, `evaluate_defaultSettings_phoneSpeaker_skipsWithOutputNotAllowed`, `evaluate_activeOutputNotObserved_announces`, `evaluate_phoneSpeakerAllowed_announces`, `evaluate_wiredNotAllowed_skips`, `evaluate_bluetoothNotAllowed_skips`, `evaluate_unidentifiedOutput_allowedByDefault_announces`, `evaluate_unidentifiedOutputNotAllowed_skips`, `evaluate_bluetoothAllowlist_matchingId_announces`, `evaluate_bluetoothAllowlist_otherId_skips`, `evaluate_bluetoothAllowlist_deviceWithoutId_skips`, `evaluate_priorityModeActive_phoneSpeakerStillSkips`, `evaluate_mutedAndNotAllowedOutput_reportsMutedFirst`, `evaluate_callActiveAndNotAllowedOutput_reportsCallActiveFirst`, `evaluate_dndActiveAndNotAllowedOutput_reportsDndFirst`, `evaluate_screenOnAndNotAllowedOutput_reportsScreenOnFirst`.
+  - `EligibilitySettingsTest` (+3) — `defaults_matchMasterPrompt_respectDndOnAndCallQueueingOff`, `resolveWith_dndAndCallFlags_inheritIndependently`, `resolveWith_audioOutputOverride_replacesOnlyThatGroup`.
+  - Existing tests updated for the new required `RuntimeState` fields: `EligibilityRulesTest`, `TextLengthEligibilityTest`, `KeywordFilterEligibilityTest`, `PrivacyEligibilityTest` (expectations unchanged — defaults are neutral).
+- **Known risks / unresolved questions (need user/local input):**
+  - Open question (flagged in ADR-017): should silent-channel notifications be announced, skipped, or left alone? Master prompt §6 only requires DND ≠ channel; no behaviour implemented either way.
+  - Platform mapping of `isDndActive`/`activeOutput` arrives in P07/P10 — the rules stay inert until then.
+  - The build has never been compiled by the cloud agent; seven-field `RuntimeState` and the new files are unverified until the local agent runs Gradle.
+- **Build status:** Not run (cloud-agent restriction).
+- **Test execution status:** Not run (cloud-agent restriction).
+- **Local verification:** Not locally verified.
+- **Commit:** `5140f52` — `feat(rules): add call, DND and audio-output eligibility rules (P03)`
+- **Next phase:** P04 — announcement format and TTS contract (needs TTS contract module), or P06 (build foundation) if the local agent prefers to compile P01–P03 first.
+
+---
+
 ## Phase log
 
 | Phase | Status | Commit |
@@ -127,3 +160,4 @@ Tracks cloud implementation, code review and theoretical validation. Cloud work 
 | P00 Documentation foundation | Cloud complete, not locally verified | `b9d4b9a` |
 | P01 Core domain foundation | Cloud complete, not locally verified | `6915b28` |
 | P02 Eligibility rules (part 2) | Cloud complete, not locally verified | `bc29b2a` |
+| P03 Eligibility rules (part 3) | Cloud complete, not locally verified | `5140f52` |
