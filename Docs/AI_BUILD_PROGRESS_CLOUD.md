@@ -101,7 +101,7 @@ Tracks cloud implementation, code review and theoretical validation. Cloud work 
 - **Build status:** Not run (cloud-agent restriction).
 - **Test execution status:** Not run (cloud-agent restriction).
 - **Local verification:** Not locally verified.
-- **Commit:** (recorded below after commit)
+- **Commit:** `bc29b2a` — `feat(rules): add text length, keyword and privacy rules (P02)`
 - **Next phase:** P03 — eligibility rules part 3 (audio output, DND, active call), or P06 (build foundation) if the local agent prefers to compile P01+P02 first.
 
 ---
@@ -112,4 +112,4 @@ Tracks cloud implementation, code review and theoretical validation. Cloud work 
 |---|---|---|
 | P00 Documentation foundation | Cloud complete, not locally verified | `b9d4b9a` |
 | P01 Core domain foundation | Cloud complete, not locally verified | `6915b28` |
-| P02 Eligibility rules (part 2) | Cloud complete, not locally verified | (recorded after commit) |
+| P02 Eligibility rules (part 2) | Cloud complete, not locally verified | `bc29b2a` |
