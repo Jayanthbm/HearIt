@@ -1,4 +1,112 @@
 # Technical Decisions
 
 Architecture Decision Records (ADRs), technical choices, alternatives and their reasoning.
+Format: one ADR per decision — context, decision, alternatives, consequences. Newer user-approved decisions supersede older ones and must say so.
 
+---
+
+## ADR-001 — Native Kotlin + Jetpack Compose stack
+
+- **Status:** Accepted (master prompt §16)
+- **Context:** v1 Android-only app, phones, portrait-first, no backend.
+- **Decision:** Kotlin, Jetpack Compose, Material 3 Expressive, Navigation Compose, MVVM, StateFlow/UDF, single activity, repository pattern, Hilt, Room, DataStore, coroutines.
+- **Alternatives:** XML/Views + Fragment MVVM (more boilerplate, two UI paradigms); Flutter/RN (not native TTS/notification-listener friendly, violates "native Kotlin").
+- **Consequences:** one UI paradigm end-to-end; Hilt/KSP wiring is a build-level dependency that must be verified locally.
+
+## ADR-002 — Modules introduced incrementally, not as empty skeletons
+
+- **Status:** Accepted, revisits recorded here
+- **Context:** Master prompt proposes a feature/core module layout but warns against needless fragmentation.
+- **Decision:** Modules follow `AI_BUILD_ARCHITECTURE.md`, but each is created in the same phase that first puts code in it. Pure logic goes to Kotlin/JVM modules (`:core:common`, `:core:rules`, `:core:queue`) so it is testable without an emulator; anything using Android APIs is an Android library.
+- **Alternatives:** create all 16 modules up front (high build-wiring risk for an agent that cannot compile, empty modules rot); single `:app` module (business logic would be entangled with UI and untestable in isolation).
+- **Consequences:** module list grows phase by phase; build files added by cloud are small and reviewable; local agent verifies compilation each handoff.
+
+## ADR-003 — NotificationListenerService is the only collection source
+
+- **Status:** Accepted (master prompt §3, §16)
+- **Decision:** Android `NotificationListenerService` for notifications; native Android `TextToSpeech`; no translation layer.
+- **Alternatives:** Accessibility Service (policy/privacy risk, explicitly excluded as primary approach); OEM APIs (not portable); floating-screen-read approaches (fragile, privacy-hostile).
+- **Consequences:** user must grant notification access; listener receives callbacks on the main thread so extraction must stay cheap; TTS language support depends on the installed engine, which UI copy must state honestly.
+
+## ADR-004 — Eligibility as a deterministic, side-effect-free rules pipeline
+
+- **Status:** Accepted (master prompt §6)
+- **Context:** Many interacting conditions (screen, lock, output, length, DND, calls, keywords, privacy, mute, priority mode) with required precedence.
+- **Decision:** one pure function `evaluate(snapshot, settings, state) -> Decision` in `:core:rules`. Inputs are immutable, time comes from an injected `Clock`, output is `Announce | Skip(reason) | Queue(reason)`. No Android types inside. The pipeline never mutates queue/history state itself.
+- **Alternatives:** scattered `if` checks inside the service (untestable, precedence drifts); rule objects with hidden ordering (hard to audit).
+- **Consequences:** every skip reason is explicit and observable in history; precedence is centralized in ADR-006; unit tests can cover every branch without a device.
+
+## ADR-005 — Single shared queue with priority tiers
+
+- **Status:** Accepted (master prompt §8)
+- **Decision:** one pending queue shared across apps. Priority Critical > High > Normal > Low; a higher-priority pending item is placed ahead of lower-priority pending items immediately; equal priority is FIFO. Current speech is never interrupted by default. Grouping, delay, min gap, size limits, expiry and overflow (discard oldest / discard newest / keep highest priority) are queue concerns, not rule concerns.
+- **Alternatives:** per-app queues (breaks "different apps use a shared pending queue"); interrupt-on-priority (explicitly not the default).
+- **Consequences:** ordering is fully deterministic and unit-testable; discarded/expired items keep a history status + reason; any future "interrupt" setting must document its semantics before implementation (master prompt §8).
+
+## ADR-006 — Rule precedence order
+
+- **Status:** Proposed by cloud agent from master prompt §6, pending local/user confirmation before P17
+- **Context:** The master prompt fixes some relations (Priority Announce overrides **only** screen/lock; queueing must not bypass rules; mute is a global override) but does not enumerate a full order.
+- **Decision:** evaluate in this order, first failure wins and returns its reason:
+  1. App not enabled → `APP_DISABLED` (not announced; still recorded in history)
+  2. Temporary mute active → `MUTED` (global override, applies in Priority mode too)
+  3. Active phone call → `CALL_ACTIVE` (or `QueueForCall` when the per-app call-queueing setting is on)
+  4. Privacy/protected-content rules (OTP, banking, password, payment, sensitive keywords, exclude-app) → `PRIVACY_*`
+  5. Hide-content-and-announce-sender mode → does **not** skip; it changes announcement content
+  6. Exceeded text length → `TOO_LONG` (skip whole item, never truncate)
+  7. Keyword filter hit → `KEYWORD_FILTERED`
+  8. DND active (unless overridden) → `DND`
+  9. Screen/lock mismatch → `SCREEN_ON` / `UNLOCKED` — **skipped only in normal mode; Priority Announce apps bypass this step**
+  10. Active output not allowed → `OUTPUT_NOT_ALLOWED`
+- **Alternatives:** priority-of-concerns ordering (privacy first, then mute…) — rejected because "app disabled" must short-circuit everything and mute must beat content rules so a muted user hears nothing.
+- **Consequences:** documented, testable, auditable; flagged for confirmation because it fixes user-visible skip reasons shown in history.
+
+## ADR-007 — History collection is independent of eligibility
+
+- **Status:** Accepted (master prompt §12)
+- **Decision:** the listener records history for selected apps before/while rules run; announcement decisions annotate the entry's status and reason rather than gating whether it is stored.
+- **Consequences:** history shows skipped items with actionable reasons; storage mode (full/metadata/off) and retention are the only privacy gates on history itself.
+
+## ADR-008 — No backend, no accounts, no analytics in v1
+
+- **Status:** Accepted (master prompt §2)
+- **Decision:** local-only. No network permission, no SDKs for crash/analytics/ads/IAP. Backup = local file picker, settings only.
+- **Consequences:** privacy story is simple and verifiable; no secrets to manage in Git; Play Store–compatible structure is kept for later without requiring it.
+
+## ADR-009 — DataStore (Preferences) over SharedPreferences
+
+- **Status:** Accepted (master prompt §16)
+- **Decision:** Preferences DataStore for all settings, with typed accessors in `:core:datastore` and explicit per-app "inherit" representation rather than overloading defaults.
+- **Alternatives:** SharedPreferences (callback-based, easy to misuse off main thread, discouraged); Room for settings (type-safe but heavier and schema-bound).
+- **Consequences:** settings reads are suspendable flows; inheritance must be representable (global value vs explicit override) — modelled as a per-app override map with absence = inherit.
+
+## ADR-010 — Foreground service with mediaPlayback type; explicit start only
+
+- **Status:** Accepted (master prompt §4)
+- **Decision:** one foreground service hosts queue + TTS + persistent notification (`foregroundServiceType="mediaPlayback"` where required by targetSdk). Start/stop only by explicit user action; boot recovery only within Android's restrictions and only for a session the user already started; WorkManager never used for speech.
+- **Alternatives:** in-process-only speech (dies with UI), background starts (restricted on API 29+, OEM-fragile).
+- **Consequences:** UI must surface permission/battery guidance honestly without promising OEM background guarantees; process-death handling must not auto-announce on recreate.
+
+## ADR-011 — Stop speech immediately when eligibility stops matching
+
+- **Status:** Accepted (master prompt §6, §9)
+- **Decision:** while speaking, re-evaluate the *dynamic* conditions (screen/lock, active output, mute, DND, call). A mismatch stops playback immediately — no pause/resume, no speaker fallback. Static content rules are evaluated before speech starts.
+- **Consequences:** requires a state observer wired into the service; disconnect of the selected earphone stops speech (master prompt §6 explicitly forbids pause/resume and speaker fallback).
+
+## ADR-012 — Native TTS only, no translation
+
+- **Status:** Accepted (master prompt §3, §7)
+- **Decision:** text is passed unchanged to the installed engine; voice/language availability is detected and reported, unsupported language data degrades gracefully.
+- **Consequences:** the app must never promise a language will be spoken; the test-announcement flow exists precisely so users can verify before relying on it.
+
+## ADR-013 — Audio routing honesty
+
+- **Status:** Accepted (master prompt §6)
+- **Decision:** observe the active output and match it against the user's allowed set. Do not promise routing to a specific Bluetooth device unless the connected, supported APIs allow it; device list = previously connected devices + connected devices, plus a generic Wired option and an opt-in phone speaker.
+- **Consequences:** `:core:audio` isolates OEM variance; feature copy and Diagnostics must explain limitations rather than hide them.
+
+## ADR-014 — Verification split between cloud and local agents
+
+- **Status:** Accepted (workflow docs)
+- **Decision:** cloud writes code/tests/docs and performs static review only; it never builds or runs tests. Local builds, runs tests and performs emulator/device checks, then records verification in `AI_BUILD_PROGRESS_LOCAL.md`. Cloud work is labelled *Not locally verified* until then.
+- **Consequences:** cloud commits must prefer well-known, low-risk build configuration and small phases; ambiguous product decisions stop the cloud agent and go to the user.
