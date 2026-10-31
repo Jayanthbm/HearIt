@@ -7,6 +7,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ### Added
 - Full documentation set: phase plan, architecture, global standards, technical decisions (ADRs), manual test checklist.
+- Eligibility rules part 2 (P02): text-length limits (per message / whole notification, skip-never-truncate), case-insensitive whole-word/phrase keyword filtering (off by default), and privacy rules (exclude app, OTP, password, payment, banking, custom sensitive keywords, hide-content flag for P04) with ADR-006 precedence and Priority Announce unable to bypass them. JVM unit tests written — not yet executed (cloud-agent restriction).
 - `:core:common` and `:core:rules` Kotlin/JVM modules (P01): notification snapshot, eligibility settings with per-app inheritance, runtime state, skip reasons, and the deterministic announcement-eligibility pipeline covering the enabled-app list, temporary mute and screen/lock with the Priority Announce override. JVM unit tests written for all three rule families — not yet executed (cloud-agent restriction).
 
 ### Changed

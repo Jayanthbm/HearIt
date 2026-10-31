@@ -61,6 +61,7 @@ Format: one ADR per decision — context, decision, alternatives, consequences. 
   10. Active output not allowed → `OUTPUT_NOT_ALLOWED`
 - **Alternatives:** priority-of-concerns ordering (privacy first, then mute…) — rejected because "app disabled" must short-circuit everything and mute must beat content rules so a muted user hears nothing.
 - **Consequences:** documented, testable, auditable; flagged for confirmation because it fixes user-visible skip reasons shown in history.
+- **Implementation note (P02):** steps 1, 2, 4, 6, 7 and 9 are implemented. Sub-order inside step 4 (first hit wins): excluded app → OTP → password → payment → banking → custom sensitive keyword. Step 5 (hide content) returns `Announce` and changes announcement content only.
 
 ## ADR-007 — History collection is independent of eligibility
 
@@ -111,3 +112,19 @@ Format: one ADR per decision — context, decision, alternatives, consequences. 
 - **Status:** Accepted (workflow docs)
 - **Decision:** cloud writes code/tests/docs and performs static review only; it never builds or runs tests. Local builds, runs tests and performs emulator/device checks, then records verification in `AI_BUILD_PROGRESS_LOCAL.md`. Cloud work is labelled *Not locally verified* until then.
 - **Consequences:** cloud commits must prefer well-known, low-risk build configuration and small phases; ambiguous product decisions stop the cloud agent and go to the user.
+
+## ADR-015 — Privacy toggles and text-length default are off until confirmed
+
+- **Status:** Proposed by cloud agent, pending user/local confirmation before P15
+- **Context:** The master prompt §6 lists privacy controls (OTP/banking/password/payment, custom sensitive keywords) and a global/per-app maximum text length but states shipping defaults only for keyword filtering ("disabled by default").
+- **Decision:** every privacy toggle ships **off**, keyword filtering ships off (mandated), and the length limit ships as "no limit" (`maxLengthChars = null`).
+- **Alternatives:** OTP skip on by default (plausible, but silently changes what users hear); a guessed numeric default length (invents a product value).
+- **Consequences:** v1 behaves exactly like a rules engine with no rules until the user configures them; P15 must ask the user which defaults to ship and update this ADR.
+
+## ADR-016 — Per-app overrides inherit content rules as whole groups
+
+- **Status:** Accepted (architecture)
+- **Context:** Screen and lock inherit field-by-field (master prompt §5/§6 explicitly require independent inheritance). The text-length, keyword and privacy groups each hold several values.
+- **Decision:** an app's override replaces a whole group or inherits it (null); values inside a group are never mixed between global and per-app. `EligibilitySettings.resolveWith` implements this uniformly for all groups.
+- **Alternatives:** field-level merging inside groups (more flexible, but doubles the inheritance states the UI must explain and test).
+- **Consequences:** the Applications screen can show one clear "Inherits global" state per group; changing granularity later is a settings-layer change only.

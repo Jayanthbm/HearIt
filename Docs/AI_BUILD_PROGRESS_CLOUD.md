@@ -70,9 +70,46 @@ Tracks cloud implementation, code review and theoretical validation. Cloud work 
 
 ---
 
+## P02 — Eligibility rules (part 2): text length, keywords and privacy
+
+- **Date:** 2026-10-31
+- **Scope:** Implement ADR-006 steps 4, 6 and 7 in `:core:rules` plus their settings groups in `:core:common`, with the full test coverage the phase plan requires.
+- **Implementation summary / files changed:**
+  - **`core/common/.../model/TextLengthSettings.kt`** (new) — `maxLengthChars: Int?` (null/≤0 = no limit) and `LengthScope { MESSAGE, WHOLE_NOTIFICATION }`, default scope `MESSAGE` (master prompt recommends per message for messaging apps).
+  - **`core/common/.../model/KeywordFilterSettings.kt`** (new) — `enabled` (**false** by default, master prompt §6), `keywords`, `KeywordMatchMode { WHOLE_WORD, PHRASE }`.
+  - **`core/common/.../model/PrivacySettings.kt`** (new) — `excludeApp`, `skipOtp`, `skipBanking`, `skipPassword`, `skipPayment`, `hideContent` (content flag for P04, **not** a skip rule), `sensitiveKeywords`; all toggles default off (ADR-015).
+  - **`EligibilitySettings.kt`** (edited) — the three groups join `resolveWith` with group-level inheritance (ADR-016); `AppEligibilityOverride` gains the three nullable group fields and `inheritsEveryValue` covers them.
+  - **`SkipReason.kt`** (edited) — adds `TOO_LONG`, `KEYWORD_FILTERED`, `PRIVACY_EXCLUDED_APP`, `PRIVACY_OTP`, `PRIVACY_PASSWORD`, `PRIVACY_PAYMENT`, `PRIVACY_BANKING`, `PRIVACY_SENSITIVE_KEYWORD` (14 reasons now).
+  - **`core/rules/.../KeywordMatcher.kt`** (new) — `Locale.ROOT` case folding; whole-word mode uses an explicit `Char.isLetterOrDigit` boundary check instead of regex `\b`, so it behaves correctly for Devanagari keywords (the master prompt targets Hindi users).
+  - **`core/rules/.../SensitiveContentDetector.kt`** (new) — privacy detection with documented ADR-006 step-4 sub-order: excluded → OTP → password → payment → banking → custom keyword. OTP heuristic = OTP-ish term present OR the whole message is a 4-8 digit code. Built-in term lists are short and conservative and only apply when the user switches a toggle on.
+  - **`core/rules/.../EligibilityRules.kt`** (edited) — inserts steps 4, 6, 7 between mute and screen/lock exactly as ADR-006 orders them; `evaluateTextLength` skips the whole item (sender+body for `WHOLE_NOTIFICATION`, body only for `MESSAGE`; app name excluded as metadata). `hideContent` returns `Announce` by design.
+- **Tests added (written, NOT executed):**
+  - `TextLengthEligibilityTest` (10): `evaluate_noLimitConfigured_announcesLongMessage`, `evaluate_nonPositiveLimitTreatedAsUnlimited_announces`, `evaluate_messageOverLimit_skipsWithTooLongReason`, `evaluate_messageExactlyAtLimit_announces`, `evaluate_wholeNotificationScope_countsSenderAndBodyTogether`, `evaluate_messageScope_ignoresSenderLength`, `evaluate_tooLongItem_isSkippedWithoutTruncatingTheSnapshot`, `evaluate_privacyAndTooLong_bothApply_reportsPrivacyFirst`, `evaluate_keywordFilterAndTooLong_bothApply_reportsTooLongFirst` (+ scope isolation case).
+  - `KeywordFilterEligibilityTest` (11): `evaluate_filterDisabled_keywordPresent_announces`, `evaluate_filterEnabled_noKeywords_announces`, `evaluate_filterEnabledMatchingKeywordIsCaseInsensitive_skips`, `evaluate_wholeWordMode_substringInsideWordDoesNotMatch_announces`, `evaluate_wholeWordMode_delimitedWordMatches_skips`, `evaluate_phraseMode_substringInsideWordMatches_skips`, `evaluate_multipleKeywords_secondOneMatches_skips`, `evaluate_blankKeywordEntries_areIgnored_announces`, `evaluate_devanagariKeywordWholeWord_matchesBoundaries`, `evaluate_mutedAndKeywordMatch_reportsMutedFirst`, `evaluate_sensitiveKeywordAndFilterMatch_reportsPrivacyFirst`.
+  - `PrivacyEligibilityTest` (14): `evaluate_allPrivacyTogglesOff_financialTextStillAnnounces`, `evaluate_excludeApp_skipsEvenWhenEnabled`, `evaluate_otpTermPresent_skipsWithPrivacyOtp`, `evaluate_messageIsOnlyNumericCode_skipsWithPrivacyOtp`, `evaluate_otpDetectionIsCaseInsensitive_skips`, `evaluate_passwordTermPresent_skipsWithPrivacyPassword`, `evaluate_paymentTermPresent_skipsWithPrivacyPayment`, `evaluate_bankingTermPresent_skipsWithPrivacyBanking`, `evaluate_customSensitiveKeywordMatches_skipsWithPrivacySensitiveKeyword`, `evaluate_otpAndPasswordBothPresent_reportsOtpFirst`, `evaluate_paymentAndBankingBothPresent_reportsPaymentFirst`, `evaluate_priorityAnnounceActiveAndListed_cannotBypassPrivacy`, `evaluate_mutedAndPrivacyMatch_reportsMutedFirst`, `evaluate_appDisabledAndPrivacyMatch_reportsAppDisabledFirst`, `evaluate_hideContentOnly_isNotASkipRule_announces` (15 cases).
+  - `EligibilitySettingsTest` (extended, 5 new): `defaults_matchMasterPrompt_keywordsDisabledAndNoLengthLimit`, `resolveWith_nullGroups_inheritAllGlobalGroups`, `resolveWith_textLengthOverride_replacesOnlyThatGroup`, `resolveWith_privacyOverride_replacesOnlyThatGroup`, `resolveWith_groupOverride_marksAppAsNotInheritingEveryValue`.
+- **Static review performed:**
+  - *Kotlin correctness:* reviewed by inspection — precedence order matches ADR-006, group merge is null-safe, matcher returns false for blank keywords, no mutable shared state anywhere (`KeywordMatcher`/`SensitiveContentDetector` are stateless objects with `val` lists).
+  - *Master-prompt conformance:* skip-never-truncate proven by construction (the pipeline only ever returns a decision; text is never rewritten); keyword filtering off by default; Priority Announce bypasses only screen/lock (test coverage for privacy vs Priority mode); DND vs silent-channel distinction deliberately **not** modelled here — it belongs to P03 where the notification policy can be inspected.
+  - *Android/API considerations:* pure Kotlin + `java.util.Locale`, no Android APIs; `Char.isLetterOrDigit` is script-aware, so the Devanagari case does not rely on ASCII regex boundaries.
+  - *Performance:* all matching is linear over the notification text and runs only on notification callbacks; acceptable for typical notification sizes.
+- **Known risks / unresolved questions (need user/local input):**
+  - ADR-015 (Proposed): privacy toggles all ship **off** and the length limit ships as "no limit" because the master prompt states no defaults — confirm what v1 should ship.
+  - ADR-006 remains Proposed; its P02 sub-order (excluded → OTP → password → payment → banking → keyword) now fixes user-visible history reasons.
+  - Builtin term lists are English-only and deliberately short; false negatives are expected and covered by custom sensitive keywords. Detection is documented as imperfect.
+  - `hideContent` needs P04 before it has any effect; until then it is inert.
+- **Build status:** Not run (cloud-agent restriction).
+- **Test execution status:** Not run (cloud-agent restriction).
+- **Local verification:** Not locally verified.
+- **Commit:** (recorded below after commit)
+- **Next phase:** P03 — eligibility rules part 3 (audio output, DND, active call), or P06 (build foundation) if the local agent prefers to compile P01+P02 first.
+
+---
+
 ## Phase log
 
 | Phase | Status | Commit |
 |---|---|---|
 | P00 Documentation foundation | Cloud complete, not locally verified | `b9d4b9a` |
 | P01 Core domain foundation | Cloud complete, not locally verified | `6915b28` |
+| P02 Eligibility rules (part 2) | Cloud complete, not locally verified | (recorded after commit) |

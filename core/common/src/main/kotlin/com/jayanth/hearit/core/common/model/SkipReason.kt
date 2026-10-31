@@ -8,9 +8,8 @@ package com.jayanth.hearit.core.common.model
  * muted, expired or overflow"), so they must be stable identifiers — user-facing wording
  * lives in the string resources, never here.
  *
- * The set grows as the rule families are implemented (P02: privacy/length/keywords,
- * P03: DND/call/output, P05: expiry/overflow); every rule that can skip an item must have
- * its own reason so history is never ambiguous.
+ * The set grows as the rule families are implemented (P03: DND/call/output);
+ * every rule that can skip an item must have its own reason so history is never ambiguous.
  */
 enum class SkipReason {
     /** App is not in the enabled-app list (all apps are disabled by default). */
@@ -30,4 +29,28 @@ enum class SkipReason {
 
     /** Lock state did not match the configured lock condition (it was locked). */
     LOCKED,
+
+    /** Text exceeded the configured length limit; the whole item is skipped, never truncated. */
+    TOO_LONG,
+
+    /** The text matched a configured keyword filter. */
+    KEYWORD_FILTERED,
+
+    /** Privacy rule excluded this app entirely. */
+    PRIVACY_EXCLUDED_APP,
+
+    /** Privacy rule: OTP/verification-code content. */
+    PRIVACY_OTP,
+
+    /** Privacy rule: password-related content. */
+    PRIVACY_PASSWORD,
+
+    /** Privacy rule: payment/transaction alert. */
+    PRIVACY_PAYMENT,
+
+    /** Privacy rule: banking/financial notification. */
+    PRIVACY_BANKING,
+
+    /** Privacy rule: custom sensitive keyword hit. */
+    PRIVACY_SENSITIVE_KEYWORD,
 }
