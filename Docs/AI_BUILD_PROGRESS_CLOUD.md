@@ -65,7 +65,7 @@ Tracks cloud implementation, code review and theoretical validation. Cloud work 
 - **Build status:** Not run (cloud-agent restriction).
 - **Test execution status:** Not run (cloud-agent restriction).
 - **Local verification:** Not locally verified.
-- **Commit:** (recorded below after commit)
+- **Commit:** `6915b28` — `feat(rules): add core domain modules and eligibility pipeline (P01)`
 - **Next phase:** P02 — eligibility rules part 2 (text length, keywords, privacy) once P01 compiles locally; alternatively P06 (build foundation) can proceed in parallel.
 
 ---
@@ -75,4 +75,4 @@ Tracks cloud implementation, code review and theoretical validation. Cloud work 
 | Phase | Status | Commit |
 |---|---|---|
 | P00 Documentation foundation | Cloud complete, not locally verified | `b9d4b9a` |
-| P01 Core domain foundation | Cloud complete, not locally verified | (recorded after commit) |
+| P01 Core domain foundation | Cloud complete, not locally verified | `6915b28` |
