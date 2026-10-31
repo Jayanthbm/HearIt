@@ -8,13 +8,14 @@ import com.jayanth.hearit.core.common.model.SkipReason
 /**
  * Privacy-rule detection (master prompt §6, "Privacy"): combines text heuristics with the
  * user's own rules. Detection is deliberately **conservative and imperfect** — the product
- * never promises perfect semantic categorization, and built-in term lists only apply when
- * the user has switched the corresponding toggle on.
+ * never promises perfect semantic categorization, and the built-in term lists only apply
+ * when the corresponding toggle is on (OTP and password ship on by default, banking and
+ * payment off — ADR-015).
  *
- * Sub-order within ADR-006 step 4 (first hit wins, so history is unambiguous):
+ * Sub-order within ADR-006 step 5 (first hit wins, so history is unambiguous):
  * excluded app → OTP → password → payment → banking → custom sensitive keyword.
  *
- * `hideContent` is intentionally not handled here: it is not a skip rule (ADR-006 step 5),
+ * `hideContent` is intentionally not handled here: it is not a skip rule (ADR-006 step 6),
  * it changes announcement content and belongs to the template builder in P04.
  */
 object SensitiveContentDetector {

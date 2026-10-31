@@ -16,7 +16,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
- * ADR-006 step 6: text-length limit. The item is skipped whole — the pipeline can never
+ * ADR-006 step 8: text-length limit. The item is skipped whole — the pipeline can never
  * return truncated text, which these tests pin down by checking the untouched snapshot.
  */
 class TextLengthEligibilityTest {
@@ -158,14 +158,15 @@ class TextLengthEligibilityTest {
     }
 
     @Test
-    fun evaluate_keywordFilterAndTooLong_bothApply_reportsTooLongFirst() {
+    fun evaluate_keywordFilterAndTooLong_bothApply_reportsKeywordFilteredFirst() {
         val keywordFilter = KeywordFilterSettings(
             enabled = true,
             keywords = listOf("x"),
             mode = KeywordMatchMode.PHRASE,
         )
+        // ADR-006 puts the user-authored keyword rule (7) ahead of the generic length rule (8).
         assertEquals(
-            EligibilityDecision.Skip(SkipReason.TOO_LONG),
+            EligibilityDecision.Skip(SkipReason.KEYWORD_FILTERED),
             rules.evaluate(
                 snapshot("x".repeat(500)),
                 settings(

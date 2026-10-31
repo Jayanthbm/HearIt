@@ -12,7 +12,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
- * ADR-006 step 4: privacy rules. Detection is heuristic and imperfect by design; these
+ * ADR-006 step 5: privacy rules. Detection is heuristic and imperfect by design; these
  * tests pin the sub-order (excluded → OTP → password → payment → banking → custom keyword)
  * and prove that Priority Announce mode can never bypass a privacy rule.
  */
@@ -46,11 +46,56 @@ class PrivacyEligibilityTest {
 
     @Test
     fun evaluate_allPrivacyTogglesOff_financialTextStillAnnounces() {
+        val allOff = PrivacySettings(
+            excludeApp = false,
+            skipOtp = false,
+            skipBanking = false,
+            skipPassword = false,
+            skipPayment = false,
+        )
         assertEquals(
             EligibilityDecision.Announce,
             rules.evaluate(
                 snapshot("Your payment of Rs. 500 was successful"),
-                settings(),
+                settings(allOff),
+                allowedState,
+            ),
+        )
+    }
+
+    @Test
+    fun evaluate_defaults_skipOtpAndPasswordOn_butRoutinePaymentTextStillAnnounces() {
+        // ADR-015: high-precision rules ship on, low-precision financial rules ship off.
+        val defaults = PrivacySettings()
+        assertEquals(true, defaults.skipOtp)
+        assertEquals(true, defaults.skipPassword)
+        assertEquals(false, defaults.skipBanking)
+        assertEquals(false, defaults.skipPayment)
+        assertEquals(
+            EligibilityDecision.Announce,
+            rules.evaluate(
+                snapshot("Your payment of Rs. 500 was successful"),
+                settings(defaults),
+                allowedState,
+            ),
+        )
+    }
+
+    @Test
+    fun evaluate_defaults_skipOtpPasswordContent_outOfTheBox() {
+        assertEquals(
+            EligibilityDecision.Skip(SkipReason.PRIVACY_OTP),
+            rules.evaluate(
+                snapshot("Your OTP for login is 482193"),
+                settings(PrivacySettings()),
+                allowedState,
+            ),
+        )
+        assertEquals(
+            EligibilityDecision.Skip(SkipReason.PRIVACY_PASSWORD),
+            rules.evaluate(
+                snapshot("Your password was changed"),
+                settings(PrivacySettings()),
                 allowedState,
             ),
         )

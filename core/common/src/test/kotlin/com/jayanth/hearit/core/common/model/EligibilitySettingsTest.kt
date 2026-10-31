@@ -69,7 +69,14 @@ class EligibilitySettingsTest {
         assertFalse(defaults.keywordFilter.enabled)
         assertNull(defaults.textLength.maxLengthChars)
         assertEquals(LengthScope.MESSAGE, defaults.textLength.scope)
-        assertEquals(PrivacySettings(), defaults.privacy)
+        // ADR-015: high-precision privacy rules ship on, low-precision ones off.
+        assertEquals(true, defaults.privacy.skipOtp)
+        assertEquals(true, defaults.privacy.skipPassword)
+        assertFalse(defaults.privacy.skipBanking)
+        assertFalse(defaults.privacy.skipPayment)
+        assertFalse(defaults.privacy.excludeApp)
+        assertFalse(defaults.privacy.hideContent)
+        assertEquals(emptyList<String>(), defaults.privacy.sensitiveKeywords)
     }
 
     @Test

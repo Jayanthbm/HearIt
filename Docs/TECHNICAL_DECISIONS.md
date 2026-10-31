@@ -46,22 +46,32 @@ Format: one ADR per decision — context, decision, alternatives, consequences. 
 
 ## ADR-006 — Rule precedence order
 
-- **Status:** Proposed by cloud agent from master prompt §6, pending local/user confirmation before P17
-- **Context:** The master prompt fixes some relations (Priority Announce overrides **only** screen/lock; queueing must not bypass rules; mute is a global override) but does not enumerate a full order.
+- **Status:** Accepted (refined by cloud agent on user direction, 2026-10-31; supersedes the P00 *Proposed* order)
+- **Context:** The master prompt fixes some relations (Priority Announce overrides **only** screen/lock; queueing must not bypass rules; mute is a global override; never speak during a call; respect DND by default) but does not enumerate a full order. The order decides which reason history shows when several rules fail at once, so it is a user-visible product decision, not just an implementation detail.
+- **Principle:** group rules by kind and report the most useful reason for *this* occurrence:
+  1. **App eligibility** — is this app announced at all?
+  2. **Transient device state** (mute → call → DND) — explains why *nothing* was said right now; these are cheap flags and the master prompt already forces mute ahead of content rules.
+  3. **Content rules** (privacy → keyword → length) — explains persistent filtering of this app's content; within the group the most specific, user-authored reason wins (privacy flags, then the user's own keyword, then the generic length limit).
+  4. **Environment** (screen/lock) — the only step Priority Announce bypasses.
+  5. **Output routing** — evaluated only at the moment speech would start (and re-checked while speaking, ADR-011).
 - **Decision:** evaluate in this order, first failure wins and returns its reason:
   1. App not enabled → `APP_DISABLED` (not announced; still recorded in history)
   2. Temporary mute active → `MUTED` (global override, applies in Priority mode too)
-  3. Active phone call → `CALL_ACTIVE` (or `QueueForCall` when the per-app call-queueing setting is on)
-  4. Privacy/protected-content rules (OTP, banking, password, payment, sensitive keywords, exclude-app) → `PRIVACY_*`
-  5. Hide-content-and-announce-sender mode → does **not** skip; it changes announcement content
-  6. Exceeded text length → `TOO_LONG` (skip whole item, never truncate)
+  3. Active phone call → `CALL_ACTIVE` (or `QueueForCall` once the per-app call-queueing setting and the queue land; a queued item is fully re-evaluated afterwards)
+  4. DND active → `DND` (respected by default; a per-app override may lift it — never silently distinguished from a silent channel, both are checked against the notification's own policy)
+  5. Privacy/protected-content rules → `PRIVACY_*`
+  6. Hide-content-and-announce-sender mode → does **not** skip; it changes announcement content only
   7. Keyword filter hit → `KEYWORD_FILTERED`
-  8. DND active (unless overridden) → `DND`
-  9. Screen/lock mismatch → `SCREEN_ON` / `UNLOCKED` — **skipped only in normal mode; Priority Announce apps bypass this step**
+  8. Exceeded text length → `TOO_LONG` (skip whole item, never truncate)
+  9. Screen/lock mismatch → `SCREEN_ON` / `UNLOCKED` / … — **evaluated only in normal mode; Priority Announce apps bypass exactly this step**
   10. Active output not allowed → `OUTPUT_NOT_ALLOWED`
-- **Alternatives:** priority-of-concerns ordering (privacy first, then mute…) — rejected because "app disabled" must short-circuit everything and mute must beat content rules so a muted user hears nothing.
-- **Consequences:** documented, testable, auditable; flagged for confirmation because it fixes user-visible skip reasons shown in history.
-- **Implementation note (P02):** steps 1, 2, 4, 6, 7 and 9 are implemented. Sub-order inside step 4 (first hit wins): excluded app → OTP → password → payment → banking → custom sensitive keyword. Step 5 (hide content) returns `Announce` and changes announcement content only.
+- **Alternatives considered:**
+  - *Content rules before device states* (privacy first) — rejected: it would blame a permanent config for an occurrence whose real, transient cause is mute/call/DND, making history inconsistent with how mute already behaves.
+  - *Length before keyword* (P00 order) — rejected on reason quality: an item that is both long and keyword-matched should name the user's own keyword, not a generic limit; cost differences are irrelevant at notification size.
+  - *Output check before screen/lock* — rejected: screen/lock is the state the user is in *now* and explains why nothing was said, and keeping output last means Priority's bypass semantics stay trivial (it relaxes exactly step 9; step 10 still applies).
+  - *Priority-of-concerns ordering* (privacy first, then mute) — rejected: "app disabled" must short-circuit everything, and the master prompt requires mute to beat content rules.
+- **Consequences:** deterministic, unit-testable precedence; the shown reason is now always either a transient device state or the user's own most specific rule. Confirmed by the user on 2026-10-31.
+- **Implementation note:** steps 1, 2, 5, 7, 8 and 9 are implemented (P01/P02). Steps 3, 4 and 10 land in P03 (the `Queue` variant of step 3 in P05). Sub-order inside step 5 (first hit wins): excluded app → OTP → password → payment → banking → custom sensitive keyword. Step 6 (hide content) returns `Announce` and changes announcement content only.
 
 ## ADR-007 — History collection is independent of eligibility
 
@@ -113,13 +123,22 @@ Format: one ADR per decision — context, decision, alternatives, consequences. 
 - **Decision:** cloud writes code/tests/docs and performs static review only; it never builds or runs tests. Local builds, runs tests and performs emulator/device checks, then records verification in `AI_BUILD_PROGRESS_LOCAL.md`. Cloud work is labelled *Not locally verified* until then.
 - **Consequences:** cloud commits must prefer well-known, low-risk build configuration and small phases; ambiguous product decisions stop the cloud agent and go to the user.
 
-## ADR-015 — Privacy toggles and text-length default are off until confirmed
+## ADR-015 — Default values for privacy rules and text length
 
-- **Status:** Proposed by cloud agent, pending user/local confirmation before P15
-- **Context:** The master prompt §6 lists privacy controls (OTP/banking/password/payment, custom sensitive keywords) and a global/per-app maximum text length but states shipping defaults only for keyword filtering ("disabled by default").
-- **Decision:** every privacy toggle ships **off**, keyword filtering ships off (mandated), and the length limit ships as "no limit" (`maxLengthChars = null`).
-- **Alternatives:** OTP skip on by default (plausible, but silently changes what users hear); a guessed numeric default length (invents a product value).
-- **Consequences:** v1 behaves exactly like a rules engine with no rules until the user configures them; P15 must ask the user which defaults to ship and update this ADR.
+- **Status:** Accepted (user direction on 2026-10-31: replace the conservative "everything off" proposal with better defaults; revisable in P15)
+- **Context:** The master prompt §6 lists the privacy controls and a global maximum text length but fixes shipping defaults only for keyword filtering ("disabled by default") and phone speaker (off). Shipping every privacy toggle off — the original P02 proposal — left v1 with an empty privacy story: a hands-free app positioned around privacy would read a one-time code aloud.
+- **Decision (v1 defaults):**
+  - `skipOtp` **on** — detection is high-precision (explicit OTP terms, or a message that is nothing but a 4-8 digit code), and reading a code aloud is the single worst failure mode for an app used out of sight.
+  - `skipPassword` **on** — high-precision whole-word terms (`password`, `passwd`, `passcode`, `credential`); password-reset notices should never be spoken.
+  - `skipBanking` and `skipPayment` **off** — deliberately low-precision term families ("bank", "payment", "transaction") that routinely appear in alerts users *want* to hear (e.g. "payment received"); a default skip would silently hide exactly the notifications this app exists to announce. Users opt in globally or per app.
+  - `excludeApp` **off**, `hideContent` **off** (§7's default format includes the message), `sensitiveKeywords` **empty**.
+  - Text length: `maxLengthChars` **null (no limit)**, scope `MESSAGE` (§6's recommendation for messaging apps). Because the rule *skips* rather than truncates, a numeric default would silently *hide* long notifications — a worse failure than a long announcement — so v1 never hides on length; the settings UI should recommend ~500 characters (≈30-40 s of speech) instead.
+  - Keyword filtering stays **off** (mandated by §6).
+- **Alternatives considered:**
+  - *Everything off* (original proposal) — rejected: no out-of-the-box privacy protection contradicts §6's intent.
+  - *Everything on* — rejected: banking/payment false positives would drop routine alerts users actively want.
+  - *Numeric length default (e.g. 500)* — rejected: with skip-never-truncate it becomes a silent-hiding rule the user never asked for.
+- **Consequences:** v1 announces with OTP/password filtering out of the box, hides nothing for length, and never hides routine financial alerts; every value is one tap away in Settings and must be shown clearly there (P15). Detection stays explicitly imperfect (§6).
 
 ## ADR-016 — Per-app overrides inherit content rules as whole groups
 
