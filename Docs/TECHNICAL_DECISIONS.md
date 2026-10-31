@@ -33,7 +33,7 @@ Format: one ADR per decision — context, decision, alternatives, consequences. 
 - **Status:** Accepted (master prompt §6)
 - **Context:** Many interacting conditions (screen, lock, output, length, DND, calls, keywords, privacy, mute, priority mode) with required precedence.
 - **Decision:** one pure function `evaluate(snapshot, settings, state) -> Decision` in `:core:rules`. Inputs are immutable, time comes from an injected `Clock`, output is `Announce | Skip(reason) | Queue(reason)`. No Android types inside. The pipeline never mutates queue/history state itself.
-- **Implementation note (P01):** the `Announce | Skip(reason)` half lands in P01 with the enabled/mute/screen/lock families; the `Queue(reason)` variant lands in P05 together with the announcement queue, and the injected `Clock` with the first rule family that needs time (text length in P02 needs no clock; queue expiry in P05 does).
+- **Implementation note (P01/P03):** `Announce | Skip(reason)` landed in P01; the `Queue(reason)` variant landed early in P03 because ADR-006 step 3 needs it for call-time queueing (originally planned for P05 — P03's scope requires the per-app call-queueing decision now). The queue machinery that consumes it, plus the injected `Clock`, still land in P05 (queue expiry needs time; nothing before it does).
 - **Alternatives:** scattered `if` checks inside the service (untestable, precedence drifts); rule objects with hidden ordering (hard to audit).
 - **Consequences:** every skip reason is explicit and observable in history; precedence is centralized in ADR-006; unit tests can cover every branch without a device.
 
@@ -71,7 +71,7 @@ Format: one ADR per decision — context, decision, alternatives, consequences. 
   - *Output check before screen/lock* — rejected: screen/lock is the state the user is in *now* and explains why nothing was said, and keeping output last means Priority's bypass semantics stay trivial (it relaxes exactly step 9; step 10 still applies).
   - *Priority-of-concerns ordering* (privacy first, then mute) — rejected: "app disabled" must short-circuit everything, and the master prompt requires mute to beat content rules.
 - **Consequences:** deterministic, unit-testable precedence; the shown reason is now always either a transient device state or the user's own most specific rule. Confirmed by the user on 2026-10-31.
-- **Implementation note:** steps 1, 2, 5, 7, 8 and 9 are implemented (P01/P02). Steps 3, 4 and 10 land in P03 (the `Queue` variant of step 3 in P05). Sub-order inside step 5 (first hit wins): excluded app → OTP → password → payment → banking → custom sensitive keyword. Step 6 (hide content) returns `Announce` and changes announcement content only.
+- **Implementation note:** steps 1-5 and 7-10 are implemented (P01/P02/P03). Step 3 returns `Queue(CALL_ACTIVE)` instead of `Skip` when the per-app call-queueing flag is on (off by default); the queue must re-evaluate the original snapshot through the whole pipeline afterwards. Sub-order inside step 5 (first hit wins): excluded app → OTP → password → payment → banking → custom sensitive keyword. Step 6 (hide content) returns `Announce` and changes announcement content only (P04).
 
 ## ADR-007 — History collection is independent of eligibility
 
@@ -147,3 +147,15 @@ Format: one ADR per decision — context, decision, alternatives, consequences. 
 - **Decision:** an app's override replaces a whole group or inherits it (null); values inside a group are never mixed between global and per-app. `EligibilitySettings.resolveWith` implements this uniformly for all groups.
 - **Alternatives:** field-level merging inside groups (more flexible, but doubles the inheritance states the UI must explain and test).
 - **Consequences:** the Applications screen can show one clear "Inherits global" state per group; changing granularity later is a settings-layer change only.
+
+## ADR-017 — Device-state rules: call, DND and audio-output defaults
+
+- **Status:** Accepted (P03; choices beyond the master prompt's explicit statements are flagged for confirmation below)
+- **Context:** P03 implements ADR-006 steps 3, 4 and 10. The master prompt fixes "never speak during a call", "do not queue during calls by default", "respect Android DND by default; global and per-app override", "phone speaker disabled by default" and "announce only while the active output is allowed", but not what happens for unobserved or unclassifiable outputs, nor how DND stays distinct from silent channels.
+- **Decision:**
+  - **Call (step 3):** skip with `CALL_ACTIVE` always; a per-app `queueDuringCall` flag (default **off**) converts it to `Queue(CALL_ACTIVE)`. Queuing never bypasses anything: the queue re-evaluates the original snapshot through the **full** pipeline once the call ends (master prompt §6), which a test pins by re-evaluating into both `Announce` and `SCREEN_ON`.
+  - **DND (step 4):** `respectDnd` defaults **true** (master-mandated) and inherits field-by-field like screen/lock, so a per-app override can lift it for exactly one app. The rule reads **only** `RuntimeState.isDndActive`; `NotificationSnapshot.channelId`/`isSilentChannel` are never consulted — a silent channel is a property of the notification, DND is a property of the device, and conflating them is a classic Android mistake (channel importance ≠ `getCurrentInterruptionFilter`).
+  - **Output (step 10):** defaults allow wired + any Bluetooth, **phone speaker off** (master-mandated), unidentified OEM outputs **allowed**, and a null/unobserved `activeOutput` is treated as **allowed**.
+- **Alternatives considered:** default-deny for unidentified outputs — rejected: OEM route names vary widely, and a default-deny would silently mute announcements on routes the user cannot recognize or fix; default allow only degrades when the user has explicitly narrowed the set. Treating an unobserved output as denied — rejected: capture gaps must not silence the app. Announcing-with-restriction based on channel silence — rejected: no master-prompt rule covers it, so `isSilentChannel` is modelled but currently a no-op in eligibility (open question below).
+- **Consequences:** DND and call rules are never bypassable by Priority Announce (tested); output restriction is pure opt-in narrowing with one always-safe default (phone speaker off); P07 must map the interruption filter into `isDndActive` and channel importance into `isSilentChannel` faithfully.
+- **Open question for the user:** should notifications on silent channels be announced, skipped, or left to the channel's own behaviour? Master prompt §6 only demands that they be *distinguished* from DND; no rule is implemented either way.

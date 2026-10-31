@@ -122,4 +122,44 @@ class EligibilitySettingsTest {
         val override = AppEligibilityOverride(privacy = PrivacySettings(skipOtp = true))
         assertFalse(override.inheritsEveryValue)
     }
+
+    // --- P03 conditions and output group ---------------------------------------------------
+
+    @Test
+    fun defaults_matchMasterPrompt_respectDndOnAndCallQueueingOff() {
+        val defaults = EligibilitySettings()
+        assertTrue(defaults.respectDnd)
+        assertFalse(defaults.queueDuringCall)
+        assertEquals(AudioOutputSettings(), defaults.audioOutput)
+        assertFalse(defaults.audioOutput.allowPhoneSpeaker)
+        assertTrue(defaults.audioOutput.allowWired)
+        assertTrue(defaults.audioOutput.allowBluetooth)
+        assertTrue(defaults.audioOutput.allowUnidentifiedOutput)
+        assertNull(defaults.audioOutput.allowedBluetoothIds)
+    }
+
+    @Test
+    fun resolveWith_dndAndCallFlags_inheritIndependently() {
+        val global = EligibilitySettings(respectDnd = true, queueDuringCall = false)
+        val resolved = global.resolveWith(AppEligibilityOverride(respectDnd = false))
+        assertFalse(resolved.respectDnd)
+        assertEquals(global.queueDuringCall, resolved.queueDuringCall)
+
+        val resolvedQueue = global.resolveWith(AppEligibilityOverride(queueDuringCall = true))
+        assertTrue(resolvedQueue.queueDuringCall)
+        assertEquals(global.respectDnd, resolvedQueue.respectDnd)
+    }
+
+    @Test
+    fun resolveWith_audioOutputOverride_replacesOnlyThatGroup() {
+        val global = EligibilitySettings(
+            privacy = PrivacySettings(skipBanking = true),
+            audioOutput = AudioOutputSettings(allowPhoneSpeaker = false),
+        )
+        val perApp = AudioOutputSettings(allowPhoneSpeaker = true)
+        val resolved = global.resolveWith(AppEligibilityOverride(audioOutput = perApp))
+        assertEquals(perApp, resolved.audioOutput)
+        assertEquals(global.privacy, resolved.privacy)
+        assertEquals(global.respectDnd, resolved.respectDnd)
+    }
 }

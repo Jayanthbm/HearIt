@@ -1,5 +1,6 @@
 package com.jayanth.hearit.core.rules
 
+import com.jayanth.hearit.core.common.model.AudioOutput
 import com.jayanth.hearit.core.common.model.EligibilitySettings
 import com.jayanth.hearit.core.common.model.LockCondition
 import com.jayanth.hearit.core.common.model.NotificationSnapshot
@@ -43,11 +44,17 @@ class EligibilityRulesTest {
         isLocked: Boolean = true,
         temporaryMuteActive: Boolean = false,
         priorityAnnounceActive: Boolean = false,
+        isCallActive: Boolean = false,
+        isDndActive: Boolean = false,
+        activeOutput: AudioOutput? = null,
     ) = RuntimeState(
         screenOn = screenOn,
         isLocked = isLocked,
         temporaryMuteActive = temporaryMuteActive,
         priorityAnnounceActive = priorityAnnounceActive,
+        isCallActive = isCallActive,
+        isDndActive = isDndActive,
+        activeOutput = activeOutput,
     )
 
     // --- Default screen/lock behaviour (screen OFF AND locked) --------------------------

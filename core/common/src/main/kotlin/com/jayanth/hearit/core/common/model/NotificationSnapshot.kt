@@ -20,8 +20,12 @@ package com.jayanth.hearit.core.common.model
  * @property messageText Full concatenated message text exactly as posted. Never truncated:
  *   text-length limits are applied by the rules pipeline, which skips whole items instead
  *   of reading partial text (master prompt §6).
- * @property channelId Notification channel id; used later to distinguish a silent
- *   notification channel from an actual Do Not Disturb policy (master prompt §6).
+ * @property channelId Notification channel id, kept as metadata for the extraction layer.
+ * @property isSilentChannel True when the posting channel produces no sound. This is a
+ *   property of the notification, **not** of the device: Do Not Disturb is read only from
+ *   `RuntimeState.isDndActive`, and channel silence never triggers or suppresses the DND
+ *   rule (master prompt §6, ADR-017). Whether silent-channel items should be announced is
+ *   not specified by the master prompt and is currently a no-op in eligibility.
  * @property category `android.app.Notification.CATEGORY_*` value when the app provides one.
  *   Android does not guarantee a standardized semantic category, so this is a hint only.
  * @property postTimeMillis Wall-clock time the notification was posted, epoch milliseconds.
@@ -36,6 +40,7 @@ data class NotificationSnapshot(
     val sender: String? = null,
     val messageText: String = "",
     val channelId: String? = null,
+    val isSilentChannel: Boolean = false,
     val category: String? = null,
     val postTimeMillis: Long,
     val isUpdate: Boolean = false,

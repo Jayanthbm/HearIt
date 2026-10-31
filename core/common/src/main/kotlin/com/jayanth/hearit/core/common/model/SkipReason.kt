@@ -8,8 +8,7 @@ package com.jayanth.hearit.core.common.model
  * muted, expired or overflow"), so they must be stable identifiers — user-facing wording
  * lives in the string resources, never here.
  *
- * The set grows as the rule families are implemented (P03: DND/call/output);
- * every rule that can skip an item must have its own reason so history is never ambiguous.
+ * Every implemented rule family has its own reason so history is never ambiguous.
  */
 enum class SkipReason {
     /** App is not in the enabled-app list (all apps are disabled by default). */
@@ -53,4 +52,13 @@ enum class SkipReason {
 
     /** Privacy rule: custom sensitive keyword hit. */
     PRIVACY_SENSITIVE_KEYWORD,
+
+    /** A phone call is active; never spoken (master prompt §6). */
+    CALL_ACTIVE,
+
+    /** Do Not Disturb is active and this app still respects it. */
+    DND,
+
+    /** The active audio output is not in this app's allowed set. */
+    OUTPUT_NOT_ALLOWED,
 }

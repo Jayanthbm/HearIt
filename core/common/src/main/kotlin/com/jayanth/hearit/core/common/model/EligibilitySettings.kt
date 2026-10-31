@@ -29,19 +29,20 @@ enum class LockCondition {
  * merged. Screen and lock are separate conditions that are combined with AND logic by
  * `EligibilityRules` (master prompt §6, global default: screen **off** AND phone **locked**).
  *
- * Text length, keyword filtering and privacy are whole groups: an override replaces a
- * group or inherits it (null), never mixes partially with global values inside a group —
- * this keeps the inheritance rule uniform and auditable (master prompt §5/§6).
- *
- * Later phases add audio-output, DND/call and Priority Announce fields; the merge
- * behaviour in [resolveWith] stays the same.
+ * Single conditions ([respectDnd], [queueDuringCall]) inherit field-by-field like screen and
+ * lock. Text length, keyword filtering, privacy and audio output are whole groups: an
+ * override replaces a group or inherits it (null), never mixes partially with global values
+ * inside a group — this keeps the inheritance rule uniform and auditable (master prompt §5/§6).
  */
 data class EligibilitySettings(
     val screenCondition: ScreenCondition = ScreenCondition.OFF,
     val lockCondition: LockCondition = LockCondition.LOCKED,
+    val respectDnd: Boolean = true,
+    val queueDuringCall: Boolean = false,
     val textLength: TextLengthSettings = TextLengthSettings(),
     val keywordFilter: KeywordFilterSettings = KeywordFilterSettings(),
     val privacy: PrivacySettings = PrivacySettings(),
+    val audioOutput: AudioOutputSettings = AudioOutputSettings(),
 ) {
     /**
      * Merges this app's override onto the global defaults. A null field in [override]
@@ -54,9 +55,12 @@ data class EligibilitySettings(
         return copy(
             screenCondition = override.screenCondition ?: screenCondition,
             lockCondition = override.lockCondition ?: lockCondition,
+            respectDnd = override.respectDnd ?: respectDnd,
+            queueDuringCall = override.queueDuringCall ?: queueDuringCall,
             textLength = override.textLength ?: textLength,
             keywordFilter = override.keywordFilter ?: keywordFilter,
             privacy = override.privacy ?: privacy,
+            audioOutput = override.audioOutput ?: audioOutput,
         )
     }
 }
@@ -69,15 +73,21 @@ data class EligibilitySettings(
 data class AppEligibilityOverride(
     val screenCondition: ScreenCondition? = null,
     val lockCondition: LockCondition? = null,
+    val respectDnd: Boolean? = null,
+    val queueDuringCall: Boolean? = null,
     val textLength: TextLengthSettings? = null,
     val keywordFilter: KeywordFilterSettings? = null,
     val privacy: PrivacySettings? = null,
+    val audioOutput: AudioOutputSettings? = null,
 ) {
     /** True when this app inherits every global value — shown in the UI as "Inherits global". */
     val inheritsEveryValue: Boolean
         get() = screenCondition == null &&
             lockCondition == null &&
+            respectDnd == null &&
+            queueDuringCall == null &&
             textLength == null &&
             keywordFilter == null &&
-            privacy == null
+            privacy == null &&
+            audioOutput == null
 }

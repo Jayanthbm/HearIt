@@ -42,6 +42,9 @@ class PrivacyEligibilityTest {
         isLocked = false,
         temporaryMuteActive = false,
         priorityAnnounceActive = false,
+        isCallActive = false,
+        isDndActive = false,
+        activeOutput = null,
     )
 
     @Test

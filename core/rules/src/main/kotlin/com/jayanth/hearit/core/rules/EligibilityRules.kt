@@ -1,5 +1,8 @@
 package com.jayanth.hearit.core.rules
 
+import com.jayanth.hearit.core.common.model.AudioOutput
+import com.jayanth.hearit.core.common.model.AudioOutputKind
+import com.jayanth.hearit.core.common.model.AudioOutputSettings
 import com.jayanth.hearit.core.common.model.EligibilitySettings
 import com.jayanth.hearit.core.common.model.LengthScope
 import com.jayanth.hearit.core.common.model.LockCondition
@@ -20,14 +23,17 @@ import com.jayanth.hearit.core.common.model.TextLengthSettings
  * Implemented rule families:
  *  1. enabled-app list
  *  2. temporary mute (global override)
+ *  3. active call — never speak; `Queue(CALL_ACTIVE)` when the per-app flag allows it
+ *  4. DND (respected by default; per-app override may lift it)
  *  5. privacy rules (ADR-006 sub-order: excluded → OTP → password → payment → banking → keyword)
  *  7. keyword filter (disabled by default)
  *  8. text length (skip whole item, never truncate)
  *  9. screen/lock (the only family Priority Announce may bypass)
+ *  10. allowed audio output
  *
- * Later phases, in their ADR-006 positions: active call (3) and DND (4) before privacy, and
- * allowed audio output (10) after screen/lock — all in P03. Step 6 (hide content) is not a
- * skip rule and is applied by the announcement template (P04).
+ * Step 6 (hide content) is not a skip rule and is applied by the announcement template (P04).
+ * DND reads only `state.isDndActive`: the snapshot's channel metadata is never used as a
+ * DND proxy, so a silent channel and an actual DND policy stay distinct (ADR-017).
  *
  * The same instance is used to re-evaluate conditions **while** speech is in progress;
  * any transition to [EligibilityDecision.Skip] must stop playback immediately (ADR-011).
@@ -59,6 +65,22 @@ class EligibilityRules {
             return EligibilityDecision.Skip(SkipReason.MUTED)
         }
 
+        // 3. Never speak while a phone call is active (master prompt §6). A per-app opt-in can
+        //    hold the item instead; the queue re-evaluates it through the whole pipeline.
+        if (state.isCallActive) {
+            return if (settings.eligibility.queueDuringCall) {
+                EligibilityDecision.Queue(SkipReason.CALL_ACTIVE)
+            } else {
+                EligibilityDecision.Skip(SkipReason.CALL_ACTIVE)
+            }
+        }
+
+        // 4. DND — respected by default, per-app override may lift it (master prompt §6).
+        //    Reads only the device state; channel silence never reaches this rule (ADR-017).
+        if (state.isDndActive && settings.eligibility.respectDnd) {
+            return EligibilityDecision.Skip(SkipReason.DND)
+        }
+
         // 5. Privacy rules — excluded app, OTP, password, payment, banking, custom sensitive
         //    keywords (master prompt §6). Not overridable by Priority Announce mode.
         SensitiveContentDetector.detect(snapshot, settings.eligibility.privacy)?.let { return skip(it) }
@@ -85,10 +107,34 @@ class EligibilityRules {
             evaluateScreenAndLock(settings.eligibility, state)?.let { return it }
         }
 
-        // ADR-006 steps 3 (call) and 4 (DND) are inserted above the privacy check by phase
-        // P03, and step 10 (allowed audio output) below this screen/lock check, so the
-        // precedence order always matches the ADR as each family lands.
+        // 10. Allowed output — evaluated last, right before speech would start, and re-checked
+        //     while speaking so a route change stops playback (ADR-011). Priority Announce
+        //     does not bypass it (ADR-006, ADR-017).
+        evaluateOutput(settings.eligibility.audioOutput, state.activeOutput)?.let { return skip(it) }
+
+        // Every ADR-006 family is now implemented; only step 6 (hide content) remains, and it
+        // is not a skip rule.
         return EligibilityDecision.Announce
+    }
+
+    /** ADR-006 step 10: null when speech may start on [activeOutput], or when it is unobserved. */
+    private fun evaluateOutput(
+        settings: AudioOutputSettings,
+        activeOutput: AudioOutput?,
+    ): SkipReason? {
+        val output = activeOutput ?: return null // not observed yet → never block speech
+
+        val allowed = when (output.kind) {
+            AudioOutputKind.WIRED -> settings.allowWired
+            AudioOutputKind.PHONE_SPEAKER -> settings.allowPhoneSpeaker
+            AudioOutputKind.BLUETOOTH -> {
+                val allowedIds = settings.allowedBluetoothIds
+                settings.allowBluetooth &&
+                    (allowedIds == null || (output.id != null && output.id in allowedIds))
+            }
+            AudioOutputKind.OTHER -> settings.allowUnidentifiedOutput
+        }
+        return if (allowed) null else SkipReason.OUTPUT_NOT_ALLOWED
     }
 
     private fun skip(reason: SkipReason): EligibilityDecision = EligibilityDecision.Skip(reason)
