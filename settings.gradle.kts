@@ -26,3 +26,4 @@ rootProject.name = "Hear It"
 include(":app")
 include(":core:common")
 include(":core:rules")
+include(":core:tts")

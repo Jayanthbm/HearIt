@@ -52,7 +52,7 @@ Source of truth for *what* the product must do is `AI_BUILD_MASTER_PROMPT.md`. T
 | `:core:queue` | Kotlin/JVM library | Grouping, scheduling, priority ordering, overflow, expiry, dedup |
 | `:core:notifications` | Android library | `NotificationListenerService`, extraction into domain model, notification identity/update detection |
 | `:core:audio` | Android library | Audio focus, active output-device observation, device selection models |
-| `:core:tts` | Android library | TextToSpeech wrapper: availability, voices, speed/pitch, utterance lifecycle |
+| `:core:tts` | Kotlin/JVM library (Android wrapper joins with the speech service) | Announcement-template builder (pure logic) and the `TextToSpeechEngine` contract: availability, voices, speed/pitch, utterance lifecycle; the Android `TextToSpeech` wrapper satisfies this contract when P08 lands (ADR-018) |
 | `:core:datastore` | Android library | Preferences DataStore, typed settings, global/per-app inheritance |
 | `:core:database` | Android library | Room history storage, retention, migrations |
 | `:core:history` | Android library | History recording/filtering/search business logic over Room |

@@ -155,4 +155,5 @@ Status legend: `Not started` · `In progress (cloud, not locally verified)` · `
 | P01 Core domain: modules + eligibility rules (part 1) | Cloud complete, not locally verified |
 | P02 Eligibility rules (part 2): text length, keywords, privacy | Cloud complete, not locally verified |
 | P03 Eligibility rules (part 3): audio output, DND, calls | Cloud complete, not locally verified |
-| P04–P20 | Not started |
+| P04 Announcement format and TTS contract | Cloud complete, not locally verified |
+| P05–P20 | Not started |
