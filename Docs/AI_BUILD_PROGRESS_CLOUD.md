@@ -153,6 +153,36 @@ Tracks cloud implementation, code review and theoretical validation. Cloud work 
 
 ---
 
+## Phase P04 — Announcement format and TTS contract (2026-11-01)
+
+- **Files changed:**
+  - **`settings.gradle.kts`** — `include(":core:tts")`; the new module sits beside `:core:common` and `:core:rules`.
+  - **`core/tts/build.gradle.kts`** (new) — Kotlin/JVM module mirroring `:core:rules` (JVM 11, `:core:common` implementation dep, JUnit test dep); no Android plugin until the wrapper lands (ADR-002/ADR-018).
+  - **`core/tts/.../AnnouncementFormat.kt`** (new) — §7's configurable knobs: `includeAppName`/`includeSender`/`includeMessage` (all on), `introduction` (null = none), `pauseBetweenSectionsMillis` (≥ 0, default 0).
+  - **`core/tts/.../AnnouncementTemplate.kt`** (new) — `SectionKind` (`INTRODUCTION`, `APP_NAME`, `SENDER`, `MESSAGE`), `AnnouncementSection`, `BuiltAnnouncement(sections, pause)` with `isEmpty`, and the pure `AnnouncementTemplate.build(snapshot, format)`. Default output reproduces §7 exactly: "WhatsApp. Rahul says, Hey, are you coming today?" Missing/blank sender omits the section; sender without message speaks "Rahul." (no dangling `says,`); message verbatim, never truncated; all-empty → `isEmpty` so the speaker skips.
+  - **`core/tts/.../TextToSpeechEngine.kt`** (new) — `SpeechSettings(speechRate=1.0, pitch=1.0, voiceId=null, all > 0 required)`, `TtsVoice(id, displayName, locale, isNetworkConnectionRequired)`, `TtsErrorCode` (`ENGINE_UNAVAILABLE`, `LANGUAGE_DATA_MISSING`, `SYNTHESIS_FAILED`, `INTERRUPTED`), `TtsError`, `UtteranceListener` (exactly one terminal callback), and the `TextToSpeechEngine` boundary: `isAvailable`, `listVoices`, `supportsLocale`, `speak(announcement, settings, listener): Boolean`, `stop`, `shutdown`. One announcement in progress; stop/replacing speak → `INTERRUPTED`; rejected speak never invokes the listener. No Android types; native TTS only, no translation (§7).
+  - **Docs:** **ADR-018** added; `AI_BUILD_ARCHITECTURE.md` `:core:tts` row now reads Kotlin/JVM contract module (wrapper joins with the speech service); phase status table and CHANGELOG updated.
+- **Static review performed:**
+  - *Kotlin correctness:* reviewed by inspection — builder is a stateless `object` with only `String`/`List` operations; `snapshot.sender?.trim().orEmpty()` handles null safely; format invariants enforced in `init` blocks; `assertThrows(IllegalArgumentException::class.java)` matches the JUnit 4.13 usage already present in P01 tests; module build file copied from `:core:rules` conventions; `java.util.Locale` is JVM stdlib, no Android imports anywhere in the module.
+  - *Master-prompt conformance:* default format = app + sender (if available) + message; missing sender/message handled gracefully by construction; speed/pitch/voice configurable with engine-fallback defaults; unavailable language data is an explicit `LANGUAGE_DATA_MISSING` error, never a silent fallback; template building is never a skip rule (eligibility untouched).
+  - *Android/API considerations:* contract itself uses no Android APIs; when the wrapper lands (P08), `playSilentUtterance` is API 21+ (within the API 29 floor) and `setSpeechRate`/`setPitch` take the same multiplier semantics as `SpeechSettings`; utterance-id-based callbacks map 1:1 to `UtteranceListener`.
+  - *Security/privacy:* `TtsError` carries only a stable code — never notification text; no logging was introduced; message content flows snapshot → template → engine contract only.
+- **Tests added (written, NOT executed) — 25 total:**
+  - `AnnouncementTemplateTest` (17) — `build_defaultFormat_producesMasterPromptExample`, `build_pauseBetweenSections_propagates`, `build_negativePause_isRejected`, `build_missingSender_omitsSenderSection`, `build_blankSender_treatedAsMissing`, `build_missingMessage_omitsMessageSection`, `build_senderWithoutMessage_isSpokenWithoutConnector`, `build_missingSenderAndMessage_announcesAppOnly`, `build_appNameDisabled_skipsAppSection`, `build_senderDisabled_skipsSenderSection`, `build_messageDisabled_usesPlainSenderWithoutConnector`, `build_introduction_isFirstSection`, `build_blankIntroduction_ignored`, `build_introductionOnly_whenAllSectionsDisabled_stillAnnounces`, `build_everythingDisabledWithoutIntroduction_isEmpty`, `build_disabledSectionsWithMissingContent_isEmpty`, `build_messageText_isSpokenVerbatim`.
+  - `TextToSpeechContractTest` (8) — `speechSettings_defaults_matchMasterPrompt`, `speechSettings_zeroRate_isRejected`, `speechSettings_negativePitch_isRejected`, `speechSettings_customValues_arePreserved`, `builtAnnouncement_negativePause_isRejected`, `builtAnnouncement_noSections_isEmpty`, `builtAnnouncement_withSections_isNotEmpty`, `ttsVoice_networkRequirement_defaultsToFalse`.
+- **Known risks / unresolved questions (need user/local input):**
+  - The `TextToSpeechEngine` contract has no implementation yet (P08) — behaviour such as silent-utterance pauses, voice enumeration and locale detection is pinned only at the contract level.
+  - `SectionKind` will likely grow a grouped-message count for §8 (P05 extends, does not break, the builder).
+  - `:core:tts` must switch from Kotlin/JVM to an Android library when the wrapper joins; the settings/Gradle change is intentionally deferred to that phase.
+  - The build has never been compiled by the cloud agent; the new module's Gradle wiring is unverified until the local agent runs Gradle.
+- **Build status:** Not run (cloud-agent restriction).
+- **Test execution status:** Not run (cloud-agent restriction).
+- **Local verification:** Not locally verified.
+- **Commit:** `2b7d44b` — `feat(tts): add announcement template builder and TTS contract (P04)`
+- **Next phase:** P05 — queue, grouping and scheduling (depends on P01+P04, both complete), or P06 (build foundation) in parallel.
+
+---
+
 ## Phase log
 
 | Phase | Status | Commit |
@@ -161,3 +191,4 @@ Tracks cloud implementation, code review and theoretical validation. Cloud work 
 | P01 Core domain foundation | Cloud complete, not locally verified | `6915b28` |
 | P02 Eligibility rules (part 2) | Cloud complete, not locally verified | `bc29b2a` |
 | P03 Eligibility rules (part 3) | Cloud complete, not locally verified | `5140f52` |
+| P04 Announcement format and TTS contract | Cloud complete, not locally verified | `2b7d44b` |
