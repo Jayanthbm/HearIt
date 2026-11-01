@@ -22,7 +22,8 @@ sealed interface EligibilityDecision {
      * while the per-app call-queueing flag is on (master prompt §6: queueing is **off** by
      * default; it never bypasses any rule).
      *
-     * Contract for the queue (P05): store the original [com.jayanth.hearit.core.common.model.NotificationSnapshot]
+     * Contract for the queue (P05, implemented by `AnnouncementQueue.hold` and
+     * `AnnouncementQueue.releaseBlocked`): store the original [com.jayanth.hearit.core.common.model.NotificationSnapshot]
      * and, once the blocking condition clears, re-evaluate it through the **full** pipeline
      * with fresh state — screen/lock, mute, privacy, length, keywords, DND and output are
      * all applied again (master prompt §6, ADR-004/ADR-005).

@@ -70,7 +70,7 @@ Modules are introduced **when their first code lands**, not as empty skeletons (
 1. **Collection** — `NotificationListenerService` receives a notification. It extracts a `NotificationSnapshot` (stable key, package, app name, sender, message text, channel, category, post time, update flag) and forwards it regardless of eligibility. History collection is independent of announcement eligibility.
 2. **Resolution** — settings from DataStore are merged: global defaults → per-app overrides → explicit "inherit" markers → Priority Announce app list → temporary-mute state. The result is an immutable `ResolvedSettings` for that notification's app.
 3. **Eligibility** — `EligibilityRules.evaluate(snapshot, resolvedSettings, runtimeState)` returns `Announce` or `Skip(reason)` / `Queue(reason)`. Precedence is fixed and documented in ADR-006.
-4. **Queueing** — eligible items enter the shared pending queue: grouping window, delay, min gap, priority ordering, size limits, expiry, overflow.
+4. **Queueing** — eligible items enter the shared pending queue: grouping window, delay, min gap, priority ordering, size limits, expiry, overflow, dedup of already-announced updates, and call-blocked hold/release for full re-evaluation (ADR-019).
 5. **Speaking** — the foreground service dequeues an item, builds the announcement string from the template, requests audio focus per policy, and speaks through the TTS engine.
 6. **Continuous re-evaluation** — while speaking, screen/lock, active output, mute, DND, call and privacy state changes stop speech immediately (except when the user is using a control like Pause).
 7. **Recording** — history entry written with final status (`Announced`, `Skipped(reason)`, `Queued`, `Pending`, `Interrupted`) and reason.

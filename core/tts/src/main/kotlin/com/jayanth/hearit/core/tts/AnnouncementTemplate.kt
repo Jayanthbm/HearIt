@@ -4,11 +4,14 @@ import com.jayanth.hearit.core.common.model.NotificationSnapshot
 
 /**
  * Which part of a notification an [AnnouncementSection] carries (master prompt §7).
- * P05 extends this with a grouped-message count for §8's grouped announcements.
+ * [MESSAGE_COUNT] is added by §8's grouped announcements (phase P05).
  */
 enum class SectionKind {
     INTRODUCTION,
     APP_NAME,
+
+    /** "3 messages." — grouped announcements only, never emitted for a single item. */
+    MESSAGE_COUNT,
     SENDER,
     MESSAGE,
 }
@@ -52,7 +55,9 @@ data class BuiltAnnouncement(
  * e.g. "WhatsApp. Rahul says, Hey, are you coming today?").
  *
  * Pure logic: no Android TTS calls, no locale-sensitive formatting, no clock. Rules:
- *  - Sections are emitted in fixed order: introduction, app name, sender, message.
+ *  - Sections are emitted in fixed order: introduction, app name, message count (only
+ *    when more than one notification is grouped), then sender/message per notification
+ *    in arrival order (master prompt §8).
  *  - A missing or blank sender omits the whole section — never a dangling connector.
  *  - A sender without a usable message is spoken plainly ("Rahul."), not "Rahul says,".
  *  - The message text is spoken verbatim (after trimming surrounding whitespace) and is
@@ -65,32 +70,58 @@ data class BuiltAnnouncement(
 object AnnouncementTemplate {
 
     /** Builds the announcement for [snapshot]; pure and deterministic. */
-    fun build(snapshot: NotificationSnapshot, format: AnnouncementFormat): BuiltAnnouncement {
+    fun build(snapshot: NotificationSnapshot, format: AnnouncementFormat): BuiltAnnouncement =
+        build(listOf(snapshot), format)
+
+    /**
+     * Builds the announcement for a grouped set of notifications from the same app
+     * (master prompt §8: "Announce app name and message count, followed by available
+     * sender/message content"): introduction, app name, "N messages." when more than one,
+     * then each notification's sender and message in arrival order.
+     *
+     * [snapshots] must be non-empty and all from one package — the queue guarantees both
+     * (ADR-019); a single-element list produces exactly the single-notification sections.
+     * Pure and deterministic like the single overload.
+     */
+    fun build(snapshots: List<NotificationSnapshot>, format: AnnouncementFormat): BuiltAnnouncement {
+        require(snapshots.isNotEmpty()) { "AnnouncementTemplate.build requires at least one snapshot" }
+        val packageName = snapshots.first().packageName
+        require(snapshots.all { it.packageName == packageName }) {
+            "AnnouncementTemplate.build groups only notifications from one package ($packageName)"
+        }
+
         val sections = mutableListOf<AnnouncementSection>()
 
         format.introduction?.trim()?.takeIf { it.isNotEmpty() }?.let { intro ->
             sections += AnnouncementSection(SectionKind.INTRODUCTION, intro)
         }
 
-        val appName = snapshot.appName.trim()
+        val appName = snapshots.first().appName.trim()
         if (format.includeAppName && appName.isNotEmpty()) {
             sections += AnnouncementSection(SectionKind.APP_NAME, "$appName.")
         }
 
-        val sender = snapshot.sender?.trim().orEmpty()
-        val message = snapshot.messageText.trim()
-        if (format.includeSender && sender.isNotEmpty()) {
-            // With a message: "Rahul says," — without one: "Rahul." (no dangling grammar).
-            val text = if (format.includeMessage && message.isNotEmpty()) {
-                "$sender says,"
-            } else {
-                "$sender."
-            }
-            sections += AnnouncementSection(SectionKind.SENDER, text)
+        // §8: always plural — grouped lists have at least two members when this is emitted.
+        if (snapshots.size > 1) {
+            sections += AnnouncementSection(SectionKind.MESSAGE_COUNT, "${snapshots.size} messages.")
         }
 
-        if (format.includeMessage && message.isNotEmpty()) {
-            sections += AnnouncementSection(SectionKind.MESSAGE, message)
+        for (snapshot in snapshots) {
+            val sender = snapshot.sender?.trim().orEmpty()
+            val message = snapshot.messageText.trim()
+            if (format.includeSender && sender.isNotEmpty()) {
+                // With a message: "Rahul says," — without one: "Rahul." (no dangling grammar).
+                val text = if (format.includeMessage && message.isNotEmpty()) {
+                    "$sender says,"
+                } else {
+                    "$sender."
+                }
+                sections += AnnouncementSection(SectionKind.SENDER, text)
+            }
+
+            if (format.includeMessage && message.isNotEmpty()) {
+                sections += AnnouncementSection(SectionKind.MESSAGE, message)
+            }
         }
 
         return BuiltAnnouncement(sections, format.pauseBetweenSectionsMillis)

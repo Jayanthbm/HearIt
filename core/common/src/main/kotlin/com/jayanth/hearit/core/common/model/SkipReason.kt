@@ -8,7 +8,9 @@ package com.jayanth.hearit.core.common.model
  * muted, expired or overflow"), so they must be stable identifiers — user-facing wording
  * lives in the string resources, never here.
  *
- * Every implemented rule family has its own reason so history is never ambiguous.
+ * Every implemented rule family has its own reason so history is never ambiguous. The
+ * announcement queue (phase P05) additionally produces [EXPIRED], [OVERFLOW] and
+ * [DUPLICATE_UPDATE].
  */
 enum class SkipReason {
     /** App is not in the enabled-app list (all apps are disabled by default). */
@@ -61,4 +63,13 @@ enum class SkipReason {
 
     /** The active audio output is not in this app's allowed set. */
     OUTPUT_NOT_ALLOWED,
+
+    /** The item aged out of the queue before it could be announced (queue, phase P05). */
+    EXPIRED,
+
+    /** The item was evicted by a queue size limit under the configured overflow policy (queue, phase P05). */
+    OVERFLOW,
+
+    /** The item was an update of an already-announced notification and updates are not repeated (queue, phase P05 dedup). */
+    DUPLICATE_UPDATE,
 }
