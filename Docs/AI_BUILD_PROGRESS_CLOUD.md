@@ -183,6 +183,46 @@ Tracks cloud implementation, code review and theoretical validation. Cloud work 
 
 ---
 
+## Phase P05 — Queue, grouping and scheduling (2026-11-01)
+
+- **Files changed:**
+  - **`settings.gradle.kts`** — `include(":core:queue")` (alphabetical: common, queue, rules, tts).
+  - **`core/common/.../time/Clock.kt`** (new) — `fun interface Clock { fun nowMillis(): Long }`; injected time source so grouping windows, delay, min gap and expiry are deterministic; the Android service will back it with `SystemClock.elapsedRealtime()`, domain code never reads the system clock.
+  - **`core/common/.../model/AppPriority.kt`** (new) — CRITICAL(3)/HIGH(2)/NORMAL(1)/LOW(0) with `rank` for queue ordering.
+  - **`core/common/.../model/HistoryStatus.kt`** (new) — §12 vocabulary: `ANNOUNCED`, `SKIPPED`, `QUEUED`, `PENDING`, `INTERRUPTED` (queue emits QUEUED/SKIPPED; P08/P10 wire the rest).
+  - **`core/common/.../model/QueueSettings.kt`** (new) — `QueueSettings` (validated init: window/delay/gap ≥ 0, maxMessages ≥ 1, expiry > 0, both limits ≥ 1; `resolveWith` returns `this` for a null override) + `AppQueueOverride(groupingWindowMillis: Long?)` with `inheritsEveryValue` + `OverflowPolicy` (DISCARD_OLDEST default, DISCARD_NEWEST, KEEP_HIGHEST_PRIORITY). Defaults: 5 s window, 0 delay, 3 messages, 0 gap, 30 min expiry, 50 global, 10 per-app, `repeatNotificationUpdates = false` (§8/§10 master-suggested where given).
+  - **`core/common/.../model/SkipReason.kt`** — appended `EXPIRED`, `OVERFLOW`, `DUPLICATE_UPDATE` and a header note; no `when` anywhere matches exhaustively, so existing code is unaffected.
+  - **`core/queue/build.gradle.kts`** (new) — exact mirror of `:core:tts` conventions (kotlin-jvm, JVM 11, `:core:common` implementation dep, JUnit test dep); no Android plugin (ADR-002).
+  - **`core/queue/.../AnnouncementQueue.kt`** (new) — single-writer state machine: `updateSettings`, `enqueue` (sweep → dedup → replace-in-place → queue → enforce limits), `hold`, `releaseBlocked`, `pollReady` (peek-only; selection id stable while the group is unchanged; null while speaking or inside the min gap), `markStarted` (removes the group, records announced keys, rejects stale ids), `markCompleted` (starts the gap clock), `pendingCount`/`heldCount`. Private `sweepExpired` (runs before every operation, `>=` boundary, invalidates stale selections, prunes announced memory), `enforceLimits` (items not groups; per-app pass then global), `pickVictim` (oldest / newest / lowest-priority with ties evicted newest-first). Deliberately lock-free (architecture §3: one actor/scope); documented as not thread-safe by design.
+  - **`core/queue/.../QueueEvent.kt`** (new) — sealed `QueueEvent` (snapshot, historyStatus, reason): `Queued(reason?)` and `Replaced` → QUEUED; `Deduplicated(DUPLICATE_UPDATE)`, `Expired(EXPIRED)`, `OverflowDiscarded(OVERFLOW)` → SKIPPED — history never loses a discarded/expired item (§8/§12).
+  - **`core/tts/.../AnnouncementTemplate.kt`** — `SectionKind.MESSAGE_COUNT` added (verified no exhaustive `when` over `SectionKind` exists); `build(snapshot)` now delegates to the new `build(snapshots: List, format)` which requires non-empty, single-package lists and emits app name, "N messages." (only when > 1, always plural) then per-item sender/message in arrival order. No new format knob (§7's list unchanged).
+  - **`core/rules/.../EligibilityDecision.kt`** — `Queue(reason)` KDoc now cross-references `AnnouncementQueue.hold`/`releaseBlocked` as the P05 implementation of the contract.
+  - **Docs:** **ADR-019** added (defaults + scheduling semantics and alternatives); `AI_BUILD_ARCHITECTURE.md` step 4 extended (dedup of already-announced updates, call-blocked hold-and-release for full re-evaluation); phase status table (P05 complete, P06–P20 remaining); CHANGELOG P05 entry after P04.
+- **Static review performed:**
+  - *Kotlin correctness:* reviewed by inspection — constructor-parameter/property shadowing (`private var settings = settings`) is the idiomatic pattern; `require` contracts enable smart-cast of the local `lastSelection`; ordering uses `minWithOrNull(compareByDescending { rank }.thenBy { seq })` and eviction `minWith(compareBy { rank }.thenByDescending { seq })` (ties → newest, per ADR-019); `data class` equality makes `previous.second == group` a correct selection-stability check; `mutableList.removeAll(Collection)` and `entries.removeAll { }` are stdlib; only one `FakeClock` exists in the queue test package; all `NotificationSnapshot` named arguments verified against the real constructor.
+  - *Test bugs found and fixed during review:* six ordering tests originally enqueued several same-package items inside one grouping window, which would have merged them into a single announcement (grouping at poll time) and failed their own assertions — rewritten to use distinct packages or arrivals outside the window; a never-interrupt assertion also pointed at the wrong item. The rewritten `AnnouncementQueueOrderingTest` is the version committed.
+  - *Master-prompt conformance:* priority first with FIFO ties; same-app grouping with inclusive window, cap and leftovers waiting; delay/min-gap/never-interrupt scheduling; dedup only for announced keys with pending updates replaced in place; held items excluded from size limits but not from expiry; every removal reported with status + reason (§8/§10/§12).
+  - *Scope/privacy:* no Android types, no logging, no eligibility-rule changes (hold/release only store and hand back); message text flows snapshot → queue → template only.
+- **Tests added (written, NOT executed) — 59 total:**
+  - `QueueSettingsTest` (10) — `defaults_matchSuggestedMasterPromptValues`, `defaults_neutralSchedulingValues`, `negativeGroupingWindow_isRejected`, `nonPositiveMaxMessagesPerAnnouncement_isRejected`, `nonPositiveExpiry_isRejected`, `nonPositiveSizeLimits_areRejected`, `resolveWith_nullOverride_inheritsEverything`, `resolveWith_windowOverride_appliesOnlyThatField`, `override_inheritsEveryValue_isTrueOnlyWhenWindowNull`, `override_negativeWindow_isRejected`.
+  - `AnnouncementQueueOrderingTest` (13) — `enqueue_returnsQueuedEventWithQueuedStatusAndNoReason`, `poll_withEmptyQueue_returnsNoAnnouncement`, `poll_equalPriorityItems_comeOutInArrivalOrder`, `poll_higherPriority_jumpsAheadOfEarlierItems`, `poll_priorityOrder_isCriticalThenHighThenNormalThenLow`, `poll_beforeDelayElapses_returnsNoAnnouncement`, `poll_afterDelayElapses_returnsAnnouncement`, `poll_beforeMinGapElapsed_returnsNoAnnouncement`, `poll_afterMinGapElapsed_returnsNextAnnouncement`, `poll_whileSpeaking_returnsNoAnnouncement_neverInterrupts`, `markStarted_withStaleIdFromOlderPoll_isRejected`, `markStarted_twiceWithoutCompletion_isRejected`, `markCompleted_withNonSpeakingId_isRejected`.
+  - `AnnouncementQueueGroupingTest` (9) — `poll_sameAppWithinWindow_groupsIntoOneAnnouncement`, `poll_groupItems_keepArrivalOrderNotAlphabetical`, `poll_maxMessagesPerAnnouncement_capsGroup_andLeftoversWaitForNext`, `poll_windowBoundary_isInclusive`, `poll_itemJustOutsideWindow_startsNextGroup`, `poll_differentApps_neverGroup`, `poll_companionNotYetReady_isExcludedUntilDelayElapses`, `poll_perAppGroupingWindowOverride_isApplied`, `poll_selectionTakesHighestPriorityApp_andOnlyItsCompanions`.
+  - `AnnouncementQueueOverflowExpiryTest` (9) — `enqueue_overGlobalMaxSize_discardsOldest_withOverflowHistory`, `enqueue_overPerAppMaxSize_evictsOnlyThatAppsItems`, `enqueue_discardNewest_refusesTheIncomingItem`, `enqueue_keepHighestPriority_evictsTheLowestPriorityItem`, `enqueue_keepHighestPriority_tiesEvictTheNewestAmongEquals`, `enqueue_exactlyAtLimit_doesNotDiscard`, `enqueue_atExpiryBoundary_emitsExpiredEvent_withHistoryStatusAndReason`, `poll_afterExpiry_returnsNoAnnouncement_andReportsExpiry`, `updateSettings_shrinkingGlobalLimit_enforcesImmediately`.
+  - `AnnouncementQueueDedupAndHoldTest` (11) — `enqueue_updateOfRecentlyAnnouncedKey_deduplicates`, `enqueue_updateOfAnnouncedKey_announcesAgainWhenConfigured`, `enqueue_updateWhilePending_replacesInPlace`, `enqueue_updateAfterDedupWindow_announcesAgain`, `enqueue_updateNeverAnnounced_isNotDeduplicated`, `markStarted_recordsAnnouncement_forLaterDedup`, `hold_emitsQueuedEvent_withCallReasonAndQueuedStatus`, `hold_isNotPollable_andDoesNotCountTowardSizeLimits`, `hold_updateOfSameHeldKey_replacesInPlace`, `releaseBlocked_returnsHeldItemsInHoldOrder_andClears`, `releaseBlocked_expiredHeldItems_areSweptNotReturned`.
+  - `AnnouncementTemplateGroupTest` (7) — `build_threeMessages_announcesAppCountThenContentInOrder`, `build_singleSnapshotInList_producesExactlyTheSingleSections`, `build_groupWithMissingSenders_omitsSectionsCleanly`, `build_groupWithMessagesDisabled_announcesCountAndPlainSenders`, `build_groupWithBlankContent_stillAnnouncesAppAndCount`, `build_emptyList_isRejected`, `build_mixedPackages_areRejected`.
+- **Known risks / unresolved questions (need user/local input):**
+  - Every numeric default (5 s window, 3 messages, 0 delay/gap) is ADR-019 "subject to product confirmation" — user may tune them from settings later.
+  - ADR-017 (silent-channel announcement behaviour) remains open — unchanged by this phase.
+  - `HistoryStatus.PENDING`/`ANNOUNCED`/`INTERRUPTED` are defined but not yet emitted (P08/P10); `HeldItem.reason` uses the hold's `SkipReason`, re-verified on release only by the pipeline in P08.
+  - The `:core:queue` Gradle wiring and every new file have never been compiled — unverified until the local agent runs Gradle.
+- **Build status:** Not run (cloud-agent restriction).
+- **Test execution status:** Not run (cloud-agent restriction).
+- **Local verification:** Not locally verified.
+- **Commit:** `6364676` — `feat(queue): add queue grouping scheduling and dedup (P05)`
+- **Next phase:** P06 — build foundation: Hilt, Application and manifest baseline.
+
+---
+
 ## Phase log
 
 | Phase | Status | Commit |
@@ -192,3 +232,4 @@ Tracks cloud implementation, code review and theoretical validation. Cloud work 
 | P02 Eligibility rules (part 2) | Cloud complete, not locally verified | `bc29b2a` |
 | P03 Eligibility rules (part 3) | Cloud complete, not locally verified | `5140f52` |
 | P04 Announcement format and TTS contract | Cloud complete, not locally verified | `2b7d44b` |
+| P05 Queue, grouping and scheduling | Cloud complete, not locally verified | `6364676` |
