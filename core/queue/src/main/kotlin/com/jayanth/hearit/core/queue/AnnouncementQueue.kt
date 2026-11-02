@@ -67,7 +67,7 @@ data class ReleaseResult(
  * the system after construction, so the queue itself stays pure/Kotlin.
  *
  * Responsibilities:
- *  - device silence (ADR-017): an injected audio manager decides whether the queue is
+ *  - device silence (ADR-017): [canAnnounce] reports whether the queue is
  *    announceable at all — Silent suppresses everything until the mode leaves Silent;
  *  - priority ordering: highest [AppPriority.rank] first, equal priority FIFO by arrival;
  *  - grouping: same-app items within the resolved grouping window form one announcement,
@@ -112,7 +112,8 @@ class AnnouncementQueue(
     private val pending = mutableListOf<PendingItem>()
     private val held = mutableListOf<HeldItem>()
 
-    /** Device audit (ADR-017). A Silent phone never gets spoken to. */
+    /** Device audit (ADR-017): a Silent phone never gets spoken to. */
+    /** Device audit (ADR-017): a Silent phone never gets spoken to. */
     val canAnnounce: Boolean = audio.mode != AudioManager.RINGER_MODE_SILENT
 
     /** Announced-key memory for dedup; entries are forgotten after the expiry window (ADR-019). */
