@@ -253,6 +253,40 @@ Tracks cloud implementation, code review and theoretical validation. Cloud work 
 
 ---
 
+## Phase P07 — Notification listener foundation (2026-11-02)
+
+- **Files changed:**
+  - **`gradle/libs.versions.toml`** — `android-library` plugin alias (`com.android.library`, AGP 9.3.3); **`build.gradle.kts`** (root) — `apply false`; **`settings.gradle.kts`** — `:core:notifications` (alphabetical: common, notifications, queue, rules, tts).
+  - **`core/notifications/build.gradle.kts`** (new) — Android library module: namespace `com.jayanth.hearit.core.notifications`, compileSdk 37 / minSdk 29, Java 11, `:core:common` implementation dependency, JUnit test dependency. No Kotlin Android plugin (AGP 9 built-in Kotlin), no Hilt yet (no injection target before the P08 pipeline).
+  - **`RawNotification.kt`** (new) — plain-Kotlin carrier of platform values (package, label, tag, id, title/text/bigText/subText, channel, silent flag, category, post time) so extraction rules are JVM-testable.
+  - **`NotificationSink.kt`** (new) — `onPosted(snapshot)` / `onRemoved(key)` contract for the P08 pipeline; the listener forwards everything regardless of eligibility (ADR-007).
+  - **`NotificationKeyTracker.kt`** (new) — bounded (500 keys, least-recently-marked eviction) identity memory: first mark = new, later marks = update, forget on removal makes the next post new again.
+  - **`NotificationExtractor.kt`** (new) — pure extraction: `package|tag|id` identity, app-name fallback to package name, sender suppressed when it merely repeats the app name (case-insensitive), bigText → text → empty with trim/blank-to-null, post-time fallback to the caller's clock, channel/category pass-through, `isUpdate` from the tracker; `keyOf` helpers exposed.
+  - **`StatusBarNotificationMapper.kt`** (new) — the only Android-aware step: `EXTRA_*` extras → `RawNotification`; documented limitation: cross-package channel silence is unreadable on public API 29+, so `channelIsSilent` stays false from this source.
+  - **`HearItNotificationListenerService.kt`** (new) — the P06 manifest slot now resolves to a real class: `onNotificationPosted`/`onNotificationRemoved`, own-package exclusion, app-label resolution with `NameNotFoundException` fallback, one guarded rebind 5 s after a disconnect (`SecurityException` swallowed because P11's setup flow reports revoked access), handler cleanup in `onDestroy`, no logging at all.
+  - **`app/build.gradle.kts`** — `implementation(project(":core:notifications"))`; **`app/src/main/AndroidManifest.xml`** — listener slot comment updated and `tools:ignore="Instantiatable"` removed (the class exists now; only the P08 service slot keeps it).
+  - **Docs:** changelog P07 entry; phases status table (P07 complete, P08–P20 remaining).
+- **Static review performed:**
+  - Full module reviewed line-by-line. Two defects found and fixed before commit: the private `trimmedOrNull` extension was declared inside the companion object (fragile resolution from the instance body) and was moved to file scope, with a formatting artifact from the move repaired; the tracker eviction test asserted a key was still remembered after the same call had already evicted it — assertions rewritten to the documented least-recently-marked order, and the test count re-verified by hand (30 = 22 extractor + 8 tracker).
+  - Android API review: `NotificationListenerService` override nullability (platform parameters widened to nullable), `StatusBarNotification.notification`/`extras` platform-null guarded, `EXTRA_*` char sequences normalised to strings, `requestRebind` `SecurityException` the only caught exception and only for genuinely revoked access, no `Log` calls anywhere (content can never reach logcat), callbacks cheap on the main thread per architecture §5.
+  - Acceptance review: missing title/text/extras covered by tests; updates distinguished from new posts (same key → update; removal → new again; tag/id variants tested); the listener contains no speech, rules, queue or history logic (single sink call, no dependency on `:core:rules`/`:core:queue`/`:core:tts`).
+  - Scope/privacy: nothing logged, nothing persisted, own notifications excluded, no new permissions (notification access is granted through the system settings flow in P11).
+- **Tests added (written, NOT executed) — 30 total:**
+  - `NotificationExtractorTest` (22) — `extract_fullNotification_mapsEveryField`, `extract_missingTitle_senderIsNull`, `extract_blankTitle_senderIsNull`, `extract_missingText_messageTextIsEmpty`, `extract_missingEverything_producesValidSnapshot`, `extract_bigTextIsPreferredOverText`, `extract_blankBigText_fallsBackToText`, `extract_titleEqualToAppName_suppressesSender`, `extract_titleDifferingOnlyInCaseFromAppName_suppressesSender`, `extract_titleAndTextAreTrimmed`, `extract_blankAppLabel_fallsBackToPackageName`, `extract_missingAppLabel_fallsBackToPackageName`, `extract_missingPostTime_fallsBackToNow`, `extract_taglessKey_hasEmptyTagSegment`, `extract_silentChannelFlag_passesThrough`, `extract_secondPostOfSameKey_isUpdate`, `extract_thirdPostOfSameKey_isStillUpdate`, `extract_differentIds_areNotUpdates`, `extract_sameIdDifferentTag_isNotAnUpdate`, `extract_afterForget_isNewAgain`, `extract_tracksAtMostTheTrackerCeiling`, `keyOf_partsBuildTheStableIdentity`.
+  - `NotificationKeyTrackerTest` (8) — `markSeen_firstTime_returnsFalse`, `markSeen_secondTime_returnsTrue`, `markSeen_thirdTime_returnsTrue`, `forget_makesTheNextPostNew`, `exceedingCapacity_evictsTheLeastRecentlyMarked`, `reMarking_refreshesRecency`, `clear_resetsEverything`, `nonPositiveCapacity_isRejected`.
+- **Known risks / unresolved questions (need user/local input):**
+  - First build of the new Android library is unverified: AGP 9 built-in Kotlin must pick up `src/main/kotlin` and `src/test/kotlin` in an Android library module, and the module must sit on `:app`'s runtime classpath for the manifest slot to resolve.
+  - `channelIsSilent` cannot be read cross-package on public API 29+, so the listener always reports false (assumed audible); the snapshot field remains for sources that can provide it. ADR-017's silence rule is device-level and unaffected.
+  - Emission goes to an optional in-process `NotificationSink` (null until P08); tracker memory is lost on process death, so an update after a listener restart counts as new (P10 history keyed by the same identity mitigates).
+  - ADR-019 numeric defaults confirmed by the user on 2026-11-02; the ADR-017 silent-mode decision was added this session.
+- **Build status:** Not run (cloud-agent restriction).
+- **Test execution status:** Not run (cloud-agent restriction).
+- **Local verification:** Not locally verified.
+- **Commit:** `2b2f335` — `feat(notifications): add notification listener foundation (P07)`
+- **Next phase:** P08 — foreground announcement service and speech pipeline.
+
+---
+
 ## Phase log
 
 | Phase | Status | Commit |
@@ -264,3 +298,4 @@ Tracks cloud implementation, code review and theoretical validation. Cloud work 
 | P04 Announcement format and TTS contract | Cloud complete, not locally verified | `2b7d44b` |
 | P05 Queue, grouping and scheduling | Cloud complete, not locally verified | `6364676` |
 | P06 Build foundation: Hilt, Application and manifest baseline | Cloud complete, not locally verified | `2abd6f4` |
+| P07 Notification listener foundation | Cloud complete, not locally verified | `2b2f335` |
