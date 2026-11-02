@@ -548,5 +548,5 @@ Tracks cloud implementation, code review and theoretical validation. Cloud work 
 | P14 Devices feature (`:app`/`devices`) | Cloud complete, not locally verified | `d21c61b` |
 | P15 Global Rules, Voice & Speech settings | Cloud complete, not locally verified | `038b962` |
 | P16 Reading controls and temporary mute | Cloud complete, not locally verified | `ed7d7e1` |
-| P17 Priority Announce mode | In progress (cloud, not locally verified) | — |
-| P18 History feature UI | Not started | — |
+| P17 Priority Announce mode | Cloud complete, not locally verified | `eac40ca` |
+| P18 History feature UI | In progress (cloud, not locally verified) | — |
