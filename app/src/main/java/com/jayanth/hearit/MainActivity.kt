@@ -12,7 +12,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.jayanth.hearit.ui.theme.HearItTheme
+import dagger.hilt.android.AndroidEntryPoint
 
+/** Single activity and Hilt entry point (master prompt: single activity, MVVM, Hilt DI). */
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

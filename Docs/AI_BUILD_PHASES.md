@@ -157,4 +157,5 @@ Status legend: `Not started` · `In progress (cloud, not locally verified)` · `
 | P03 Eligibility rules (part 3): audio output, DND, calls | Cloud complete, not locally verified |
 | P04 Announcement format and TTS contract | Cloud complete, not locally verified |
 | P05 Queue, grouping and scheduling | Cloud complete, not locally verified |
-| P06–P20 | Not started |
+| P06 Build foundation: Hilt, Application and manifest baseline | Cloud complete, not locally verified |
+| P07–P20 | Not started |
