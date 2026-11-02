@@ -362,6 +362,39 @@ Tracks cloud implementation, code review and theoretical validation. Cloud work 
 - **Commit:** `996f9a0` — `feat(datastore): add settings foundation with explicit inheritance (P09)`
 - **Next phase:** P10 — history storage (`:core:database`, Room).
 
+## Phase P10 — History storage (`:core:database`, Room) (2026-11-02)
+
+- **Files changed:**
+  - **`gradle/libs.versions.toml`** — `room = "2.8.5"` + `androidx-room-runtime`/`-compiler`/`-testing`; **`settings.gradle.kts`** — `:core:database` (alphabetical: common, database, datastore, notifications, queue, rules, tts).
+  - **`core/database/build.gradle.kts`** (new) — Android library (namespace `com.jayanth.hearit.core.database`, compileSdk 37 / minSdk 29, Java 11), KSP + `room-compiler`, `:core:common`, JUnit; `RoomSchemaArgProvider` (`CommandLineArgumentProvider`) feeds `room.schemaLocation` so the schema directory is a tracked Gradle input.
+  - **`core/database/.../HistoryEntryEntity.kt`** (new) — `history_entries` table (id autoincrement, `key`, package/app/sender, `messageText` nullable, channel/category, post+recorded times, `status`/`reason`/`priority` as enum names, `isUpdate`) with indices for newest-first paging, app+status filtering, newest-per-key lookup; `toEntity`/`toDomain` mappings.
+  - **`core/database/.../HistoryDao.kt`** (new) — suspending insert/update/latestFor/deleteById/deleteAll/deleteOlderThan/page/count; pagination uses one nullable-filter query (`:param IS NULL OR ...`) with `LIMIT`/`OFFSET`.
+  - **`core/database/.../HearItHistoryDatabase.kt`** (new) — `@Database(version = 1, exportSchema = true)` + `HistoryDatabase.create(context)` (deliberately no destructive-migration fallback).
+  - **`core/database/.../HistoryEntry.kt`** (new, pure) — domain model with invariants + `HistoryEntryMapper` (tolerant enum-name mapping: unknown status → `SKIPPED`, unknown reason/priority → null).
+  - **`core/database/.../HistoryPolicy.kt`** (new, pure) — `HistoryRecorderPolicy` (`Discard`/`Insert`/`ReplaceExisting`), `HistoryRetentionPolicy` (cutoff = now − days·86 400 000; null = Never), `HistoryQuery` (nullable filters, page size 1..500, validated).
+  - **`core/database/.../HistoryRepository.kt`** (new) — `HistoryRepository` interface + `RoomHistoryRepository` (thin glue, injected `Clock`).
+  - **Docs:** **ADR-022** (schema, storage modes, update handling, retention, migration policy, layering, sensitivity; **Room 3.0.3 recorded as the current stable line and deliberately deferred** with the switch isolated to build wiring + Room-facing files); changelog P10 entry; phases table (P10 complete, P11–P20 remaining).
+- **Static review performed:**
+  - Full module reviewed; **one test defect found and fixed before commit:** `decide_usesProvidedRecordTime` read `.entry` through the un-cast `action` variable after a cast used only inside an assertion, which does not smart-cast at use site — rewritten with a local `val entry = (action as HistoryRecordAction.Insert).entry`.
+  - Room API review: annotations imported from `androidx.room.*` (2.x package, not the 3.x rename), `@Update` entity carries its primary key, all DAO functions suspend (no main-thread I/O), query parameters nullable inside a single SQL string (no concatenation), indices match the three documented query shapes, and unsupported direct Room usage prevented by keeping policies/domain Room-free.
+  - KSP/build review: schema arg provider uses `@InputDirectory`/`@PathSensitive` so builds stay cacheable; KSP 2.3.13 (already pinned) is the AGP 9-compatible line; no kapt anywhere.
+  - Purity sweep: `HistoryEntry.kt` and `HistoryPolicy.kt` contain **no `import android.`**; the Android/Room surface is limited to entity/DAO/database/repository.
+  - Acceptance review: recording is independent of eligibility (all five `HistoryStatus` values recordable with reasons); storage modes and retention are policy-tested; migrations are policy-defined (version bump + explicit `Migration` + migration test, no destructive fallback) but **migration tests themselves cannot be written correctly before a build exports `schemas/`** — see risks.
+- **Tests added (written, NOT executed) — 28 total:**
+  - `HistoryPolicyTest` (20) — `decide_fullContent_keepsMessageText`, `decide_metadataOnly_dropsMessageText_butKeepsSender`, `decide_disabled_discardsEverything`, `decide_blankMessageText_storesNull`, `decide_updateEntryWithExistingRow_replacesIt`, `decide_updateEntryWithoutExistingRow_inserts`, `decide_newEntryHandling_alwaysInserts`, `decide_skippedItem_isRecordedWithItsReason`, `decide_queuedAndInterruptedItems_areRecorded`, `decide_preservesUpdateFlagAndPriority`, `decide_usesProvidedRecordTime`, `retention_never_returnsNull`, `retention_zeroDays_cutsOffAtNow`, `retention_thirtyDays_subtractsThirtyDays`, `retention_everyConfiguredOption`, `retention_negativeDays_isRejected`, `query_defaults_areValid`, `query_limitAboveMaximum_isRejected`, `query_negativeOffset_isRejected`, `query_blankPackageName_isRejected`.
+  - `HistoryEntryMapperTest` (8) — `statusRoundTrips_forEveryValue`, `unknownStatus_fallsBackToSkipped`, `reasonRoundTrips_forEveryValue`, `unknownReason_isNull`, `priorityRoundTrips_forEveryValue`, `entityRoundTrip_preservesEveryField`, `metadataOnlyEntry_roundTripsWithNullMessage`, `entityWithUnknownStoredStatus_decodesTolerantly`.
+- **Known risks / unresolved questions (need user/local input):**
+  - **Room major version is a user/local call.** Room 2.8.5 (chosen) is in maintenance mode; `androidx.room3` 3.0.3 is current and mandatory-KSP with a new package and driver API. It was not chosen because its API surface cannot be compile-verified in the cloud. If the local agent prefers Room 3, the change is confined to `core/database/build.gradle.kts` + Room-facing files (domain/policies untouched) — ADR-022 records this.
+  - The schema, queries and `schemas/` export are unproven until the first build; a KSP/Room error (e.g. query/column mismatch) is the most likely first failure and is cheap to fix locally.
+  - DAO/in-memory database tests and migration tests are deferred by design: they need the exported schema and (for migration) the schema JSON on the test asset path; they belong to the local agent once the module builds.
+  - `HistoryRepository` is not wired into the pipeline yet (service history writes arrive with P18 feature wiring or a small P10 follow-up), so no runtime effect until then; no unused dependency was added to `:app`.
+  - Per-app history mode is resolved via `HearItSettings.historyFor` (P09); the repository itself takes the resolved `HistorySettings`, so wiring must pass the per-app value, not the global one.
+- **Build status:** Not run (cloud-agent restriction).
+- **Test execution status:** Not run (cloud-agent restriction).
+- **Local verification:** Not locally verified.
+- **Commit:** `de56968` — `feat(database): add Room history storage with retention (P10)`
+- **Next phase:** P11 — setup and onboarding flow.
+
 ---
 
 ## Phase log
@@ -378,3 +411,4 @@ Tracks cloud implementation, code review and theoretical validation. Cloud work 
 | P07 Notification listener foundation | Cloud complete, not locally verified | `2b2f335` |
 | P08 Foreground announcement service and speech pipeline | Cloud complete, not locally verified | `84b46b1` |
 | P09 Preferences foundation (`:core:datastore`) | Cloud complete, not locally verified | `996f9a0` |
+| P10 History storage (`:core:database`) | Cloud complete, not locally verified | `de56968` |
