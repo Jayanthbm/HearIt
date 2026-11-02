@@ -287,6 +287,47 @@ Tracks cloud implementation, code review and theoretical validation. Cloud work 
 
 ---
 
+## Phase P08 — Foreground announcement service and speech pipeline (2026-11-02)
+
+- **Files changed:**
+  - **`app/build.gradle.kts`** — `:core:queue` and `:core:tts` added to `:app` (the pipeline uses rules, queue and template directly).
+  - **`app/src/main/java/com/jayanth/hearit/service/AnnouncementPipeline.kt`** (new, pure) — eligibility routing per snapshot (Announce → enqueue, Queue(reason) → hold, Skip → decision only), `tick` (poll → build → mark started; speakable-empty groups retired silently with a 32-step guard), `onSpeechFinished` (mark completed → min gap), `onStateChanged` (re-evaluates the speaking group; returns `StopSpeech(ELIGIBILITY_LOST | DEVICE_SILENT)`), `releaseHeld` (call-held items re-run through the **full** pipeline). Actions are data; the service owns the engine.
+  - **`app/.../service/AnnouncementService.kt`** (new) — `@AndroidEntryPoint` foreground service, `mediaPlayback` type, explicit `ACTION_START`/`ACTION_STOP`, persisted start flag (system recreation with `intent == null` and no start flag stops itself — never auto-announces), 750 ms main-thread tick (idle-cheap; no blocking calls), stop-on-change checks while speaking, `AudioDeviceCallback.onAudioDevicesRemoved` → engine stop, `NotificationRelay` registration/clearing, no logging.
+  - **`app/.../service/AndroidTextToSpeechEngine.kt`** (new) — implements the P04 `TextToSpeechEngine`: sections spoken in order with `pauseBetweenSectionsMillis` between them, one request in flight (replacing `speak`/`stop` ends the previous request with `INTERRUPTED`), exactly one terminal callback per accepted request, unavailable engine / empty announcement returns false without notifying, `LANGUAGE_DATA_MISSING` instead of silent fallback, voice/speed/pitch applied.
+  - **`app/.../service/AnnouncementNotification.kt`** (new) — low-importance channel `announcement_service`, ongoing notification with Stop action and statically worded service state only (never notification content), content intent to `MainActivity`, `setSilent`/`setShowWhen(false)`.
+  - **`app/.../service/RuntimeStateReader.kt`** (new) — permission-free reads: `PowerManager.isInteractive`, `KeyguardManager.isKeyguardLocked`, `NotificationManager.currentInterruptionFilter` (≠ ALL ⇒ DND), call proxy via `AudioManager.mode` (`IN_CALL`/`IN_COMMUNICATION`), session mute, active output preference Bluetooth → wired → speaker with `address`/`productName`, `null` when unobserved (allowed by rules).
+  - **`app/.../service/SettingsSource.kt`** (new, placeholder until P09/P13) — master-prompt defaults: **all apps disabled**, default `AnnouncementFormat` and `SpeechSettings`.
+  - **`app/.../service/SessionStore.kt`** (new, temporary) — SharedPreferences start/mute flags until P09 DataStore; the only reader/writer of that file.
+  - **`app/.../service/SpeechModule.kt`** (new) — Hilt `SingletonComponent` providers for `TextToSpeechEngine` (Android wrapper) and `AudioManager`.
+  - **`app/src/main/res/values/strings.xml`**, **`app/src/main/res/drawable/ic_notification.xml`** — channel/notification strings (service state only) and a monochrome notification icon.
+  - **`app/src/main/AndroidManifest.xml`** — announcement service slot now names a real class: `tools:ignore="Instantiatable"` removed and the now-unused `xmlns:tools` declaration dropped.
+  - **`core/notifications/.../NotificationRelay.kt`** (new) + listener update — process-wide bridge (single `@Volatile` sink, cleared on destroy) so the system-created listener feeds the service-created pipeline; per-instance `sink` still wins for tests.
+  - **`:core:queue` purity fix (P07 defect):** `DeviceAudioState.kt` (new pure interface), `AnnouncementQueue` constructor `(clock, settings, appOverrides, deviceAudio = DeviceAudioState { false })`, `canAnnounce` now a derived property; the `android.media.AudioManager` import is gone. **`AnnouncementQueueSilenceTest.kt`** (new) covers the gate.
+  - **Docs:** changelog P08 entry (including the P07 defect note); phases status table (P08 complete, P09–P20 remaining).
+- **Static review performed:**
+  - **Critical defect found and fixed before commit:** P07's silence gate put `android.media.AudioManager` into `:core:queue`, a **pure Kotlin/JVM module** with no Android classpath — that cannot compile, and the queue's test constructors would also have bound the wrong positional parameter. Replaced with the pure `DeviceAudioState` fun interface (default non-silent so existing positional test calls stay valid), Android adapter moved into the service, and grep-verified: no Android imports remain in `core/queue`, no `canAnnounce()` function calls remain, `tools:` no longer referenced in the manifest. The P07 progress record above is left as written (audit trail); this record corrects it.
+  - Pipeline review: `tick` marks the group started before returning, so a group can never be polled twice; empty groups are retired with `markStarted` + `markCompleted`; `onSpeechFinished` is idempotent (guards on the active group); stop checks compare against fresh settings and state; release re-evaluates with the **current** state (never the held decision).
+  - Service review: main thread does no blocking work (pure rules/queue + async engine), tick removed in `onDestroy` via `removeCallbacksAndMessages(null)`, device callback unregistered, relay cleared before `super.onDestroy`, engine shut down, `currentAction !== action` identity guard prevents double completion, rejected `speak` retires the selection so nothing stays stuck "speaking", no logging anywhere.
+  - Engine review: request identity checked on every callback (stale utterance ids ignored), `finishCurrent` nulls the request **before** notifying so a terminal callback is delivered exactly once, `QUEUE_FLUSH` per section avoids overlap, missing language reported rather than silently substituted.
+  - Privacy/scope: notification content never logged, never written, never shown in the persistent notification; no new permissions (call detection is a permission-free proxy; DND read via interruption filter, see risks); `SettingsSource` deliberately announces nothing until the real settings layer exists.
+- **Tests added (written, NOT executed) — 21 total:**
+  - `AnnouncementPipelineTest` (17) — `onNotification_announceable_enqueuesAndReportsAnnounce`, `onNotification_appDisabled_skipsWithoutQueueing`, `onNotification_muted_skips`, `onNotification_callActiveWithQueueing_holdsInsteadOfQueueing`, `onNotification_updateOfPendingItem_replacesInPlace`, `tick_emptyQueue_returnsNull`, `tick_enqueuedItem_returnsSpeakWithBuiltAnnouncement`, `tick_whileSpeaking_returnsNull`, `onSpeechFinished_clearsSpeaking_andStartsTheGap`, `onSpeechFinished_withoutSpeech_isNoOp`, `onStateChanged_withoutSpeech_returnsNoActions`, `onStateChanged_screenTurnsOn_stopsSpeech`, `onStateChanged_deviceBecomesSilent_stopsSpeech`, `onStateChanged_eligibilityStillMatching_keepsSpeaking`, `tick_everySectionDisabled_retiresGroupWithoutSpeaking`, `releaseHeld_callEnded_reEvaluatesAndEnqueues`, `releaseHeld_stillBlocked_holdsAgainThroughTheFullPipeline`.
+  - `AnnouncementQueueSilenceTest` (4) — `canAnnounce_tracksDeviceSilence`, `poll_silentDevice_returnsNoAnnouncement`, `poll_afterSilenceEnds_announcesTheWaitingItem`, `silentDevice_holdsTheSelectionBack_soNoIdIsIssued`.
+- **Known risks / unresolved questions (need user/local input):**
+  - First `@AndroidEntryPoint` service + first Hilt `@Module` are unverified: Hilt/KSP must process the app module and inject `TextToSpeechEngine`/`AudioManager`; the first local build is the verification point.
+  - **DND detection may be restricted:** `NotificationManager.getCurrentInterruptionFilter()` can report `ALL` to apps without policy access, in which case the DND rule would never fire. If the local agent observes that, the choice is to request notification-policy access in the setup flow (a user-facing permission decision) or document a weaker DND guarantee — needs user direction (privacy-relevant).
+  - `mediaPlayback` foreground service type for TTS is the ADR-010 decision; on API 34+ the system may scrutinise media-only usage, and the persistent notification may not display until `POST_NOTIFICATIONS` is explained and requested in P11. Both are expected until then.
+  - Call detection is an `AudioManager.mode` proxy, not telephony state (avoids `READ_PHONE_STATE`); some VoIP call styles may not set `MODE_IN_CALL`/`MODE_IN_COMMUNICATION`.
+  - End-to-end briefing is impossible by design until P09 (DataStore settings) and P13 (app selection): `SettingsSource` returns `appEnabled = false`, so snapshots are correctly skipped. `SessionStore` is a temporary store replaced by P09.
+  - P07 record correction recorded above; ADR-017 decision (silence) and ADR-019 defaults remain as confirmed on 2026-11-02.
+- **Build status:** Not run (cloud-agent restriction).
+- **Test execution status:** Not run (cloud-agent restriction).
+- **Local verification:** Not locally verified.
+- **Commit:** `84b46b1` — `feat(service): add foreground announcement service and pipeline (P08)`
+- **Next phase:** P09 — preferences foundation (`:core:datastore`), which replaces `SettingsSource`/`SessionStore` placeholders.
+
+---
+
 ## Phase log
 
 | Phase | Status | Commit |
@@ -299,3 +340,4 @@ Tracks cloud implementation, code review and theoretical validation. Cloud work 
 | P05 Queue, grouping and scheduling | Cloud complete, not locally verified | `6364676` |
 | P06 Build foundation: Hilt, Application and manifest baseline | Cloud complete, not locally verified | `2abd6f4` |
 | P07 Notification listener foundation | Cloud complete, not locally verified | `2b2f335` |
+| P08 Foreground announcement service and speech pipeline | Cloud complete, not locally verified | `84b46b1` |
