@@ -328,6 +328,42 @@ Tracks cloud implementation, code review and theoretical validation. Cloud work 
 
 ---
 
+## Phase P09 — Preferences foundation (`:core:datastore`) (2026-11-02)
+
+- **Files changed:**
+  - **`gradle/libs.versions.toml`** — `datastorePreferences = "1.3.0"` + `androidx-datastore-preferences` library (no explicit coroutines pin, see risks); **`settings.gradle.kts`** — `:core:datastore` (alphabetical: common, datastore, notifications, queue, rules, tts).
+  - **`core/datastore/build.gradle.kts`** (new) — Android library: namespace `com.jayanth.hearit.core.datastore`, compileSdk 37 / minSdk 29, Java 11, `:core:common` + `:core:tts` + DataStore Preferences, JUnit tests.
+  - **`core/datastore/.../SettingsCodec.kt`** (new, pure) — flat versioned string schema: global `elig.*`/`queue.*`/`format.*`/`speech.*`/`history.*`/`apps.*`, per-app `app:<package>:<field>` where **absence = inherit**, group markers for whole-group overrides, unit-separator lists (separator stripped from values on encode), tolerant decode (unknown keys ignored, invalid enum/number → documented default, never throws).
+  - **`core/datastore/.../HearItSettings.kt`** (new) — aggregate model + `AppOverride` (+ `inheritsEveryValue`) with typed accessors `resolvedFor`/`queueFor`/`historyFor`/`priorityFor`, and master-prompt defaults (all apps disabled, keywords off, speaker off, full-content history, ADR-019 queue).
+  - **`core/datastore/.../PreferenceStore.kt`** (new) — seam (`values` Flow, `read`, `replaceAll`) + `DataStorePreferenceStore` (string-only reads, atomic replace-all inside `edit`).
+  - **`core/datastore/.../SettingsRepository.kt`** (new) — interface (`settings` Flow, `current`, `update(transform)`) + `DefaultSettingsRepository`, and the single process-wide DataStore file behind `HearItSettingsDataStore.repository(context)`.
+  - **`core/common/.../HistorySettings.kt`** (new) — `HistoryStorageMode` (FULL_CONTENT default / METADATA_ONLY / DISABLED), `HistoryUpdateHandling` (UPDATE_ENTRY default / NEW_ENTRY), `HistorySettings` (global retention, auth off by default) + `AppHistoryOverride` with `resolveWith` inheritance.
+  - **`core/common/.../AudioFocusPolicy.kt`** (new) — DUCK default / PAUSE / NONE; added to `EligibilitySettings` and `AppEligibilityOverride` (+ `resolveWith` + `inheritsEveryValue`), closing P08's audio-focus settings gap.
+  - **`app/.../service/SessionStore.kt`** — KDoc corrected: session/runtime flags are deliberately separate from DataStore settings (ADR-021), no longer "replaced by P09".
+  - **Docs:** **ADR-021** (schema, inheritance-by-absence, tolerant decode, transitive coroutines, session-state split, single-writer update semantics + alternatives); changelog P09 entry; phases status table (P09 complete, P10–P20 remaining).
+- **Static review performed:**
+  - **Serious regression found and repaired during this phase:** `Docs/TECHNICAL_DECISIONS.md` had been **overwritten wholesale** by an earlier ADR-017 edit in the previous session (a full-file write of only the new ADR-017 section), which deleted ADR-001–ADR-020 from the branch. The complete text was recovered from commit `bec9617`, the new ADR-017 decision block was spliced back in, and ADR-021 appended — verified afterwards: **21 ADR sections present (ADR-001…ADR-021)**. This is recorded here because the loss was already pushed; the restore is part of commit `996f9a0`.
+  - Codec review: encode/decode symmetry proven by round-trip tests for defaults, a fully customized aggregate and per-app overrides; group markers match what the encoder always writes; `split(':', limit = 3)` is unambiguous because package names cannot contain `:`; list separator is stripped on encode so user text round-trips; every numeric decode is clamped to the model's `require` bounds (comparison with `QueueSettings()` defaults), so a corrupt store cannot throw from a constructor.
+  - Purity sweep: `grep` confirms **no `import android.`** in `:core:common`, `:core:queue`, `:core:rules` or `:core:tts`; the DataStore/Android surface is confined to `PreferenceStore`/`SettingsRepository`.
+  - Test/assertion review: two JUnit float assertions were written with the legacy two-argument overload (deprecated) — corrected to the delta form before commit; an accidental non-existent import (`RESERVED_NOT_SET`) was removed from `HearItSettingsTest`.
+  - Scope/privacy: no new permissions; no notification content involved; settings are user data but contain no message text (only keywords the user typed).
+- **Tests added (written, NOT executed) — 28 total:**
+  - `SettingsCodecTest` (17) — `encode_thenDecode_defaults_roundTrip`, `decode_emptyMap_returnsShippedDefaults`, `encode_thenDecode_customGlobalSettings_roundTrip`, `encode_writesSchemaVersion`, `decode_unknownKeys_areIgnored`, `decode_invalidEnum_fallsBackToDefault`, `decode_invalidQueueNumbers_fallBackToDefaults`, `decode_invalidSpeechValues_fallBackToDefaults`, `encode_thenDecode_perAppOverride_roundTrip`, `decode_absentPerAppFields_areInherited`, `encode_packageNameWithDots_roundTrips`, `encode_listValues_preserveCommasSpacesAndNewlines`, `encode_emptyBluetoothAllowList_isDistinctFromAnyBluetooth`, `decode_withoutVersionKey_stillDecodes`, `encode_thenDecode_everyOverflowPolicy`, `encode_nullIntroductionAndRetention_areOmittedAndDecodeNull`, `encode_thenDecode_textLengthNoLimit_roundTripsAsNull`.
+  - `HearItSettingsTest` (11) — `defaults_noAppIsEnabled`, `resolvedFor_unknownApp_isDisabled`, `resolvedFor_enabledApp_isEnabledWithGlobalValues`, `resolvedFor_priorityListed_isListedIndependentlyOfEnabled`, `resolvedFor_appOverride_replacesOnlyThatCondition`, `queueFor_withoutOverride_inheritsGlobal`, `queueFor_override_appliesGroupingWindowOnly`, `historyFor_override_appliesStorageMode`, `priorityFor_defaultsToNormal`, `priorityFor_override_returnsOverride`, `appOverride_inheritsEveryValue_trueForEmptyAndFalseWhenAnyFieldSet`.
+- **Known risks / unresolved questions (need user/local input):**
+  - **Coroutines metadata risk:** DataStore 1.3.0 stays external to Kotlin versioning, but coroutines may resolve transitively to 1.11.0 (built with Kotlin 2.2.20). Under Kotlin 2.2.10 this can surface as a "compiled with a newer Kotlin" error; the documented fix is bumping KGP to 2.2.20 (AGP 9 allows ≥ 2.2.10), not downgrading DataStore.
+  - DataStore 1.3.0 notes cite `lifecycle-runtime 2.10.0` for lint checks at AGP ≥ 9.5.0-alpha; harmless at AGP 9.3.3 but the local build should confirm no lint-version complaint.
+  - `DefaultSettingsRepository.update` is a single-writer read-modify-write (settings UI only); concurrent writers would need compare-and-set behind `PreferenceStore` (documented in ADR-021).
+  - `:app` still uses `SettingsSource` (all apps disabled) and `SessionStore`; the repository is not yet consumed, so nothing end-to-end announces until P10/P13 wire it — intentional, no unused dependency in `:app`.
+  - DataStore itself has no JVM `src/test` path without Robolectric/temp-file plumbing, so only the codec and aggregate accessors are unit-tested; the thin adapter is statically reviewed (documented decision).
+- **Build status:** Not run (cloud-agent restriction).
+- **Test execution status:** Not run (cloud-agent restriction).
+- **Local verification:** Not locally verified.
+- **Commit:** `996f9a0` — `feat(datastore): add settings foundation with explicit inheritance (P09)`
+- **Next phase:** P10 — history storage (`:core:database`, Room).
+
+---
+
 ## Phase log
 
 | Phase | Status | Commit |
@@ -341,3 +377,4 @@ Tracks cloud implementation, code review and theoretical validation. Cloud work 
 | P06 Build foundation: Hilt, Application and manifest baseline | Cloud complete, not locally verified | `2abd6f4` |
 | P07 Notification listener foundation | Cloud complete, not locally verified | `2b2f335` |
 | P08 Foreground announcement service and speech pipeline | Cloud complete, not locally verified | `84b46b1` |
+| P09 Preferences foundation (`:core:datastore`) | Cloud complete, not locally verified | `996f9a0` |
