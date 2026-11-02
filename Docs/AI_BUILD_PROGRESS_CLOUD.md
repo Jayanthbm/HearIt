@@ -395,6 +395,49 @@ Tracks cloud implementation, code review and theoretical validation. Cloud work 
 - **Commit:** `de56968` — `feat(database): add Room history storage with retention (P10)`
 - **Next phase:** P11 — setup and onboarding flow.
 
+## Phase P11 — Setup and onboarding flow (`:core:setup`, `:app`) (2026-11-02)
+
+- **Files changed:**
+  - **`settings.gradle.kts`** — `:core:setup` included (alphabetical); **`core/setup/build.gradle.kts`** (new) — pure Kotlin/JVM module, Java 11, JUnit only, no dependencies.
+  - **`core/setup/.../SetupStep.kt`** (new, pure) — the documented nine steps in order; `isSkippable` (Bluetooth, battery guidance, outputs, test announcement) and `isRequired` are the single source of the skip rules.
+  - **`core/setup/.../SetupPrerequisites.kt`** (new, pure) — facts only (notification access, Bluetooth required/granted, TTS engine + device-language, enabled app count, allowed output count) with `ttsReady`/`hasEnabledApps`/`hasAllowedOutput` derivations and non-negative invariants.
+  - **`core/setup/.../SetupBlocker.kt`** (new, pure) — typed blockers (`NotificationAccessMissing`, `BluetoothPermissionMissing`, `TtsEngineUnavailable`, `TtsLanguageMissing`, `NoEnabledApps`, `NoAllowedOutput`) so the UI owns wording and TalkBack reads a precise reason.
+  - **`core/setup/.../SetupFlow.kt`** (new, pure) — visible steps (Bluetooth hidden below API 31), per-step `blockersFor`, `canAdvanceFrom`, `canOnlySkip`, `nextStep`/`previousStep` over the visible list, `isFinalStep`, `startBlockers`, `canStart`, and `resolveVisibleStep` so a persisted hidden step can never restore to an invisible screen. Start prerequisites: notification access, TTS engine + language data, ≥1 enabled app, ≥1 allowed output; Bluetooth permission/battery ack/test never gate Start.
+  - **`core/setup/.../SetupState.kt` + `SetupStateCodec.kt`** (new, pure) — completed, current step, visited/skipped steps, battery acknowledgement; flat string-map codec with `SCHEMA_VERSION`, sorted sets, tolerant decode (unknown keys/enum names/invalid booleans → documented defaults).
+  - **`core/datastore/.../SetupStateRepository.kt`** (new) — `SetupStateRepository` interface + `DefaultSetupStateRepository` over the existing `PreferenceStore` seam, and `HearItSetupDataStore` on its own `hearit_setup` DataStore file (keeping setup progress out of the settings flow). Build file gains `:core:setup`.
+  - **`app/.../setup/SetupModels.kt`** (new) — `InstalledApp`, `DetectedOutput`, `TestAnnouncementState` and the immutable `SetupUiState` (step, visible steps, blockers, advance/skip/back/start flags, apps, outputs, permissions, test state, progress counters).
+  - **`app/.../setup/SetupProbes.kt`** (new) — probe interfaces plus tiny Android implementations: notification access (`NotificationManagerCompat.getEnabledListenerPackages`), `POST_NOTIFICATIONS` (API 33+), `BLUETOOTH_CONNECT` (API 31+), launcher-app catalog (`queryIntentActivities`, own package excluded, deduped, sorted), connected Bluetooth/wired outputs, and `AndroidSetupLauncher` (notification-access screen, battery-optimisation list, explicit `ACTION_START` via `startForegroundService`).
+  - **`app/.../setup/SetupViewModel.kt`** (new) — Hilt ViewModel: reads setup state + settings, gathers facts through probes/engine, persists navigation/skip/acknowledgement, bounded 5 s TTS initialisation poll, test announcement through the engine only, and Start that re-checks `SetupFlow.canStart`, marks completion, persists the session flag, then starts the service.
+  - **`app/.../setup/SetupScreen.kt`** (new) — scaffolded Compose flow: step counter, per-step content for all nine steps, permission launchers (`RequestPermission`), refresh on `ON_RESUME`, inline blocker list, Back/Continue/Skip row and the Start button bound to `canStart`; lazy app list; every selectable row is one accessible toggle; all strings from resources.
+  - **`app/.../di/SetupModule.kt`** (new) — Hilt singletons for `SettingsRepository`, `SetupStateRepository`, `SessionStore` and all six probes (`:core:*` stays Hilt-free).
+  - **`app/.../MainActivity.kt`** — now hosts `SetupRoute` with an activity-scoped `SetupViewModel`; the placeholder greeting and its preview are gone.
+  - **`app/src/main/AndroidManifest.xml`** — `POST_NOTIFICATIONS` + `BLUETOOTH_CONNECT` declared with comments tying each to the step that explains and requests it; launcher `<queries>` added for Android 11+ app visibility; service slots unchanged.
+  - **`app/src/main/res/values/strings.xml`** — 60+ new setup strings (titles, bodies, statuses, blockers, step actions) and the existing notification strings retained.
+  - **Docs:** **ADR-023** (pure gating core, step/skip rules, Start prerequisites, separate DataStore file, explicit Start only, permission timing, launcher-only catalog, test announcement semantics, probes, accessibility); changelog P11 entry; phases table (P11 complete, P12–P20 remaining).
+- **Static review performed:**
+  - **String-resource cross-check** (scripted): every `R.string.*` reference in `app` resolves to a declared string, no duplicate names, and no setup string is unused. `app_name` is referenced from the manifest via `@string/app_name`, not from Kotlin.
+  - **Purity check:** `core/setup` contains no `import android.`; all gating logic is JVM-testable.
+  - **Two test defects found and fixed before commit:** `canOnlySkip` was asserted true for the test-announcement step, which has no blockers (so it is never "skip-only") — replaced with the blocked `AUDIO_DEVICES` case; and the codec's stable-order test expected `WELCOME` before `REVIEW` while the codec sorts names alphabetically — the test now compares the sorted parts.
+  - **ViewModel cleanup before commit:** removed a placeholder constant and its import, and replaced fully-qualified inline type names with imports.
+  - Review notes: composable string lookups are only made in composable context (no `stringResource` inside `map`/`joinToString` lambdas — the review step builds its summaries with an explicit loop), rows use `toggleable` with `Checkbox`/`Switch(..., onCheckedChange = null)` for a single accessible control, the lifecycle owner is obtained by casting `LocalContext` (avoids the deprecated compose `LocalLifecycleOwner` and a new dependency), and the UI never computes gating itself.
+- **Tests added (written, NOT executed) — 36 total:**
+  - `SetupFlowTest` (21) — documented step order; notification access required/blocked and granted; Bluetooth step hidden below API 31, shown on 31+, skippable when missing, never blocks Start; TTS engine/language blockers; app-selection and output blockers; review reports all Start blockers in a stable order; `canStart` false for each missing prerequisite and true otherwise; next/previous walk the visible order and skip hidden steps; null at the ends; `resolveVisibleStep` fallback; only skippable steps can be passed without their prerequisite; informational steps never block; skip-rule classification.
+  - `SetupStateCodecTest` (11) — every key encoded; round-trip; empty store defaults; unknown step name; unknown names in sets ignored; invalid boolean; stable sorted sets; skipped steps round-trip; `visiting`/`skipping`/`completing` semantics.
+  - `SetupStateRepositoryTest` (4) — empty store yields fresh-install defaults; update persists and emits; read-modify-write across two updates; corrupted values decode to defaults.
+- **Known risks / unresolved questions (need user/local input):**
+  - **Compose flow and probes are entirely unverified.** The likely first-build failures are Compose/Material3 API drift (e.g. `HorizontalDivider`, `Scaffold`, `toggleable` signatures) and the permission-launcher wiring; nothing here can be compiled in the cloud.
+  - **Hilt graph grew to a 10-dependency ViewModel** (`SettingsRepository`, `SetupStateRepository`, `SessionStore`, six probes, engine). `SetupModule` provides everything except the engine (P08's `SpeechModule`); the first KSP build validates it.
+  - **Start currently announces nothing:** `SettingsSource` in the service still returns `appEnabled = false` for every app (P08 placeholder), so starting the foreground service is honest but silent until the settings-backed per-app source lands (P13, with P10 history wiring). The test-announcement step proves the TTS path separately. This is the largest user-visible gap in the milestone.
+  - **`POST_NOTIFICATIONS` can be silently denied** after repeated dismissals on API 33+; the review step explains why it is wanted but does not deep-link to app notification settings (deferred with P12's settings shell).
+  - **App catalog is launcher-apps-only** (with `<queries>`) by design; apps without a launcher icon cannot be enabled at setup until P13 replaces the probe.
+  - **`AudioDeviceInfo.TYPE_BLE_HEADSET` / `TYPE_HEARING_AID`** are used from minSdk 29 as inlined compile-time constants; safe at runtime, but worth a local lint pass.
+  - `SetupState` is stored in a second DataStore file while `SessionStore.isStarted` stays in SharedPreferences (ADR-021); a future uninstall-restore review should confirm both behave as intended under backup rules.
+- **Build status:** Not run (cloud-agent restriction).
+- **Test execution status:** Not run (cloud-agent restriction).
+- **Local verification:** Not locally verified.
+- **Commit:** `c2cb4d1` — `feat(setup): add nine-step first-launch onboarding flow (P11)`
+- **Next phase:** P12 — dashboard and navigation shell.
+
 ---
 
 ## Phase log
@@ -412,3 +455,4 @@ Tracks cloud implementation, code review and theoretical validation. Cloud work 
 | P08 Foreground announcement service and speech pipeline | Cloud complete, not locally verified | `84b46b1` |
 | P09 Preferences foundation (`:core:datastore`) | Cloud complete, not locally verified | `996f9a0` |
 | P10 History storage (`:core:database`) | Cloud complete, not locally verified | `de56968` |
+| P11 Setup and onboarding (`:core:setup`, `:app`) | Cloud complete, not locally verified | `c2cb4d1` |
