@@ -102,6 +102,11 @@ class RoomHistoryRepository(
         dao.page(
             packageName = query.packageName,
             status = query.status?.let(HistoryEntryMapper::statusToName),
+            appName = query.appName,
+            sender = query.sender,
+            dateFrom = query.dateFrom,
+            dateTo = query.dateTo,
+            sortBy = query.sortBy,
             limit = query.limit,
             offset = query.offset,
         ).map { it.toDomain() }

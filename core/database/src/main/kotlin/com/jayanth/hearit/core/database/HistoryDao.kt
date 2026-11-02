@@ -39,16 +39,40 @@ interface HistoryDao {
     @Query("DELETE FROM history_entries WHERE recordedAtMillis < :cutoffMillis")
     suspend fun deleteOlderThan(cutoffMillis: Long): Int
 
-    /** Newest-first page with optional app/status filters (P18 pagination). */
+    /** Newest-first page with optional app/status/filters (P18 pagination). */
     @Query(
         "SELECT * FROM history_entries " +
             "WHERE (:packageName IS NULL OR packageName = :packageName) " +
             "AND (:status IS NULL OR status = :status) " +
-            "ORDER BY recordedAtMillis DESC LIMIT :limit OFFSET :offset",
+            "AND (:appName IS NULL OR appName = :appName) " +
+            "AND (:sender IS NULL OR sender = :sender) " +
+            "AND (:dateFrom IS NULL OR recordedAtMillis >= :dateFrom) " +
+            "AND (:dateTo IS NULL OR recordedAtMillis <= :dateTo) " +
+            "ORDER BY case when :sortBy = SortBy.RecentFirst then recordedAtMillis desc 
+                     when :sortBy = SortBy.OldestFirst then recordedAtMillis
+                     when :sortBy = SortBy.ByApp then appName
+                     else recordedAtMillis desc end LIMIT :limit OFFSET :offset",
     )
-    suspend fun page(packageName: String?, status: String?, limit: Int, offset: Int): List<HistoryEntryEntity>
+    suspend fun page(
+        packageName: String?,
+        status: String?,
+        appName: String?,
+        sender: String?,
+        dateFrom: Long?,
+        dateTo: Long?,
+        sortBy: SortBy,
+        limit: Int,
+        offset: Int,
+    ): List<HistoryEntryEntity>
 
     /** Total row count (diagnostics/tests). */
     @Query("SELECT COUNT(*) FROM history_entries")
     suspend fun count(): Long
+
+    /** Enum for sorting history results. */
+    enum class SortBy {
+        RecentFirst,
+        OldestFirst,
+        ByApp,
+    }
 }

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jayanth.hearit.core.database.HistoryQuery
 import com.jayanth.hearit.core.database.HistoryRepository
+import com.jayanth.hearik.core.common.model.SortBy
 import com.jayanth.hearit.core.datastore.SettingsRepository
 import com.jayanth.hearit.core.tts.AnnouncementSection
 import com.jayanth.hearit.core.tts.BuiltAnnouncement
@@ -112,6 +113,51 @@ class DashboardViewModel @Inject constructor(
         context.startService(intent)
     }
 
+    /** Searches history by query parameters (P18). */
+    fun onHistorySearch(query: HistoryQuery) {
+        viewModelScope.launch {
+            try {
+                val entries = historyRepository.page(query)
+                _state.update {
+                    it.copy(
+                        recentHistory = entries.map { entry ->
+                            RecentAnnouncement(
+                                id = entry.id,
+                                appName = entry.appName,
+                                status = entry.status,
+                                recordedAtMillis = entry.recordedAtMillis,
+                            )
+                        },
+                        recentHistoryLoaded = true,
+                        historyUnavailable = false,
+                    )
+                }
+            } catch (error: RuntimeException) {
+                _state.update {
+                    it.copy(recentHistory = emptyList(), recentHistoryLoaded = true, historyUnavailable = true)
+                }
+            }
+        }
+    }
+
+    /** Clears all history with confirmation (P18). */
+    fun onHistoryClearAll() {
+        if (shouldConfirmClearAll()) {
+            viewModelScope.launch {
+                historyRepository.deleteAll()
+                onHistorySearch(HistoryQuery())
+            }
+        }
+    }
+
+    /** Clears history for one app (P18). */
+    fun onHistoryClearApp(appName: String) {
+        viewModelScope.launch {
+            historyRepository.deleteAll()
+            onHistorySearch(HistoryQuery(packageName = appName))
+        }
+    }
+
     /** Toggles Priority Announce on/off (P17). */
     fun onPriorityAnnounceToggled(active: Boolean) {
         val intent = when (active) {
@@ -197,5 +243,47 @@ class DashboardViewModel @Inject constructor(
 
         /** Rows shown in the dashboard summary; the history feature owns paging (P18). */
         const val RECENT_HISTORY_LIMIT: Int = 5
+
+        /** Number of rows per page when browsing history (P18). */
+        const val HISTORY_PAGE_SIZE: Int = 20
     }
 }
+
+    /**
+     * Searches history by query parameters (P18).
+     *
+     * Supports filtering by app, status, sender, date range and sort order.
+     * Updates the dashboard state with the new history page and marks it as loaded.
+     */
+    fun onHistorySearch(query: HistoryQuery) {
+        viewModelScope.launch {
+            try {
+                val entries = historyRepository.page(query)
+                _state.update {
+                    it.copy(
+                        recentHistory = entries.map { entry ->
+                            RecentAnnouncement(
+                                id = entry.id,
+                                appName = entry.appName,
+                                status = entry.status,
+                                recordedAtMillis = entry.recordedAtMillis,
+                            )
+                        },
+                        recentHistoryLoaded = true,
+                        historyUnavailable = false,
+                    )
+                }
+            } catch (error: RuntimeException) {
+                _state.update {
+                    it.copy(recentHistory = emptyList(), recentHistoryLoaded = true, historyUnavailable = true)
+                }
+            }
+        }
+    }
+
+    /** Toggles Priority Announce on/off (P17). */
+    fun onPriorityAnnounceToggled(active: Boolean) {
+        val intent = when (active) {
+            true -> android.content.Intent(AnnouncementService.ACTION_PRIORITY_ANNOUNCE_ON)
+            false -> android.content.Intent(AnnouncementService.ACTION_PRIORITY_ANNOUNCE_OFF)
+        }

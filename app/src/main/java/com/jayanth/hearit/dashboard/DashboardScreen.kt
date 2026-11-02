@@ -126,6 +126,8 @@ fun DashboardScreen(
     onStartService: () -> Unit,
     onStopService: () -> Unit,
     onTestAnnouncement: (String) -> Unit,
+    onHistorySearch: (DashboardFilterState) -> Unit,
+    onHistoryClearAll: () -> Unit,
     appsContent: @Composable () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -505,32 +507,75 @@ private fun RecentHistoryContent(
     state: DashboardUiState,
     onSelectDestination: (DashboardDestination) -> Unit,
 ) {
-    when {
-        state.historyUnavailable -> Text(
-            text = stringResource(R.string.dashboard_recent_unavailable),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.error,
+    val filterState = remember { DashboardFilterState() }
+    var filterState by remember { mutableStateOf(filterState) }
+
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        Text(
+            text = stringResource(R.string.dashboard_recent_history),
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(bottom = 4.dp),
         )
 
-        !state.recentHistoryLoaded -> Text(
-            text = stringResource(R.string.dashboard_loading),
-            style = MaterialTheme.typography.bodyMedium,
+        OutlinedTextField(
+            value = filterState.query,
+            onValueChange = { filterState = filterState.copy(query = it) },
+            modifier = Modifier.weight(1f),
+            label = { Text(text = stringResource(R.string.dashboard_search_history)) },
+            placeholder = { Text(text = stringResource(R.string.dashboard_search_placeholder)) },
+            trailingIcon = { if (filterState.query.isNotEmpty()) {
+                IconButton(
+                    onClick = { filterState = filterState.copy(query = "") },
+                ) {
+                    Icon(Icons.Default.Close, contentDescription = null)
+                }
+            } else {
+                null
+            },
         )
 
-        state.recentHistory.isEmpty() -> Text(
-            text = stringResource(R.string.dashboard_recent_empty),
-            style = MaterialTheme.typography.bodyMedium,
-        )
-
-        else -> {
-            for (entry in state.recentHistory) {
-                RecentRow(entry = entry)
-            }
-            TextButton(
-                onClick = { onSelectDestination(DashboardDestination.HISTORY) },
-                modifier = Modifier.heightIn(min = 48.dp),
+        Row(horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            OutlinedButton(
+                onClick = { onHistorySearch(filterState) },
+                modifier = Modifier.width(80.dp).padding(end = 4.dp),
             ) {
-                Text(text = stringResource(R.string.dashboard_view_all_history))
+                Text(text = "Search")
+            }
+            OutlinedButton(
+                onClick = { onHistoryClearAll() },
+                modifier = Modifier.width(80.dp).padding(start = 4.dp)
+            ) {
+                Text(text = "Clear all")
+            }
+        }
+
+        when {
+            state.historyUnavailable -> Text(
+                text = stringResource(R.string.dashboard_recent_unavailable),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+            )
+
+            !state.recentHistoryLoaded -> Text(
+                text = stringResource(R.string.dashboard_loading),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+
+            state.recentHistory.isEmpty() -> Text(
+                text = stringResource(R.string.dashboard_recent_empty),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+
+            else -> {
+                for (entry in state.recentHistory) {
+                    RecentRow(entry = entry)
+                }
+                TextButton(
+                    onClick = { onSelectDestination(DashboardDestination.HISTORY) },
+                    modifier = Modifier.heightIn(min = 48.dp),
+                ) {
+                    Text(text = stringResource(R.string.dashboard_view_all_history))
+                }
             }
         }
     }

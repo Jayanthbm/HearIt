@@ -104,12 +104,22 @@ object HistoryRetentionPolicy {
  *
  * @property packageName Restrict to one app, or null for all apps.
  * @property status Restrict to one status, or null for all statuses.
+ * @property appName Restrict to one app name, or null for all apps.
+ * @property sender Filter by sender, or null for all senders.
+ * @property dateFrom Start of date range (inclusive), null for no start.
+ * @property dateTo End of date range (inclusive), null for no end.
+ * @property sortBy Sort direction.
  * @property limit Page size; capped so a malformed caller cannot ask for the whole table.
  * @property offset Rows to skip for pagination.
  */
 data class HistoryQuery(
     val packageName: String? = null,
     val status: HistoryStatus? = null,
+    val appName: String? = null,
+    val sender: String? = null,
+    val dateFrom: Long? = null,
+    val dateTo: Long? = null,
+    val sortBy: SortBy = SortBy.RecentFirst,
     val limit: Int = 50,
     val offset: Int = 0,
 ) {
@@ -121,6 +131,13 @@ data class HistoryQuery(
         if (packageName != null) {
             require(packageName.isNotBlank()) { "HistoryQuery.packageName must not be blank when set" }
         }
+    }
+
+    /** How to sort the history page results. */
+    enum class SortBy {
+        RecentFirst,
+        OldestFirst,
+        ByApp,
     }
 
     companion object {

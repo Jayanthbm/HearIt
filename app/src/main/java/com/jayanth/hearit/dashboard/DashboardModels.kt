@@ -38,6 +38,21 @@ data class RecentAnnouncement(
 )
 
 /**
+ * Filter state for history search (P18).
+ * Holds the current query text and selected filter options.
+ */
+data class DashboardFilterState(
+    val query: String = "",
+    val filterPackageName: String? = null,
+    val filterStatus: HistoryStatus? = null,
+    val filterAppName: String? = null,
+    val filterSender: String? = null,
+    val filterDateFrom: Long? = null,
+    val filterDateTo: Long? = null,
+    val filterSortBy: DashboardModels.SortBy = DashboardModels.SortBy.RecentFirst,
+)
+
+/**
  * Immutable state of the dashboard shell.
  *
  * Carries answers only — every decision (which destination, what to enable, what a status
@@ -100,5 +115,12 @@ data class DashboardUiState(
         if (millis <= 0) return stringResource(R.string.priority_announce_no_expiry)
         val minutes = (millis / 60000).coerceAtLeast(1)
         return stringResource(R.string.priority_announce_remaining, minutes)
+    }
+
+    /** How to sort history results in the dashboard (P18). */
+    enum class SortBy {
+        RecentFirst,
+        OldestFirst,
+        ByApp,
     }
 }
