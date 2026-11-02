@@ -479,7 +479,7 @@ Tracks cloud implementation, code review and theoretical validation. Cloud work 
 - **Build status:** Not run (cloud-agent restriction).
 - **Test execution status:** Not run (cloud-agent restriction).
 - **Local verification:** Not locally verified.
-- **Commit:** `pending` — `feat(dashboard): add dashboard and bottom navigation shell (P12)`
+- **Commit:** `3d4b09d` — `feat(dashboard): add dashboard and bottom navigation shell (P12)`
 - **Next phase:** P13 — Applications feature.
 
 ---
@@ -500,4 +500,4 @@ Tracks cloud implementation, code review and theoretical validation. Cloud work 
 | P09 Preferences foundation (`:core:datastore`) | Cloud complete, not locally verified | `996f9a0` |
 | P10 History storage (`:core:database`) | Cloud complete, not locally verified | `de56968` |
 | P11 Setup and onboarding (`:core:setup`, `:app`) | Cloud complete, not locally verified | `c2cb4d1` |
-| P12 Dashboard and navigation shell (`:app`/`dashboard`) | Cloud complete, not locally verified | `pending` |
+| P12 Dashboard and navigation shell (`:app`/`dashboard`) | Cloud complete, not locally verified | `3d4b09d` |
