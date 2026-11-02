@@ -545,3 +545,4 @@ Tracks cloud implementation, code review and theoretical validation. Cloud work 
 | P11 Setup and onboarding (`:core:setup`, `:app`) | Cloud complete, not locally verified | `c2cb4d1` |
 | P12 Dashboard and navigation shell (`:app`/`dashboard`) | Cloud complete, not locally verified | `3d4b09d` |
 | P13 Applications feature (`:app`/`applications`) | Cloud complete, not locally verified | `474ee14` |
+| P14 Devices feature (`:app`/`devices`) | Cloud complete, not locally verified | `d21c61b` |
