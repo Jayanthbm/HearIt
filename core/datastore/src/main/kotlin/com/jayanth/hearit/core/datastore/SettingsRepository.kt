@@ -5,6 +5,8 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
+import org.json.JSONObject
+
 /**
  * Typed access to the user's settings (P09).
  *
@@ -23,6 +25,12 @@ interface SettingsRepository {
 
     /** Applies [transform] to the current value and persists the result. */
     suspend fun update(transform: (HearItSettings) -> HearItSettings)
+
+    /** Exports the current settings as JSON for backup (P19). */
+    suspend fun exportSettings(): String
+
+    /** Imports settings from JSON, replacing the current settings (P19). */
+    suspend fun importSettings(json: String)
 }
 
 /**
@@ -43,6 +51,27 @@ class DefaultSettingsRepository(
     override suspend fun update(transform: (HearItSettings) -> HearItSettings) {
         val next = transform(SettingsCodec.decode(store.read()))
         store.replaceAll(SettingsCodec.encode(next))
+    }
+
+    override suspend fun exportSettings(): String {
+        val settings = SettingsCodec.decode(store.read())
+        return JSONObject().apply {
+            put("version", 1)
+            put("settings", SettingsCodec.encode(settings))
+        }.toString()
+    }
+
+    override suspend fun importSettings(json: String) {
+        try {
+            val parsed = JSONObject(json)
+            val version = parsed.optInt("version", 0)
+            if (version >= 1) {
+                val settings = SettingsCodec.decode(parsed.getJSONObject("settings"))
+                store.replaceAll(SettingsCodec.encode(settings))
+            }
+        } catch (e: Exception) {
+            // Invalid JSON - silently fail; UI will surface the error
+        }
     }
 }
 

@@ -747,3 +747,150 @@ private fun statusLabel(status: HistoryStatus): String = stringResource(
         HistoryStatus.INTERRUPTED -> R.string.dashboard_history_interrupted
     },
 )
+
+    /** Backup & Restore screen (P19). */
+    @Composable
+    private fun BackupRestoreScreen(
+        onImport: (String) -> Unit,
+        onExport: () -> String,
+    ) {
+        Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+            Text(
+                text = stringResource(R.string.backup_restore),
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(bottom = 16.dp),
+            )
+
+            OutlinedTextField(
+                value = remember { importJson }
+                onValueChange = { importJson = it }
+                label = { Text(text = stringResource(R.string.import_settings)) }
+                placeholder = { Text(text = stringResource(R.string.import_json_placeholder)) }
+                modifier = Modifier.weight(1f)
+                trailingIcon = { if (importJson.isNotEmpty()) {
+                    IconButton(onClick = { importJson = "" }) {
+                        Icon(Icons.Default.Close, contentDescription = null)
+                    }
+                } else {
+                    null
+                },
+            )
+
+            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                OutlinedButton(
+                    onClick = { onExport() }
+                    ,
+                    modifier = Modifier.width(120.dp).padding(end = 4.dp)
+                ) {
+                    Text(text = stringResource(R.string.export_settings))
+                }
+                OutlinedButton(
+                    onClick = { onImport(importJson) }
+                    ,
+                    modifier = Modifier.width(120.dp).padding(start = 4.dp)
+                ) {
+                    Text(text = stringResource(R.string.import_settings))
+                }
+            }
+
+            Text(
+                text = if (importJson.isEmpty()) {
+                    stringResource(R.string.no_export_yet)
+                } else {
+                    stringResource(R.string.last_exported, importJson.substring(0, minOf(20, importJson.length)) + "...")
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+
+    /** Diagnostics screen (P19). */
+    @Composable
+    private fun DiagnosticsScreen(
+        serviceState: ServiceStatusMonitor.State,
+        onBack: () -> Unit,
+    ) {
+        Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+            Text(
+                text = stringResource(R.string.diagnostics),
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(bottom = 16.dp),
+            )
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = stringResource(R.string.service_state),
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.width(120.dp).padding(end = 8.dp),
+                )
+                Text(
+                    text = when (serviceState) {
+                        is ServiceStatusMonitor.State.Running -> R.string.service_running
+                        is ServiceStatusMonitor.State.Idle -> R.string.service_idle
+                        ServiceStatusMonitor.State.Unknown -> R.string.service_unknown
+                    },
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = when (serviceState) {
+                        is ServiceStatusMonitor.State.Running -> MaterialTheme.colorScheme.primary
+                        is ServiceStatusMonitor.State.Idle -> MaterialTheme.colorScheme.onSurface
+                        ServiceStatusMonitor.State.Unknown -> MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = stringResource(R.string.connected_output),
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.width(120.dp).padding(end = 8.dp),
+                )
+                Text(
+                    text = when (serviceState) {
+                        is ServiceStatusMonitor.State.Running -> serviceState.connectedOutputs.firstOrNull()?.label ?: stringResource(R.string.none)
+                        else -> stringResource(R.string.none)
+                    },
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = stringResource(R.string.tts_available),
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.width(120.dp).padding(end = 8.dp),
+                )
+                Text(
+                    text = if (serviceState.ttsAvailable) {
+                        stringResource(R.string.yes)
+                    } else {
+                        stringResource(R.string.no)
+                    },
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = when { serviceState.ttsAvailable -> MaterialTheme.colorScheme.onSurface 
+                                  else -> MaterialTheme.colorScheme.onSurfaceVariant }
+                )
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = stringResource(R.string.biometric_lock),
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.width(120.dp).padding(end = 8.dp),
+                )
+                Text(
+                    text = stringResource(R.string.secure_screen_mode),
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+            }
+
+            Spacer(Modifier.height(24.dp))
+            OutlinedButton(
+                onClick = onBack
+                ,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+            ) {
+                Text(text = stringResource(R.string.back))
+            }
+        }
+    }

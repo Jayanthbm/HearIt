@@ -551,3 +551,4 @@ Tracks cloud implementation, code review and theoretical validation. Cloud work 
 | P17 Priority Announce mode | Cloud complete, not locally verified | `eac40ca` |
 | P18 History feature UI | Cloud complete, not locally verified | `6f546bc` |
 | P19 Multi-device sync | Not started | — |
+| P19 Backup & Restore, Diagnostics, logging | Cloud complete, not locally verified | `fe8218d` |
