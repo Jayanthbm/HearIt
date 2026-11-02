@@ -78,7 +78,8 @@ Evaluate notification eligibility through a deterministic, testable rules pipeli
 - Global default: announce only when screen is OFF **and** phone is LOCKED (AND logic).
 - Screen condition independently supports ON, OFF or Both.
 - Lock condition independently supports Locked, Unlocked or Both.
-- Per-app overrides independently inherit or override each condition.
+- Global audio default: **honor device silence — the phone must not be spoken to when it is on Silent** (`RINGER_MODE_SILENT`); `VIBRATE` alone keeps the standard notification sound and is *not* silenced (ADR-017). Honors global and per-app overrides; Priority Announce never overrides silence.
+- Per-app overrides independently inherit or override each condition, including silence.
 - If conditions stop matching during speech, stop speech immediately.
 - Priority Announce may override only screen/lock restrictions for apps explicitly selected in its separate app list.
 
@@ -105,7 +106,7 @@ Evaluate notification eligibility through a deterministic, testable rules pipeli
 - Never speak while a phone call is active.
 - Do not queue during calls by default; per-app setting may enable call-time queueing.
 - A queued item after a call must be re-evaluated against all current eligibility rules. Queueing must not bypass screen/lock, device, privacy, mute or other rules.
-- Distinguish DND from silent notification channels and other notification policies.
+    Distinguished and honored: DND is a preference; Silent/ Vibrate-only is a physical-constraints check (ADR-017) that never gets overridden; notification channel policies stay visible and distinct.
 
 ### Categories and keywords
 - Use notification channel/category/type metadata where Android exposes it.
