@@ -25,6 +25,7 @@ dependencyResolutionManagement {
 rootProject.name = "Hear It"
 include(":app")
 include(":core:common")
+include(":core:database")
 include(":core:datastore")
 include(":core:notifications")
 include(":core:queue")

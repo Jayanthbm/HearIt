@@ -161,4 +161,5 @@ Status legend: `Not started` · `In progress (cloud, not locally verified)` · `
 | P07 Notification listener foundation | Cloud complete, not locally verified |
 | P08 Foreground announcement service and speech pipeline | Cloud complete, not locally verified |
 | P09 Preferences foundation (`:core:datastore`) | Cloud complete, not locally verified |
-| P10–P20 | Not started |
+| P10 History storage (`:core:database`) | Cloud complete, not locally verified |
+| P11–P20 | Not started |
