@@ -522,7 +522,7 @@ Tracks cloud implementation, code review and theoretical validation. Cloud work 
 - **Build status:** Not run (cloud-agent restriction).
 - **Test execution status:** Not run (cloud-agent restriction).
 - **Local verification:** Not locally verified.
-- **Commit:** `__SHA__` — `feat(applications): add app selection and per-app settings (P13)`
+- **Commit:** `474ee14` — `feat(applications): add app selection and per-app settings (P13)`
 - **Next phase:** P14 — Devices feature.
 
 ---
@@ -544,4 +544,4 @@ Tracks cloud implementation, code review and theoretical validation. Cloud work 
 | P10 History storage (`:core:database`) | Cloud complete, not locally verified | `de56968` |
 | P11 Setup and onboarding (`:core:setup`, `:app`) | Cloud complete, not locally verified | `c2cb4d1` |
 | P12 Dashboard and navigation shell (`:app`/`dashboard`) | Cloud complete, not locally verified | `3d4b09d` |
-| P13 Applications feature (`:app`/`applications`) | Cloud complete, not locally verified | `pending` |
+| P13 Applications feature (`:app`/`applications`) | Cloud complete, not locally verified | `474ee14` |
