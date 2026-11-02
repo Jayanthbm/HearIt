@@ -165,4 +165,6 @@ Status legend: `Not started` · `In progress (cloud, not locally verified)` · `
 | P11 Setup and onboarding (`:core:setup`, `:app`) | Cloud complete, not locally verified |
 | P12 Dashboard and navigation shell (`:app`/`dashboard`) | Cloud complete, not locally verified |
 | P13 Applications feature (`:app`/`applications`) | Cloud complete, not locally verified |
-| P14–P20 | Not started |
+| P14 Devices feature (`:app`/`devices`) | Cloud complete, not locally verified | `d21c61b` |
+| P15 Global Rules, Voice & Speech settings | Cloud complete, not locally verified | `038b962` |
+| P16 Reading controls and temporary mute | Not started | — |
