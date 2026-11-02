@@ -139,6 +139,20 @@ class AnnouncementService : Service(), NotificationSink {
                 publishStatus()
                 return START_STICKY
             }
+            intent?.action == ACTION_PRIORITY_ANNOUNCE_ON -> {
+                // Enable Priority Announce mode
+                serviceStatus.markPriorityAnnounceActive(true)
+                handler.postDelayed(priorityAnnounceExpiryRunnable, 24 * 60 * 60 * 1000L) // 24h default expiry
+                publishStatus()
+                return START_STICKY
+            }
+            intent?.action == ACTION_PRIORITY_ANNOUNCE_OFF -> {
+                // Disable Priority Announce mode
+                serviceStatus.markPriorityAnnounceActive(false)
+                handler.removeCallbacks(priorityAnnounceExpiryRunnable)
+                publishStatus()
+                return START_STICKY
+            }
             intent?.action == ACTION_PAUSE -> {
                 if (currentAction != null) {
                     engine.pause()
@@ -290,6 +304,10 @@ class AnnouncementService : Service(), NotificationSink {
     const val ACTION_TEMPORARY_MUTE_60MIN = "com.jayanth.hearit.action.TEMPORARY_MUTE_60MIN"
     const val ACTION_TEMPORARY_MUTE_TOGGLE = "com.jayanth.hearit.action.TEMPORARY_MUTE_TOGGLE"
 
+    /** Priority Announce actions (P17). */
+    const val ACTION_PRIORITY_ANNOUNCE_ON = "com.jayanth.hearit.action.PRIORITY_ANNOUNCE_ON"
+    const val ACTION_PRIORITY_ANNOUNCE_OFF = "com.jayanth.hearit.action.PRIORITY_ANNOUNCE_OFF"
+
     /** Pause/Resume/Repeat/Skip current announcement (P16). */
     const val ACTION_PAUSE = "com.jayanth.hearit.action.PAUSE"
     const val ACTION_RESUME = "com.jayanth.hearit.action.RESUME"
@@ -310,6 +328,12 @@ class AnnouncementService : Service(), NotificationSink {
     private val muteUnlockRunnable = object : Runnable {
         override fun run() {
             sessionStore.isTemporaryMuteActive = false
+        }
+    }
+
+    private val priorityAnnounceExpiryRunnable = object : Runnable {
+        override fun run() {
+            serviceStatus.markPriorityAnnounceActive(false)
         }
     }
 }

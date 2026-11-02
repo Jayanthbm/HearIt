@@ -167,4 +167,4 @@ Status legend: `Not started` · `In progress (cloud, not locally verified)` · `
 | P13 Applications feature (`:app`/`applications`) | Cloud complete, not locally verified |
 | P14 Devices feature (`:app`/`devices`) | Cloud complete, not locally verified | `d21c61b` |
 | P15 Global Rules, Voice & Speech settings | Cloud complete, not locally verified | `038b962` |
-| P16 Reading controls and temporary mute | In progress (cloud, not locally verified) | — |
+| P16 Reading controls and temporary mute | Cloud complete, not locally verified | `ed7d7e1` |

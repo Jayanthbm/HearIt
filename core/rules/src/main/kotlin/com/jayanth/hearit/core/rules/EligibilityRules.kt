@@ -101,9 +101,14 @@ class EligibilityRules {
 
         // 9. Screen/lock — normally required, but Priority Announce mode overrides exactly
         //    these restrictions and only for apps in its separate list (master prompt §10,
-        //    ADR-006).
-        val priorityOverrideApplies = state.priorityAnnounceActive && settings.priorityAnnounceListed
-        if (!priorityOverrideApplies) {
+        //    ADR-006). Priority Announce does not bypass other rules (privacy, keywords,
+        //    length, output). Dedup: if app is in both lists, Priority takes precedence.
+        val inPriorityList = settings.priorityAnnounceListed
+        val priorityOverrideApplies = state.priorityAnnounceActive && inPriorityList
+        if (priorityOverrideApplies) {
+            // Priority Announce bypasses screen/lock for listed apps only.
+            // Other rules (privacy, keywords, length, output) still apply.
+        } else {
             evaluateScreenAndLock(settings.eligibility, state)?.let { return it }
         }
 

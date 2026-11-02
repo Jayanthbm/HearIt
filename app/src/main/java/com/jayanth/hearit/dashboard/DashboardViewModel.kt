@@ -112,6 +112,16 @@ class DashboardViewModel @Inject constructor(
         context.startService(intent)
     }
 
+    /** Toggles Priority Announce on/off (P17). */
+    fun onPriorityAnnounceToggled(active: Boolean) {
+        val intent = when (active) {
+            true -> android.content.Intent(AnnouncementService.ACTION_PRIORITY_ANNOUNCE_ON)
+            false -> android.content.Intent(AnnouncementService.ACTION_PRIORITY_ANNOUNCE_OFF)
+        }
+        intent.setClass(context, AnnouncementService::class.java)
+        context.startService(intent)
+    }
+
     /** Explicit Start (master prompt §4): the service itself reports back through the monitor. */
     fun onStartService() = serviceControl.startAnnouncements()
 

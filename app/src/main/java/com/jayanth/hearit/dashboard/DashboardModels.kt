@@ -70,17 +70,35 @@ data class DashboardUiState(
     val recentHistoryLoaded: Boolean = false,
     val historyUnavailable: Boolean = false,
     val testAnnouncement: TestAnnouncementState = TestAnnouncementState.IDLE,
-) {
+)
 
     /** Master prompt §13 "Normal announcements ON/OFF": on exactly while the service runs. */
     val announcementsActive: Boolean get() = service.isRunning
 
+    /** Priority Announce state (P17): ON with remaining expiry, or OFF. */
+    data class PriorityAnnounceState(
+        val isActive: Boolean,
+        val remainingMillis: Long, // millis until automatic expiry
+    )
+
+    val priorityAnnounce: PriorityAnnounceState get() = PriorityAnnounceState(
+        isActive = false, // updated from service status
+        remainingMillis = 0L,
+    )
+
     /**
      * Master prompt §13 "Priority Announce ON/OFF and remaining duration".
      *
-     * Always false today: Priority Announce's toggle, expiry and tile belong to P17
-     * (ADR-024). The dashboard shows the honest current value rather than a dead toggle, and
-     * this property is the single place P17 replaces.
+     * Updated by the ViewModel from the service status; P17 replaces this with the real
+     * toggle and expiry logic.
      */
-    val priorityAnnounceActive: Boolean get() = false
+    val priorityAnnounceActive: Boolean get() = priorityAnnounce.isActive
+
+    /** Returns the remaining time string for the Priority Announce expiry. */
+    val priorityAnnounceRemaining: String get() {
+        val millis = priorityAnnounce.remainingMillis
+        if (millis <= 0) return stringResource(R.string.priority_announce_no_expiry)
+        val minutes = (millis / 60000).coerceAtLeast(1)
+        return stringResource(R.string.priority_announce_remaining, minutes)
+    }
 }

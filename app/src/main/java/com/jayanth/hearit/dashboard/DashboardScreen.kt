@@ -269,11 +269,12 @@ private fun DashboardHome(
             label = stringResource(R.string.dashboard_normal_announcements),
             value = onOff(state.announcementsActive),
         )
-        StatusRow(
-            label = stringResource(R.string.dashboard_priority_announce),
-            value = onOff(state.priorityAnnounceActive),
+        PriorityAnnounceRow(
+            isActive = state.priorityAnnounce.isActive,
+            onToggled = { onPriorityAnnounceToggled(it) },
+        ){
             supporting = stringResource(R.string.dashboard_priority_announce_note),
-        )
+        }
         TemporaryMuteRow(
             isMuted = state.temporaryMuteActive,
             onMuteClicked = { onTemporaryMuteClicked(it) },
@@ -616,6 +617,61 @@ private fun DestinationPlaceholder(destination: DashboardDestination) {
             text = stringResource(R.string.dashboard_placeholder_body),
             style = MaterialTheme.typography.bodyMedium,
         )
+    }
+}
+
+@Composable
+private fun PriorityAnnounceRow(
+    isActive: Boolean,
+    onToggled: (Boolean) -> Unit,
+) {
+    val remainingMillis = 0L // TODO: read from service status in P17
+    val remainingStr = when {
+        remainingMillis <= 0 -> stringResource(R.string.priority_announce_no_expiry)
+        else -> {
+            val minutes = (remainingMillis / 60000).coerceAtLeast(1)
+            stringResource(R.string.priority_announce_remaining, minutes)
+        }
+    }
+    Column(modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(vertical = 4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = stringResource(R.string.dashboard_priority_announce),
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.weight(1f).padding(end = 12.dp),
+            )
+            Text(
+                text = if (isActive) {
+                    stringResource(R.string.priority_announce_on)
+                } else {
+                    stringResource(R.string.priority_announce_off)
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.End,
+            )
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedButton(
+                onClick = { onToggled(true) },
+                modifier = Modifier.width(48.dp).heightIn(min = 32.dp),
+            ) {
+                Text(text = stringResource(R.string.priority_announce_on))
+            }
+            OutlinedButton(
+                onClick = { onToggled(false) },
+                modifier = Modifier.width(48.dp).heightIn(min = 32.dp), start = 4.dp
+            ) {
+                Text(text = stringResource(R.string.priority_announce_off))
+            }
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, start = 4.dp) {
+            Text(
+                text = remainingStr,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 
