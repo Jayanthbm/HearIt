@@ -1,10 +1,11 @@
 package com.jayanth.hearit.dashboard
 
+import android.content.Context
+import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jayanth.hearit.core.database.HistoryQuery
 import com.jayanth.hearit.core.database.HistoryRepository
-import com.jayanth.hearik.core.common.model.SortBy
 import com.jayanth.hearit.core.datastore.SettingsRepository
 import com.jayanth.hearit.core.tts.AnnouncementSection
 import com.jayanth.hearit.core.tts.BuiltAnnouncement
@@ -13,10 +14,12 @@ import com.jayanth.hearit.core.tts.SpeechSettings
 import com.jayanth.hearit.core.tts.TextToSpeechEngine
 import com.jayanth.hearit.core.tts.TtsError
 import com.jayanth.hearit.core.tts.UtteranceListener
+import com.jayanth.hearit.service.AnnouncementService
 import com.jayanth.hearit.service.SessionStore
 import com.jayanth.hearit.setup.AudioOutputProbe
 import com.jayanth.hearit.setup.TestAnnouncementState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -37,6 +40,7 @@ import kotlinx.coroutines.launch
  */
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val settingsRepository: SettingsRepository,
     private val historyRepository: HistoryRepository,
     private val sessionStore: SessionStore,
@@ -83,96 +87,59 @@ class DashboardViewModel @Inject constructor(
         loadRecentHistory()
     }
 
-    /** Reads the current temporary mute state and refreshes the dashboard. Called when the screen resumes. */
-    fun onRefresh() {
-        _state.update {
-            it.copy(
-                temporaryMuteActive = sessionStore.isTemporaryMuteActive,
-                outputLabel = audioOutputs.connectedOutputs().firstOrNull()?.label,
-            )
-        }
-        loadRecentHistory()
-    }
-
     /** Sets temporary mute for the given duration in minutes (P16). */
-    fun onTemporaryMuteClicked(durationMin: Int) {
-        val intent = when (durationMin) {
-            15 -> android.content.Intent(AnnouncementService.ACTION_TEMPORARY_MUTE_15MIN)
-            30 -> android.content.Intent(AnnouncementService.ACTION_TEMPORARY_MUTE_30MIN)
-            60 -> android.content.Intent(AnnouncementService.ACTION_TEMPORARY_MUTE_60MIN)
-            else -> android.content.Intent(AnnouncementService.ACTION_STOP)
+    fun onTemporaryMuteClicked(durationMinutes: Int) {
+        val action = when (durationMinutes) {
+            15 -> AnnouncementService.ACTION_TEMPORARY_MUTE_15MIN
+            30 -> AnnouncementService.ACTION_TEMPORARY_MUTE_30MIN
+            60 -> AnnouncementService.ACTION_TEMPORARY_MUTE_60MIN
+            else -> AnnouncementService.ACTION_TEMPORARY_MUTE_TOGGLE
         }
-        intent.setClass(context, AnnouncementService::class.java)
-        context.startService(intent)
+        sendServiceAction(action)
+        _state.update { it.copy(temporaryMuteActive = true) }
     }
 
     /** Clears the temporary mute state. */
     fun onTemporaryMuteCleared() {
-        val intent = android.content.Intent(AnnouncementService.ACTION_TEMPORARY_MUTE_TOGGLE)
-        intent.setClass(context, AnnouncementService::class.java)
-        context.startService(intent)
-    }
-
-    /** Searches history by query parameters (P18). */
-    fun onHistorySearch(query: HistoryQuery) {
-        viewModelScope.launch {
-            try {
-                val entries = historyRepository.page(query)
-                _state.update {
-                    it.copy(
-                        recentHistory = entries.map { entry ->
-                            RecentAnnouncement(
-                                id = entry.id,
-                                appName = entry.appName,
-                                status = entry.status,
-                                recordedAtMillis = entry.recordedAtMillis,
-                            )
-                        },
-                        recentHistoryLoaded = true,
-                        historyUnavailable = false,
-                    )
-                }
-            } catch (error: RuntimeException) {
-                _state.update {
-                    it.copy(recentHistory = emptyList(), recentHistoryLoaded = true, historyUnavailable = true)
-                }
-            }
-        }
-    }
-
-    /** Clears all history with confirmation (P18). */
-    fun onHistoryClearAll() {
-        if (shouldConfirmClearAll()) {
-            viewModelScope.launch {
-                historyRepository.deleteAll()
-                onHistorySearch(HistoryQuery())
-            }
-        }
-    }
-
-    /** Clears history for one app (P18). */
-    fun onHistoryClearApp(appName: String) {
-        viewModelScope.launch {
-            historyRepository.deleteAll()
-            onHistorySearch(HistoryQuery(packageName = appName))
-        }
+        sendServiceAction(AnnouncementService.ACTION_TEMPORARY_MUTE_TOGGLE)
+        _state.update { it.copy(temporaryMuteActive = false) }
     }
 
     /** Toggles Priority Announce on/off (P17). */
     fun onPriorityAnnounceToggled(active: Boolean) {
-        val intent = when (active) {
-            true -> android.content.Intent(AnnouncementService.ACTION_PRIORITY_ANNOUNCE_ON)
-            false -> android.content.Intent(AnnouncementService.ACTION_PRIORITY_ANNOUNCE_OFF)
-        }
-        intent.setClass(context, AnnouncementService::class.java)
-        context.startService(intent)
+        sendServiceAction(
+            if (active) {
+                AnnouncementService.ACTION_PRIORITY_ANNOUNCE_ON
+            } else {
+                AnnouncementService.ACTION_PRIORITY_ANNOUNCE_OFF
+            },
+        )
     }
 
-    /** Explicit Start (master prompt §4): the service itself reports back through the monitor. */
+    /** Explicit Start (master prompt §4): the service reports back through the monitor. */
     fun onStartService() = serviceControl.startAnnouncements()
 
     /** Explicit Stop (master prompt §4). */
     fun onStopService() = serviceControl.stopAnnouncements()
+
+    /** Searches history with the dashboard's filter state (P18). */
+    fun onHistorySearch(filter: DashboardFilterState) {
+        viewModelScope.launch {
+            val entries = readHistory(toQuery(filter))
+            entries?.let { publishHistory(it) } ?: run { }
+        }
+    }
+
+    /** Clears all history. The screen asks for confirmation before calling this (P18). */
+    fun onHistoryClearAll() {
+        viewModelScope.launch {
+            runCatching { historyRepository.deleteAll() }
+                .onSuccess { loadRecentHistory() }
+                .onFailure {
+                    _state.update { it.copy(historyUnavailable = true, recentHistoryLoaded = true) }
+                }
+        }
+    }
 
     /**
      * Speaks the fixed test announcement through the configured engine.
@@ -208,82 +175,78 @@ class DashboardViewModel @Inject constructor(
     /**
      * Loads the newest history rows for the dashboard summary.
      *
-     * History recording is not wired into the pipeline yet (P18), so this is genuinely
-     * empty on a fresh install — the empty copy says that rather than pretending. A read
-     * failure is surfaced as [DashboardUiState.historyUnavailable] instead of being
-     * swallowed, because an unreadable database is something the user should see.
+     * History recording is not wired into the pipeline yet, so this is genuinely empty on
+     * a fresh install — the empty copy says that rather than pretending. A read failure is
+     * surfaced as [DashboardUiState.historyUnavailable] instead of being swallowed,
+     * because an unreadable database is something the user should see.
      */
     private fun loadRecentHistory() {
         viewModelScope.launch {
-            try {
-                val entries = historyRepository.page(HistoryQuery(limit = RECENT_HISTORY_LIMIT))
-                _state.update { current ->
-                    current.copy(
-                        recentHistory = entries.map { entry ->
-                            RecentAnnouncement(
-                                id = entry.id,
-                                appName = entry.appName,
-                                status = entry.status,
-                                recordedAtMillis = entry.recordedAtMillis,
-                            )
-                        },
-                        recentHistoryLoaded = true,
-                        historyUnavailable = false,
-                    )
-                }
-            } catch (error: RuntimeException) {
-                _state.update {
-                    it.copy(recentHistory = emptyList(), recentHistoryLoaded = true, historyUnavailable = true)
-                }
-            }
+            val entries = readHistory(HistoryQuery(limit = RECENT_HISTORY_LIMIT))
+            entries?.let { publishHistory(it) } ?: run { }
         }
+    }
+
+    /** Reads one page, reporting failure through state instead of throwing. */
+    private suspend fun readHistory(query: HistoryQuery) =
+        runCatching { historyRepository.page(query) }.getOrElse { error ->
+            _state.update {
+                it.copy(
+                    recentHistory = emptyList(),
+                    recentHistoryLoaded = true,
+                    historyUnavailable = true,
+                )
+            }
+            null
+        }
+
+    private fun publishHistory(entries: List<com.jayanth.hearit.core.database.HistoryEntry>) {
+        _state.update {
+            it.copy(
+                recentHistory = entries.map { entry ->
+                    RecentAnnouncement(
+                        id = entry.id,
+                        appName = entry.appName,
+                        status = entry.status,
+                        recordedAtMillis = entry.recordedAtMillis,
+                    )
+                },
+                recentHistoryLoaded = true,
+                historyUnavailable = false,
+            )
+        }
+    }
+
+    /**
+     * Maps the UI filter onto the database query.
+     *
+     * The free-text query searches the app name only: content search needs its own Room
+     * index and is a P18 follow-up, so it is not faked here.
+     */
+    private fun toQuery(filter: DashboardFilterState): HistoryQuery = HistoryQuery(
+        packageName = filter.filterPackageName,
+        status = filter.filterStatus,
+        appName = filter.filterAppName ?: filter.query.trim().takeIf { it.isNotEmpty() },
+        sender = filter.filterSender,
+        dateFrom = filter.filterDateFrom,
+        dateTo = filter.filterDateTo,
+        sortBy = when (filter.filterSortBy) {
+            DashboardSortBy.RecentFirst -> HistoryQuery.SortBy.RecentFirst
+            DashboardSortBy.OldestFirst -> HistoryQuery.SortBy.OldestFirst
+            DashboardSortBy.ByApp -> HistoryQuery.SortBy.ByApp
+        },
+    )
+
+    private fun sendServiceAction(action: String) {
+        context.startService(Intent(context, AnnouncementService::class.java).setAction(action))
     }
 
     companion object {
 
-        /** Rows shown in the dashboard summary; the history feature owns paging (P18). */
+        /** Rows shown in the dashboard summary; the history feature owns paging. */
         const val RECENT_HISTORY_LIMIT: Int = 5
 
         /** Number of rows per page when browsing history (P18). */
         const val HISTORY_PAGE_SIZE: Int = 20
     }
 }
-
-    /**
-     * Searches history by query parameters (P18).
-     *
-     * Supports filtering by app, status, sender, date range and sort order.
-     * Updates the dashboard state with the new history page and marks it as loaded.
-     */
-    fun onHistorySearch(query: HistoryQuery) {
-        viewModelScope.launch {
-            try {
-                val entries = historyRepository.page(query)
-                _state.update {
-                    it.copy(
-                        recentHistory = entries.map { entry ->
-                            RecentAnnouncement(
-                                id = entry.id,
-                                appName = entry.appName,
-                                status = entry.status,
-                                recordedAtMillis = entry.recordedAtMillis,
-                            )
-                        },
-                        recentHistoryLoaded = true,
-                        historyUnavailable = false,
-                    )
-                }
-            } catch (error: RuntimeException) {
-                _state.update {
-                    it.copy(recentHistory = emptyList(), recentHistoryLoaded = true, historyUnavailable = true)
-                }
-            }
-        }
-    }
-
-    /** Toggles Priority Announce on/off (P17). */
-    fun onPriorityAnnounceToggled(active: Boolean) {
-        val intent = when (active) {
-            true -> android.content.Intent(AnnouncementService.ACTION_PRIORITY_ANNOUNCE_ON)
-            false -> android.content.Intent(AnnouncementService.ACTION_PRIORITY_ANNOUNCE_OFF)
-        }

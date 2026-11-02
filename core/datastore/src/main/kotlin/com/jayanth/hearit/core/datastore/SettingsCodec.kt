@@ -384,15 +384,16 @@ object SettingsCodec {
 
         return AppOverride(
             eligibility = AppEligibilityOverride(
-                screenCondition = string("elig.screen")?.enumOrNull(),
-                lockCondition = string("elig.lock")?.enumOrNull(),
+                screenCondition = string("elig.screen")?.enumOrNull<ScreenCondition>(),
+                lockCondition = string("elig.lock")?.enumOrNull<LockCondition>(),
                 respectDnd = string("elig.respectDnd")?.toBooleanStrictOrNull(),
                 queueDuringCall = string("elig.queueDuringCall")?.toBooleanStrictOrNull(),
-                audioFocus = string("elig.audioFocus")?.enumOrNull(),
+                audioFocus = string("elig.audioFocus")?.enumOrNull<AudioFocusPolicy>(),
                 textLength = if (lengthPresent) {
                     TextLengthSettings(
                         maxLengthChars = string(APP_LENGTH_MAX)?.toIntOrNull()?.takeIf { it > 0 },
-                        scope = string(APP_LENGTH_SCOPE)?.enumOrNull() ?: LengthScope.MESSAGE,
+                        scope = string(APP_LENGTH_SCOPE)?.enumOrNull<LengthScope>()
+                            ?: LengthScope.MESSAGE,
                     )
                 } else {
                     null
@@ -401,7 +402,8 @@ object SettingsCodec {
                     KeywordFilterSettings(
                         enabled = string(APP_KEYWORDS_ENABLED)?.toBooleanStrictOrNull() ?: false,
                         keywords = splitList(string(APP_KEYWORDS_LIST)),
-                        mode = string(APP_KEYWORDS_MODE)?.enumOrNull() ?: KeywordMatchMode.WHOLE_WORD,
+                        mode = string(APP_KEYWORDS_MODE)?.enumOrNull<KeywordMatchMode>()
+                            ?: KeywordMatchMode.WHOLE_WORD,
                     )
                 } else {
                     null
@@ -438,11 +440,11 @@ object SettingsCodec {
                 groupingWindowMillis = string(APP_QUEUE_WINDOW)?.toLongOrNull()?.takeIf { it >= 0L },
             ),
             history = AppHistoryOverride(
-                storageMode = string(APP_HISTORY_MODE)?.enumOrNull(),
-                updateHandling = string(APP_HISTORY_UPDATES)?.enumOrNull(),
+                storageMode = string(APP_HISTORY_MODE)?.enumOrNull<HistoryStorageMode>(),
+                updateHandling = string(APP_HISTORY_UPDATES)?.enumOrNull<HistoryUpdateHandling>(),
                 requireAuth = string(APP_HISTORY_AUTH)?.toBooleanStrictOrNull(),
             ),
-            priority = string(APP_PRIORITY)?.enumOrNull(),
+            priority = string(APP_PRIORITY)?.enumOrNull<AppPriority>(),
         )
     }
 

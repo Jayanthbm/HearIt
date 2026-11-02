@@ -271,6 +271,9 @@ class AnnouncementQueue(
         )
     }
 
+    /** Snapshots of the group being spoken, reported as ANNOUNCED when it completes. */
+    private var speakingItems: List<NotificationSnapshot> = emptyList()
+
     /**
      * Confirms the latest [pollReady] selection as the one being spoken: removes the group
      * and records it as the speaking group so a later silent mode is caught (ADR-011).
@@ -291,6 +294,7 @@ class AnnouncementQueue(
 
         val events = sweepExpired()
         speakingId = id
+        speakingItems = selection.second.map { it.snapshot }
         val now = clock.nowMillis()
         selection.second.forEach { item ->
             pending.remove(item)
@@ -309,7 +313,11 @@ class AnnouncementQueue(
         require(speakingId == id) { "Announcement $id is not currently being spoken" }
         speakingId = null
         lastCompletedAtMillis = clock.nowMillis()
-        return sweepExpired()
+        // The spoken group is reported as ANNOUNCED so history can record it; the sweep
+        // events that follow keep reporting expiries that happened meanwhile.
+        val announced = speakingItems.map { QueueEvent.Announced(it) }
+        speakingItems = emptyList()
+        return announced + sweepExpired()
     }
 
     /**

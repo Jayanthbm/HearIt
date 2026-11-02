@@ -188,8 +188,10 @@ class EligibilityRules {
             LockCondition.BOTH -> true
         }
         if (!lockMatches) {
+            // The reason names the actual device state that failed the condition, mirroring
+            // the screen branch above (lock required + unlocked → UNLOCKED, and vice versa).
             return EligibilityDecision.Skip(
-                if (state.isLocked) SkipReason.UNLOCKED else SkipReason.LOCKED,
+                if (state.isLocked) SkipReason.LOCKED else SkipReason.UNLOCKED,
             )
         }
 

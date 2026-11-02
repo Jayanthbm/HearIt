@@ -26,7 +26,9 @@ internal object AnnouncementNotification {
 
     const val CHANNEL_ID = "announcement_service"
     private const val CHANNEL_NAME_RES = R.string.notification_channel_service
-    private const val NOTIFICATION_ID = 1
+
+    /** Id of the single ongoing notification; the service uses it for `startForeground`. */
+    const val NOTIFICATION_ID = 1
 
     /** Creates the low-importance channel; idempotent, safe to call on every start. */
     fun ensureChannel(context: Context) {

@@ -218,7 +218,7 @@ class CallAndDndEligibilityTest {
 
     @Test
     fun evaluate_callEnds_queuedItemIsReEvaluatedThroughTheFullPipeline() {
-        val queued = rules.evaluate(snapshot(), settings(), state(callActive = true))
+        val queued = rules.evaluate(snapshot(), settings(queueDuringCall = true), state(callActive = true))
         assertEquals(EligibilityDecision.Queue(SkipReason.CALL_ACTIVE), queued)
 
         // After the call, the same snapshot re-enters the whole pipeline: all-clear state

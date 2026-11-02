@@ -1,10 +1,10 @@
 package com.jayanth.hearit.applications
 
-import com.jayanth.hearit.core.common.model.AppOverride
 import com.jayanth.hearit.core.common.model.AppPriority
 import com.jayanth.hearit.core.common.model.AudioFocusPolicy
 import com.jayanth.hearit.core.common.model.HistoryStorageMode
 import com.jayanth.hearit.core.common.model.HistoryUpdateHandling
+import com.jayanth.hearit.core.datastore.AppOverride
 import com.jayanth.hearit.core.datastore.HearItSettings
 
 /**

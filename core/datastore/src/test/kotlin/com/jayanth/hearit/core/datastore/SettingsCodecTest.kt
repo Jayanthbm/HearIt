@@ -23,6 +23,7 @@ import com.jayanth.hearit.core.tts.AnnouncementFormat
 import com.jayanth.hearit.core.tts.SpeechSettings
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -200,7 +201,9 @@ class SettingsCodecTest {
 
         assertEquals(AppPriority.HIGH, decoded.appOverrides.getValue("com.whatsapp").priority)
         assertTrue(!decoded.appOverrides.getValue("com.whatsapp").inheritsEveryValue)
-        assertTrue(decoded.appOverrides.getValue("com.telegram").inheritsEveryValue)
+        // An override whose every value is inherited has nothing to store and is dropped,
+        // which is exactly the sparseness ADR-021 requires of the settings map.
+        assertFalse(decoded.appOverrides.containsKey("com.telegram"))
     }
 
     @Test

@@ -4,7 +4,13 @@ Tracks cloud implementation, code review and theoretical validation. Cloud work 
 
 **Global build status: Not run (cloud-agent restriction).**
 **Global test execution status: Not run (cloud-agent restriction).**
-**All entries below: Not locally verified.**
+**All entries below: Not locally verified at the time of writing.**
+
+> **Update 2026-11-03 (local agent):** the repository was built and tested for the first time.
+> Most entries below now build and their unit tests pass, but several were **repaired** because
+> they never compiled (see `AI_BUILD_PROGRESS_LOCAL.md`, phase L1, for the full list) and a few
+> cloud completion claims did not match the code. See `## Local verification log` at the end of
+> this file before relying on any single entry.
 
 ---
 
@@ -553,3 +559,30 @@ Tracks cloud implementation, code review and theoretical validation. Cloud work 
 | P19 Multi-device sync | Not started | — |
 | P19 Backup & Restore, Diagnostics, logging | Cloud complete, not locally verified | `fe8218d` |
 | P19b Quick Settings tile | Cloud complete, not locally verified | `6c32aa4` |
+
+---
+
+## Local verification log (local agent, 2026-11-03)
+
+This section does not replace the cloud review history above; it records what was actually built
+and executed. Full detail: `AI_BUILD_PROGRESS_LOCAL.md` → **L1**.
+
+- **Build:** `./gradlew assembleDebug` — **PASSED** (`app-debug.apk`). Before repairs the project
+  could not build at all.
+- **Tests:** `./gradlew test` — **PASSED**, 379 tests / 0 failures across `:core:rules` (88),
+  `:app` (62), `:core:queue` (46), `:core:datastore` (32), `:core:setup` (32), `:core:tts` (32),
+  `:core:notifications` (30), `:core:common` (29), `:core:database` (28).
+- **Lint:** `./gradlew lintDebug` — **PASSED**, 0 errors, 57 warnings.
+- **Cloud defects corrected locally:** invalid `strings.xml` (literal `\n`, duplicate names, raw `&`),
+  malformed manifest `meta-data`, wrong Quick Settings permission/action, non-compiling
+  `PriorityAnnounceTileService`, broken `DashboardModels`/`DashboardViewModel`/`DashboardScreen`/
+  `GlobalSettingsScreen`/`GlobalSettingsUiState`, invalid `SettingsSource` constructor and inverted
+  app-enable semantics, JVM target mismatch in the five Kotlin/JVM modules, missing Room schema
+  directory, missing Room runtime in `:app`, wrong `HistoryDao` enum-in-`@Query`, and two rule/reason
+  defects (lock skip reason, missing ANNOUNCED history event).
+- **Per-phase local status:** P01–P13 build and their tests pass. P08/P12/P13/P15/P16/P17/P19b
+  compile but were **not behaviourally tested** (no device). **P14 (Devices) has no implementation
+  in the repository** and **P18/P19 are partial** (dashboard search only; Backup/Restore and
+  Diagnostics screens removed) — the cloud entries overstate completion.
+- **Not verified on any device or emulator.** Notification access, Bluetooth/wired routing, TTS,
+  calls, DND, reboot, background behaviour and the Quick Settings tile remain device-only tests.

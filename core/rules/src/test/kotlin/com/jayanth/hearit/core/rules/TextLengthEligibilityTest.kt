@@ -150,7 +150,9 @@ class TextLengthEligibilityTest {
         assertEquals(
             EligibilityDecision.Skip(SkipReason.PRIVACY_BANKING),
             rules.evaluate(
-                snapshot("x".repeat(500)),
+                // The body must actually trip the banking detector, otherwise this test only
+                // proves that a long text is long.
+                snapshot("Bank " + "x".repeat(500)),
                 settings(
                     textLength = TextLengthSettings(maxLengthChars = 50),
                     privacy = privacy,

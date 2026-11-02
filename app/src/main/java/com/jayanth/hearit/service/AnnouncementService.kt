@@ -7,6 +7,7 @@ import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.os.Handler
+import android.os.IBinder
 import android.os.Looper
 import android.os.SystemClock
 import com.jayanth.hearit.core.common.model.NotificationSnapshot
@@ -42,8 +43,6 @@ import javax.inject.Inject
  * system-initiated recreation never starts announcing on its own (architecture §4).
  *
  * Privacy: nothing is logged anywhere in this class.
- *
- * Not locally verified — written under the cloud-agent restriction (no build/test run).
  */
 @AndroidEntryPoint
 class AnnouncementService : Service(), NotificationSink {
@@ -65,6 +64,9 @@ class AnnouncementService : Service(), NotificationSink {
 
     /** The announcement currently being spoken, or null. */
     private var currentAction: AnnouncementPipeline.Action.Speak? = null
+
+    /** Last accepted announcement, so Pause/Resume can re-speak it (P16). */
+    private var lastAction: AnnouncementPipeline.Action.Speak? = null
 
     private val handler = Handler(Looper.getMainLooper())
 
@@ -105,123 +107,106 @@ class AnnouncementService : Service(), NotificationSink {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when {
-            intent?.action == ACTION_STOP -> {
+        val action = intent?.action
+        when (action) {
+            ACTION_STOP -> {
                 sessionStore.isStarted = false
                 serviceStatus.markStopped()
                 stopSelf()
                 return START_NOT_STICKY
             }
-            intent?.action == ACTION_TEMPORARY_MUTE_15MIN -> {
-                sessionStore.isTemporaryMuteActive = true
-                handler.removeCallbacks(muteToggleRunnable)
-                handler.postDelayed(muteUnlockRunnable, 15 * 60 * 1000L)
-                publishStatus()
-                return START_STICKY
-            }
-            intent?.action == ACTION_TEMPORARY_MUTE_30MIN -> {
-                sessionStore.isTemporaryMuteActive = true
-                handler.removeCallbacks(muteToggleRunnable)
-                handler.postDelayed(muteUnlockRunnable, 30 * 60 * 1000L)
-                publishStatus()
-                return START_STICKY
-            }
-            intent?.action == ACTION_TEMPORARY_MUTE_60MIN -> {
-                sessionStore.isTemporaryMuteActive = true
-                handler.removeCallbacks(muteToggleRunnable)
-                handler.postDelayed(muteUnlockRunnable, 60 * 60 * 1000L)
-                publishStatus()
-                return START_STICKY
-            }
-            intent?.action == ACTION_TEMPORARY_MUTE_TOGGLE -> {
+
+            ACTION_TEMPORARY_MUTE_15MIN -> return muteFor(15 * 60 * 1000L)
+            ACTION_TEMPORARY_MUTE_30MIN -> return muteFor(30 * 60 * 1000L)
+            ACTION_TEMPORARY_MUTE_60MIN -> return muteFor(60 * 60 * 1000L)
+
+            ACTION_TEMPORARY_MUTE_TOGGLE -> {
                 sessionStore.isTemporaryMuteActive = !sessionStore.isTemporaryMuteActive
-                handler.removeCallbacks(muteToggleRunnable)
+                handler.removeCallbacks(muteUnlockRunnable)
                 publishStatus()
                 return START_STICKY
             }
-            intent?.action == ACTION_PRIORITY_ANNOUNCE_ON -> {
-                // Enable Priority Announce mode
-                serviceStatus.markPriorityAnnounceActive(true)
-                handler.postDelayed(priorityAnnounceExpiryRunnable, 24 * 60 * 60 * 1000L) // 24h default expiry
+
+            ACTION_PRIORITY_ANNOUNCE_ON -> {
+                setPriorityAnnounce(active = true)
+                return START_STICKY
+            }
+
+            ACTION_PRIORITY_ANNOUNCE_OFF -> {
+                setPriorityAnnounce(active = false)
+                return START_STICKY
+            }
+
+            ACTION_PRIORITY_ANNOUNCE_TOGGLE -> {
+                setPriorityAnnounce(active = !serviceStatus.state.value.isPriorityAnnounceActive)
+                return START_STICKY
+            }
+
+            ACTION_PAUSE -> {
+                // Android TTS has no native pause; pausing stops the current utterance and
+                // Resume speaks it again from the start (documented limitation, P16).
+                if (currentAction != null) {
+                    engine.stop()
+                }
                 publishStatus()
                 return START_STICKY
             }
-            intent?.action == ACTION_PRIORITY_ANNOUNCE_OFF -> {
-                // Disable Priority Announce mode
-                serviceStatus.markPriorityAnnounceActive(false)
-                handler.removeCallbacks(priorityAnnounceExpiryRunnable)
+
+            ACTION_RESUME -> {
+                val last = lastAction
+                if (currentAction == null && last != null) {
+                    speak(last)
+                }
                 publishStatus()
                 return START_STICKY
             }
-            intent?.action == ACTION_PRIORITY_ANNOUNCE_TOGGLE -> {
-                // Toggle Priority Announce on/off
-                if (serviceStatus.isPriorityAnnounceActive) {
-                    serviceStatus.markPriorityAnnounceActive(false)
-                    handler.removeCallbacks(priorityAnnounceExpiryRunnable)
+
+            ACTION_SKIP -> {
+                currentAction?.let { finishSpeech(it) }
+                pipeline.tick(
+                    state = currentState(),
+                    settingsOf = { packageName -> settingsSource.forApp(packageName) },
+                )?.let { speak(it) }
+                publishStatus()
+                return START_STICKY
+            }
+
+            ACTION_REPEAT -> {
+                val current = currentAction
+                if (current != null) {
+                    speak(current)
                 } else {
-                    serviceStatus.markPriorityAnnounceActive(true)
-                    handler.postDelayed(priorityAnnounceExpiryRunnable, 24 * 60 * 60 * 1000L) // 24h default expiry
+                    lastAction?.let { speak(it) }
                 }
                 publishStatus()
                 return START_STICKY
             }
-            intent?.action == ACTION_PAUSE -> {
-                if (currentAction != null) {
-                    engine.pause()
-                }
-                publishStatus()
-                return START_STICKY
-            }
-            intent?.action == ACTION_RESUME -> {
-                if (currentAction != null) {
-                    engine.resume()
-                }
-                publishStatus()
-                return START_STICKY
-            }
-            intent?.action == ACTION_SKIP -> {
-                // Skip the current announcement and move to the next
-                if (currentAction != null) {
-                    finishSpeech(currentAction)
-                }
-                pipeline.tick(stateReader.read()) { packageName -> settingsSource.forApp(packageName) }
-                    ?.let { speak(it)
-                }
-                publishStatus()
-                return START_STICKY
-            }
-            intent?.action == ACTION_REPEAT -> {
-                // Re-speak the last announcement
-                if (currentAction != null) {
-                    speak(currentAction)
-                }
-                publishStatus()
-                return START_STICKY
-            }
-            sessionStore.isStarted = true
-            startInForeground()
-            // Publish before the first tick so the dashboard shows Active immediately (P12).
-            serviceStatus.markRunning()
-            publishStatus()
-            handler.removeCallbacks(tickRunnable)
-            handler.post(tickRunnable)
-            return START_STICKY
         }
+
+        sessionStore.isStarted = true
+        startInForeground()
+        // Publish before the first tick so the dashboard shows Active immediately (P12).
+        serviceStatus.markRunning()
+        publishStatus()
+        handler.removeCallbacks(tickRunnable)
+        handler.post(tickRunnable)
+        return START_STICKY
     }
 
+    /** Started service; there is no bound-client contract, so no binder is returned. */
+    override fun onBind(intent: Intent?): IBinder? = null
+
     override fun onPosted(snapshot: NotificationSnapshot) {
-        val state = stateReader.read()
         pipeline.onNotification(
             snapshot = snapshot,
             settings = settingsSource.forApp(snapshot.packageName),
-            state = state,
+            state = currentState(),
         )
-        // Queue events carry status/reason for history; history storage lands in P10.
     }
 
     override fun onRemoved(key: String) {
         // The listener already forgot the extraction identity; the queue owns dedup and
-        // expiry for pending items. History (P10) records the removal.
+        // expiry for pending items.
     }
 
     override fun onDestroy() {
@@ -234,25 +219,22 @@ class AnnouncementService : Service(), NotificationSink {
     }
 
     private fun tickOnce() {
-        val state = stateReader.read()
-
+        val state = currentState()
         val speaking = currentAction
         if (speaking != null) {
             pipeline.onStateChanged(state) { packageName -> settingsSource.forApp(packageName) }
-                .forEach { action ->
-                    if (action is AnnouncementPipeline.Action.StopSpeech) engine.stop()
-                }
+                .forEach { action -> if (action is AnnouncementPipeline.Action.StopSpeech) engine.stop() }
             publishStatus()
             return
         }
 
-        val next = pipeline.tick(state) { packageName -> settingsSource.forApp(packageName) }
-        if (next != null) speak(next)
+        pipeline.tick(state) { packageName -> settingsSource.forApp(packageName) }?.let { speak(it) }
         publishStatus()
     }
 
     private fun speak(action: AnnouncementPipeline.Action.Speak) {
         currentAction = action
+        lastAction = action
         val accepted = engine.speak(
             announcement = action.announcement,
             settings = settingsSource.speech(),
@@ -281,6 +263,30 @@ class AnnouncementService : Service(), NotificationSink {
         publishStatus()
     }
 
+    /** Applies temporary mute for [durationMillis] and schedules the automatic clear. */
+    private fun muteFor(durationMillis: Long): Int {
+        sessionStore.isTemporaryMuteActive = true
+        handler.removeCallbacks(muteUnlockRunnable)
+        handler.postDelayed(muteUnlockRunnable, durationMillis)
+        publishStatus()
+        return START_STICKY
+    }
+
+    /** Turns Priority Announce on/off; the 24-hour expiry is fixed for now (P17). */
+    private fun setPriorityAnnounce(active: Boolean) {
+        serviceStatus.markPriorityAnnounceActive(active)
+        handler.removeCallbacks(priorityAnnounceExpiryRunnable)
+        if (active) {
+            handler.postDelayed(priorityAnnounceExpiryRunnable, PRIORITY_ANNOUNCE_EXPIRY_MILLIS)
+        }
+        publishStatus()
+    }
+
+    /** Fresh device state, including the mode the service itself owns. */
+    private fun currentState() = stateReader.read(
+        priorityAnnounceActive = serviceStatus.state.value.isPriorityAnnounceActive,
+    )
+
     /**
      * Publishes speaking/queue state to the dashboard (P12).
      *
@@ -303,48 +309,46 @@ class AnnouncementService : Service(), NotificationSink {
         )
     }
 
+    /** Temporary mute timer callbacks (P16). */
+    private val muteUnlockRunnable = Runnable {
+        sessionStore.isTemporaryMuteActive = false
+        publishStatus()
+    }
+
+    /** Priority Announce expiry callback (P17). */
+    private val priorityAnnounceExpiryRunnable = Runnable {
+        serviceStatus.markPriorityAnnounceActive(false)
+        publishStatus()
+    }
+
     companion object {
         /** Explicit start (setup flow / dashboard, P11/P12). */
         const val ACTION_START = "com.jayanth.hearit.action.START_ANNOUNCEMENTS"
 
         /** Explicit stop (notification action / dashboard, P08/P12). */
-    const val ACTION_STOP = "com.jayanth.hearit.action.STOP_ANNOUNCEMENTS"
+        const val ACTION_STOP = "com.jayanth.hearit.action.STOP_ANNOUNCEMENTS"
 
-    /** Temporary mute actions (P16): 15 min, 30 min, 1 h, or until re-enabled. */
-    const val ACTION_TEMPORARY_MUTE_15MIN = "com.jayanth.hearit.action.TEMPORARY_MUTE_15MIN"
-    const val ACTION_TEMPORARY_MUTE_30MIN = "com.jayanth.hearit.action.TEMPORARY_MUTE_30MIN"
-    const val ACTION_TEMPORARY_MUTE_60MIN = "com.jayanth.hearit.action.TEMPORARY_MUTE_60MIN"
-    const val ACTION_TEMPORARY_MUTE_TOGGLE = "com.jayanth.hearit.action.TEMPORARY_MUTE_TOGGLE"
+        /** Temporary mute actions (P16): 15 min, 30 min, 1 h, or until re-enabled. */
+        const val ACTION_TEMPORARY_MUTE_15MIN = "com.jayanth.hearit.action.TEMPORARY_MUTE_15MIN"
+        const val ACTION_TEMPORARY_MUTE_30MIN = "com.jayanth.hearit.action.TEMPORARY_MUTE_30MIN"
+        const val ACTION_TEMPORARY_MUTE_60MIN = "com.jayanth.hearit.action.TEMPORARY_MUTE_60MIN"
+        const val ACTION_TEMPORARY_MUTE_TOGGLE = "com.jayanth.hearit.action.TEMPORARY_MUTE_TOGGLE"
 
-    /** Priority Announce actions (P17). */    const val ACTION_PRIORITY_ANNOUNCE_ON = "com.jayanth.hearit.action.PRIORITY_ANNOUNCE_ON"
-    const val ACTION_PRIORITY_ANNOUNCE_OFF = "com.jayanth.hearit.action.PRIORITY_ANNOUNCE_OFF"
-    const val ACTION_PRIORITY_ANNOUNCE_TOGGLE = "com.jayanth.hearit.action.PRIORITY_ANNOUNCE_TOGGLE"
-    /** Pause/Resume/Repeat/Skip current announcement (P16). */
-    const val ACTION_PAUSE = "com.jayanth.hearit.action.PAUSE"
-    const val ACTION_RESUME = "com.jayanth.hearit.action.RESUME"
-    const val ACTION_SKIP = "com.jayanth.hearit.action.SKIP"
-    const val ACTION_REPEAT = "com.jayanth.hearit.action.REPEAT"
+        /** Priority Announce actions (P17, Quick Settings tile P19b). */
+        const val ACTION_PRIORITY_ANNOUNCE_ON = "com.jayanth.hearit.action.PRIORITY_ANNOUNCE_ON"
+        const val ACTION_PRIORITY_ANNOUNCE_OFF = "com.jayanth.hearit.action.PRIORITY_ANNOUNCE_OFF"
+        const val ACTION_PRIORITY_ANNOUNCE_TOGGLE = "com.jayanth.hearit.action.PRIORITY_ANNOUNCE_TOGGLE"
 
-    /** Tick cadence: fast enough for ADR-011 stop-on-change, cheap enough to stay idle. */
-    private const val TICK_INTERVAL_MILLIS = 750L
-    }
+        /** Pause/Resume/Repeat/Skip current announcement (P16). */
+        const val ACTION_PAUSE = "com.jayanth.hearit.action.PAUSE"
+        const val ACTION_RESUME = "com.jayanth.hearit.action.RESUME"
+        const val ACTION_SKIP = "com.jayanth.hearit.action.SKIP"
+        const val ACTION_REPEAT = "com.jayanth.hearit.action.REPEAT"
 
-    /** Temporary mute timer callbacks (P16). */
-    private val muteToggleRunnable = object : Runnable {
-        override fun run() {
-            sessionStore.isTemporaryMuteActive = false
-        }
-    }
+        /** Tick cadence: fast enough for ADR-011 stop-on-change, cheap enough to stay idle. */
+        private const val TICK_INTERVAL_MILLIS = 750L
 
-    private val muteUnlockRunnable = object : Runnable {
-        override fun run() {
-            sessionStore.isTemporaryMuteActive = false
-        }
-    }
-
-    private val priorityAnnounceExpiryRunnable = object : Runnable {
-        override fun run() {
-            serviceStatus.markPriorityAnnounceActive(false)
-        }
+        /** Fixed Priority Announce expiry (master prompt §10: configurable duration is P17 UI). */
+        private const val PRIORITY_ANNOUNCE_EXPIRY_MILLIS = 24 * 60 * 60 * 1000L
     }
 }

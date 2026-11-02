@@ -106,7 +106,7 @@ class RoomHistoryRepository(
             sender = query.sender,
             dateFrom = query.dateFrom,
             dateTo = query.dateTo,
-            sortBy = query.sortBy,
+            sortBy = query.sortBy.name,
             limit = query.limit,
             offset = query.offset,
         ).map { it.toDomain() }

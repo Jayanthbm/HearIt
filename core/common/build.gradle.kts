@@ -12,6 +12,13 @@ kotlin {
     }
 }
 
+// Match the Kotlin target for the (empty) Java compilation too: without this, compileJava
+// inherits the Gradle daemon's JDK target and Gradle rejects the inconsistent pair.
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+}
+
 dependencies {
     testImplementation(libs.junit)
 }

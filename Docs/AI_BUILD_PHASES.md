@@ -151,25 +151,26 @@ Status legend: `Not started` · `In progress (cloud, not locally verified)` · `
 
 | Phase | Status |
 |---|---|
-| P00 Documentation foundation | Cloud complete, not locally verified |
-| P01 Core domain: modules + eligibility rules (part 1) | Cloud complete, not locally verified |
-| P02 Eligibility rules (part 2): text length, keywords, privacy | Cloud complete, not locally verified |
-| P03 Eligibility rules (part 3): audio output, DND, calls | Cloud complete, not locally verified |
-| P04 Announcement format and TTS contract | Cloud complete, not locally verified |
-| P05 Queue, grouping and scheduling | Cloud complete, not locally verified |
-| P06 Build foundation: Hilt, Application and manifest baseline | Cloud complete, not locally verified |
-| P07 Notification listener foundation | Cloud complete, not locally verified |
-| P08 Foreground announcement service and speech pipeline | Cloud complete, not locally verified |
-| P09 Preferences foundation (`:core:datastore`) | Cloud complete, not locally verified |
-| P10 History storage (`:core:database`) | Cloud complete, not locally verified |
-| P11 Setup and onboarding (`:core:setup`, `:app`) | Cloud complete, not locally verified |
-| P12 Dashboard and navigation shell (`:app`/`dashboard`) | Cloud complete, not locally verified |
-| P13 Applications feature (`:app`/`applications`) | Cloud complete, not locally verified |
-| P14 Devices feature (`:app`/`devices`) | Cloud complete, not locally verified | `d21c61b` |
-| P15 Global Rules, Voice & Speech settings | Cloud complete, not locally verified | `038b962` |
-| P16 Reading controls and temporary mute | Cloud complete, not locally verified | `ed7d7e1` |
-| P17 Priority Announce mode | Cloud complete, not locally verified | `eac40ca` |
-| P18 History feature UI | Cloud complete, not locally verified | `6f546bc` |
-| P19 Backup & Restore, Diagnostics, logging | Cloud complete, not locally verified | `fe8218d` |
-| P19b Quick Settings tile | Cloud complete, not locally verified | `6c32aa4` |
-| P20 Release hardening | In progress | — |
+| P00 Documentation foundation | Locally verified (docs only) |
+| P01 Core domain: modules + eligibility rules (part 1) | Locally verified — builds, unit tests pass |
+| P02 Eligibility rules (part 2): text length, keywords, privacy | Locally verified — builds, unit tests pass |
+| P03 Eligibility rules (part 3): audio output, DND, calls | Locally verified — builds, unit tests pass |
+| P04 Announcement format and TTS contract | Locally verified — builds, unit tests pass |
+| P05 Queue, grouping and scheduling | Locally verified — builds, unit tests pass |
+| P06 Build foundation: Hilt, Application and manifest baseline | Locally verified — debug APK builds; manifest repaired for the tile |
+| P07 Notification listener foundation | Locally verified — builds, unit tests pass; device behaviour untested |
+| P08 Foreground announcement service and speech pipeline | Repaired and locally verified to compile; **not behaviourally tested** (no device) |
+| P09 Preferences foundation (`:core:datastore`) | Locally verified — builds, unit tests pass |
+| P10 History storage (`:core:database`) | Locally verified — builds, unit tests pass |
+| P11 Setup and onboarding (`:core:setup`, `:app`) | Locally verified to compile; UI not interacted with |
+| P12 Dashboard and navigation shell (`:app`/`dashboard`) | Repaired and locally verified to compile; UI not interacted with |
+| P13 Applications feature (`:app`/`applications`) | Locally verified to compile; UI not interacted with |
+| P14 Devices feature (`:app`/`devices`) | **Gap — no Devices screen exists in the code**, despite the cloud entry; not implemented |
+| P15 Global Rules, Voice & Speech settings | Repaired (screen was non-compiling) and locally verified to compile |
+| P16 Reading controls and temporary mute | Locally verified to compile; pause = stop + re-speak (no native TTS pause) |
+| P17 Priority Announce mode | Locally verified to compile; rule precedence unit-tested |
+| P18 History feature UI | **Partial — dashboard search/clear only; no dedicated History screen** |
+| P19 Backup & Restore, Diagnostics, logging | **Partial — export/import repository methods only; the two screens were non-compiling and were removed** |
+| P19b Quick Settings tile | Repaired against the real `TileService`/`Tile` API and locally verified to compile |
+| P20 Release hardening | Not started (blocked by the P14/P18/P19 gaps) |
+| L1 Build/test verification of P00–P19b | Complete — `379` unit tests pass, debug APK builds, lint 0 errors (`2026-11-03`) |

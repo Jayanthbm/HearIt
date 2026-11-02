@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<quick-settings-tile xmlns:tools="http://schemas.android.com/tools"
-    android:key="com.jayanth.hearit.priority_announce_tile"
-    android:settingsComponent="com.jayanth.hearit.service.PriorityAnnounceTileService"
-    tools:targetApi="23" />

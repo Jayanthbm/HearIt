@@ -66,8 +66,12 @@ class DefaultSettingsRepository(
             val parsed = JSONObject(json)
             val version = parsed.optInt("version", 0)
             if (version >= 1) {
-                val settings = SettingsCodec.decode(parsed.getJSONObject("settings"))
-                store.replaceAll(SettingsCodec.encode(settings))
+                // The codec works on flat string maps (DataStore's own representation); a
+                // backup stores the same map as a JSON object, so convert it back exactly.
+                val exported = parsed.getJSONObject("settings")
+                val values = LinkedHashMap<String, String>(exported.length())
+                exported.keys().forEach { key -> values[key] = exported.getString(key) }
+                store.replaceAll(SettingsCodec.encode(SettingsCodec.decode(values)))
             }
         } catch (e: Exception) {
             // Invalid JSON - silently fail; UI will surface the error

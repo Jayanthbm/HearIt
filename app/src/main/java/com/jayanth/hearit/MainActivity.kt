@@ -8,6 +8,7 @@ import androidx.activity.viewModels
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import com.jayanth.hearit.applications.ApplicationsViewModel
+import com.jayanth.hearit.applications.GlobalSettingsViewModel
 import com.jayanth.hearit.dashboard.DashboardRoute
 import com.jayanth.hearit.dashboard.DashboardViewModel
 import com.jayanth.hearit.setup.SetupRoute
@@ -33,6 +34,7 @@ class MainActivity : ComponentActivity() {
     private val setupViewModel: SetupViewModel by viewModels()
     private val dashboardViewModel: DashboardViewModel by viewModels()
     private val applicationsViewModel: ApplicationsViewModel by viewModels()
+    private val globalSettingsViewModel: GlobalSettingsViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -44,6 +46,7 @@ class MainActivity : ComponentActivity() {
                     DashboardRoute(
                         viewModel = dashboardViewModel,
                         applicationsViewModel = applicationsViewModel,
+                        globalSettingsViewModel = globalSettingsViewModel,
                     )
                 } else {
                     SetupRoute(viewModel = setupViewModel)

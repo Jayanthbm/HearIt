@@ -15,14 +15,17 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -32,6 +35,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -49,6 +53,8 @@ import androidx.lifecycle.LifecycleOwner
 import com.jayanth.hearit.R
 import com.jayanth.hearit.applications.ApplicationsRoute
 import com.jayanth.hearit.applications.ApplicationsViewModel
+import com.jayanth.hearit.applications.GlobalSettingsRoute
+import com.jayanth.hearit.applications.GlobalSettingsViewModel
 import com.jayanth.hearit.core.common.model.AudioOutputSettings
 import com.jayanth.hearit.core.common.model.HistoryStatus
 import com.jayanth.hearit.setup.TestAnnouncementState
@@ -69,6 +75,7 @@ import com.jayanth.hearit.setup.TestAnnouncementState
 fun DashboardRoute(
     viewModel: DashboardViewModel,
     applicationsViewModel: ApplicationsViewModel,
+    globalSettingsViewModel: GlobalSettingsViewModel,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.state.collectAsState()
@@ -101,7 +108,13 @@ fun DashboardRoute(
         onStartService = viewModel::onStartService,
         onStopService = viewModel::onStopService,
         onTestAnnouncement = viewModel::onTestAnnouncement,
+        onTemporaryMuteClicked = viewModel::onTemporaryMuteClicked,
+        onTemporaryMuteCleared = viewModel::onTemporaryMuteCleared,
+        onPriorityAnnounceToggled = viewModel::onPriorityAnnounceToggled,
+        onHistorySearch = viewModel::onHistorySearch,
+        onHistoryClearAll = viewModel::onHistoryClearAll,
         appsContent = { ApplicationsRoute(viewModel = applicationsViewModel) },
+        globalRulesContent = { GlobalSettingsRoute(viewModel = globalSettingsViewModel) },
         modifier = modifier,
     )
 }
@@ -111,11 +124,7 @@ fun DashboardRoute(
  *
  * Stateless — it renders [state] and emits events, so no navigation or service policy
  * lives here (global standards). Every visible string is a resource, every interactive
- * target is at least 48 dp, all status is written out as text (never colour alone), and
- * the bottom bar exposes each tab as a single `Role.Tab` selectable with a selected state,
- * which is what TalkBack announces.
- * @param appsContent Content of the Apps tab, supplied by the caller so the shell stays
- *   unaware of the applications feature (P13).
+ * target is at least 48 dp, and all status is written out as text (never colour alone).
  */
 @Composable
 fun DashboardScreen(
@@ -126,9 +135,13 @@ fun DashboardScreen(
     onStartService: () -> Unit,
     onStopService: () -> Unit,
     onTestAnnouncement: (String) -> Unit,
+    onTemporaryMuteClicked: (Int) -> Unit,
+    onTemporaryMuteCleared: () -> Unit,
+    onPriorityAnnounceToggled: (Boolean) -> Unit,
     onHistorySearch: (DashboardFilterState) -> Unit,
     onHistoryClearAll: () -> Unit,
     appsContent: @Composable () -> Unit,
+    globalRulesContent: @Composable () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Scaffold(
@@ -158,10 +171,17 @@ fun DashboardScreen(
                         onStartService = onStartService,
                         onStopService = onStopService,
                         onTestAnnouncement = onTestAnnouncement,
+                        onTemporaryMuteClicked = onTemporaryMuteClicked,
+                        onTemporaryMuteCleared = onTemporaryMuteCleared,
+                        onPriorityAnnounceToggled = onPriorityAnnounceToggled,
+                        onHistorySearch = onHistorySearch,
+                        onHistoryClearAll = onHistoryClearAll,
                         onSelectDestination = onSelectDestination,
                     )
 
                     destination == DashboardDestination.APPS -> appsContent()
+
+                    destination == DashboardDestination.GLOBAL_RULES -> globalRulesContent()
 
                     else -> DestinationPlaceholder(destination = destination)
                 }
@@ -195,8 +215,7 @@ private fun DashboardHeader(title: String, showBack: Boolean, onBack: () -> Unit
  *
  * Plain `Surface` + selectable columns rather than `NavigationBar`: the Material
  * `NavigationBarItem` needs an icon per destination, and the icon set with Devices/History
- * glyphs is a separate artifact that cannot be compile-verified in the cloud (ADR-024).
- * Text labels are the accessible names either way.
+ * glyphs is a separate artifact (ADR-024). Text labels are the accessible names either way.
  */
 @Composable
 private fun DashboardBottomBar(
@@ -249,6 +268,11 @@ private fun DashboardHome(
     onStartService: () -> Unit,
     onStopService: () -> Unit,
     onTestAnnouncement: (String) -> Unit,
+    onTemporaryMuteClicked: (Int) -> Unit,
+    onTemporaryMuteCleared: () -> Unit,
+    onPriorityAnnounceToggled: (Boolean) -> Unit,
+    onHistorySearch: (DashboardFilterState) -> Unit,
+    onHistoryClearAll: () -> Unit,
     onSelectDestination: (DashboardDestination) -> Unit,
 ) {
     val testAnnouncementText = stringResource(R.string.dashboard_test_announcement_spoken)
@@ -272,18 +296,14 @@ private fun DashboardHome(
             value = onOff(state.announcementsActive),
         )
         PriorityAnnounceRow(
-            isActive = state.priorityAnnounce.isActive,
-            onToggled = { onPriorityAnnounceToggled(it) },
-        ){
-            supporting = stringResource(R.string.dashboard_priority_announce_note),
-        }
+            isActive = state.priorityAnnounceActive,
+            onToggled = onPriorityAnnounceToggled,
+        )
         TemporaryMuteRow(
             isMuted = state.temporaryMuteActive,
-            onMuteClicked = { onTemporaryMuteClicked(it) },
-            onUnmuteClicked = { onTemporaryMuteCleared(it) },
-        ){
-            supporting = stringResource(R.string.dashboard_temporary_mute_note),
-        }
+            onMuteClicked = onTemporaryMuteClicked,
+            onUnmuteClicked = onTemporaryMuteCleared,
+        )
         StatusRow(
             label = stringResource(R.string.dashboard_output),
             value = state.outputLabel ?: stringResource(R.string.dashboard_output_none),
@@ -299,7 +319,12 @@ private fun DashboardHome(
 
         Spacer(Modifier.height(20.dp))
         SectionTitle(R.string.dashboard_section_recent)
-        RecentHistoryContent(state = state, onSelectDestination = onSelectDestination)
+        RecentHistoryContent(
+            state = state,
+            onHistorySearch = onHistorySearch,
+            onHistoryClearAll = onHistoryClearAll,
+            onSelectDestination = onSelectDestination,
+        )
 
         Spacer(Modifier.height(20.dp))
         SectionTitle(R.string.dashboard_section_actions)
@@ -348,7 +373,11 @@ private fun ServiceCard(
             )
             Text(
                 text = stringResource(
-                    if (state.service.isRunning) R.string.dashboard_status_active else R.string.dashboard_status_inactive,
+                    if (state.service.isRunning) {
+                        R.string.dashboard_status_active
+                    } else {
+                        R.string.dashboard_status_inactive
+                    },
                 ),
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.SemiBold,
@@ -433,15 +462,12 @@ private fun StatusRow(label: String, value: String, supporting: String? = null) 
     }
 }
 
-/** Temporary mute control row (P16).
- * Shows the current mute state and provides 15min/30min/60min/toggle controls.
- */
+/** Temporary mute control row (P16): 15/30/60 minutes or unmute. */
 @Composable
 private fun TemporaryMuteRow(
     isMuted: Boolean,
-    onMuteClicked: (Int) -> Unit, 
-    onUnmuteClicked: (() -> Unit),
-    supporting: String? = null,
+    onMuteClicked: (Int) -> Unit,
+    onUnmuteClicked: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(vertical = 4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -452,9 +478,9 @@ private fun TemporaryMuteRow(
             )
             Text(
                 text = if (isMuted) {
-                    stringResource(R.string.dashboard_status_active)
+                    stringResource(R.string.dashboard_status_on)
                 } else {
-                    stringResource(R.string.dashboard_status_inactive)
+                    stringResource(R.string.dashboard_status_off)
                 },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -462,42 +488,74 @@ private fun TemporaryMuteRow(
             )
         }
         if (!isMuted) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(
                     onClick = { onMuteClicked(15) },
-                    modifier = Modifier.width(60.dp).heightIn(min = 36.dp),
+                    modifier = Modifier.heightIn(min = 48.dp),
                 ) {
                     Text(text = stringResource(R.string.mute_15min))
                 }
                 OutlinedButton(
                     onClick = { onMuteClicked(30) },
-                    modifier = Modifier.width(60.dp).heightIn(min = 36.dp), start = 4.dp
+                    modifier = Modifier.heightIn(min = 48.dp),
                 ) {
                     Text(text = stringResource(R.string.mute_30min))
                 }
                 OutlinedButton(
                     onClick = { onMuteClicked(60) },
-                    modifier = Modifier.width(60.dp).heightIn(min = 36.dp), start = 4.dp
+                    modifier = Modifier.heightIn(min = 48.dp),
                 ) {
                     Text(text = stringResource(R.string.mute_60min))
                 }
             }
         } else {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                OutlinedButton(
-                    onClick = { onUnmuteClicked() },
-                    modifier = Modifier.width(80.dp).heightIn(min = 36.dp),
-                ) {
-                    Text(text = stringResource(R.string.unmute))
-                }
+            OutlinedButton(
+                onClick = onUnmuteClicked,
+                modifier = Modifier.heightIn(min = 48.dp),
+            ) {
+                Text(text = stringResource(R.string.unmute))
             }
         }
-        if (supporting != null) {
+    }
+}
+
+/** Priority Announce row (P17): separate mode with its own on/off control. */
+@Composable
+private fun PriorityAnnounceRow(
+    isActive: Boolean,
+    onToggled: (Boolean) -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(vertical = 4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = supporting,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                text = stringResource(R.string.dashboard_priority_announce),
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.weight(1f).padding(end = 12.dp),
             )
+            Text(
+                text = if (isActive) {
+                    stringResource(R.string.priority_announce_on)
+                } else {
+                    stringResource(R.string.priority_announce_off)
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.End,
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(
+                onClick = { onToggled(true) },
+                modifier = Modifier.heightIn(min = 48.dp),
+            ) {
+                Text(text = stringResource(R.string.priority_announce_on))
+            }
+            OutlinedButton(
+                onClick = { onToggled(false) },
+                modifier = Modifier.heightIn(min = 48.dp),
+            ) {
+                Text(text = stringResource(R.string.priority_announce_off))
+            }
         }
     }
 }
@@ -505,10 +563,12 @@ private fun TemporaryMuteRow(
 @Composable
 private fun RecentHistoryContent(
     state: DashboardUiState,
+    onHistorySearch: (DashboardFilterState) -> Unit,
+    onHistoryClearAll: () -> Unit,
     onSelectDestination: (DashboardDestination) -> Unit,
 ) {
-    val filterState = remember { DashboardFilterState() }
-    var filterState by remember { mutableStateOf(filterState) }
+    var filter by remember { mutableStateOf(DashboardFilterState()) }
+    var confirmingClear by rememberSaveable { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
         Text(
@@ -518,34 +578,29 @@ private fun RecentHistoryContent(
         )
 
         OutlinedTextField(
-            value = filterState.query,
-            onValueChange = { filterState = filterState.copy(query = it) },
-            modifier = Modifier.weight(1f),
+            value = filter.query,
+            onValueChange = { filter = filter.copy(query = it) },
+            modifier = Modifier.fillMaxWidth(),
             label = { Text(text = stringResource(R.string.dashboard_search_history)) },
             placeholder = { Text(text = stringResource(R.string.dashboard_search_placeholder)) },
-            trailingIcon = { if (filterState.query.isNotEmpty()) {
-                IconButton(
-                    onClick = { filterState = filterState.copy(query = "") },
-                ) {
-                    Icon(Icons.Default.Close, contentDescription = null)
-                }
-            } else {
-                null
-            },
+            singleLine = true,
         )
 
-        Row(horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             OutlinedButton(
-                onClick = { onHistorySearch(filterState) },
-                modifier = Modifier.width(80.dp).padding(end = 4.dp),
+                onClick = { onHistorySearch(filter) },
+                modifier = Modifier.heightIn(min = 48.dp),
             ) {
-                Text(text = "Search")
+                Text(text = stringResource(R.string.dashboard_search_history))
             }
             OutlinedButton(
-                onClick = { onHistoryClearAll() },
-                modifier = Modifier.width(80.dp).padding(start = 4.dp)
+                onClick = { confirmingClear = true },
+                modifier = Modifier.heightIn(min = 48.dp),
             ) {
-                Text(text = "Clear all")
+                Text(text = stringResource(R.string.dashboard_clear_all))
             }
         }
 
@@ -578,6 +633,29 @@ private fun RecentHistoryContent(
                 }
             }
         }
+    }
+
+    if (confirmingClear) {
+        AlertDialog(
+            onDismissRequest = { confirmingClear = false },
+            title = { Text(text = stringResource(R.string.history_clear_all_confirm_title)) },
+            text = { Text(text = stringResource(R.string.history_clear_all_confirm_body)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmingClear = false
+                        onHistoryClearAll()
+                    },
+                ) {
+                    Text(text = stringResource(R.string.dashboard_clear_all))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmingClear = false }) {
+                    Text(text = stringResource(R.string.action_cancel))
+                }
+            },
+        )
     }
 }
 
@@ -647,11 +725,10 @@ private fun TestAnnouncementStatus(state: TestAnnouncementState) {
 }
 
 /**
- * Placeholder for a destination whose feature phase has not landed yet (P13–P19).
+ * Placeholder for a destination whose feature screen has not landed yet.
  *
- * The shell ships the entry so navigation, back handling and accessibility can be
- * verified now; the copy says the screen is not implemented instead of showing dead
- * controls.
+ * The shell ships the entry so navigation, back handling and accessibility are exercised
+ * now; the copy says the screen is not implemented instead of showing dead controls.
  */
 @Composable
 private fun DestinationPlaceholder(destination: DashboardDestination) {
@@ -662,61 +739,6 @@ private fun DestinationPlaceholder(destination: DashboardDestination) {
             text = stringResource(R.string.dashboard_placeholder_body),
             style = MaterialTheme.typography.bodyMedium,
         )
-    }
-}
-
-@Composable
-private fun PriorityAnnounceRow(
-    isActive: Boolean,
-    onToggled: (Boolean) -> Unit,
-) {
-    val remainingMillis = 0L // TODO: read from service status in P17
-    val remainingStr = when {
-        remainingMillis <= 0 -> stringResource(R.string.priority_announce_no_expiry)
-        else -> {
-            val minutes = (remainingMillis / 60000).coerceAtLeast(1)
-            stringResource(R.string.priority_announce_remaining, minutes)
-        }
-    }
-    Column(modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(vertical = 4.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = stringResource(R.string.dashboard_priority_announce),
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.weight(1f).padding(end = 12.dp),
-            )
-            Text(
-                text = if (isActive) {
-                    stringResource(R.string.priority_announce_on)
-                } else {
-                    stringResource(R.string.priority_announce_off)
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.End,
-            )
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            OutlinedButton(
-                onClick = { onToggled(true) },
-                modifier = Modifier.width(48.dp).heightIn(min = 32.dp),
-            ) {
-                Text(text = stringResource(R.string.priority_announce_on))
-            }
-            OutlinedButton(
-                onClick = { onToggled(false) },
-                modifier = Modifier.width(48.dp).heightIn(min = 32.dp), start = 4.dp
-            ) {
-                Text(text = stringResource(R.string.priority_announce_off))
-            }
-        }
-        Row(verticalAlignment = Alignment.CenterVertically, start = 4.dp) {
-            Text(
-                text = remainingStr,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
     }
 }
 
@@ -747,150 +769,3 @@ private fun statusLabel(status: HistoryStatus): String = stringResource(
         HistoryStatus.INTERRUPTED -> R.string.dashboard_history_interrupted
     },
 )
-
-    /** Backup & Restore screen (P19). */
-    @Composable
-    private fun BackupRestoreScreen(
-        onImport: (String) -> Unit,
-        onExport: () -> String,
-    ) {
-        Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-            Text(
-                text = stringResource(R.string.backup_restore),
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(bottom = 16.dp),
-            )
-
-            OutlinedTextField(
-                value = remember { importJson }
-                onValueChange = { importJson = it }
-                label = { Text(text = stringResource(R.string.import_settings)) }
-                placeholder = { Text(text = stringResource(R.string.import_json_placeholder)) }
-                modifier = Modifier.weight(1f)
-                trailingIcon = { if (importJson.isNotEmpty()) {
-                    IconButton(onClick = { importJson = "" }) {
-                        Icon(Icons.Default.Close, contentDescription = null)
-                    }
-                } else {
-                    null
-                },
-            )
-
-            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                OutlinedButton(
-                    onClick = { onExport() }
-                    ,
-                    modifier = Modifier.width(120.dp).padding(end = 4.dp)
-                ) {
-                    Text(text = stringResource(R.string.export_settings))
-                }
-                OutlinedButton(
-                    onClick = { onImport(importJson) }
-                    ,
-                    modifier = Modifier.width(120.dp).padding(start = 4.dp)
-                ) {
-                    Text(text = stringResource(R.string.import_settings))
-                }
-            }
-
-            Text(
-                text = if (importJson.isEmpty()) {
-                    stringResource(R.string.no_export_yet)
-                } else {
-                    stringResource(R.string.last_exported, importJson.substring(0, minOf(20, importJson.length)) + "...")
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-
-    /** Diagnostics screen (P19). */
-    @Composable
-    private fun DiagnosticsScreen(
-        serviceState: ServiceStatusMonitor.State,
-        onBack: () -> Unit,
-    ) {
-        Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-            Text(
-                text = stringResource(R.string.diagnostics),
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(bottom = 16.dp),
-            )
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = stringResource(R.string.service_state),
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.width(120.dp).padding(end = 8.dp),
-                )
-                Text(
-                    text = when (serviceState) {
-                        is ServiceStatusMonitor.State.Running -> R.string.service_running
-                        is ServiceStatusMonitor.State.Idle -> R.string.service_idle
-                        ServiceStatusMonitor.State.Unknown -> R.string.service_unknown
-                    },
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = when (serviceState) {
-                        is ServiceStatusMonitor.State.Running -> MaterialTheme.colorScheme.primary
-                        is ServiceStatusMonitor.State.Idle -> MaterialTheme.colorScheme.onSurface
-                        ServiceStatusMonitor.State.Unknown -> MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                )
-            }
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = stringResource(R.string.connected_output),
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.width(120.dp).padding(end = 8.dp),
-                )
-                Text(
-                    text = when (serviceState) {
-                        is ServiceStatusMonitor.State.Running -> serviceState.connectedOutputs.firstOrNull()?.label ?: stringResource(R.string.none)
-                        else -> stringResource(R.string.none)
-                    },
-                    style = MaterialTheme.typography.bodyLarge,
-                )
-            }
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = stringResource(R.string.tts_available),
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.width(120.dp).padding(end = 8.dp),
-                )
-                Text(
-                    text = if (serviceState.ttsAvailable) {
-                        stringResource(R.string.yes)
-                    } else {
-                        stringResource(R.string.no)
-                    },
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = when { serviceState.ttsAvailable -> MaterialTheme.colorScheme.onSurface 
-                                  else -> MaterialTheme.colorScheme.onSurfaceVariant }
-                )
-            }
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = stringResource(R.string.biometric_lock),
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.width(120.dp).padding(end = 8.dp),
-                )
-                Text(
-                    text = stringResource(R.string.secure_screen_mode),
-                    style = MaterialTheme.typography.bodyLarge,
-                )
-            }
-
-            Spacer(Modifier.height(24.dp))
-            OutlinedButton(
-                onClick = onBack
-                ,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-            ) {
-                Text(text = stringResource(R.string.back))
-            }
-        }
-    }

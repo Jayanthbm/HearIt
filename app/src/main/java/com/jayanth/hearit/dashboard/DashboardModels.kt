@@ -16,11 +16,13 @@ import com.jayanth.hearit.setup.TestAnnouncementState
  * @property isSpeaking True while an announcement is being spoken.
  * @property pendingCount Items waiting in the queue (call-held items are excluded, as in
  *   the queue's own `pendingCount`).
+ * @property isPriorityAnnounceActive True while Priority Announce mode is on (P17/P19b).
  */
 data class ServiceSnapshot(
     val isRunning: Boolean = false,
     val isSpeaking: Boolean = false,
     val pendingCount: Int = 0,
+    val isPriorityAnnounceActive: Boolean = false,
 )
 
 /**
@@ -37,9 +39,18 @@ data class RecentAnnouncement(
     val recordedAtMillis: Long,
 )
 
+/** How the history list is ordered (master prompt §12: newest/oldest). */
+enum class DashboardSortBy {
+    RecentFirst,
+    OldestFirst,
+    ByApp,
+}
+
 /**
  * Filter state for history search (P18).
- * Holds the current query text and selected filter options.
+ *
+ * Holds the current query text and selected filter options; the ViewModel maps it onto
+ * `HistoryQuery`, so the UI never builds SQL or knows about the database package.
  */
 data class DashboardFilterState(
     val query: String = "",
@@ -49,7 +60,7 @@ data class DashboardFilterState(
     val filterSender: String? = null,
     val filterDateFrom: Long? = null,
     val filterDateTo: Long? = null,
-    val filterSortBy: DashboardModels.SortBy = DashboardModels.SortBy.RecentFirst,
+    val filterSortBy: DashboardSortBy = DashboardSortBy.RecentFirst,
 )
 
 /**
@@ -61,13 +72,11 @@ data class DashboardFilterState(
  *
  * @property loaded False until the first settings emission arrives.
  * @property service Live service state from [ServiceStatusMonitor].
- * @property enabledAppCount Apps the user enabled; the pipeline is silent while this is 0
- *   (`SettingsSource` placeholder until P13).
+ * @property enabledAppCount Apps the user enabled; the pipeline is silent while this is 0.
  * @property audioOutput Allowed output categories, shown as a summary row.
  * @property outputLabel Name of the first connected routed output, or null when none is
  *   connected right now.
- * @property temporaryMuteActive Mute override read from the session store; P16 owns the
- *   control that changes it.
+ * @property temporaryMuteActive Mute override read from the session store.
  * @property recentHistory Newest history rows (at most [DashboardViewModel.RECENT_HISTORY_LIMIT]).
  * @property recentHistoryLoaded False until the first history read finishes.
  * @property historyUnavailable True when the history read failed; the section says so
@@ -85,42 +94,11 @@ data class DashboardUiState(
     val recentHistoryLoaded: Boolean = false,
     val historyUnavailable: Boolean = false,
     val testAnnouncement: TestAnnouncementState = TestAnnouncementState.IDLE,
-)
+) {
 
     /** Master prompt §13 "Normal announcements ON/OFF": on exactly while the service runs. */
     val announcementsActive: Boolean get() = service.isRunning
 
-    /** Priority Announce state (P17): ON with remaining expiry, or OFF. */
-    data class PriorityAnnounceState(
-        val isActive: Boolean,
-        val remainingMillis: Long, // millis until automatic expiry
-    )
-
-    val priorityAnnounce: PriorityAnnounceState get() = PriorityAnnounceState(
-        isActive = false, // updated from service status
-        remainingMillis = 0L,
-    )
-
-    /**
-     * Master prompt §13 "Priority Announce ON/OFF and remaining duration".
-     *
-     * Updated by the ViewModel from the service status; P17 replaces this with the real
-     * toggle and expiry logic.
-     */
-    val priorityAnnounceActive: Boolean get() = priorityAnnounce.isActive
-
-    /** Returns the remaining time string for the Priority Announce expiry. */
-    val priorityAnnounceRemaining: String get() {
-        val millis = priorityAnnounce.remainingMillis
-        if (millis <= 0) return stringResource(R.string.priority_announce_no_expiry)
-        val minutes = (millis / 60000).coerceAtLeast(1)
-        return stringResource(R.string.priority_announce_remaining, minutes)
-    }
-
-    /** How to sort history results in the dashboard (P18). */
-    enum class SortBy {
-        RecentFirst,
-        OldestFirst,
-        ByApp,
-    }
+    /** Priority Announce state (P17): on/off, owned by the service and its tile. */
+    val priorityAnnounceActive: Boolean get() = service.isPriorityAnnounceActive
 }

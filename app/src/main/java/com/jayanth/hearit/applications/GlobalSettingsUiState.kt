@@ -1,36 +1,29 @@
 package com.jayanth.hearit.applications
 
-import com.jayanth.hearit.core.common.model.ScreenCondition
-import com.jayanth.hearit.core.common.model.LockCondition
-import com.jayanth.hearit.core.common.model.EligibilitySettings
-import com.jayanth.hearit.core.common.model.TextLengthSettings
-import com.jayanth.hearit.core.common.model.KeywordFilterSettings
-import com.jayanth.hearit.core.common.model.PrivacySettings
 import com.jayanth.hearit.core.common.model.AudioOutputSettings
-import com.jayanth.hearit.core.common.model.AudioOutputKind
+import com.jayanth.hearit.core.common.model.KeywordFilterSettings
+import com.jayanth.hearit.core.common.model.LockCondition
+import com.jayanth.hearit.core.common.model.PrivacySettings
+import com.jayanth.hearit.core.common.model.ScreenCondition
+import com.jayanth.hearit.core.common.model.TextLengthSettings
+import com.jayanth.hearit.core.datastore.HearItSettings
 
-/** UiState for global (not per-app) settings configuration (phase P15). */
+/**
+ * UiState for the global (not per-app) rules form (phase P15).
+ *
+ * A plain projection of the settings the screen edits; it holds no Compose or Android
+ * types so it can be asserted in JVM tests.
+ */
 data class GlobalSettingsUiState(
-
-    /** Screen condition: ON (announce only on), OFF (announce only off), or BOTH. Default OFF. */
     val screenCondition: ScreenCondition = ScreenCondition.OFF,
-
-    /** Lock condition: LOCKED (announce only when locked), UNLOCKED (announce only when unlocked), or BOTH. Default LOCKED. */
     val lockCondition: LockCondition = LockCondition.LOCKED,
-
-    /** Text length limit configuration. null = no limit. */
     val textLength: TextLengthSettings = TextLengthSettings(),
-
-    /** Keyword filter configuration. */
     val keywordFilter: KeywordFilterSettings = KeywordFilterSettings(),
-
-    /** Privacy rules configuration. */
     val privacy: PrivacySettings = PrivacySettings(),
-
-    /** Audio output allowlist configuration. */
     val audioOutput: AudioOutputSettings = AudioOutputSettings(),
+) {
 
-    /** Whether the global settings form has any non-inherited overrides. */
+    /** True when at least one group differs from the documented defaults. */
     val hasOverrides: Boolean
         get() = screenCondition != ScreenCondition.OFF ||
             lockCondition != LockCondition.LOCKED ||
@@ -38,4 +31,17 @@ data class GlobalSettingsUiState(
             keywordFilter != KeywordFilterSettings() ||
             privacy != PrivacySettings() ||
             audioOutput != AudioOutputSettings()
-)
+
+    companion object {
+
+        /** Builds the form state from persisted settings. */
+        fun from(settings: HearItSettings): GlobalSettingsUiState = GlobalSettingsUiState(
+            screenCondition = settings.eligibility.screenCondition,
+            lockCondition = settings.eligibility.lockCondition,
+            textLength = settings.eligibility.textLength,
+            keywordFilter = settings.eligibility.keywordFilter,
+            privacy = settings.eligibility.privacy,
+            audioOutput = settings.eligibility.audioOutput,
+        )
+    }
+}

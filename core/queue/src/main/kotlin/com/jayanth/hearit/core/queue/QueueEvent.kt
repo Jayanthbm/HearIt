@@ -37,6 +37,17 @@ sealed interface QueueEvent {
         override val reason: SkipReason? = null
     }
 
+    /**
+     * Every section of the announcement was spoken, so history records it as announced
+     * (master prompt §12 status vocabulary).
+     */
+    data class Announced(
+        override val snapshot: NotificationSnapshot,
+    ) : QueueEvent {
+        override val historyStatus: HistoryStatus = HistoryStatus.ANNOUNCED
+        override val reason: SkipReason? = null
+    }
+
     /** The item was not repeated because it was already announced (master prompt §10 dedup). */
     data class Deduplicated(
         override val snapshot: NotificationSnapshot,

@@ -23,10 +23,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 - `:core:common` and `:core:rules` Kotlin/JVM modules (P01): notification snapshot, eligibility settings with per-app inheritance, runtime state, skip reasons, and the deterministic announcement-eligibility pipeline covering the enabled-app list, temporary mute and screen/lock with the Priority Announce override. JVM unit tests written for all three rule families — not yet executed (cloud-agent restriction).
 
 ### Changed
-- Nothing yet.
+- First local build (phase L1): the project now compiles. Five Kotlin/JVM modules had their Java/Kotlin targets aligned, `:core:database` gained its Room schema input directory, `:app` gained the Room runtime dependency, and the Quick Settings tile was rebuilt against the real `TileService`/`Tile` API (correct `BIND_QUICK_SETTINGS_TILE` permission, `QS_TILE` action, `TOGGLEABLE_TILE` metadata; the unsupported tile layout/config resources were removed).
+- Rewritten because they never compiled: dashboard models/ViewModel/screen, the Global Rules screen (now backed by a real `GlobalSettingsViewModel` writing through `SettingsRepository`), the global settings UI state, `SettingsSource` (apps stay disabled by default; Priority listing separate), and the history DAO sort (enum names instead of enum constants in `@Query`).
+- Announcement history now records `ANNOUNCED` via the new `QueueEvent.Announced`, and the lock skip reason names the actual device state.
+
+### Fixed
+- `strings.xml` was invalid XML (literal `\n` escapes, `unicode_escape` encoding, raw `&`, seven duplicate string names); `AndroidManifest.xml` had an unclosed `meta-data` element and a non-existent Quick Settings permission.
+- Settings backup import now converts the exported JSON object back into the codec's string map instead of passing a `JSONObject` where a `Map<String, String>` was required.
 
 ### Notes
 - Cloud-agent changes are **Not locally verified** until the local agent builds and tests them.
+- **Local verification (2026-11-03):** `./gradlew test` 379 tests / 0 failures, `assembleDebug` succeeds, `lintDebug` 0 errors. Emulator and physical-device behaviour remain untested; P14 (Devices) has no implementation and P18/P19 are partial.
 
 ## [1.0.0] — not released
 

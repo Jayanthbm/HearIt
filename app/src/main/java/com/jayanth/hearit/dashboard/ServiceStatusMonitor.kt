@@ -21,7 +21,7 @@ import kotlinx.coroutines.flow.update
  * stopped — which is the truth the dashboard must show.
  *
  * Threading: safe to read from any thread (`StateFlow`); writers are the service's
- * main-thread loop only, so updates stay ordered with speech state.
+ * main-thread loop, so updates stay ordered with speech state.
  */
 class ServiceStatusMonitor {
 
@@ -30,12 +30,20 @@ class ServiceStatusMonitor {
     /** Current service state; starts stopped until the service reports otherwise. */
     val state: StateFlow<ServiceSnapshot> = _state.asStateFlow()
 
+    /** Convenience read for the Quick Settings tile (P19b). */
+    val isPriorityAnnounceActive: Boolean
+        get() = _state.value.isPriorityAnnounceActive
+
     /** Called by the service once it is in the foreground. */
     fun markRunning() {
         _state.update { it.copy(isRunning = true) }
     }
 
-    /** Called on explicit stop and in `onDestroy`; also clears speaking/queue state. */
+    /**
+     * Called on explicit stop and in `onDestroy`; also clears speaking/queue/Priority state.
+     *
+     * Priority Announce is a mode of the running service, so it cannot outlive it.
+     */
     fun markStopped() {
         _state.value = ServiceSnapshot()
     }
@@ -50,5 +58,10 @@ class ServiceStatusMonitor {
         _state.update {
             it.copy(isSpeaking = isSpeaking, pendingCount = pendingCount.coerceAtLeast(0))
         }
+    }
+
+    /** Called by the service when Priority Announce is turned on or off (P17/P19b). */
+    fun markPriorityAnnounceActive(active: Boolean) {
+        _state.update { it.copy(isPriorityAnnounceActive = active) }
     }
 }

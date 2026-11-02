@@ -56,6 +56,9 @@ dependencies {
     implementation(project(":core:rules"))
     implementation(project(":core:setup"))
     implementation(project(":core:tts"))
+    // The dashboard provides the history database (DashboardModule), so the Room runtime
+    // type must be on this module's compile classpath, not just on :core:database's.
+    implementation(libs.androidx.room.runtime)
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
     testImplementation(libs.junit)
