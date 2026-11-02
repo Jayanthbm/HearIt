@@ -9,4 +9,86 @@
     <string name="notification_title_speaking">Reading a notification</string>
     <string name="notification_text_service">Tap to open Hear It</string>
     <string name="notification_action_stop">Stop</string>
+
+    <!-- Setup and onboarding (P11, master prompt §4). -->
+    <string name="setup_loading">Loading…</string>
+    <string name="setup_progress">Step %1$d of %2$d</string>
+    <string name="setup_back">Back</string>
+    <string name="setup_next">Continue</string>
+    <string name="setup_skip">Skip</string>
+    <string name="setup_start">Start Hear It</string>
+    <string name="setup_recheck">Check again</string>
+    <string name="setup_status_granted">Granted</string>
+    <string name="setup_status_not_granted">Not granted</string>
+    <string name="setup_status_ready">Ready</string>
+    <string name="setup_status_unavailable">Unavailable</string>
+
+    <string name="setup_title_welcome">Welcome to Hear It</string>
+    <string name="setup_title_notification_access">Notification access</string>
+    <string name="setup_title_bluetooth">Bluetooth access</string>
+    <string name="setup_title_tts">Text to speech</string>
+    <string name="setup_title_battery">Background and battery</string>
+    <string name="setup_title_apps">Choose apps</string>
+    <string name="setup_title_devices">Choose outputs</string>
+    <string name="setup_title_test">Test announcement</string>
+    <string name="setup_title_review">Review and start</string>
+
+    <string name="setup_welcome_body">Hear It reads your notifications aloud through your headphones. Everything stays on this device — no account, no cloud, no analytics.</string>
+    <string name="setup_welcome_point_1">You choose which apps may be read aloud. All apps start disabled.</string>
+    <string name="setup_welcome_point_2">Announcements follow your rules: screen and lock state, silence, do not disturb, calls and output devices.</string>
+    <string name="setup_welcome_point_3">The next eight steps set up permissions, speech, apps and outputs. You start the service explicitly at the end.</string>
+
+    <string name="setup_notification_access_body">Hear It needs notification access so it can see the notifications you allow it to read. It reads only the apps you enable, never stores content outside your chosen history mode, and never sends anything off the device.</string>
+    <string name="setup_notification_access_status">Notification access: %1$s</string>
+    <string name="setup_notification_access_open">Open notification access settings</string>
+
+    <string name="setup_bluetooth_body">Android 12 and later ask for nearby-device (Bluetooth) permission so Hear It can see connected headphones and stop speaking when they disconnect. Without it announcements still work, but device names may be unavailable.</string>
+    <string name="setup_bluetooth_status">Bluetooth permission: %1$s</string>
+    <string name="setup_bluetooth_request">Allow Bluetooth access</string>
+
+    <string name="setup_tts_body">Announcements use the text-to-speech engine installed on this device. Hear It does not translate text or download voices; if your language is missing, install its voice data in the system text-to-speech settings.</string>
+    <string name="setup_tts_engine_status">Speech engine: %1$s</string>
+    <string name="setup_tts_language_status">Device language: %1$s</string>
+
+    <string name="setup_battery_body">Android may stop background apps to save power. If announcements stop while the screen is off, allow Hear It to run without battery restrictions. No app can guarantee background execution, and behaviour differs by manufacturer.</string>
+    <string name="setup_battery_open">Open battery settings</string>
+    <string name="setup_battery_acknowledge">I understand that battery optimisation can interrupt announcements</string>
+
+    <string name="setup_apps_body">Choose which apps Hear It may read aloud. Everything starts disabled, and you can change this later per app.</string>
+    <string name="setup_apps_enabled_count">%1$d enabled</string>
+    <string name="setup_apps_loading">Loading installed apps…</string>
+    <string name="setup_apps_empty">No apps with a launcher icon were found.</string>
+
+    <string name="setup_devices_body">Choose which output types announcements may use. If the active output is not allowed, nothing is spoken. Phone speaker is off by default.</string>
+    <string name="setup_devices_allow_bluetooth">Bluetooth headphones</string>
+    <string name="setup_devices_allow_wired">Wired headphones</string>
+    <string name="setup_devices_allow_speaker">Phone speaker</string>
+    <string name="setup_devices_detected_header">Connected now</string>
+    <string name="setup_devices_none_detected">No Bluetooth or wired output is connected right now.</string>
+    <string name="setup_device_unknown">Audio device</string>
+
+    <string name="setup_test_body">Play a short announcement through the current speech settings. The test does not create a history entry and does not use the announcement queue.</string>
+    <string name="setup_test_play">Play test announcement</string>
+    <string name="setup_test_speaking">Speaking…</string>
+    <string name="setup_test_completed">Test announcement finished.</string>
+    <string name="setup_test_failed">The test announcement could not be spoken. Check the speech engine and language data.</string>
+    <string name="setup_test_announcement_spoken">This is a test announcement from Hear It.</string>
+
+    <string name="setup_review_body">Review your choices, then start Hear It. Nothing runs until you press Start, and opening the app later never starts it silently.</string>
+    <string name="setup_review_apps">Apps enabled: %1$d</string>
+    <string name="setup_review_outputs">Allowed outputs: %1$s</string>
+    <string name="setup_review_nothing_skipped">No steps were skipped.</string>
+    <string name="setup_review_skipped">Skipped: %1$s</string>
+    <string name="setup_review_notification_permission_body">Android 13 and later also need notification permission for the persistent “Hear It is running” notification. Without it announcements still work, but the notification stays hidden.</string>
+    <string name="setup_review_notification_permission_button">Allow notifications</string>
+
+    <string name="setup_blocker_notification_access">Grant notification access to continue.</string>
+    <string name="setup_blocker_bluetooth">Allow Bluetooth access, or skip this step.</string>
+    <string name="setup_blocker_tts_engine">No text-to-speech engine is available on this device.</string>
+    <string name="setup_blocker_tts_language">The speech engine has no voice data for your language.</string>
+    <string name="setup_blocker_no_apps">Enable at least one app before starting.</string>
+    <string name="setup_blocker_no_output">Allow at least one output type before starting.</string>
+
+    <string name="setup_complete_title">Hear It is set up</string>
+    <string name="setup_complete_body">Announcements run while the service is started. The dashboard, reading controls and settings arrive in the next phases.</string>
 </resources>

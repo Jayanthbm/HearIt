@@ -19,6 +19,7 @@ android {
 
 dependencies {
     implementation(project(":core:common"))
+    implementation(project(":core:setup"))
     implementation(project(":core:tts"))
     implementation(libs.androidx.datastore.preferences)
     testImplementation(libs.junit)

@@ -4,12 +4,28 @@
     <!-- Foreground-service permissions for the announcement service's
          foregroundServiceType="mediaPlayback" (ADR-010, targetSdk 34+).
          Both are install-time NORMAL permissions: silently granted, never shown to
-         the user, so no setup-flow explanation is owed for them. Runtime/DANGEROUS
-         permissions (POST_NOTIFICATIONS, BLUETOOTH_CONNECT) are intentionally NOT
-         declared yet — each lands with the setup flow that explains it (P06
-         acceptance criterion). -->
+         the user, so no setup-flow explanation is owed for them. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+
+    <!-- Runtime permissions, each requested only after the setup flow explains it
+         (P06 acceptance criterion, P11 implementation):
+         - POST_NOTIFICATIONS (API 33+): persistent service notification; explained on the
+           review step, requested there.
+         - BLUETOOTH_CONNECT (API 31+): Bluetooth device names/routing; explained on the
+           Bluetooth step, requested there.
+         Both are optional for speaking; neither is required for wired output. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+
+    <!-- Package visibility (API 30+): the setup app-selection step lists launcher apps.
+         P13 broadens discovery to every app that can post notifications. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
 
     <application
         android:name=".HearItApplication"
@@ -34,7 +50,7 @@
             </intent-filter>
         </activity>
 
-        <!-- Notification-listener slot: the class now lives in :core:notifications (P07)
+        <!-- Notification-listener slot: the class lives in :core:notifications (P07)
              and is on :app's runtime classpath. exported=true with the signature-level
              BIND_NOTIFICATION_LISTENER_SERVICE permission is the mandatory pattern on
              every API 29–37: only the system can bind, and it does so only after the user

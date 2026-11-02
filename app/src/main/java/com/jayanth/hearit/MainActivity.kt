@@ -4,47 +4,32 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.activity.viewModels
+import com.jayanth.hearit.setup.SetupRoute
+import com.jayanth.hearit.setup.SetupViewModel
 import com.jayanth.hearit.ui.theme.HearItTheme
 import dagger.hilt.android.AndroidEntryPoint
 
-/** Single activity and Hilt entry point (master prompt: single activity, MVVM, Hilt DI). */
+/**
+ * The single activity (master prompt: single activity, MVVM, Hilt DI).
+ *
+ * Until P12 adds the navigation shell, the activity hosts one destination: the setup flow
+ * while `setup.completed` is false, and a minimal completion screen afterwards. The
+ * ViewModel is Hilt-injected and survives configuration changes; all flow state is also
+ * persisted in DataStore, so process death resumes on the same step.
+ */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    private val setupViewModel: SetupViewModel by viewModels()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             HearItTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
-                }
+                SetupRoute(viewModel = setupViewModel)
             }
         }
-    }
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    HearItTheme {
-        Greeting("Android")
     }
 }
