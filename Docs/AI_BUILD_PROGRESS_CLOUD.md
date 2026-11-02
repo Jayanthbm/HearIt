@@ -552,3 +552,4 @@ Tracks cloud implementation, code review and theoretical validation. Cloud work 
 | P18 History feature UI | Cloud complete, not locally verified | `6f546bc` |
 | P19 Multi-device sync | Not started | — |
 | P19 Backup & Restore, Diagnostics, logging | Cloud complete, not locally verified | `fe8218d` |
+| P19b Quick Settings tile | Cloud complete, not locally verified | `6c32aa4` |

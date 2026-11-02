@@ -168,3 +168,8 @@ Status legend: `Not started` · `In progress (cloud, not locally verified)` · `
 | P14 Devices feature (`:app`/`devices`) | Cloud complete, not locally verified | `d21c61b` |
 | P15 Global Rules, Voice & Speech settings | Cloud complete, not locally verified | `038b962` |
 | P16 Reading controls and temporary mute | Cloud complete, not locally verified | `ed7d7e1` |
+| P17 Priority Announce mode | Cloud complete, not locally verified | `eac40ca` |
+| P18 History feature UI | Cloud complete, not locally verified | `6f546bc` |
+| P19 Backup & Restore, Diagnostics, logging | Cloud complete, not locally verified | `fe8218d` |
+| P19b Quick Settings tile | Cloud complete, not locally verified | `6c32aa4` |
+| P20 Release hardening | In progress | — |
