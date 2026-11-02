@@ -73,11 +73,27 @@
              only this app starts it, and only on explicit user action. The
              foregroundServiceType attribute exists from API 29 (our minSdk floor) and is
              enforced from targetSdk 34; mediaPlayback requires the normal
-             FOREGROUND_SERVICE_MEDIA_PLAYBACK permission declared above. -->
-        <service
+             FOREGROUND_SERVICE_MEDIA_PLAYBACK permission declared above. --><service
             android:name=".service.AnnouncementService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
-    </application>
 
+        <!-- Quick Settings tile for Priority Announce (P20):
+             toggleable tile that turns Priority Announce on/off with 24h expiry.
+             exported=true with BIND_QUICK_SETTINGS_TOGGLE_PERMISSION is the system-level
+             pattern; the platform grants it automatically when the tile is added to QS. -->
+        <service
+            android:name=".service.PriorityAnnounceTileService"
+            android:exported="true"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TOGGLE"
+            android:label="@string/priority_announce">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.TOGGLE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.quicksettings">
+                android:resource="@xml/quick_settings_config"
+            />
+        </service>
+</application>
 </manifest>

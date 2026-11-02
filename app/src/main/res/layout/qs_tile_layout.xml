@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/tile_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="12dp"
+    android:background="?attr/selectableItemBackgroundBorderless">
+
+<TextView
+    android:id="@+id/tile_title"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:textSize="14sp"
+    android:textStyle="bold"
+    android:layout_gravity="center_horizontal"
+    android:contentDescription="@string/priority_announce_tile_description">
+    @string/priority_announce
+    />
+
+<TextView
+    android:id="@+id/tile_status"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_gravity="center_horizontal"
+    android:textSize="12sp"
+    android:contentDescription="@string/priority_announce_tile_description">
+    @string/priority_announce_off
+    />
+
+</LinearLayout>
