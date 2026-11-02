@@ -82,6 +82,9 @@ class AnnouncementPipeline(
     /** True while a group is being spoken (the service owns the actual engine). */
     val isSpeaking: Boolean get() = active != null
 
+    /** Items waiting to be spoken; the dashboard shows this as queue status (P12). */
+    val pendingCount: Int get() = queue.pendingCount
+
     /**
      * Routes one snapshot through the rules and into the queue or the call-hold list.
      *

@@ -46,10 +46,15 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    // P11 added setup/settings code to `:app` without these module dependencies, which
+    // would have failed the first build; P12 repairs that while adding the history module.
     implementation(project(":core:common"))
+    implementation(project(":core:database"))
+    implementation(project(":core:datastore"))
     implementation(project(":core:notifications"))
     implementation(project(":core:queue"))
     implementation(project(":core:rules"))
+    implementation(project(":core:setup"))
     implementation(project(":core:tts"))
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)

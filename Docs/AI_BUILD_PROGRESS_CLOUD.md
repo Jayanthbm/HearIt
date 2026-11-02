@@ -438,6 +438,50 @@ Tracks cloud implementation, code review and theoretical validation. Cloud work 
 - **Commit:** `c2cb4d1` — `feat(setup): add nine-step first-launch onboarding flow (P11)`
 - **Next phase:** P12 — dashboard and navigation shell.
 
+## Phase P12 — Dashboard and navigation shell (`:app`/`dashboard`) (2026-11-02)
+
+- **Files changed:**
+  - **`app/build.gradle.kts`** — added `:core:database`, `:core:datastore`, `:core:setup` project dependencies. **P11 defect repaired:** `SetupViewModel`/`SetupModule`/`HearItSettingsDataStore` and `core.setup.*` were imported by `:app` without the module dependencies, so the first build would have failed on unresolved references; `:core:database` is the P12 addition.
+  - **`app/.../dashboard/DashboardDestination.kt`** (new) — the nine destinations as one enum (four tabs + five secondary entries), each with a label resource and an explicit bottom-bar flag, a stable `id` used for saveable state, and `bottomBar`/`secondary`/`fromId` (total: unknown or null restores Home).
+  - **`app/.../dashboard/DashboardModels.kt`** (new) — content-free `ServiceSnapshot(isRunning, isSpeaking, pendingCount)`, `RecentAnnouncement(id, appName, status, recordedAtMillis)` and the immutable `DashboardUiState` (loaded, service, enabled-app count, allowed outputs, connected-output label, mute flag, recent history + load/failure flags, test-announcement state) with derived `announcementsActive`/`priorityAnnounceActive`.
+  - **`app/.../dashboard/ServiceStatusMonitor.kt`** (new) — `StateFlow` observation seam written only by the service (`markRunning`, `markStopped`, `updateSpeech`), with queue depth clamped at zero; no polling of `ActivityManager`/`SessionStore`.
+  - **`app/.../dashboard/ServiceControl.kt`** (new) — `ServiceControl` interface + `AndroidServiceControl`, sending the existing P08 `ACTION_START`/`ACTION_STOP` intents (Stop as a command so the persisted session flag is cleared).
+  - **`app/.../dashboard/DashboardViewModel.kt`** (new) — Hilt ViewModel combining the settings flow and the service-status flow, re-reading session mute + connected outputs + newest five history rows on `ON_RESUME`, explicit start/stop events, and the engine-only test announcement (never queued, never recorded). History read failures become `historyUnavailable` instead of being swallowed.
+  - **`app/.../dashboard/DashboardScreen.kt`** (new) — `DashboardRoute` (saveable destination, `BackHandler` back to Home, resume refresh) and the stateless `DashboardScreen`: header with Back on secondary screens, custom bottom bar (`selectable`, `Role.Tab`, selected + bold + colour), service card with Start/Stop, status rows (normal announcements, priority announce + note, temporary mute + note, connected output, allowed output types, apps enabled), recent-history section with empty/unavailable/rows states and a "View all history" action, quick actions (test announcement, Applications, Audio devices, Diagnostics) and the five secondary rows, plus an honest placeholder for destinations whose phase has not landed.
+  - **`app/.../di/DashboardModule.kt`** (new) — process-singleton `ServiceStatusMonitor`, `AndroidServiceControl`, the first `HearItHistoryDatabase` provider and `RoomHistoryRepository` over a wall-clock `Clock`.
+  - **`app/.../MainActivity.kt`** — two activity-scoped ViewModels; routes to `DashboardRoute` once `setup.completed` is true (the setup flow's placeholder completion screen is gone) and to `SetupRoute` otherwise; KDoc records that nothing starts the service implicitly.
+  - **`app/.../setup/SetupScreen.kt`** — removed `SetupCompleteContent` and its branch (the shell owns the post-setup surface) and updated the route KDoc.
+  - **`app/.../service/AnnouncementService.kt`** — injects `ServiceStatusMonitor`; publishes running state on start, speaking/queue depth after each tick, on speech start/finish and on stop/destroy through a private content-free `publishStatus()`.
+  - **`app/.../service/AnnouncementPipeline.kt`** — exposes `pendingCount` (the queue's own count) for the status snapshot.
+  - **`app/src/main/res/values/strings.xml`** — 9 navigation labels, 41 dashboard strings and the queue-depth plural; removed the two now-unused `setup_complete_*` strings so no resource is orphaned.
+  - **`app/src/test/.../dashboard/DashboardDestinationTest.kt`** and **`ServiceStatusMonitorTest.kt`** (new) — JVM unit tests for the navigation model and the observation seam.
+  - **Docs:** **ADR-024** (shell location, saveable destination state instead of Navigation Compose, no new dependencies, read-only service seam, dashboard privacy, honest partial sections, history binding, packaging repair, alternatives, consequences); changelog P12 entry; phases table (P12 cloud complete, P13–P20 remaining); architecture §2 module-table note and §6 navigation/service-observation bullets.
+- **Static review performed:**
+  - **String-resource cross-check** (scripted): every `R.string.*`/`R.plurals.*` reference in `app` resolves to a declared resource, no duplicate names, and no dashboard/navigation string is unused; the two `setup_complete_*` strings are gone together with their only references.
+  - **Dependency-closure check:** every package imported by the new `dashboard` code has a module dependency in `app/build.gradle.kts` (`core:common`, `core:database`, `core:datastore`, `core:setup`, `core:tts` via the engine, `hilt`, `activity-compose`, `material3`, `foundation` transitively through material3); no new artifact or version was added, so the version catalog is untouched.
+  - **Hilt graph:** `DashboardViewModel`'s seven dependencies all have providers (`SettingsRepository`, `SessionStore` and `AudioOutputProbe` from `SetupModule`; `HistoryRepository`, `ServiceStatusMonitor` and `ServiceControl` from `DashboardModule`; `TextToSpeechEngine` from `SpeechModule`); the monitor is a `@Singleton` because the service and the UI must share one instance; the database is also a singleton (Room forbids two open instances of the same file).
+  - **Lifecycle/threading:** the monitor is updated only from the service's main-thread tick loop and read through `StateFlow`; the dashboard's own reads are cheap binder/preferences calls on the main thread, matching the setup flow; history reads are suspending Room calls off the main thread; `viewModelScope` collection is cancelled with the ViewModel; `ServiceStatusMonitor` writes nothing to disk, so no state leaks between process lifetimes.
+  - **Accessibility:** every bottom-bar tab is one `selectable` with `Role.Tab` and a selected state (≥48 dp, `navigationBarsPadding`), secondary rows and buttons are ≥48 dp, status is always text (Active/Inactive, On/Off, queue plural) with colour as reinforcement only, the empty-history copy is explicit rather than a blank area, and every visible string is a resource.
+  - **Privacy:** no notification text or sender in the new state, UI or monitor; no logging added anywhere; the recent-history rows carry app name, outcome and relative time only.
+  - **No silent start:** `MainActivity`, `DashboardRoute` and the ViewModel contain no implicit service start; only the Start button calls `ServiceControl.startAnnouncements()`, and the service sets the session flag itself.
+  - **P11 gap repaired:** missing `:core:datastore`/`:core:setup` dependencies recorded rather than silently left for the local build to discover.
+- **Tests added (written, NOT executed) — 16 total:**
+  - `DashboardDestinationTest` (8) — `bottomBar_hasTheFourMasterPromptTabs_inOrder`, `secondary_hasTheFiveMasterPromptEntries_inOrder`, `bottomBarAndSecondary_partitionEveryDestination`, `fromId_restoresEveryDestinationExactly`, `fromId_unknownOrMissingId_fallsBackToHome`, `ids_areUniqueAndNeverBlank`, `everyDestination_hasADistinctLabelResource`, `onlyHomeIsSelectedByDefault`.
+  - `ServiceStatusMonitorTest` (8) — `initialState_isStoppedAndSilent`, `markRunning_setsRunningOnly`, `updateSpeech_publishesSpeakingAndQueueDepth`, `updateSpeech_negativePendingCount_isClampedToZero`, `updateSpeech_beforeRunning_doesNotFakeAStart`, `markStopped_clearsRunningSpeechAndQueue`, `markStopped_isIdempotent`, `updateSpeech_afterStop_canReportAgainOnceRunning`.
+- **Known risks / unresolved questions (need user/local input):**
+  - **The whole shell is unverified.** Likely first-build issues are Compose API drift (`Scaffold`, `Surface(tonalElevation)`, `selectable(role=)`, `pluralStringResource`, `navigationBarsPadding`) and the two new `@Test` classes compiling against `:app`'s unit-test configuration; nothing here can be compiled in the cloud.
+  - **`rememberSaveable` restores across process recreation only when Android saves the activity state** (backgrounded then reclaimed). A cold launch from the launcher always opens Home — deliberate (ADR-024), but worth confirming on a device against the acceptance wording.
+  - **Custom bottom bar instead of `NavigationBar`:** chosen to avoid an unverifiable icon artifact; if the local agent prefers the Material component, only `DashboardBottomBar` changes and the enum already carries the labels.
+  - **`ServiceStatusMonitor` is in-process:** exactly right for one process; a service killed without `onDestroy` (e.g. force-stop) leaves the flow at `markRunning` until the process dies, and the dashboard would briefly show Active — acceptable, but a device check of force-stop is worthwhile.
+  - **Priority Announce and temporary mute are read-only rows** until P17/P16; recent history stays empty until history writes are wired (P18). Both are documented in the UI copy and ADR-024, not hidden.
+  - **`:feature:dashboard` extraction is deferred** (ADR-024): it needs the service seams moved out of `:app` first, so the architecture module table now records the actual location.
+  - **History read path is unproven:** the Room database is opened by the dashboard for the first time; a schema/DAO mismatch would surface here first.
+- **Build status:** Not run (cloud-agent restriction).
+- **Test execution status:** Not run (cloud-agent restriction).
+- **Local verification:** Not locally verified.
+- **Commit:** `pending` — `feat(dashboard): add dashboard and bottom navigation shell (P12)`
+- **Next phase:** P13 — Applications feature.
+
 ---
 
 ## Phase log
@@ -456,3 +500,4 @@ Tracks cloud implementation, code review and theoretical validation. Cloud work 
 | P09 Preferences foundation (`:core:datastore`) | Cloud complete, not locally verified | `996f9a0` |
 | P10 History storage (`:core:database`) | Cloud complete, not locally verified | `de56968` |
 | P11 Setup and onboarding (`:core:setup`, `:app`) | Cloud complete, not locally verified | `c2cb4d1` |
+| P12 Dashboard and navigation shell (`:app`/`dashboard`) | Cloud complete, not locally verified | `pending` |

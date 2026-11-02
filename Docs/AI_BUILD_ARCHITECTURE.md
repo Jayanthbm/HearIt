@@ -57,7 +57,7 @@ Source of truth for *what* the product must do is `AI_BUILD_MASTER_PROMPT.md`. T
 | `:core:database` | Android library | Room history storage, retention, migrations |
 | `:core:history` | Android library | History recording/filtering/search business logic over Room |
 | `:core:designsystem` | Android library | Material 3 Expressive theme, typography, shared components |
-| `:feature:dashboard` | Android library | Dashboard UI and ViewModel |
+| `:feature:dashboard` | Android library (currently `:app`'s `dashboard` package — ADR-024) | Dashboard shell UI, navigation state and ViewModel |
 | `:feature:applications` | Android library | App discovery, selection, per-app settings |
 | `:feature:devices` | Android library | Audio output selection |
 | `:feature:settings` | Android library | Global Rules, Voice & Speech, Settings, Backup & Restore, Diagnostics |
@@ -94,8 +94,9 @@ Modules are introduced **when their first code lands**, not as empty skeletons (
 ## 6. State and UI architecture
 
 - MVVM + UDF: ViewModels expose `StateFlow<UiState>`; UI emits events (`sealed interface`); no business logic in composables.
-- Single activity, Navigation Compose, bottom navigation + secondary routes.
-- Service state is observed from the UI as a hot flow (in-app process); cross-process state that cannot be shared simply is read on demand and refreshed on lifecycle events. No silent service start from UI.
+- Single activity; bottom navigation (Home, Apps, Devices, History) plus five secondary routes (Global Rules, Voice & Speech, Settings, Backup & Restore, Diagnostics).
+- The shell keeps its selected destination in saveable Compose state (`DashboardDestination`, ADR-024) rather than a Navigation Compose graph while no route takes arguments; the graph replaces it when features add parameterised destinations.
+- Service state is observed from the UI as a hot flow (`ServiceStatusMonitor`, ADR-024). The foreground service is the only writer and the UI is read-only, so a service that is gone reads as stopped; values without a reactive source (connected outputs, session mute flag, history summary) are re-read on `ON_RESUME`. No silent service start from UI — Start/Stop send the P08 actions explicitly.
 - Business rules live in `:core:rules`/`:core:queue` and are UI-independent and unit-testable.
 
 ## 7. Dependency injection

@@ -50,9 +50,10 @@ import com.jayanth.hearit.core.setup.SetupStep
 /**
  * Entry point of the setup feature: observes the ViewModel, refreshes prerequisites whenever
  * the screen resumes (so returning from the system notification-access or battery screens is
- * reflected immediately) and routes to setup, loading or the post-setup placeholder.
+ * reflected immediately) and routes to the setup flow or the loading state.
  *
- * The dashboard placeholder is deliberately minimal — P12 replaces it.
+ * The completed case is handled one level up in `MainActivity`, which swaps in the dashboard
+ * shell (P12); this composable therefore never renders a post-setup placeholder.
  */
 @Composable
 fun SetupRoute(viewModel: SetupViewModel, modifier: Modifier = Modifier) {
@@ -80,7 +81,6 @@ fun SetupRoute(viewModel: SetupViewModel, modifier: Modifier = Modifier) {
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.padding(24.dp),
                 )
-                state.setupCompleted -> SetupCompleteContent()
                 else -> SetupScreen(
                     state = state,
                     onBack = viewModel::onBack,
@@ -543,22 +543,6 @@ private fun NavigationRow(
                 Text(text = stringResource(R.string.setup_next))
             }
         }
-    }
-}
-
-@Composable
-private fun SetupCompleteContent() {
-    Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
-        Text(
-            text = stringResource(R.string.setup_complete_title),
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.SemiBold,
-        )
-        Text(
-            text = stringResource(R.string.setup_complete_body),
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.padding(top = 8.dp),
-        )
     }
 }
 

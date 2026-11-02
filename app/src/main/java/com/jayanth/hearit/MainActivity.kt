@@ -5,6 +5,10 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import com.jayanth.hearit.dashboard.DashboardRoute
+import com.jayanth.hearit.dashboard.DashboardViewModel
 import com.jayanth.hearit.setup.SetupRoute
 import com.jayanth.hearit.setup.SetupViewModel
 import com.jayanth.hearit.ui.theme.HearItTheme
@@ -13,22 +17,32 @@ import dagger.hilt.android.AndroidEntryPoint
 /**
  * The single activity (master prompt: single activity, MVVM, Hilt DI).
  *
- * Until P12 adds the navigation shell, the activity hosts one destination: the setup flow
- * while `setup.completed` is false, and a minimal completion screen afterwards. The
- * ViewModel is Hilt-injected and survives configuration changes; all flow state is also
- * persisted in DataStore, so process death resumes on the same step.
+ * Routes between the two top-level surfaces of the app: the first-launch setup flow while
+ * `setup.completed` is false, and the dashboard shell afterwards (master prompt §4:
+ * "Returning users open Dashboard"). Both ViewModels are activity-scoped and survive
+ * configuration changes; the setup flow's step and the dashboard's selected destination
+ * are both restore-safe, so process death resumes where the user was.
+ *
+ * Nothing here starts the announcement service: setup's Start button and the dashboard's
+ * Start button are the only paths (master prompt §4, ADR-024).
  */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
     private val setupViewModel: SetupViewModel by viewModels()
+    private val dashboardViewModel: DashboardViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             HearItTheme {
-                SetupRoute(viewModel = setupViewModel)
+                val setupState by setupViewModel.state.collectAsState()
+                if (setupState.setupCompleted) {
+                    DashboardRoute(viewModel = dashboardViewModel)
+                } else {
+                    SetupRoute(viewModel = setupViewModel)
+                }
             }
         }
     }

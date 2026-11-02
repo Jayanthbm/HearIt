@@ -19,6 +19,7 @@ import com.jayanth.hearit.core.tts.BuiltAnnouncement
 import com.jayanth.hearit.core.tts.TextToSpeechEngine
 import com.jayanth.hearit.core.tts.TtsError
 import com.jayanth.hearit.core.tts.UtteranceListener
+import com.jayanth.hearit.dashboard.ServiceStatusMonitor
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -52,6 +53,10 @@ class AnnouncementService : Service(), NotificationSink {
 
     @Inject
     lateinit var audioManager: AudioManager
+
+    /** Dashboard observation seam (P12). The service is the only writer. */
+    @Inject
+    lateinit var serviceStatus: ServiceStatusMonitor
 
     private lateinit var sessionStore: SessionStore
     private lateinit var settingsSource: SettingsSource
@@ -102,18 +107,23 @@ class AnnouncementService : Service(), NotificationSink {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
             sessionStore.isStarted = false
+            serviceStatus.markStopped()
             stopSelf()
             return START_NOT_STICKY
         }
 
         if (intent == null && !sessionStore.isStarted) {
             // System recreation after a stop: never announce without an explicit start.
+            serviceStatus.markStopped()
             stopSelf()
             return START_NOT_STICKY
         }
 
         sessionStore.isStarted = true
         startInForeground()
+        // Publish before the first tick so the dashboard shows Active immediately (P12).
+        serviceStatus.markRunning()
+        publishStatus()
         handler.removeCallbacks(tickRunnable)
         handler.post(tickRunnable)
         return START_STICKY
@@ -135,6 +145,7 @@ class AnnouncementService : Service(), NotificationSink {
     }
 
     override fun onDestroy() {
+        serviceStatus.markStopped()
         handler.removeCallbacksAndMessages(null)
         audioManager.unregisterAudioDeviceCallback(audioDeviceCallback)
         NotificationRelay.sink = null
@@ -151,11 +162,13 @@ class AnnouncementService : Service(), NotificationSink {
                 .forEach { action ->
                     if (action is AnnouncementPipeline.Action.StopSpeech) engine.stop()
                 }
+            publishStatus()
             return
         }
 
         val next = pipeline.tick(state) { packageName -> settingsSource.forApp(packageName) }
         if (next != null) speak(next)
+        publishStatus()
     }
 
     private fun speak(action: AnnouncementPipeline.Action.Speak) {
@@ -177,6 +190,7 @@ class AnnouncementService : Service(), NotificationSink {
             // Engine busy/unavailable: retire the selection so it is not stuck "speaking".
             finishSpeech(action)
         }
+        publishStatus()
     }
 
     private fun finishSpeech(action: AnnouncementPipeline.Action.Speak) {
@@ -184,6 +198,20 @@ class AnnouncementService : Service(), NotificationSink {
         currentAction = null
         pipeline.onSpeechFinished()
         startInForeground()
+        publishStatus()
+    }
+
+    /**
+     * Publishes speaking/queue state to the dashboard (P12).
+     *
+     * Content-free by design: the monitor learns that something is being read and how many
+     * announcements wait, never what they say (master prompt §17).
+     */
+    private fun publishStatus() {
+        serviceStatus.updateSpeech(
+            isSpeaking = pipeline.isSpeaking,
+            pendingCount = pipeline.pendingCount,
+        )
     }
 
     private fun startInForeground() {
