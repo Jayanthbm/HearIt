@@ -47,6 +47,7 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(project(":core:common"))
+    implementation(project(":core:notifications"))
     implementation(project(":core:rules"))
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)

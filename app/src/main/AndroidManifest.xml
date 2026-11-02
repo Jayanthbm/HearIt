@@ -35,20 +35,17 @@
             </intent-filter>
         </activity>
 
-        <!-- Notification-listener slot (P06 declares it; the class lands in P07 as
-             :core:notifications' listener service — ADR-002: module with its first code).
-             P07 must create this class at exactly this path or update this entry.
-             exported=true with the signature-level BIND_NOTIFICATION_LISTENER_SERVICE
-             permission is the mandatory pattern on every API 29–37: only the system can
-             bind, and it does so only after the user grants notification access in the
-             setup flow (architecture: "enabled only after the user grants notification
-             access"). tools:ignore covers only the deliberate class-lands-in-P07 gap. -->
+        <!-- Notification-listener slot: the class now lives in :core:notifications (P07)
+             and is on :app's runtime classpath. exported=true with the signature-level
+             BIND_NOTIFICATION_LISTENER_SERVICE permission is the mandatory pattern on
+             every API 29–37: only the system can bind, and it does so only after the user
+             grants notification access in the setup flow (architecture: "enabled only
+             after the user grants notification access"). -->
         <service
             android:name="com.jayanth.hearit.core.notifications.HearItNotificationListenerService"
             android:exported="true"
             android:label="@string/app_name"
-            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
-            tools:ignore="Instantiatable">
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
