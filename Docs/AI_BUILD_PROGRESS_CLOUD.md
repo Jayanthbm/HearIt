@@ -482,6 +482,49 @@ Tracks cloud implementation, code review and theoretical validation. Cloud work 
 - **Commit:** `3d4b09d` — `feat(dashboard): add dashboard and bottom navigation shell (P12)`
 - **Next phase:** P13 — Applications feature.
 
+## Phase P13 — Applications feature (`:app`/`applications`) (2026-11-02)
+
+- **Files changed:**
+  - **`app/.../applications/ApplicationsModels.kt`** (new) — `AppEntry`, the generic `Inherited<T>(override, global)` with `isInherited`/`effective`, the list state (`loading`, `catalogUnavailable`, `query`, `apps`, `visibleApps`, `enabledApps`, `openPackage`, `settings`) and `AppSettingsUiState` (priority, history storage/update handling, DND, call queueing and audio focus, all as `Inherited`, plus `enabledAppCount`/`hasOverrides`).
+  - **`app/.../applications/AppFilter.kt`** (new, pure) — case-insensitive search over label **and** package, `AppCatalogMerge` (catalog ∪ already-enabled packages, unknown labels fall back to the package name, sorted ignoring case) and `AppSelection` (select/deselect-all scoped to the visible rows).
+  - **`app/.../applications/AppSettingsEditor.kt`** (new, pure) — enable/disable one app, enable/disable a visible set, priority, history storage mode, history update handling, respect-DND, queue-during-call and audio-focus overrides (each nullable = inherit), `resetToGlobal` (overrides only) and `settingsFor(...)`, which projects `HearItSettings` into `AppSettingsUiState`. A private `updateOverride` removes the map entry as soon as every field is inherited again (ADR-021 sparseness).
+  - **`app/.../applications/AppCatalog.kt`** (new) — `ApplicationCatalog` + `AndroidApplicationCatalog` (launcher activities, own package excluded, label read defensively, `Dispatchers.IO`) and `AppIconLoader` + `AndroidAppIconLoader` (96 px bitmap on `IO`, missing icon tolerated).
+  - **`app/.../applications/ApplicationsViewModel.kt`** (new) — Hilt ViewModel combining the settings flow with a one-off catalog read, publishing list + filtered rows + open-app settings from the two cached inputs, applying every edit through `SettingsRepository.update`, and exposing the icon loader as a data source for rows.
+  - **`app/.../applications/ApplicationsScreen.kt`** (new) — `ApplicationsRoute` (list ↔ settings, `BackHandler` back to the list), the list (search field, enabled counter, select-all/deselect-all over the filtered rows, visibility note, lazy rows with icon + label + `Role.Switch` toggle + Settings button, loading/empty/no-match/catalog-failure states) and the per-app screen (enable switch, then inheritance-aware radio groups for priority, history storage, update handling, DND, call queueing and audio focus, plus reset-to-global and a note about the globally configured groups).
+  - **`app/.../di/ApplicationsModule.kt`** (new) — singleton `ApplicationCatalog` and `AppIconLoader`.
+  - **`app/.../dashboard/DashboardScreen.kt`** — the Apps tab now renders the feature through a caller-supplied `appsContent` slot (the shell stays unaware of the applications package); `DashboardRoute` takes the `ApplicationsViewModel` and supplies `ApplicationsRoute`.
+  - **`app/.../MainActivity.kt`** — third activity-scoped ViewModel wired into the dashboard route.
+  - **`app/src/main/res/values/strings.xml`** — 10 applications + 26 per-app strings; no hardcoded user-facing text added.
+  - **`app/src/main/AndroidManifest.xml`** — `<queries>` comment updated: the same launcher visibility serves setup and the P13 list, and `QUERY_ALL_PACKAGES` is deliberately not requested (ADR-025).
+  - **`app/src/test/.../applications/AppFilterTest.kt`** and **`AppSettingsEditorTest.kt`** (new) — JVM unit tests for search/merge/selection and for every override plus the inheritance projection.
+  - **Docs:** **ADR-025** (launcher-visible catalog and its limit, pure logic split, sparse overrides, visible inheritance, immediate apply, select-all scope, per-app scope vs P15, icon loading, alternatives, consequences); changelog P13 entry; phases table (P13 cloud complete, P14–P20 remaining); architecture module-table note and §6 feature-module bullet.
+
+- **Static review performed:**
+  - **String cross-check** (scripted): every `R.string.*`/`R.plurals.*` reference resolves, no duplicates, no unused string; all 36 new strings are referenced.
+  - **Purity:** `AppFilter.kt` and `AppSettingsEditor.kt` contain no `import android.`; the Android surface is the catalog/icon adapters and the Compose screen.
+  - **Inheritance:** each editor writes only its own field; `updateOverride` drops the entry when `AppOverride.inheritsEveryValue` holds (clearing a value cannot leave an empty override); `settingsFor` reads the same accessors the pipeline uses (`historyFor`/`resolvedFor`); tests assert resolved values after edits.
+  - **Threading:** catalog/icon reads on `Dispatchers.IO`; settings writes are suspending DataStore calls in `viewModelScope`; only visible rows compose (`LazyColumn`); icons load per row via `LaunchedEffect` with a `remember(packageName)` cache.
+  - **Accessibility:** two targets per row (row-level `Role.Switch` carrying the app name, 48 dp Settings button), `Role.RadioButton` rows at 48 dp, status never colour-only, inheritance labels spell out the effective global value.
+  - **Scope:** no new permissions or dependencies, no notification content read or stored; package metadata only.
+  - **Hilt:** all three ViewModel dependencies provided (`SettingsRepository` from `SetupModule`; catalog and icon loader from `ApplicationsModule`), both new providers stateless singletons.
+- **Tests added (written, NOT executed) — 28 total:**
+  - `AppFilterTest` (11) — `filter_blankQuery_returnsEveryApp`, `filter_matchesLabelIgnoringCase`, `filter_matchesPackageName`, `filter_trimsTheQuery`, `filter_withoutMatch_returnsEmpty`, `merge_keepsCatalogEntriesAndTheirLabels`, `merge_addsEnabledPackageTheCatalogCannotSee`, `merge_sortsByLabelIgnoringCase`, `merge_ignoresBlankEnabledPackage`, `enable_addsTargetsAndKeepsOtherEnabledApps`, `disable_removesOnlyTargets`.
+  - `AppSettingsEditorTest` (17) — `toggleEnabled_addsThenRemoves`, `setEnabled_leavesOtherAppsAlone`, `enableAll_addsVisibleAppsAndKeepsOthers`, `disableAll_removesVisibleAppsAndKeepsOthers`, `setPriority_storesSparseOverride`, `setPriorityNull_removesTheEntryAgain`, `setHistoryStorageMode_storesAndInheritsViaNull`, `setHistoryUpdateHandling_storesOverride`, `setRespectDnd_storesOverride`, `setQueueDuringCall_storesOverride`, `setAudioFocus_storesOverride`, `oneOverrideDoesNotClearAnother`, `resetToGlobal_clearsOverridesButKeepsTheAnnouncementSwitch`, `settingsFor_reportsInheritanceAndResolvedValues`, `settingsFor_reflectsOverrides`, `settingsFor_blankLabel_fallsBackToPackageName`, `settingsFor_unrelatedAppKeepsItsOwnInheritance`.
+
+- **Known risks / unresolved questions (need user/local input):**
+  - **Unverified UI:** `OutlinedTextField`, `RadioButton`, lazy rows and the icon `Image` path are uncompiled; the row places a toggleable `Row` beside a `TextButton`, which should be checked with TalkBack for focus order and duplicate announcements.
+  - **Launcher-only catalog is a product limitation:** apps without a launcher icon are not listed until enabled (reachable only via history once P18 exists). Complete discovery needs `QUERY_ALL_PACKAGES` and an explicit product decision — recorded in ADR-025 rather than decided silently.
+  - **Search runs client-side** over the in-memory catalog: fine at phone scale; a very large catalog would want filtering off the main thread.
+  - **Priority options follow `AppPriority.entries` declaration order**, so a future enum reorder changes display order (labels stay correct).
+  - **Icons are cached per composed row and never evicted:** bounded by what the user scrolls past, but a cache limit is worth adding later.
+  - **Single-writer settings** (ADR-021): rapid toggling is serialised by DataStore, but two screens editing settings concurrently would need compare-and-set.
+  - **Still silent end-to-end:** the service's `SettingsSource` ignores these settings (P08 placeholder), so enabling apps here does not yet produce announcements — the wiring gap is deliberate and belongs to the phase that connects `resolvedFor`/`queueFor`.
+- **Build status:** Not run (cloud-agent restriction).
+- **Test execution status:** Not run (cloud-agent restriction).
+- **Local verification:** Not locally verified.
+- **Commit:** `__SHA__` — `feat(applications): add app selection and per-app settings (P13)`
+- **Next phase:** P14 — Devices feature.
+
 ---
 
 ## Phase log
@@ -501,3 +544,4 @@ Tracks cloud implementation, code review and theoretical validation. Cloud work 
 | P10 History storage (`:core:database`) | Cloud complete, not locally verified | `de56968` |
 | P11 Setup and onboarding (`:core:setup`, `:app`) | Cloud complete, not locally verified | `c2cb4d1` |
 | P12 Dashboard and navigation shell (`:app`/`dashboard`) | Cloud complete, not locally verified | `3d4b09d` |
+| P13 Applications feature (`:app`/`applications`) | Cloud complete, not locally verified | `pending` |

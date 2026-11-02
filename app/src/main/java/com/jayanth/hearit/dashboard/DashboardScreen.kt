@@ -47,6 +47,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import com.jayanth.hearit.R
+import com.jayanth.hearit.applications.ApplicationsRoute
+import com.jayanth.hearit.applications.ApplicationsViewModel
 import com.jayanth.hearit.core.common.model.AudioOutputSettings
 import com.jayanth.hearit.core.common.model.HistoryStatus
 import com.jayanth.hearit.setup.TestAnnouncementState
@@ -64,7 +66,11 @@ import com.jayanth.hearit.setup.TestAnnouncementState
  * the tab model; the bottom tabs themselves are top-level destinations.
  */
 @Composable
-fun DashboardRoute(viewModel: DashboardViewModel, modifier: Modifier = Modifier) {
+fun DashboardRoute(
+    viewModel: DashboardViewModel,
+    applicationsViewModel: ApplicationsViewModel,
+    modifier: Modifier = Modifier,
+) {
     val state by viewModel.state.collectAsState()
     var destinationId by rememberSaveable { mutableStateOf(DashboardDestination.HOME.id) }
     val destination = DashboardDestination.fromId(destinationId)
@@ -95,6 +101,7 @@ fun DashboardRoute(viewModel: DashboardViewModel, modifier: Modifier = Modifier)
         onStartService = viewModel::onStartService,
         onStopService = viewModel::onStopService,
         onTestAnnouncement = viewModel::onTestAnnouncement,
+        appsContent = { ApplicationsRoute(viewModel = applicationsViewModel) },
         modifier = modifier,
     )
 }
@@ -107,6 +114,8 @@ fun DashboardRoute(viewModel: DashboardViewModel, modifier: Modifier = Modifier)
  * target is at least 48 dp, all status is written out as text (never colour alone), and
  * the bottom bar exposes each tab as a single `Role.Tab` selectable with a selected state,
  * which is what TalkBack announces.
+ * @param appsContent Content of the Apps tab, supplied by the caller so the shell stays
+ *   unaware of the applications feature (P13).
  */
 @Composable
 fun DashboardScreen(
@@ -117,6 +126,7 @@ fun DashboardScreen(
     onStartService: () -> Unit,
     onStopService: () -> Unit,
     onTestAnnouncement: (String) -> Unit,
+    appsContent: @Composable () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Scaffold(
@@ -148,6 +158,8 @@ fun DashboardScreen(
                         onTestAnnouncement = onTestAnnouncement,
                         onSelectDestination = onSelectDestination,
                     )
+
+                    destination == DashboardDestination.APPS -> appsContent()
 
                     else -> DestinationPlaceholder(destination = destination)
                 }

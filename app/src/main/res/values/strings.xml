@@ -150,4 +150,48 @@
 
     <string name="dashboard_section_tools">Settings and tools</string>
     <string name="dashboard_placeholder_body">This screen arrives with its feature update. Its navigation entry already exists so the shell does not change when the screen is filled in.</string>
+
+    <!-- Applications feature (P13, master prompt §5). All apps start disabled and every
+         per-app value shows whether it inherits the global value. -->
+    <string name="applications_search_label">Search apps</string>
+    <string name="applications_enabled_count">%1$d of %2$d apps enabled</string>
+    <string name="applications_select_all">Select all</string>
+    <string name="applications_deselect_all">Deselect all</string>
+    <string name="applications_loading">Loading installed apps…</string>
+    <string name="applications_empty">No apps found.</string>
+    <string name="applications_empty_search">No app matches “%1$s”.</string>
+    <string name="applications_catalog_unavailable">The installed apps could not be read. Close and reopen this screen to try again.</string>
+    <string name="applications_visibility_note">Android only lets Hear It list apps it can see: apps with a launcher icon, plus any app you have already enabled.</string>
+    <string name="applications_open_settings">Settings</string>
+
+    <string name="app_settings_general">General</string>
+    <string name="app_settings_enabled">Announce this app</string>
+    <string name="app_settings_enabled_note">All apps start disabled. Nothing is read from an app until you enable it here.</string>
+    <string name="app_settings_inherit_value">Inherit global (%1$s)</string>
+
+    <string name="app_settings_priority_section">Announcement priority</string>
+    <string name="app_settings_priority_normal">Normal</string>
+    <string name="app_settings_priority_high">High</string>
+    <string name="app_settings_priority_critical">Critical</string>
+    <string name="app_settings_priority_low">Low</string>
+
+    <string name="app_settings_history_section">History for this app</string>
+    <string name="app_settings_storage_full">Full content</string>
+    <string name="app_settings_storage_metadata">Metadata only</string>
+    <string name="app_settings_storage_off">No history</string>
+    <string name="app_settings_update_entry">Update the existing entry</string>
+    <string name="app_settings_update_new">Save every update separately</string>
+
+    <string name="app_settings_when_section">When to announce</string>
+    <string name="app_settings_call_queue">Announce after a call ends</string>
+    <string name="app_settings_audio_focus">Other apps audio</string>
+    <string name="app_settings_audio_focus_duck">Lower it</string>
+    <string name="app_settings_audio_focus_pause">Pause it</string>
+    <string name="app_settings_audio_focus_none">Do not change it</string>
+    <string name="app_settings_on">On</string>
+    <string name="app_settings_off">Off</string>
+
+    <string name="app_settings_reset">Reset to global values</string>
+    <string name="app_settings_reset_note">Only the overrides for this app are cleared. The announcement switch is unchanged.</string>
+    <string name="app_settings_note_later">Grouping window and the remaining rule groups are configured globally; their per-app controls arrive with the settings screens.</string>
 </resources>
