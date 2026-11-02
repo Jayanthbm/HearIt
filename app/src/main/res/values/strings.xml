@@ -194,4 +194,11 @@
     <string name="app_settings_reset">Reset to global values</string>
     <string name="app_settings_reset_note">Only the overrides for this app are cleared. The announcement switch is unchanged.</string>
     <string name="app_settings_note_later">Grouping window and the remaining rule groups are configured globally; their per-app controls arrive with the settings screens.</string>
+    <!-- Devices feature (P14): every device is exposed by count and by name so the
+         list, the summary and the settings tab never promise content they cannot carry. -->
+    <string name="devices_count_hint">%1$d device(s) connected</string>
+    <string name="devices_loading">Loading connected devices…</string>
+    <string name="devices_empty">No connected device detected right now.</string>
+    <string name="devices_notice">Connected device names are read at runtime and are only an aid; nothing routes through this list until P14 finishes.</string>
+    <string name="devices_open_settings">Settings</string>
 </resources>
