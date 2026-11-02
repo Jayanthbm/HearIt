@@ -223,6 +223,36 @@ Tracks cloud implementation, code review and theoretical validation. Cloud work 
 
 ---
 
+## Phase P06 — Build foundation: Hilt, Application and manifest baseline (2026-11-02)
+
+- **Files changed:**
+  - **`gradle/libs.versions.toml`** — versions `ksp = "2.3.13"`, `hilt = "2.60.1"`; libraries `hilt-android` / `hilt-compiler` (`com.google.dagger`, version.ref `hilt`); plugins `ksp` (`com.google.devtools.ksp`) and `hilt` (`com.google.dagger.hilt.android`).
+  - **`build.gradle.kts`** (root) — `alias(libs.plugins.ksp) apply false` and `alias(libs.plugins.hilt) apply false`, following the existing root convention.
+  - **`app/build.gradle.kts`** — `alias(libs.plugins.ksp)` + `alias(libs.plugins.hilt)` in `plugins`; `implementation(libs.hilt.android)` + `ksp(libs.hilt.compiler)` in `dependencies`. Deliberately NO `org.jetbrains.kotlin.android` (AGP 9 built-in Kotlin; applying the legacy plugin fails the build) and no kapt (incompatible with built-in Kotlin).
+  - **`app/src/main/java/com/jayanth/hearit/HearItApplication.kt`** (new) — `@HiltAndroidApp class HearItApplication : Application()`, documented as the DI root, intentionally empty beyond that (no startup god-object).
+  - **`app/src/main/java/com/jayanth/hearit/MainActivity.kt`** — `@AndroidEntryPoint` + import + one-line KDoc.
+  - **`app/src/main/AndroidManifest.xml`** — `android:name=".HearItApplication"`; two install-time NORMAL permissions (`FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_MEDIA_PLAYBACK`); notification-listener service slot (`com.jayanth.hearit.core.notifications.HearItNotificationListenerService`, `exported="true"`, signature-level `BIND_NOTIFICATION_LISTENER_SERVICE`, the standard listener intent-filter, `android:label="@string/app_name"`); announcement-service slot (`.service.AnnouncementService`, `exported="false"`, `foregroundServiceType="mediaPlayback"`); both slots `tools:ignore="Instantiatable"` with comments fixing the P07/P08 class-path contract; ADR cross-refs verified (ADR-010 FGS, ADR-002 module-with-first-code, ADR-003 listener).
+  - **Docs:** ADR-020 appended (versions, wiring, slots, deferred dangerous permissions + alternatives); CHANGELOG P06 entry; phases status table (P06 complete, P07–P20 remaining).
+- **Static review performed:**
+  - Full diff reviewed line-by-line; two defects found and fixed before commit: a stale "ADR-008" reference in the announcement-slot comment (→ ADR-010) and an overclaim in the `HearItApplication` KDoc about Hilt receiver support (reworded to activities now, services when they arrive).
+  - Version compatibility researched from primary sources (KSP releases + compatibility table, Maven Central metadata, Dagger releases + Hilt setup docs, Android's AGP 9 built-in-Kotlin migration doc): KSP 2.3.x is decoupled from the Kotlin version and supports Kotlin 2.2.10 / AGP 9 / Gradle 9 (the AGP 9 R-class fix landed in 2.3.10); the old `2.2.10-2.0.2` KSP1 line is removed/unsupported; Hilt 2.60.1 is latest stable, requires AGP 9 (min 9.0.0 since 2.59.1) and minSdk 23 (project: 29), with stable KSP support from 2.60/KSP 2.3.9.
+  - Grep-verified: no `kapt`/`kotlin-android` anywhere in build files; no stray wrong ADR references remain in app or docs.
+  - Manifest acceptance review (API 29–37): `exported` explicit on every intent-filter component (mandatory since targetSdk 31); listener exported+signature-permission is the mandatory system-only pattern; `foregroundServiceType` exists from API 29 (minSdk floor) and is enforced from targetSdk 34, backed by the declared normal permission; only NORMAL permissions declared — dangerous `POST_NOTIFICATIONS`/`BLUETOOTH_CONNECT` deferred until their setup flow exists (acceptance criterion).
+  - Catalog accessor names checked against Gradle's dashed-key mapping (`hilt-android` → `libs.hilt.android`; plugin `hilt` → `libs.plugins.hilt`).
+- **Tests added (written, NOT executed) — 0:** P06 adds build wiring, an application class, one annotation and manifest declarations — there is no JVM-testable logic to cover; manifest behaviour is exercised by the local agent's first build/install. Recorded honestly rather than adding a meaningless test.
+- **Known risks / unresolved questions (need user/local input):**
+  - Dependency resolution and Hilt/KSP code generation have never run — the first local build is the verification point (KSP needs a JDK 17+ Gradle daemon, which Gradle 9 already mandates).
+  - The two service slots intentionally reference classes that do not exist yet; P07/P08 must land them at the exact documented paths or edit the manifest. `tools:ignore="Instantiatable"` suppresses only that deliberate gap.
+  - `android:allowBackup="true"` (template default) may deserve a privacy review once P10 stores notification content locally — flagged, not changed (privacy decisions need the user).
+  - ADR-017 open question unchanged; ADR-019 numeric defaults still await product confirmation.
+- **Build status:** Not run (cloud-agent restriction).
+- **Test execution status:** Not run (cloud-agent restriction).
+- **Local verification:** Not locally verified.
+- **Commit:** `2abd6f4` — `feat(app): add Hilt foundation and manifest baseline (P06)`
+- **Next phase:** P07 — notification listener foundation (`:core:notifications` Android library module; extraction into `NotificationSnapshot`, permission-revocation handling, no content in logs).
+
+---
+
 ## Phase log
 
 | Phase | Status | Commit |
@@ -233,3 +263,4 @@ Tracks cloud implementation, code review and theoretical validation. Cloud work 
 | P03 Eligibility rules (part 3) | Cloud complete, not locally verified | `5140f52` |
 | P04 Announcement format and TTS contract | Cloud complete, not locally verified | `2b7d44b` |
 | P05 Queue, grouping and scheduling | Cloud complete, not locally verified | `6364676` |
+| P06 Build foundation: Hilt, Application and manifest baseline | Cloud complete, not locally verified | `2abd6f4` |
