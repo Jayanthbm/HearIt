@@ -5,15 +5,17 @@ import android.content.Context
 /**
  * Minimal persisted session state for the announcement service.
  *
- * Placeholder until P09 lands `:core:datastore` (typed DataStore settings): it exists now
- * because two service behaviours need durable state immediately —
+ * Deliberately separate from `:core:datastore` (P09 settings): these are **session/runtime
+ * state**, not user preferences, and the service start path needs them synchronously
+ * without a DataStore read (ADR-021). It exists because two service behaviours need
+ * durable state —
  *  - [isStarted]: the user explicitly started HearIt, so a process recreated by the system
  *    may resume, but a fresh install never announces on its own (architecture §4);
  *  - [isTemporaryMuteActive]: read by [RuntimeStateReader] as the mute override; the real
  *    mute control arrives with the reading controls (P16).
  *
- * Backed by `SharedPreferences` on purpose (synchronous, tiny, service-lifecycle friendly).
- * P09 replaces this with the settings repository; nothing else may read this file.
+ * Backed by `SharedPreferences` on purpose (synchronous, tiny, service-lifecycle friendly);
+ * nothing else may read this file.
  */
 class SessionStore(context: Context) {
 

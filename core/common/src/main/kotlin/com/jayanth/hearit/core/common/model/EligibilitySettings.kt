@@ -43,6 +43,8 @@ data class EligibilitySettings(
     val keywordFilter: KeywordFilterSettings = KeywordFilterSettings(),
     val privacy: PrivacySettings = PrivacySettings(),
     val audioOutput: AudioOutputSettings = AudioOutputSettings(),
+    /** What the player does with other apps' audio focus (P08, per-app inheritable). */
+    val audioFocus: AudioFocusPolicy = AudioFocusPolicy.DUCK,
 ) {
     /**
      * Merges this app's override onto the global defaults. A null field in [override]
@@ -61,6 +63,7 @@ data class EligibilitySettings(
             keywordFilter = override.keywordFilter ?: keywordFilter,
             privacy = override.privacy ?: privacy,
             audioOutput = override.audioOutput ?: audioOutput,
+            audioFocus = override.audioFocus ?: audioFocus,
         )
     }
 }
@@ -79,6 +82,7 @@ data class AppEligibilityOverride(
     val keywordFilter: KeywordFilterSettings? = null,
     val privacy: PrivacySettings? = null,
     val audioOutput: AudioOutputSettings? = null,
+    val audioFocus: AudioFocusPolicy? = null,
 ) {
     /** True when this app inherits every global value — shown in the UI as "Inherits global". */
     val inheritsEveryValue: Boolean
@@ -89,5 +93,6 @@ data class AppEligibilityOverride(
             textLength == null &&
             keywordFilter == null &&
             privacy == null &&
-            audioOutput == null
+            audioOutput == null &&
+            audioFocus == null
 }
