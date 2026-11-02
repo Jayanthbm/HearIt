@@ -44,7 +44,8 @@ data class HearItSettings(
     /** Rules input for [packageName]: global values merged with that app's overrides. */
     fun resolvedFor(packageName: String): ResolvedSettings = ResolvedSettings(
         appEnabled = packageName in enabledApps,
-        priorityAnnounceListed = packageName in priorityAnnounceApps,
+        priorityAnnounceListed = packageName in priorityAnnounceApps || 
+            overrideFor(packageName)?.priorityAnnounceOverride?.listed == true,
         eligibility = eligibility.resolveWith(overrideFor(packageName)?.eligibility),
     )
 
@@ -60,8 +61,26 @@ data class HearItSettings(
     fun priorityFor(packageName: String): AppPriority =
         overrideFor(packageName)?.priority ?: AppPriority.NORMAL
 
+    /** Priority Announce listing for [packageName] (global list or per-app override). */
+    fun priorityAnnounceFor(packageName: String): Boolean =
+        packageName in priorityAnnounceApps || overrideFor(packageName)?.priorityAnnounceOverride?.listed == true
+
     private fun overrideFor(packageName: String): AppOverride? = appOverrides[packageName]
 }
+
+/**
+ * Per-app override of [EligibilitySettings] for Priority Announce (P19/P20).
+ * Absence of a value (null) means the app inherits the global value.
+ * overrides never partially mutate another condition or group.
+ */
+data class PriorityAnnounceOverride(
+    val listed: Boolean? = null,
+) {
+    /** True when this app inherits every global value — shown in the UI as "Inherits global". */
+    val inheritsEveryValue: Boolean
+        get() = listed == null
+}
+
 
 /**
  * Sparse per-app overrides. Every field defaults to "inherit the global value", so an
@@ -75,6 +94,7 @@ data class AppOverride(
     val queue: AppQueueOverride = AppQueueOverride(),
     val history: AppHistoryOverride = AppHistoryOverride(),
     val priority: AppPriority? = null,
+    val priorityAnnounceOverride: PriorityAnnounceOverride = PriorityAnnounceOverride(),
 ) {
 
     /** True when nothing is overridden for this app. */
@@ -82,5 +102,6 @@ data class AppOverride(
         get() = eligibility.inheritsEveryValue &&
             queue.inheritsEveryValue &&
             history.inheritsEveryValue &&
+            priorityAnnounceOverride.inheritsEveryValue &&
             priority == null
 }
