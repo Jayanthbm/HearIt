@@ -1,3 +1,12 @@
 <resources>
     <string name="app_name">Hear It</string>
+
+    <!-- Persistent announcement-service notification (P08). Service state only, never
+         notification content. -->
+    <string name="notification_channel_service">Announcements</string>
+    <string name="notification_channel_service_description">Shows when Hear It is reading notifications aloud.</string>
+    <string name="notification_title_running">Hear It is running</string>
+    <string name="notification_title_speaking">Reading a notification</string>
+    <string name="notification_text_service">Tap to open Hear It</string>
+    <string name="notification_action_stop">Stop</string>
 </resources>

@@ -13,9 +13,10 @@ import android.service.notification.StatusBarNotification
  * and hands it to a [NotificationSink].
  *
  * Contains **no** speech, rules, queue or history logic (P07 acceptance criterion); the
- * pipeline is wired in P08 by assigning [sink]. Callbacks arrive on the main thread and the
- * extraction is cheap (architecture §5), so work is forwarded synchronously and the sink is
- * responsible for hopping to its own coroutine scope.
+ * pipeline is wired through [sink] (tests) or the process-wide [NotificationRelay]
+ * (production, registered by the P08 announcement service). Callbacks arrive on the main
+ * thread and the extraction is cheap (architecture §5), so work is forwarded synchronously
+ * and the sink is responsible for hopping to its own coroutine scope.
  *
  * Privacy: nothing here logs notification content — in fact nothing is logged at all.
  *
@@ -61,7 +62,10 @@ class HearItNotificationListenerService : NotificationListenerService() {
         if (sbn.packageName == packageName) return
 
         val raw = StatusBarNotificationMapper.toRaw(sbn, appLabelFor(sbn.packageName))
-        sink?.onPosted(extractor.extract(raw, System.currentTimeMillis()))
+        val snapshot = extractor.extract(raw, System.currentTimeMillis())
+        // Per-instance sink (tests) wins; otherwise the process-wide relay feeds the
+        // announcement service registered in P08.
+        (sink ?: NotificationRelay).onPosted(snapshot)
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
@@ -70,7 +74,7 @@ class HearItNotificationListenerService : NotificationListenerService() {
 
         val key = NotificationExtractor.keyOf(sbn.packageName, sbn.tag, sbn.id)
         extractor.forget(key)
-        sink?.onRemoved(key)
+        (sink ?: NotificationRelay).onRemoved(key)
     }
 
     /** One rebind attempt; harmless no-op when access has been revoked. */

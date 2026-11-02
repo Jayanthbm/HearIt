@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!-- Foreground-service permissions for the announcement service's
          foregroundServiceType="mediaPlayback" (ADR-010, targetSdk 34+).
@@ -51,17 +50,16 @@
             </intent-filter>
         </service>
 
-        <!-- Foreground announcement service slot (class lands in P08 in this module —
-             ADR-010: one foreground service hosts queue + TTS + persistent notification).
-             exported=false: only this app starts it (explicit user action). The
+        <!-- Foreground announcement service (P08): one foreground service hosts the
+             queue + TTS loop and the persistent notification (ADR-010). exported=false:
+             only this app starts it, and only on explicit user action. The
              foregroundServiceType attribute exists from API 29 (our minSdk floor) and is
-             enforced from targetSdk 34; mediaPlayback matches ADR-010 and requires the
-             normal FOREGROUND_SERVICE_MEDIA_PLAYBACK permission declared above. -->
+             enforced from targetSdk 34; mediaPlayback requires the normal
+             FOREGROUND_SERVICE_MEDIA_PLAYBACK permission declared above. -->
         <service
             android:name=".service.AnnouncementService"
             android:exported="false"
-            android:foregroundServiceType="mediaPlayback"
-            tools:ignore="Instantiatable" />
+            android:foregroundServiceType="mediaPlayback" />
     </application>
 
 </manifest>

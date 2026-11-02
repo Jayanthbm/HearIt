@@ -7,7 +7,6 @@ import com.jayanth.hearit.core.common.model.OverflowPolicy
 import com.jayanth.hearit.core.common.model.SkipReason
 import com.jayanth.hearit.core.common.model.QueueSettings
 import com.jayanth.hearit.core.common.time.Clock
-import android.media.AudioManager
 
 /** One announcement ready to be spoken: a same-app group selected by [AnnouncementQueue.pollReady]. */
 data class ReadyAnnouncement(
@@ -56,15 +55,15 @@ data class ReleaseResult(
 /**
  * One queue instance per Android process; drive it from a single coroutine scope (architecture §3).
  *
- * Device-silent gate (ADR-017): a phone in [AudioManager.RINGER_MODE_SILENT] must not be
- * spoken to. [canAnnounce] reports false for the whole queue while the device is Silent,
- * so every poll and readiness report is suppressed until the mode leaves Silent. Vibrate-only
- * ([RINGER_MODE_VIBRATE]) is *not* silent — the standard notification sound still plays —
- * and is not a suppression trigger. Silence overrides everything: it cannot be overriden by
+ * Device-silent gate (ADR-017): a phone in ringer mode Silent must not be spoken to.
+ * [canAnnounce] reports false for the whole queue while [DeviceAudioState.isSilent] says
+ * the device is silent, so every poll and readiness report is suppressed until silence
+ * ends. Vibrate-only is *not* silent — the standard notification sound still plays — and is
+ * not a suppression trigger. Silence overrides everything: it cannot be overridden by
  * Priority Announce, per-app settings or app-state rules (ADR-017), and speech stops
- * immediately if the mode becomes silent while a previous announcement was speaking (ADR-011).
- * The foreground service (P08) passes the injected audio manager here instead of touching
- * the system after construction, so the queue itself stays pure/Kotlin.
+ * immediately if the mode becomes silent while a previous announcement was speaking
+ * (ADR-011). The Android layer supplies [DeviceAudioState], so this module stays pure
+ * Kotlin with no Android dependency.
  *
  * Responsibilities:
  *  - device silence (ADR-017): [canAnnounce] reports whether the queue is
@@ -88,9 +87,9 @@ data class ReleaseResult(
  */
 class AnnouncementQueue(
     private val clock: Clock,
-    private val audio: AudioManager,
     settings: QueueSettings = QueueSettings(),
     appOverrides: Map<String, AppQueueOverride> = emptyMap(),
+    private val deviceAudio: DeviceAudioState = DeviceAudioState { false },
 ) {
     private var settings: QueueSettings = settings
     private var appOverrides: Map<String, AppQueueOverride> = appOverrides
@@ -114,7 +113,7 @@ class AnnouncementQueue(
 
     /** Device audit (ADR-017): a Silent phone never gets spoken to. */
     /** Device audit (ADR-017): a Silent phone never gets spoken to. */
-    val canAnnounce: Boolean = audio.mode != AudioManager.RINGER_MODE_SILENT
+    val canAnnounce: Boolean get() = !deviceAudio.isSilent()
 
     /** Announced-key memory for dedup; entries are forgotten after the expiry window (ADR-019). */
     private val announcedAt = mutableMapOf<String, Long>()
@@ -233,7 +232,7 @@ class AnnouncementQueue(
     fun pollReady(): PollResult {
         val events = sweepExpired()
         if (speakingId != null) return PollResult(events, null)
-        if (!canAnnounce()) return PollResult(events, null)  // device is Silent (ADR-017)
+        if (!canAnnounce) return PollResult(events, null)  // device is Silent (ADR-017)
 
         val now = clock.nowMillis()
         val lastCompletedAt = lastCompletedAtMillis
@@ -254,7 +253,7 @@ class AnnouncementQueue(
                 it.enqueuedAt <= windowEnd
         }.sortedBy { it.seq }.take(appSettings.maxMessagesPerAnnouncement - 1)
         val group = (listOf(first) + companions).sortedBy { it.seq }
-        if (!canAnnounce()) return PollResult(events, null)  // device went silent after selection
+        if (!canAnnounce) return PollResult(events, null)  // device went silent after selection
 
         val previous = lastSelection
         val id = if (previous != null && previous.second == group) previous.first else nextAnnouncementId++
@@ -382,6 +381,4 @@ class AnnouncementQueue(
             )
         }
 
-    /** Audio-mode audit (ADR-017): a Silent phone never gets spoken to. */
-    fun canAnnounce(): Boolean = audio.mode != AudioManager.RINGER_MODE_SILENT
 }

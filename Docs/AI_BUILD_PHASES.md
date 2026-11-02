@@ -159,4 +159,5 @@ Status legend: `Not started` · `In progress (cloud, not locally verified)` · `
 | P05 Queue, grouping and scheduling | Cloud complete, not locally verified |
 | P06 Build foundation: Hilt, Application and manifest baseline | Cloud complete, not locally verified |
 | P07 Notification listener foundation | Cloud complete, not locally verified |
-| P08–P20 | Not started |
+| P08 Foreground announcement service and speech pipeline | Cloud complete, not locally verified |
+| P09–P20 | Not started |
