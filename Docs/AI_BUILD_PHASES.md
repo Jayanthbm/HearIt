@@ -173,4 +173,4 @@ Status legend: `Not started` · `In progress (cloud, not locally verified)` · `
 | P19 Backup & Restore, Diagnostics, logging | **Partial — export/import repository methods only; the two screens were non-compiling and were removed** |
 | P19b Quick Settings tile | Repaired against the real `TileService`/`Tile` API and locally verified to compile |
 | P20 Release hardening | Not started (blocked by the P14/P18/P19 gaps) |
-| L1 Build/test verification of P00–P19b | Complete — `379` unit tests pass, debug APK builds, lint 0 errors (`2026-11-03`) |
+| L1 Build/test verification of P00–P19b | Complete — `379` unit tests pass, debug APK builds, lint 0 errors (`2026-11-03`, `03edf18`) |
