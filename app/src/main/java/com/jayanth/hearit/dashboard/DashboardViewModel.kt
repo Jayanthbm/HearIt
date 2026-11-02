@@ -82,6 +82,36 @@ class DashboardViewModel @Inject constructor(
         loadRecentHistory()
     }
 
+    /** Reads the current temporary mute state and refreshes the dashboard. Called when the screen resumes. */
+    fun onRefresh() {
+        _state.update {
+            it.copy(
+                temporaryMuteActive = sessionStore.isTemporaryMuteActive,
+                outputLabel = audioOutputs.connectedOutputs().firstOrNull()?.label,
+            )
+        }
+        loadRecentHistory()
+    }
+
+    /** Sets temporary mute for the given duration in minutes (P16). */
+    fun onTemporaryMuteClicked(durationMin: Int) {
+        val intent = when (durationMin) {
+            15 -> android.content.Intent(AnnouncementService.ACTION_TEMPORARY_MUTE_15MIN)
+            30 -> android.content.Intent(AnnouncementService.ACTION_TEMPORARY_MUTE_30MIN)
+            60 -> android.content.Intent(AnnouncementService.ACTION_TEMPORARY_MUTE_60MIN)
+            else -> android.content.Intent(AnnouncementService.ACTION_STOP)
+        }
+        intent.setClass(context, AnnouncementService::class.java)
+        context.startService(intent)
+    }
+
+    /** Clears the temporary mute state. */
+    fun onTemporaryMuteCleared() {
+        val intent = android.content.Intent(AnnouncementService.ACTION_TEMPORARY_MUTE_TOGGLE)
+        intent.setClass(context, AnnouncementService::class.java)
+        context.startService(intent)
+    }
+
     /** Explicit Start (master prompt §4): the service itself reports back through the monitor. */
     fun onStartService() = serviceControl.startAnnouncements()
 

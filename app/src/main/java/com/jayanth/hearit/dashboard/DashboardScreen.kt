@@ -274,15 +274,13 @@ private fun DashboardHome(
             value = onOff(state.priorityAnnounceActive),
             supporting = stringResource(R.string.dashboard_priority_announce_note),
         )
-        StatusRow(
-            label = stringResource(R.string.dashboard_temporary_mute),
-            value = if (state.temporaryMuteActive) {
-                stringResource(R.string.dashboard_status_active)
-            } else {
-                stringResource(R.string.dashboard_status_inactive)
-            },
+        TemporaryMuteRow(
+            isMuted = state.temporaryMuteActive,
+            onMuteClicked = { onTemporaryMuteClicked(it) },
+            onUnmuteClicked = { onTemporaryMuteCleared(it) },
+        ){
             supporting = stringResource(R.string.dashboard_temporary_mute_note),
-        )
+        }
         StatusRow(
             label = stringResource(R.string.dashboard_output),
             value = state.outputLabel ?: stringResource(R.string.dashboard_output_none),
@@ -421,6 +419,75 @@ private fun StatusRow(label: String, value: String, supporting: String? = null) 
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.End,
             )
+        }
+        if (supporting != null) {
+            Text(
+                text = supporting,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/** Temporary mute control row (P16).
+ * Shows the current mute state and provides 15min/30min/60min/toggle controls.
+ */
+@Composable
+private fun TemporaryMuteRow(
+    isMuted: Boolean,
+    onMuteClicked: (Int) -> Unit, 
+    onUnmuteClicked: (() -> Unit),
+    supporting: String? = null,
+) {
+    Column(modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(vertical = 4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = stringResource(R.string.dashboard_temporary_mute),
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.weight(1f).padding(end = 12.dp),
+            )
+            Text(
+                text = if (isMuted) {
+                    stringResource(R.string.dashboard_status_active)
+                } else {
+                    stringResource(R.string.dashboard_status_inactive)
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.End,
+            )
+        }
+        if (!isMuted) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                OutlinedButton(
+                    onClick = { onMuteClicked(15) },
+                    modifier = Modifier.width(60.dp).heightIn(min = 36.dp),
+                ) {
+                    Text(text = stringResource(R.string.mute_15min))
+                }
+                OutlinedButton(
+                    onClick = { onMuteClicked(30) },
+                    modifier = Modifier.width(60.dp).heightIn(min = 36.dp), start = 4.dp
+                ) {
+                    Text(text = stringResource(R.string.mute_30min))
+                }
+                OutlinedButton(
+                    onClick = { onMuteClicked(60) },
+                    modifier = Modifier.width(60.dp).heightIn(min = 36.dp), start = 4.dp
+                ) {
+                    Text(text = stringResource(R.string.mute_60min))
+                }
+            }
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                OutlinedButton(
+                    onClick = { onUnmuteClicked() },
+                    modifier = Modifier.width(80.dp).heightIn(min = 36.dp),
+                ) {
+                    Text(text = stringResource(R.string.unmute))
+                }
+            }
         }
         if (supporting != null) {
             Text(

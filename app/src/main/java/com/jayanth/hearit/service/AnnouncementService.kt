@@ -105,28 +105,82 @@ class AnnouncementService : Service(), NotificationSink {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_STOP) {
-            sessionStore.isStarted = false
-            serviceStatus.markStopped()
-            stopSelf()
-            return START_NOT_STICKY
+        when {
+            intent?.action == ACTION_STOP -> {
+                sessionStore.isStarted = false
+                serviceStatus.markStopped()
+                stopSelf()
+                return START_NOT_STICKY
+            }
+            intent?.action == ACTION_TEMPORARY_MUTE_15MIN -> {
+                sessionStore.isTemporaryMuteActive = true
+                handler.removeCallbacks(muteToggleRunnable)
+                handler.postDelayed(muteUnlockRunnable, 15 * 60 * 1000L)
+                publishStatus()
+                return START_STICKY
+            }
+            intent?.action == ACTION_TEMPORARY_MUTE_30MIN -> {
+                sessionStore.isTemporaryMuteActive = true
+                handler.removeCallbacks(muteToggleRunnable)
+                handler.postDelayed(muteUnlockRunnable, 30 * 60 * 1000L)
+                publishStatus()
+                return START_STICKY
+            }
+            intent?.action == ACTION_TEMPORARY_MUTE_60MIN -> {
+                sessionStore.isTemporaryMuteActive = true
+                handler.removeCallbacks(muteToggleRunnable)
+                handler.postDelayed(muteUnlockRunnable, 60 * 60 * 1000L)
+                publishStatus()
+                return START_STICKY
+            }
+            intent?.action == ACTION_TEMPORARY_MUTE_TOGGLE -> {
+                sessionStore.isTemporaryMuteActive = !sessionStore.isTemporaryMuteActive
+                handler.removeCallbacks(muteToggleRunnable)
+                publishStatus()
+                return START_STICKY
+            }
+            intent?.action == ACTION_PAUSE -> {
+                if (currentAction != null) {
+                    engine.pause()
+                }
+                publishStatus()
+                return START_STICKY
+            }
+            intent?.action == ACTION_RESUME -> {
+                if (currentAction != null) {
+                    engine.resume()
+                }
+                publishStatus()
+                return START_STICKY
+            }
+            intent?.action == ACTION_SKIP -> {
+                // Skip the current announcement and move to the next
+                if (currentAction != null) {
+                    finishSpeech(currentAction)
+                }
+                pipeline.tick(stateReader.read()) { packageName -> settingsSource.forApp(packageName) }
+                    ?.let { speak(it)
+                }
+                publishStatus()
+                return START_STICKY
+            }
+            intent?.action == ACTION_REPEAT -> {
+                // Re-speak the last announcement
+                if (currentAction != null) {
+                    speak(currentAction)
+                }
+                publishStatus()
+                return START_STICKY
+            }
+            sessionStore.isStarted = true
+            startInForeground()
+            // Publish before the first tick so the dashboard shows Active immediately (P12).
+            serviceStatus.markRunning()
+            publishStatus()
+            handler.removeCallbacks(tickRunnable)
+            handler.post(tickRunnable)
+            return START_STICKY
         }
-
-        if (intent == null && !sessionStore.isStarted) {
-            // System recreation after a stop: never announce without an explicit start.
-            serviceStatus.markStopped()
-            stopSelf()
-            return START_NOT_STICKY
-        }
-
-        sessionStore.isStarted = true
-        startInForeground()
-        // Publish before the first tick so the dashboard shows Active immediately (P12).
-        serviceStatus.markRunning()
-        publishStatus()
-        handler.removeCallbacks(tickRunnable)
-        handler.post(tickRunnable)
-        return START_STICKY
     }
 
     override fun onPosted(snapshot: NotificationSnapshot) {
@@ -228,9 +282,34 @@ class AnnouncementService : Service(), NotificationSink {
         const val ACTION_START = "com.jayanth.hearit.action.START_ANNOUNCEMENTS"
 
         /** Explicit stop (notification action / dashboard, P08/P12). */
-        const val ACTION_STOP = "com.jayanth.hearit.action.STOP_ANNOUNCEMENTS"
+    const val ACTION_STOP = "com.jayanth.hearit.action.STOP_ANNOUNCEMENTS"
 
-        /** Tick cadence: fast enough for ADR-011 stop-on-change, cheap enough to stay idle. */
-        private const val TICK_INTERVAL_MILLIS = 750L
+    /** Temporary mute actions (P16): 15 min, 30 min, 1 h, or until re-enabled. */
+    const val ACTION_TEMPORARY_MUTE_15MIN = "com.jayanth.hearit.action.TEMPORARY_MUTE_15MIN"
+    const val ACTION_TEMPORARY_MUTE_30MIN = "com.jayanth.hearit.action.TEMPORARY_MUTE_30MIN"
+    const val ACTION_TEMPORARY_MUTE_60MIN = "com.jayanth.hearit.action.TEMPORARY_MUTE_60MIN"
+    const val ACTION_TEMPORARY_MUTE_TOGGLE = "com.jayanth.hearit.action.TEMPORARY_MUTE_TOGGLE"
+
+    /** Pause/Resume/Repeat/Skip current announcement (P16). */
+    const val ACTION_PAUSE = "com.jayanth.hearit.action.PAUSE"
+    const val ACTION_RESUME = "com.jayanth.hearit.action.RESUME"
+    const val ACTION_SKIP = "com.jayanth.hearit.action.SKIP"
+    const val ACTION_REPEAT = "com.jayanth.hearit.action.REPEAT"
+
+    /** Tick cadence: fast enough for ADR-011 stop-on-change, cheap enough to stay idle. */
+    private const val TICK_INTERVAL_MILLIS = 750L
+    }
+
+    /** Temporary mute timer callbacks (P16). */
+    private val muteToggleRunnable = object : Runnable {
+        override fun run() {
+            sessionStore.isTemporaryMuteActive = false
+        }
+    }
+
+    private val muteUnlockRunnable = object : Runnable {
+        override fun run() {
+            sessionStore.isTemporaryMuteActive = false
+        }
     }
 }
