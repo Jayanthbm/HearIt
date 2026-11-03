@@ -25,9 +25,14 @@ class HearItApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         HearItLogger.registerSink(fileDiagnosticLogger)
+        val appVersion = try {
+            packageManager.getPackageInfo(packageName, 0).versionName ?: "1.0.1"
+        } catch (e: Exception) {
+            "1.0.1"
+        }
         HearItLogger.info(
             LogCategory.SERVICE,
-            "HearIt application initialized (version 1.0, SDK ${Build.VERSION.SDK_INT}, OEM ${Build.MANUFACTURER})",
+            "HearIt application initialized (version $appVersion, SDK ${Build.VERSION.SDK_INT}, OEM ${Build.MANUFACTURER})",
         )
     }
 }
