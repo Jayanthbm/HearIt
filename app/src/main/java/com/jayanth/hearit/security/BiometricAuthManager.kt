@@ -39,18 +39,22 @@ class BiometricAuthManager @Inject constructor(
      * or biometric enrolled that can satisfy authentication.
      */
     fun canAuthenticate(): Boolean {
-        val km = keyguardManager ?: return false
-        if (!km.isDeviceSecure) return false
+        return try {
+            val km = keyguardManager ?: return false
+            if (!km.isDeviceSecure) return false
 
-        val bm = biometricManager ?: return true
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            val status = bm.canAuthenticate(
-                BiometricManager.Authenticators.BIOMETRIC_STRONG or
-                    BiometricManager.Authenticators.DEVICE_CREDENTIAL,
-            )
-            status == BiometricManager.BIOMETRIC_SUCCESS
-        } else {
-            km.isDeviceSecure
+            val bm = biometricManager ?: return true
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                val status = bm.canAuthenticate(
+                    BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                        BiometricManager.Authenticators.DEVICE_CREDENTIAL,
+                )
+                status == BiometricManager.BIOMETRIC_SUCCESS
+            } else {
+                km.isDeviceSecure
+            }
+        } catch (e: Throwable) {
+            false
         }
     }
 
