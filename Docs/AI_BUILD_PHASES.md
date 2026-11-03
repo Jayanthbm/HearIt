@@ -166,13 +166,13 @@ Status legend: `Not started` · `In progress (cloud, not locally verified)` · `
 | P12 Dashboard and navigation shell (`:app`/`dashboard`) | Repaired and locally verified to compile; UI not interacted with |
 | P13 Applications feature (`:app`/`applications`) | Locally verified to compile; UI not interacted with |
 | P14 Devices feature (`:app`/`devices`) | Implemented in L5 — output categories, per-device Bluetooth allow-list, remembered devices; UI not interaction-tested, device behaviour untested |
-| P15 Global Rules, Voice & Speech settings | Repaired (screen was non-compiling) and locally verified to compile |
-| P16 Reading controls and temporary mute | Locally verified to compile; pause = stop + re-speak (no native TTS pause) |
-| P17 Priority Announce mode | Locally verified to compile; rule precedence unit-tested |
-| P18 History feature UI | Implemented in L4 — search, status filter, sort, paging, delete/clear with confirmation, storage/retention settings; UI not interaction-tested, no per-app/date filter |
-| P19 Backup & Restore, Diagnostics, logging | **Partial — export/import repository methods only; the two screens were non-compiling and were removed** |
+| P15 Global Rules, Voice & Speech settings | Complete — Global Rules, Voice & Speech settings fully implemented with live speech preview, audio testing, and rate/pitch sliders; verified on device |
+| P16 Reading controls and temporary mute | Complete — Aligned card layout, custom duration dialog, mutual exclusion with Priority Announce, auto-resumption; verified on device |
+| P17 Priority Announce mode | Complete — Dashboard card controls, mutual exclusion with Temporary Mute, state resumption; verified on device |
+| P18 History feature UI | Implemented in L4 — search, status filter, sort, paging, delete/clear with confirmation, storage/retention settings |
+| P19 Backup & Restore, Diagnostics, General Settings | Complete — Settings-only SAF export/import, schema validation, live Diagnostics probes with TTS readiness polling, General Settings for pacing and audio focus; verified on device |
 | P19b Quick Settings tile | Repaired against the real `TileService`/`Tile` API and locally verified to compile |
-| P20 Release hardening | Not started (blocked by the P14/P18/P19 gaps) |
+| P20 Release hardening | In progress / ready for final verification pass |
 | L1 Build/test verification of P00–P19b | Complete — `379` unit tests pass, debug APK builds, lint 0 errors (`2026-11-03`, `03edf18`) |
 | L2 Persisted settings wired into the service (`SettingsSource` → `SettingsRepository`) | Complete — `387` unit tests pass, debug APK builds, lint 0 errors (`2026-11-03`); history recording, call-hold release and audio focus remain unwired |
 | L3 History recorded from the announcement pipeline | Complete — `394` unit tests pass, debug APK builds, lint 0 errors (`2026-11-03`); call-hold release, audio focus, P14 and the P18 History screen remain open |
