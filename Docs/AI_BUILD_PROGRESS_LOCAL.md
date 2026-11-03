@@ -513,6 +513,7 @@ per-app audio-focus policy in the player, which is stored and resolved but never
 ## L6 — Service gaps closed: call-end release and audio focus
 
 **Phase:** L6 (finishes P08's two unwired behaviours; no new user-facing screen).
+- **Commit:** `54431d0` — `feat(service): release call-held announcements and apply audio focus (L6)`
 
 ### The gap
 
