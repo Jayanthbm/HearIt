@@ -1,5 +1,51 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.HearIt" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- Theme attributes referenced by the splash layout. Defined at the root resources
+         level (Android requires <attr> outside <style>) and provided as style items
+         inside Theme.HearIt and Theme.Splash so they always resolve. -->
+    <attr name="colorOnBackground" format="color" />
+    <attr name="colorPrimary" format="color" />
+    <attr name="colorOnPrimary" format="color" />
+
+    <!-- Base dark-primary theme for all Hear It surfaces. Material 3 Expressive over a deep
+         primary, with a violet accent and a controlled light scheme for the splash. -->
+    <style name="Theme.HearIt" parent="android:Theme.Material.Light.NoActionBar">
+        <!-- Primary brand colour (deep navy so the accent reads as an accent, not a neutral). -->
+        <item name="android:colorPrimary">@color/colorPrimary</item>
+        <item name="android:colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="android:colorAccent">@color/colorAccent</item>
+
+        <!-- Status bar: light text over the primary so it always has contrast. -->
+        <item name="android:statusBarColor">@color/colorPrimary</item>
+        <item name="android:navigationBarColor">@color/colorSurface</item>
+        <item name="android:windowLightStatusBar">false</item>
+
+        <!-- Edge-to-edge window edges so the system bars are part of the layout. -->
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:windowTranslucentStatus">false</item>
+        <item name="android:windowTranslucentNavigation">false</item>
+
+        <!-- Color tokens exposed to the splash layout as style attributes. -->
+        <item name="colorOnBackground">@color/colorOnBackground</item>
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorOnPrimary">@color/colorOnPrimary</item>
+    </style>
+
+    <!-- Branded splash: transparent frame over the dark primary, so the themed splash
+         drawable (drawn behind the icon and title) is the only thing the user sees. -->
+    <style name="Theme.Splash" parent="android:Theme.Material.Light.NoActionBar">
+        <!-- The root-level <attr> declarations above define the attributes; the items below
+             supply concrete values for the Splash theme so ?attr/ lookups resolve. -->
+        <item name="colorOnBackground">@color/colorOnBackground</item>
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorOnPrimary">@color/colorOnPrimary</item>
+
+        <item name="android:windowBackground">@drawable/splash_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+    </style>
 </resources>

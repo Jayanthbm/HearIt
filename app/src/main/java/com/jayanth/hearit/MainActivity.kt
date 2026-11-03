@@ -13,8 +13,9 @@ import com.jayanth.hearit.dashboard.DashboardRoute
 import com.jayanth.hearit.dashboard.DashboardViewModel
 import com.jayanth.hearit.devices.DevicesViewModel
 import com.jayanth.hearit.history.HistoryViewModel
-import com.jayanth.hearit.setup.SetupRoute
+import com.jayanth.hearit.setup.SetupScreen
 import com.jayanth.hearit.setup.SetupViewModel
+import com.jayanth.hearit.ui.theme.HearItTheme
 import com.jayanth.hearit.ui.theme.HearItTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -55,7 +56,20 @@ class MainActivity : ComponentActivity() {
                         devicesViewModel = devicesViewModel,
                     )
                 } else {
-                    SetupRoute(viewModel = setupViewModel)
+                    SetupScreen(
+    state = setupViewModel.state.collectAsState().value,
+    onBack = setupViewModel::onBack,
+    onNext = setupViewModel::onNext,
+    onSkip = setupViewModel::onSkip,
+    onToggleApp = setupViewModel::onToggleApp,
+    onAudioOutputSettingsChanged = { setupViewModel.onAudioOutputSettingsChanged(it) },
+    onBatteryGuidanceAcknowledged = setupViewModel::onBatteryGuidanceAcknowledged,
+    onTestAnnouncement = setupViewModel::onTestAnnouncement,
+    onStart = setupViewModel::onStart,
+    onOpenNotificationAccessSettings = setupViewModel::onOpenNotificationAccessSettings,
+    onOpenBatterySettings = setupViewModel::onOpenBatterySettings,
+    onPermissionsChanged = {},
+)
                 }
             }
         }

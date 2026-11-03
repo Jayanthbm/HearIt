@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Cold-start launcher surface. Uses a plain vertical LinearLayout so the app has no
+     ConstraintLayout dependency; the drawable and the app/splash strings are the only
+     behaviour here. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center_horizontal"
+    android:background="@drawable/splash_background">
+
+    <ImageView
+        android:id="@+id/splash_icon"
+        android:layout_width="140dp"
+        android:layout_height="140dp"
+        android:contentDescription="@string/splash_icon_description"
+        android:scaleType="centerInside" />
+
+    <TextView
+        android:id="@+id/splash_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="@string/app_name"
+        android:textColor="?attr/colorOnBackground"
+        android:textSize="28sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/splash_subtitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="@string/splash_subtitle"
+        android:textColor="?attr/colorOnBackground"
+        android:textSize="15sp" />
+
+</LinearLayout>

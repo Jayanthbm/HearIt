@@ -2,7 +2,6 @@
 <resources>
     <string name="app_name">Hear It</string>
 
-    
     <string name="notification_channel_service">Announcements</string>
     <string name="notification_channel_service_description">Shows when Hear It is reading notifications aloud.</string>
     <string name="notification_title_running">Hear It is running</string>
@@ -10,7 +9,6 @@
     <string name="notification_text_service">Tap to open Hear It</string>
     <string name="notification_action_stop">Stop</string>
 
-    
     <string name="setup_loading">Loading\u2026</string>
     <string name="setup_progress">Step %1$d of %2$d</string>
     <string name="setup_back">Back</string>
@@ -89,7 +87,6 @@
     <string name="setup_blocker_no_apps">Enable at least one app before starting.</string>
     <string name="setup_blocker_no_output">Allow at least one output type before starting.</string>
 
-    
     <string name="nav_home">Home</string>
     <string name="nav_apps">Apps</string>
     <string name="nav_devices">Devices</string>
@@ -169,7 +166,7 @@
     <string name="dashboard_apps_count">%1$d</string>
 
     <string name="dashboard_section_recent">Recent announcements</string>
-    <string name="dashboard_recent_row">%1$s \xb7 %2$s \xb7 %3$s</string>
+    <string name="dashboard_recent_row">%1$s \u00b7 %2$s \u00b7 %3$s</string>
     <string name="dashboard_history_announced">Announced</string>
     <string name="dashboard_history_skipped">Skipped</string>
     <string name="dashboard_history_queued">Queued</string>
@@ -186,7 +183,6 @@
     <string name="dashboard_section_tools">Settings and tools</string>
     <string name="dashboard_placeholder_body">This screen arrives with its feature update. Its navigation entry already exists so the shell does not change when the screen is filled in.</string>
 
-    
     <string name="applications_search_label">Search apps</string>
     <string name="applications_enabled_count">%1$d of %2$d apps enabled</string>
     <string name="applications_select_all">Select all</string>
@@ -228,7 +224,7 @@
     <string name="app_settings_reset">Reset to global values</string>
     <string name="app_settings_reset_note">Only the overrides for this app are cleared. The announcement switch is unchanged.</string>
     <string name="app_settings_note_later">Grouping window and the remaining rule groups are configured globally; their per-app controls arrive with the settings screens.</string>
-    
+
     <!-- Devices feature (P14) -->
     <string name="devices_intro">Choose which output types Hear It may speak through. Android decides where audio actually goes; Hear It only decides whether to speak on the output that is active.</string>
     <string name="devices_allowed_types">Allowed output types</string>
@@ -252,7 +248,36 @@
     <string name="devices_refresh">Check connected devices</string>
     <string name="devices_unavailable">Connected outputs could not be read. Try again.</string>
     <string name="devices_note_routing">Android routes audio to the active output, so Hear It cannot force a particular device. Device names need Bluetooth permission on Android 12 and later.</string>
-<string name="global_settings_title">Global Rules &amp; Voice &amp; Speech</string><string name="global_settings_description">Configure announcement rules and speech settings applied globally</string><string name="global_screen_condition">Screen condition</string><string name="global_screen_on">On</string><string name="global_screen_off">Off</string><string name="global_screen_both">Both</string><string name="global_lock_condition">Lock condition</string><string name="global_lock_locked">Locked</string><string name="global_lock_unlocked">Unlocked</string><string name="global_lock_both">Both</string><string name="global_max_length">Maximum length (chars)</string><string name="global_chars">chars</string><string name="global_scope_message">Per message</string><string name="global_scope_whole_notification">Whole notification</string><string name="global_keywords_enabled">Enable keyword filtering</string><string name="global_keywords_mode">Match mode</string><string name="global_keyword_mode_whole_word">Whole word</string><string name="global_keyword_mode_phrase">Phrase</string><string name="global_keywords_keywords">Keywords (comma-separated)</string><string name="global_privacy_exclude_app">Exclude app</string><string name="global_privacy_skip_otp">Skip OTP/verification codes</string><string name="global_privacy_skip_password">Skip password-related</string><string name="global_privacy_skip_banking">Skip banking/financial</string><string name="global_privacy_skip_payment">Skip payment/transaction</string><string name="global_privacy_hide_content">Hide message content</string><string name="global_privacy_sensitive_keywords">Custom sensitive keywords</string><string name="global_audio_allow_wired">Allow wired output</string><string name="global_audio_allow_bluetooth">Allow Bluetooth output</string><string name="global_audio_allow_speaker">Allow phone speaker</string><string name="global_settings_apply">Apply</string>
+    <string name="global_settings_title">Global Rules &amp; Voice &amp; Speech</string>
+    <string name="global_settings_description">Configure announcement rules and speech settings applied globally</string>
+    <string name="global_screen_condition">Screen condition</string>
+    <string name="global_screen_on">On</string>
+    <string name="global_screen_off">Off</string>
+    <string name="global_screen_both">Both</string>
+    <string name="global_lock_condition">Lock condition</string>
+    <string name="global_lock_locked">Locked</string>
+    <string name="global_lock_unlocked">Unlocked</string>
+    <string name="global_lock_both">Both</string>
+    <string name="global_max_length">Maximum length (chars)</string>
+    <string name="global_chars">chars</string>
+    <string name="global_scope_message">Per message</string>
+    <string name="global_scope_whole_notification">Whole notification</string>
+    <string name="global_keywords_enabled">Enable keyword filtering</string>
+    <string name="global_keywords_mode">Match mode</string>
+    <string name="global_keyword_mode_whole_word">Whole word</string>
+    <string name="global_keyword_mode_phrase">Phrase</string>
+    <string name="global_keywords_keywords">Keywords (comma-separated)</string>
+    <string name="global_privacy_exclude_app">Exclude app</string>
+    <string name="global_privacy_skip_otp">Skip OTP/verification codes</string>
+    <string name="global_privacy_skip_password">Skip password-related</string>
+    <string name="global_privacy_skip_banking">Skip banking/financial</string>
+    <string name="global_privacy_skip_payment">Skip payment/transaction</string>
+    <string name="global_privacy_hide_content">Hide message content</string>
+    <string name="global_privacy_sensitive_keywords">Custom sensitive keywords</string>
+    <string name="global_audio_allow_wired">Allow wired output</string>
+    <string name="global_audio_allow_bluetooth">Allow Bluetooth output</string>
+    <string name="global_audio_allow_speaker">Allow phone speaker</string>
+    <string name="global_settings_apply">Apply</string>
     <string name="global_settings_apply_note">Changes take effect immediately for future announcements</string>
 
     <string name="action_cancel">Cancel</string>
@@ -283,7 +308,7 @@
     <string name="history_loading">Loading history\u2026</string>
     <string name="history_load_more">Load more</string>
     <string name="history_end">End of history</string>
-    <string name="history_row_title">%1$s \xb7 %2$s</string>
+    <string name="history_row_title">%1$s \u00b7 %2$s</string>
     <string name="history_row_reason">Reason: %1$s</string>
     <string name="history_row_sender">From %1$s</string>
     <string name="history_row_updated">Updated notification</string>
@@ -312,4 +337,8 @@
     <string name="history_reason_expired">expired before speaking</string>
     <string name="history_reason_overflow">queue limit</string>
     <string name="history_reason_duplicate">already announced</string>
+
+    <!-- App icon / splash -->
+    <string name="splash_icon_description">Hear It app icon</string>
+    <string name="splash_subtitle">Your notifications, read aloud.</string>
 </resources>
