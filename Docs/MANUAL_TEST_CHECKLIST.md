@@ -11,20 +11,21 @@ Track results in three buckets: **Untested** · **Emulator-tested** · **Physica
 | Emulator | Latest Android | 37 | Emulator | Untested |
 | Pixel (or stock Android) | Recent | 33+ | Physical | Untested |
 | Samsung Galaxy | Recent | 33+ | Physical | Untested |
+| OnePlus Nord (AC2001) | Android 12 | 31 | Physical (OxygenOS OEM) | Physical-device-tested |
 
 ## 1. Setup and onboarding
 
-- [ ] First launch shows welcome and explains the app purpose.
-- [ ] Notification access step opens the system listener-settings screen; returning with access granted advances the flow.
-- [ ] Declining/skipping a skippable step is possible and clearly marked as skipped.
-- [ ] Bluetooth/nearby-device permission prompt matches the OS version (BLUETOOTH_CONNECT on 31+, none for wired).
-- [ ] TTS step reports engine availability, and reports missing language data honestly (no false "ready").
-- [ ] Background/battery guidance does not promise guaranteed background execution; manufacturer guidance appears only where justified.
-- [ ] App-selection step starts with **all apps disabled**.
-- [ ] Audio-device step lists previously connected Bluetooth devices, a generic Wired option, phone speaker off by default.
-- [ ] Test announcement plays through the chosen output and does **not** create a history entry or touch the queue.
-- [ ] Review step requires an explicit Start; opening the app later never silently starts the service.
-- [ ] Back/forward navigation preserves state on every step.
+- [x] First launch shows welcome and explains the app purpose. (Physical-device-tested)
+- [x] Notification access step opens the system listener-settings screen; returning with access granted advances the flow. (Physical-device-tested)
+- [x] Declining/skipping a skippable step is possible and clearly marked as skipped. (Physical-device-tested)
+- [x] Bluetooth/nearby-device permission prompt matches the OS version (BLUETOOTH_CONNECT on 31+, none for wired). (Physical-device-tested)
+- [x] TTS step reports engine availability, and reports missing language data honestly (no false "ready"). (Physical-device-tested)
+- [x] Background/battery guidance does not promise guaranteed background execution; manufacturer guidance appears only where justified. (Physical-device-tested)
+- [x] App-selection step starts with **all apps disabled**. (Physical-device-tested)
+- [x] Audio-device step lists previously connected Bluetooth devices, a generic Wired option, phone speaker off by default. (Physical-device-tested)
+- [x] Test announcement plays through the chosen output and does **not** create a history entry or touch the queue. (Physical-device-tested)
+- [x] Review step requires an explicit Start; opening the app later never silently starts the service. (Physical-device-tested)
+- [x] Back/forward navigation preserves state on every step. (Physical-device-tested)
 
 ## 2. Service and dashboard
 
@@ -83,11 +84,11 @@ Track results in three buckets: **Untested** · **Emulator-tested** · **Physica
 
 ## 8. Backup, security, diagnostics
 
-- [ ] Backup exports settings only (no history/notification content); file picker, no cloud.
-- [ ] Corrupt, wrong-version and truncated files are rejected with a clear message; valid file restores settings.
-- [ ] Biometric gate (when enabled) protects entry; disabled by default.
-- [ ] Secure-screen mode hides content in recents when enabled.
-- [ ] Diagnostics shows service state, permissions, TTS availability, active output; local log export works; **log contains no notification content**.
+- [x] Backup exports settings only (no history/notification content); file picker, no cloud. (Physical-device-tested)
+- [x] Corrupt, wrong-version and truncated files are rejected with a clear message; valid file restores settings. (Physical-device-tested)
+- [x] Biometric gate (when enabled) protects entry; disabled by default. (Physical-device-tested)
+- [x] Secure-screen mode hides content in recents when enabled. (Physical-device-tested)
+- [x] Diagnostics shows service state, permissions, TTS availability, active output; local log export works; **log contains no notification content**. (Physical-device-tested)
 
 ## 9. Restart, reboot and background
 
