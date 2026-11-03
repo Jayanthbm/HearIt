@@ -40,8 +40,48 @@ internal object AnnouncementNotification {
         ).apply {
             description = context.getString(R.string.notification_channel_service_description)
             setShowBadge(false)
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                setBlockable(true)
+            }
         }
         manager.createNotificationChannel(channel)
+    }
+
+    /**
+     * Returns true if the service status notification is visible in the notification panel/shade.
+     * Returns false if notifications are globally disabled for Hear It or if this channel is blocked.
+     */
+    fun isNotificationVisible(context: Context): Boolean {
+        val manager = context.getSystemService(NotificationManager::class.java) ?: return true
+        if (!manager.areNotificationsEnabled()) {
+            return false
+        }
+        val channel = manager.getNotificationChannel(CHANNEL_ID) ?: return true
+        return channel.importance != NotificationManager.IMPORTANCE_NONE
+    }
+
+    /**
+     * Opens system notification settings specifically for the announcement service channel.
+     * Falls back to app notification settings if channel settings cannot be launched.
+     */
+    fun openNotificationSettings(context: Context) {
+        ensureChannel(context)
+        val channelIntent = Intent(android.provider.Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS).apply {
+            putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
+            putExtra(android.provider.Settings.EXTRA_CHANNEL_ID, CHANNEL_ID)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        try {
+            context.startActivity(channelIntent)
+        } catch (_: Throwable) {
+            val appIntent = Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            try {
+                context.startActivity(appIntent)
+            } catch (_: Throwable) {}
+        }
     }
 
     /** Builds the ongoing notification; [speaking] only changes the title line. */

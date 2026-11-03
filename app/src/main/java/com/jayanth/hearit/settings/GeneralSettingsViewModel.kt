@@ -1,12 +1,15 @@
 package com.jayanth.hearit.settings
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jayanth.hearit.core.common.model.AudioFocusPolicy
 import com.jayanth.hearit.core.common.model.OverflowPolicy
 import com.jayanth.hearit.core.common.model.QueueSettings
 import com.jayanth.hearit.core.datastore.SettingsRepository
+import com.jayanth.hearit.service.AnnouncementNotification
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -15,16 +18,21 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
- * ViewModel managing General Settings (Queue, Grouping, Pacing, and Audio Focus).
+ * ViewModel managing General Settings (Queue, Grouping, Pacing, Audio Focus, and Service Notification).
  *
  * Single-writer pattern over [SettingsRepository] (ADR-021).
  */
 @HiltViewModel
 class GeneralSettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
+    @param:ApplicationContext private val context: Context,
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(GeneralSettingsUiState())
+    private val _state = MutableStateFlow(
+        GeneralSettingsUiState(
+            isServiceNotificationVisible = AnnouncementNotification.isNotificationVisible(context),
+        ),
+    )
     val state: StateFlow<GeneralSettingsUiState> = _state.asStateFlow()
 
     init {
@@ -38,6 +46,15 @@ class GeneralSettingsViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    fun refreshServiceNotificationStatus() {
+        val visible = AnnouncementNotification.isNotificationVisible(context)
+        _state.update { it.copy(isServiceNotificationVisible = visible) }
+    }
+
+    fun openServiceNotificationSettings() {
+        AnnouncementNotification.openNotificationSettings(context)
     }
 
     fun onGroupingWindowChanged(millis: Long) {

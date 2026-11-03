@@ -23,6 +23,7 @@ class GeneralSettingsUiStateTest {
         assertEquals(10, state.queue.perAppMaxSize)
         assertEquals(OverflowPolicy.DISCARD_OLDEST, state.queue.overflowPolicy)
         assertFalse(state.queue.repeatNotificationUpdates)
+        assertEquals(true, state.isServiceNotificationVisible)
     }
 
     @Test
@@ -41,6 +42,7 @@ class GeneralSettingsUiStateTest {
         val state = GeneralSettingsUiState(
             queue = customQueue,
             audioFocus = AudioFocusPolicy.PAUSE,
+            isServiceNotificationVisible = false,
         )
 
         assertEquals(AudioFocusPolicy.PAUSE, state.audioFocus)
@@ -53,5 +55,6 @@ class GeneralSettingsUiStateTest {
         assertEquals(20, state.queue.perAppMaxSize)
         assertEquals(OverflowPolicy.KEEP_HIGHEST_PRIORITY, state.queue.overflowPolicy)
         assertEquals(true, state.queue.repeatNotificationUpdates)
+        assertEquals(false, state.isServiceNotificationVisible)
     }
 }

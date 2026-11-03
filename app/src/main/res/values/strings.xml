@@ -437,6 +437,22 @@
     <string name="settings_audio_focus_pause_desc">Pauses background media during speech and resumes when finished</string>
     <string name="settings_audio_focus_none">Do Not Interfere</string>
     <string name="settings_audio_focus_none_desc">Speaks concurrently without requesting audio focus from other apps</string>
+
+    <!-- Persistent Service Notification (Notification Panel Control) -->
+    <string name="settings_service_notification_title">Service Notification</string>
+    <string name="settings_service_notification_desc">Controls the persistent \"Hear It is running\" notification in your device\'s notification shade.</string>
+    <string name="settings_service_notification_visible_label">Show in Notification Panel</string>
+    <string name="settings_service_notification_visible_on">Visible in notification panel</string>
+    <string name="settings_service_notification_visible_off">Hidden from notification panel</string>
+    <string name="settings_service_notification_status_visible">Visible in Panel</string>
+    <string name="settings_service_notification_status_hidden">Hidden from Panel (Service Active)</string>
+    <string name="settings_service_notification_explanation">Android requires background services to register a status notification. You can safely hide or minimize \"Hear It is running\" in system settings without stopping speech announcements.</string>
+    <string name="settings_service_notification_configure_button">Configure in Android Settings</string>
+    <string name="settings_service_notification_dialog_title">Configure Service Notification</string>
+    <string name="settings_service_notification_dialog_body">Android manages foreground service notifications through system settings.\n\nTap \"Open Settings\" and toggle \"Allow notifications\" to hide or show \"Hear It is running\" in your notification panel.</string>
+    <string name="settings_service_notification_dialog_confirm">Open Settings</string>
+    <string name="settings_service_notification_tip">💡 Tip: In the settings screen, turn \"Allow notifications\" OFF to hide it from your notification panel completely.</string>
+
     <string name="settings_reset">Reset to defaults</string>
     <string name="settings_reset_confirm_title">Reset settings to defaults?</string>
     <string name="settings_reset_confirm_body">This will restore grouping window, pacing delays, queue capacity limits, and audio focus back to their default values.</string>

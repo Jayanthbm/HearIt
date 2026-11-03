@@ -17,9 +17,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Layers
+import androidx.compose.material.icons.rounded.NotificationsActive
+import androidx.compose.material.icons.rounded.NotificationsOff
 import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material.icons.rounded.Sync
@@ -40,6 +44,7 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,17 +52,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.jayanth.hearit.R
 import com.jayanth.hearit.core.common.model.AudioFocusPolicy
 import com.jayanth.hearit.core.common.model.OverflowPolicy
 
 /**
- * Entry point for General Settings (Queue, Grouping, Pacing & Audio Focus).
+ * Entry point for General Settings (Queue, Grouping, Pacing, Audio Focus & Service Notification).
  *
  * Master prompt §8 and phase P15.
  */
@@ -67,6 +76,20 @@ fun GeneralSettingsRoute(
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.state.collectAsState()
+
+    // Refresh notification channel status whenever user resumes from Android settings
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.refreshServiceNotificationStatus()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     GeneralSettingsScreen(
         state = state,
@@ -80,6 +103,7 @@ fun GeneralSettingsRoute(
         onOverflowPolicyChanged = viewModel::onOverflowPolicyChanged,
         onRepeatNotificationUpdatesChanged = viewModel::onRepeatNotificationUpdatesChanged,
         onAudioFocusPolicyChanged = viewModel::onAudioFocusPolicyChanged,
+        onOpenServiceNotificationSettings = viewModel::openServiceNotificationSettings,
         onResetToDefaults = viewModel::onResetToDefaults,
         modifier = modifier,
     )
@@ -101,10 +125,12 @@ fun GeneralSettingsScreen(
     onOverflowPolicyChanged: (OverflowPolicy) -> Unit,
     onRepeatNotificationUpdatesChanged: (Boolean) -> Unit,
     onAudioFocusPolicyChanged: (AudioFocusPolicy) -> Unit,
+    onOpenServiceNotificationSettings: () -> Unit,
     onResetToDefaults: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var showResetDialog by remember { mutableStateOf(false) }
+    var showNotificationDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -151,6 +177,13 @@ fun GeneralSettingsScreen(
         NotificationUpdatesCard(
             repeatUpdates = state.queue.repeatNotificationUpdates,
             onRepeatUpdatesChanged = onRepeatNotificationUpdatesChanged,
+        )
+
+        // Section 6: Persistent Service Notification Card
+        ServiceNotificationCard(
+            isVisible = state.isServiceNotificationVisible,
+            onToggleClicked = { showNotificationDialog = true },
+            onConfigureClicked = onOpenServiceNotificationSettings,
         )
 
         // Reset to Defaults Button
@@ -208,6 +241,43 @@ fun GeneralSettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showResetDialog = false }) {
+                    Text(text = stringResource(R.string.action_cancel))
+                }
+            },
+        )
+    }
+
+    if (showNotificationDialog) {
+        AlertDialog(
+            onDismissRequest = { showNotificationDialog = false },
+            title = {
+                Text(
+                    text = stringResource(R.string.settings_service_notification_dialog_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+            },
+            text = {
+                Text(
+                    text = stringResource(R.string.settings_service_notification_dialog_body),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showNotificationDialog = false
+                        onOpenServiceNotificationSettings()
+                    },
+                ) {
+                    Text(
+                        text = stringResource(R.string.settings_service_notification_dialog_confirm),
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showNotificationDialog = false }) {
                     Text(text = stringResource(R.string.action_cancel))
                 }
             },
@@ -736,6 +806,146 @@ private fun NotificationUpdatesCard(
                     checkedThumbColor = MaterialTheme.colorScheme.primary,
                     checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
                 ),
+            )
+        }
+    }
+}
+
+/**
+ * Section Card for Persistent Service Notification in Notification Panel.
+ */
+@Composable
+private fun ServiceNotificationCard(
+    isVisible: Boolean,
+    onToggleClicked: () -> Unit,
+    onConfigureClicked: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    SettingsCard(
+        title = stringResource(R.string.settings_service_notification_title),
+        subtitle = stringResource(R.string.settings_service_notification_desc),
+        icon = if (isVisible) Icons.Rounded.NotificationsActive else Icons.Rounded.NotificationsOff,
+        modifier = modifier,
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            // Live Status Pill
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = if (isVisible) {
+                    MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+                } else {
+                    Color(0xFF10B981).copy(alpha = 0.15f)
+                },
+                border = BorderStroke(
+                    1.dp,
+                    if (isVisible) {
+                        MaterialTheme.colorScheme.outlineVariant
+                    } else {
+                        Color(0xFF10B981).copy(alpha = 0.4f)
+                    },
+                ),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Icon(
+                        imageVector = if (isVisible) Icons.Rounded.NotificationsActive else Icons.Rounded.CheckCircle,
+                        contentDescription = null,
+                        tint = if (isVisible) MaterialTheme.colorScheme.primary else Color(0xFF10B981),
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Text(
+                        text = stringResource(
+                            if (isVisible) {
+                                R.string.settings_service_notification_status_visible
+                            } else {
+                                R.string.settings_service_notification_status_hidden
+                            },
+                        ),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isVisible) {
+                            MaterialTheme.colorScheme.onSecondaryContainer
+                        } else {
+                            Color(0xFF047857)
+                        },
+                    )
+                }
+            }
+
+            // Interactive Switch Row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onToggleClicked() },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                    Text(
+                        text = stringResource(R.string.settings_service_notification_visible_label),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = stringResource(
+                            if (isVisible) {
+                                R.string.settings_service_notification_visible_on
+                            } else {
+                                R.string.settings_service_notification_visible_off
+                            },
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = isVisible,
+                    onCheckedChange = { onToggleClicked() },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = MaterialTheme.colorScheme.primary,
+                        checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
+                    ),
+                )
+            }
+
+            // Explanatory note
+            Text(
+                text = stringResource(R.string.settings_service_notification_explanation),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            // Direct button to open Android notification settings
+            OutlinedButton(
+                onClick = onConfigureClicked,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = stringResource(R.string.settings_service_notification_configure_button),
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+
+            // Tip underneath
+            Text(
+                text = stringResource(R.string.settings_service_notification_tip),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
