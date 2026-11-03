@@ -243,7 +243,7 @@ behaviour still require a physical device per `MANUAL_TEST_CHECKLIST.md`.
 ## L3 — History recorded from the announcement pipeline
 
 - **Date:** 2026-11-03
-- **Commit:** recorded in the follow-up `docs(progress)` commit
+- **Commit:** `68e7364` — `feat(history): record pipeline outcomes in history storage (L3)`
 - **Branch:** `development`
 - **Scope:** Close the second functional gap named in L2 — the pipeline produced `QueueEvent`s and
   eligibility decisions that nothing persisted, so `HistoryRepository` (P10) was never written to and
