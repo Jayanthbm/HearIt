@@ -229,11 +229,29 @@
     <string name="app_settings_reset_note">Only the overrides for this app are cleared. The announcement switch is unchanged.</string>
     <string name="app_settings_note_later">Grouping window and the remaining rule groups are configured globally; their per-app controls arrive with the settings screens.</string>
     
-    <string name="devices_count_hint">%1$d device(s) connected</string>
-    <string name="devices_loading">Loading connected devices\u2026</string>
-    <string name="devices_empty">No connected device detected right now.</string>
-    <string name="devices_notice">Connected device names are read at runtime and are only an aid; nothing routes through this list until P14 finishes.</string>
-    <string name="devices_open_settings">Settings</string>
+    <!-- Devices feature (P14) -->
+    <string name="devices_intro">Choose which output types Hear It may speak through. Android decides where audio actually goes; Hear It only decides whether to speak on the output that is active.</string>
+    <string name="devices_allowed_types">Allowed output types</string>
+    <string name="devices_allow_bluetooth">Bluetooth outputs</string>
+    <string name="devices_allow_wired">Wired outputs</string>
+    <string name="devices_allow_speaker">Phone speaker</string>
+    <string name="devices_allow_unidentified">Unrecognised outputs</string>
+    <string name="devices_categories_note">Turning a type off suppresses announcements while that output is active. The phone speaker is off by default.</string>
+    <string name="devices_no_bt_allowed">No Bluetooth device is allowed right now, so Bluetooth announcements will be skipped.</string>
+    <string name="devices_connected_now">Connected now</string>
+    <string name="devices_loading">Checking connected outputs\u2026</string>
+    <string name="devices_empty">No Bluetooth or wired output is connected right now.</string>
+    <string name="devices_remembered">Previously connected</string>
+    <string name="devices_remembered_empty">Devices appear here after they have been connected once.</string>
+    <string name="devices_status_connected">Connected</string>
+    <string name="devices_status_not_connected">Not connected</string>
+    <string name="devices_allowed">Allowed</string>
+    <string name="devices_not_allowed">Not allowed</string>
+    <string name="devices_allow_device">Allow announcements on %1$s</string>
+    <string name="devices_forget">Forget</string>
+    <string name="devices_refresh">Check connected devices</string>
+    <string name="devices_unavailable">Connected outputs could not be read. Try again.</string>
+    <string name="devices_note_routing">Android routes audio to the active output, so Hear It cannot force a particular device. Device names need Bluetooth permission on Android 12 and later.</string>
 <string name="global_settings_title">Global Rules &amp; Voice &amp; Speech</string><string name="global_settings_description">Configure announcement rules and speech settings applied globally</string><string name="global_screen_condition">Screen condition</string><string name="global_screen_on">On</string><string name="global_screen_off">Off</string><string name="global_screen_both">Both</string><string name="global_lock_condition">Lock condition</string><string name="global_lock_locked">Locked</string><string name="global_lock_unlocked">Unlocked</string><string name="global_lock_both">Both</string><string name="global_max_length">Maximum length (chars)</string><string name="global_chars">chars</string><string name="global_scope_message">Per message</string><string name="global_scope_whole_notification">Whole notification</string><string name="global_keywords_enabled">Enable keyword filtering</string><string name="global_keywords_mode">Match mode</string><string name="global_keyword_mode_whole_word">Whole word</string><string name="global_keyword_mode_phrase">Phrase</string><string name="global_keywords_keywords">Keywords (comma-separated)</string><string name="global_privacy_exclude_app">Exclude app</string><string name="global_privacy_skip_otp">Skip OTP/verification codes</string><string name="global_privacy_skip_password">Skip password-related</string><string name="global_privacy_skip_banking">Skip banking/financial</string><string name="global_privacy_skip_payment">Skip payment/transaction</string><string name="global_privacy_hide_content">Hide message content</string><string name="global_privacy_sensitive_keywords">Custom sensitive keywords</string><string name="global_audio_allow_wired">Allow wired output</string><string name="global_audio_allow_bluetooth">Allow Bluetooth output</string><string name="global_audio_allow_speaker">Allow phone speaker</string><string name="global_settings_apply">Apply</string>
     <string name="global_settings_apply_note">Changes take effect immediately for future announcements</string>
 

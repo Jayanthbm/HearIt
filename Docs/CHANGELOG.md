@@ -23,6 +23,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 - `:core:common` and `:core:rules` Kotlin/JVM modules (P01): notification snapshot, eligibility settings with per-app inheritance, runtime state, skip reasons, and the deterministic announcement-eligibility pipeline covering the enabled-app list, temporary mute and screen/lock with the Priority Announce override. JVM unit tests written for all three rule families — not yet executed (cloud-agent restriction).
 
 ### Changed
+- Devices feature (phase L5): the Devices tab is no longer a placeholder — allowed output types
+  (Bluetooth, wired, phone speaker, unrecognised), a per-device Bluetooth allow-list with an
+  explicit warning when every device is unchecked, a remembered device list with connection state
+  and Forget, and a rescan action. New `KnownAudioDevice` + `HearItSettings.knownDevices` persist the
+  remembered outputs under `devices.known` (no schema bump or migration), and every decision is
+  written through `SettingsRepository` so the rules enforce exactly what the screen shows. Per-device
+  selection remains Bluetooth-only because wired and speaker are category settings.
 - History feature (phase L4): the History tab is no longer a placeholder — search across app name,
   sender and stored message text, a status filter, newest/oldest/by-app sorting, paged loading
   (50 rows per page), per-entry delete and clear-all behind confirmation dialogs, and global
@@ -54,7 +61,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ### Notes
 - Cloud-agent changes are **Not locally verified** until the local agent builds and tests them.
-- **Local verification (2026-11-03):** `./gradlew test` 379 tests / 0 failures, `assembleDebug` succeeds, `lintDebug` 0 errors; after L2 `387`, L3 `394`, and L4 `403` tests / 0 failures with the same build and lint result. Emulator and physical-device behaviour remain untested; P14 (Devices) has no implementation, P19 is partial, and call-held release plus audio-focus handling are still unwired.
+- **Local verification (2026-11-03):** `./gradlew test` 379 tests / 0 failures, `assembleDebug` succeeds, `lintDebug` 0 errors; after L2 `387`, L3 `394`, L4 `403`, and L5 `423` tests / 0 failures with the same build and lint result. Emulator and physical-device behaviour remain untested; P19 is partial, and call-held release plus audio-focus handling are still unwired.
 
 ## [1.0.0] — not released
 

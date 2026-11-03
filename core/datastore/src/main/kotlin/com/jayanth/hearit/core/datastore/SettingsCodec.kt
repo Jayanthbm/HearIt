@@ -12,6 +12,7 @@ import com.jayanth.hearit.core.common.model.HistoryStorageMode
 import com.jayanth.hearit.core.common.model.HistoryUpdateHandling
 import com.jayanth.hearit.core.common.model.KeywordFilterSettings
 import com.jayanth.hearit.core.common.model.KeywordMatchMode
+import com.jayanth.hearit.core.common.model.KnownAudioDevice
 import com.jayanth.hearit.core.common.model.LengthScope
 import com.jayanth.hearit.core.common.model.LockCondition
 import com.jayanth.hearit.core.common.model.OverflowPolicy
@@ -50,6 +51,9 @@ object SettingsCodec {
     const val SCHEMA_VERSION: Int = 1
 
     private const val LIST_SEPARATOR = "\u001F"
+
+    /** Separates the fields of one remembered device; never used inside a list value. */
+    private const val FIELD_SEPARATOR = "\u001E"
     private const val APP_PREFIX = "app:"
 
     private const val KEY_VERSION = "version"
@@ -104,6 +108,7 @@ object SettingsCodec {
 
     private const val KEY_ENABLED_APPS = "apps.enabled"
     private const val KEY_PRIORITY_APPS = "apps.priorityAnnounce"
+    private const val KEY_KNOWN_DEVICES = "devices.known"
 
     // Per-app suffixes (used after "app:<package>:").
     private const val APP_PRIORITY = "priority"
@@ -193,6 +198,7 @@ object SettingsCodec {
 
         values[KEY_ENABLED_APPS] = encodeList(settings.enabledApps)
         values[KEY_PRIORITY_APPS] = encodeList(settings.priorityAnnounceApps)
+        values[KEY_KNOWN_DEVICES] = encodeDevices(settings.knownDevices)
 
         settings.appOverrides.forEach { (packageName, override) ->
             encodeOverride(packageName, override, values)
@@ -209,6 +215,7 @@ object SettingsCodec {
         history = decodeHistory(values),
         enabledApps = splitList(values[KEY_ENABLED_APPS]).filter { it.isNotBlank() }.toSet(),
         priorityAnnounceApps = splitList(values[KEY_PRIORITY_APPS]).filter { it.isNotBlank() }.toSet(),
+        knownDevices = decodeDevices(values[KEY_KNOWN_DEVICES]),
         appOverrides = decodeOverrides(values),
     )
 
@@ -447,6 +454,35 @@ object SettingsCodec {
             priority = string(APP_PRIORITY)?.enumOrNull<AppPriority>(),
         )
     }
+
+    /**
+     * Encodes remembered devices as `id\u001Elabel\u001EisBluetooth` entries.
+     *
+     * Both separators are stripped from the values, so a device name containing either
+     * character can never corrupt the list.
+     */
+    private fun encodeDevices(devices: List<KnownAudioDevice>): String = devices.map { device ->
+        listOf(
+            device.id.sanitiseSeparators(),
+            device.label.sanitiseSeparators(),
+            device.isBluetooth.toString(),
+        ).joinToString(FIELD_SEPARATOR)
+    }.joinToString(LIST_SEPARATOR)
+
+    /** Decodes remembered devices, skipping any entry that is not exactly three fields. */
+    private fun decodeDevices(raw: String?): List<KnownAudioDevice> =
+        splitList(raw).mapNotNull { entry ->
+            val fields = entry.split(FIELD_SEPARATOR)
+            if (fields.size != 3 || fields[0].isBlank()) return@mapNotNull null
+            KnownAudioDevice(
+                id = fields[0],
+                label = fields[1].ifBlank { fields[0] },
+                isBluetooth = fields[2].toBooleanStrictOrNull() ?: true,
+            )
+        }.distinctBy { it.id }
+
+    private fun String.sanitiseSeparators(): String =
+        replace(LIST_SEPARATOR, " ").replace(FIELD_SEPARATOR, " ")
 
     private fun encodeList(items: Collection<String>): String =
         items.map { it.replace(LIST_SEPARATOR, " ") }.joinToString(LIST_SEPARATOR)

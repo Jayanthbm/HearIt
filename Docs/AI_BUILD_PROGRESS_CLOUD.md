@@ -635,3 +635,21 @@ Full detail: `AI_BUILD_PROGRESS_LOCAL.md` → **L4**.
 - **Not verified:** the screen has never been rendered or interacted with (no emulator run); no
   per-app or date-range filter in the UI; `METADATA_ONLY` rows cannot match content search.
 - **Still open:** **P14 Devices**, call-held release, audio-focus application, P19 screens.
+
+### Local completion log — L5 (2026-11-03)
+
+Full detail: `AI_BUILD_PROGRESS_LOCAL.md` → **L5**.
+
+- **Cloud gap closed:** the phase table called P14 cloud-complete while **no Devices code existed at
+  all**. It now exists: output-type switches, a per-device Bluetooth allow-list (the model field the
+  codec already persisted), and a remembered device list with connection state and Forget — all
+  written through `SettingsRepository` so the eligibility rules see exactly what the screen shows.
+- **Persistence:** new `KnownAudioDevice` + `HearItSettings.knownDevices`, encoded under
+  `devices.known`; separating fields with `\u001E` keeps the existing list encoding intact, so no
+  schema version bump or migration.
+- **Commands:** `./gradlew test assembleDebug lintDebug` — **PASSED**; 423 tests / 0 failures (`:app`
+  85 → 98, `:core:datastore` 32 → 39), `app-debug.apk` built, lint 0 errors / 52 warnings (five stale
+  Devices strings removed).
+- **Not verified:** no emulator run, no Bluetooth device connected/disconnected; device names need
+  `BLUETOOTH_CONNECT`, which setup owns.
+- **Still open:** call-held release after a call, audio-focus application, P19 screens.

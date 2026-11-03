@@ -165,7 +165,7 @@ Status legend: `Not started` · `In progress (cloud, not locally verified)` · `
 | P11 Setup and onboarding (`:core:setup`, `:app`) | Locally verified to compile; UI not interacted with |
 | P12 Dashboard and navigation shell (`:app`/`dashboard`) | Repaired and locally verified to compile; UI not interacted with |
 | P13 Applications feature (`:app`/`applications`) | Locally verified to compile; UI not interacted with |
-| P14 Devices feature (`:app`/`devices`) | **Gap — no Devices screen exists in the code**, despite the cloud entry; not implemented |
+| P14 Devices feature (`:app`/`devices`) | Implemented in L5 — output categories, per-device Bluetooth allow-list, remembered devices; UI not interaction-tested, device behaviour untested |
 | P15 Global Rules, Voice & Speech settings | Repaired (screen was non-compiling) and locally verified to compile |
 | P16 Reading controls and temporary mute | Locally verified to compile; pause = stop + re-speak (no native TTS pause) |
 | P17 Priority Announce mode | Locally verified to compile; rule precedence unit-tested |
@@ -177,3 +177,4 @@ Status legend: `Not started` · `In progress (cloud, not locally verified)` · `
 | L2 Persisted settings wired into the service (`SettingsSource` → `SettingsRepository`) | Complete — `387` unit tests pass, debug APK builds, lint 0 errors (`2026-11-03`); history recording, call-hold release and audio focus remain unwired |
 | L3 History recorded from the announcement pipeline | Complete — `394` unit tests pass, debug APK builds, lint 0 errors (`2026-11-03`); call-hold release, audio focus, P14 and the P18 History screen remain open |
 | L4 Dedicated History screen (P18) | Complete — `403` unit tests pass, debug APK builds, lint 0 errors (`2026-11-03`); UI not interaction-tested, no per-app/date filter, P14 remains missing |
+| L5 Devices feature (P14) | Complete — `423` unit tests pass, debug APK builds, lint 0 errors (`2026-11-03`); Bluetooth behaviour untested, per-device selection is Bluetooth-only |

@@ -6,6 +6,7 @@ import com.jayanth.hearit.core.common.model.AppPriority
 import com.jayanth.hearit.core.common.model.AppQueueOverride
 import com.jayanth.hearit.core.common.model.EligibilitySettings
 import com.jayanth.hearit.core.common.model.HistorySettings
+import com.jayanth.hearit.core.common.model.KnownAudioDevice
 import com.jayanth.hearit.core.common.model.QueueSettings
 import com.jayanth.hearit.core.common.model.ResolvedSettings
 import com.jayanth.hearit.core.tts.AnnouncementFormat
@@ -28,6 +29,8 @@ import com.jayanth.hearit.core.tts.SpeechSettings
  * @property enabledApps Packages the user enabled for announcements. Empty by default.
  * @property priorityAnnounceApps The separate Priority Announce list (master prompt §10),
  *   distinct from [enabledApps].
+ * @property knownDevices Audio outputs seen so far, newest first, so the Devices feature can
+ *   keep offering a disconnected device (P14). Never contains notification content.
  * @property appOverrides Per-app sparse overrides keyed by package name.
  */
 data class HearItSettings(
@@ -38,6 +41,7 @@ data class HearItSettings(
     val history: HistorySettings = HistorySettings(),
     val enabledApps: Set<String> = emptySet(),
     val priorityAnnounceApps: Set<String> = emptySet(),
+    val knownDevices: List<KnownAudioDevice> = emptyList(),
     val appOverrides: Map<String, AppOverride> = emptyMap(),
 ) {
 

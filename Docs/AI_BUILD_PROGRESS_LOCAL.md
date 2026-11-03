@@ -416,6 +416,97 @@ scroll behaviour for long lists and the dialogs are compile-verified only.
 
 ### Next phase (proposed)
 
-**L5 — the Devices feature (P14)**: output selection with persistence and previously-connected
-history, replacing the last placeholder tab. Then call-held release + audio focus.
+**L5 — the Devices feature (P14)** (done — see L5 below), then call-held release + audio focus.
+
+---
+
+## L5 — Devices feature (P14)
+
+- **Date:** 2026-11-03
+- **Commit:** recorded in the follow-up `docs(progress)` commit
+- **Branch:** `development`
+- **Scope:** The Devices tab was the last `DestinationPlaceholder`. The model and rules already had
+  `AudioOutputSettings.allowedBluetoothIds` (persisted by the codec since P09), but there was no UI,
+  no remembered-device list, and no way for a user to pick which Bluetooth output is allowed.
+- **Working tree at start:** clean apart from the untracked IDE file, left untouched again.
+
+### What changed
+
+**`:core:common` / `:core:datastore` (persistence)**
+
+- New `KnownAudioDevice(id, label, isBluetooth)` — platform id + display name only, never content.
+- `HearItSettings.knownDevices` (newest first).
+- `SettingsCodec` persists it under `devices.known` as `id\u001Elabel\u001EisBluetooth` entries: both
+  separators are stripped from values on encode, malformed or duplicate entries are skipped on
+  decode, and no other key changes meaning, so `SCHEMA_VERSION` stays 1 with no migration.
+
+**`:app` — new `devices` package**
+
+- `DeviceSelectionEditor.kt` (pure): merge connected outputs into the remembered list (connected
+  first, fresh labels, outputs without an id skipped, capped at 12), allow/disallow one Bluetooth
+  device, switch output categories, forget a device. The allow-list normalises to `null` (“any
+  device”) whenever every known device is allowed again, so a headset connected tomorrow is never
+  silently excluded.
+- `DevicesViewModel.kt`: probes connected outputs on init and on resume, persists newly seen devices
+  only when the merged list actually changed, and writes every allow/forget decision through
+  `SettingsRepository` — the same store the eligibility rules read.
+- `DevicesScreen.kt`: allowed-output-type switches (Bluetooth, wired, phone speaker, unrecognised),
+  a warning when Bluetooth is on but every device is unchecked, “Connected now” rows with as many
+  enabled Switch controls as the platform can identify, the remembered list with connected state and
+  a Forget action, a rescan button, and copy stating that Android owns routing while HearIt only
+  decides whether to speak.
+- Wiring: `DashboardDestination.DEVICES` renders the feature; `DashboardRoute`/`MainActivity` take a
+  `DevicesViewModel`.
+- 22 new string resources; the five stale `devices_*` strings (including the “nothing routes through
+  this list until P14 finishes” notice) were removed.
+
+**Tests**
+
+- `DeviceSelectionEditorTest` (new, 13 tests): merge order/labels/no-id skip/no duplicates/cap,
+  `null` semantics, materialising the allow-list, collapsing back to “any”, empty set when all
+  devices are unchecked, forgetting, and category isolation.
+- `SettingsDeviceCodecTest` (new, 7 tests): remembered devices and the allow-list round-trip, empty
+  set vs `null`, malformed entries ignored, separators sanitised, duplicates dropped.
+
+### Commands actually run (exact)
+
+| Command | Result |
+|---|---|
+| `./gradlew test assembleDebug lintDebug --console=plain` | **PASSED** — 423 tests, 0 failures, 0 skipped; `app-debug.apk`; lint **0 errors, 52 warnings** |
+
+Per-module totals: `:core:rules` 88, `:app` **98** (85 + 13), `:core:queue` 46, `:core:datastore`
+**39** (32 + 7), `:core:setup` 32, `:core:tts` 32, `:core:notifications` 30, `:core:common` 29,
+`:core:database` 29.
+
+### Emulator verification
+
+**Not performed.** The Devices screen has never been rendered; no Bluetooth device was connected or
+removed during testing, so the resume-triggered rescan is compile-verified only.
+
+### Physical-device verification
+
+**Not tested.** Bluetooth discovery, `BLUETOOTH_CONNECT` on API 31+, device names and
+connect/disconnect handling are device-only behaviours.
+
+### Known limitations / risks
+
+- **Routing stays Android's.** HearIt never forces audio to a device; it only decides whether to speak
+  on the active output. A Bluetooth device the user has not permitted can still be the active route —
+  announcements are then skipped with `OUTPUT_NOT_ALLOWED`, which is the documented rule.
+- **Per-device selection is Bluetooth-only.** Wired and speaker outputs are category settings (that
+  is what the rule implements); their rows are informative and have no switch.
+- **Devices without a platform id cannot be allow-listed** (no id to match), so their rows show the
+  category decision instead of a switch.
+- The remembered list is capped at 12 and forgotten devices reappear if connected again; there is no
+  manual “add device” path because the platform reports what is actually present.
+- This screen does not request `BLUETOOTH_CONNECT`; setup owns that request, so device *names* may be
+  missing until it is granted.
+- **Still open:** call-held release after a call, audio-focus application, audio-focus’s own UI, and
+  the P19 Backup & Restore / Diagnostics screens.
+
+### Next phase (proposed)
+
+**L6 — close the two remaining behavioural gaps in the service**: release call-held items after a call
+ends (`AnnouncementPipeline.releaseHeld` is implemented and tested but never called) and apply the
+per-app audio-focus policy in the player, which is stored and resolved but never requested.
 
