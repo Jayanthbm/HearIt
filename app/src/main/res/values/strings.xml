@@ -376,4 +376,45 @@
     <string name="voice_speech_pause_short">250 ms</string>
     <string name="voice_speech_pause_medium">500 ms</string>
     <string name="voice_speech_pause_long">1.0 s</string>
+
+    <!-- General Settings: Queue, Grouping, Pacing & Audio Focus (Phase P15) -->
+    <string name="settings_screen_title">Settings</string>
+    <string name="settings_screen_subtitle">Queue batching, delivery timing, capacity, and audio focus.</string>
+    <string name="settings_grouping_title">Grouping &amp; Batching</string>
+    <string name="settings_grouping_desc">Combine rapid notifications from the same app into a single summary announcement.</string>
+    <string name="settings_grouping_window_label">Grouping Window</string>
+    <string name="settings_grouping_window_desc">Time window to gather incoming notifications before announcing</string>
+    <string name="settings_max_messages_label">Max Messages Per Announcement</string>
+    <string name="settings_max_messages_desc">Cap on the number of messages spoken together in one batch</string>
+    <string name="settings_timing_title">Delivery &amp; Pacing</string>
+    <string name="settings_timing_desc">Configure delays and silence between consecutive announcements.</string>
+    <string name="settings_delay_label">Announcement Delay</string>
+    <string name="settings_delay_desc">Buffer time before reading a newly posted notification</string>
+    <string name="settings_min_gap_label">Minimum Gap Between Reads</string>
+    <string name="settings_min_gap_desc">Cooldown silence between finished and upcoming announcements</string>
+    <string name="settings_limits_title">Queue Capacity &amp; Expiry</string>
+    <string name="settings_limits_desc">Manage backlog capacity and expiration to prevent stale announcements.</string>
+    <string name="settings_expiry_label">Pending Message Expiry</string>
+    <string name="settings_expiry_desc">Maximum wait time before a queued notification is dropped unread</string>
+    <string name="settings_global_max_label">Total Queue Capacity</string>
+    <string name="settings_per_app_max_label">Per-App Capacity</string>
+    <string name="settings_overflow_label">Eviction Policy When Full</string>
+    <string name="settings_overflow_desc">Which queued notification to drop when capacity limit is reached</string>
+    <string name="settings_overflow_discard_oldest">Discard Oldest (Default)</string>
+    <string name="settings_overflow_discard_newest">Discard Newest</string>
+    <string name="settings_overflow_keep_priority">Keep Highest Priority</string>
+    <string name="settings_updates_title">Notification Updates</string>
+    <string name="settings_repeat_updates_label">Re-announce Updated Notifications</string>
+    <string name="settings_repeat_updates_desc">Speak again when an app modifies an already announced notification</string>
+    <string name="settings_audio_focus_title">Audio Focus &amp; Media Behavior</string>
+    <string name="settings_audio_focus_desc">How background audio (music, podcasts) responds when Hear It speaks.</string>
+    <string name="settings_audio_focus_duck">Duck Other Audio (Default)</string>
+    <string name="settings_audio_focus_duck_desc">Temporarily lowers background music or podcast volume</string>
+    <string name="settings_audio_focus_pause">Pause Other Audio</string>
+    <string name="settings_audio_focus_pause_desc">Pauses background media during speech and resumes when finished</string>
+    <string name="settings_audio_focus_none">Do Not Interfere</string>
+    <string name="settings_audio_focus_none_desc">Speaks concurrently without requesting audio focus from other apps</string>
+    <string name="settings_reset">Reset to defaults</string>
+    <string name="settings_reset_confirm_title">Reset settings to defaults?</string>
+    <string name="settings_reset_confirm_body">This will restore grouping window, pacing delays, queue capacity limits, and audio focus back to their default values.</string>
 </resources>

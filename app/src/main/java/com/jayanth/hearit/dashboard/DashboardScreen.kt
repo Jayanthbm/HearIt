@@ -121,6 +121,8 @@ import com.jayanth.hearit.devices.DevicesRoute
 import com.jayanth.hearit.devices.DevicesViewModel
 import com.jayanth.hearit.history.HistoryRoute
 import com.jayanth.hearit.history.HistoryViewModel
+import com.jayanth.hearit.settings.GeneralSettingsRoute
+import com.jayanth.hearit.settings.GeneralSettingsViewModel
 import com.jayanth.hearit.setup.TestAnnouncementState
 import com.jayanth.hearit.voicespeech.VoiceSpeechRoute
 import com.jayanth.hearit.voicespeech.VoiceSpeechViewModel
@@ -139,6 +141,7 @@ fun DashboardRoute(
     historyViewModel: HistoryViewModel,
     devicesViewModel: DevicesViewModel,
     voiceSpeechViewModel: VoiceSpeechViewModel,
+    generalSettingsViewModel: GeneralSettingsViewModel,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.state.collectAsState()
@@ -179,6 +182,7 @@ fun DashboardRoute(
         appsContent = { ApplicationsRoute(viewModel = applicationsViewModel) },
         globalRulesContent = { GlobalSettingsRoute(viewModel = globalSettingsViewModel) },
         voiceSpeechContent = { VoiceSpeechRoute(viewModel = voiceSpeechViewModel) },
+        settingsContent = { GeneralSettingsRoute(viewModel = generalSettingsViewModel) },
         historyContent = { HistoryRoute(viewModel = historyViewModel) },
         devicesContent = { DevicesRoute(viewModel = devicesViewModel) },
         modifier = modifier,
@@ -206,6 +210,7 @@ fun DashboardScreen(
     appsContent: @Composable () -> Unit,
     globalRulesContent: @Composable () -> Unit,
     voiceSpeechContent: @Composable () -> Unit = {},
+    settingsContent: @Composable () -> Unit = {},
     historyContent: @Composable () -> Unit,
     devicesContent: @Composable () -> Unit,
     modifier: Modifier = Modifier,
@@ -255,6 +260,7 @@ fun DashboardScreen(
                 destination == DashboardDestination.HISTORY -> historyContent()
                 destination == DashboardDestination.GLOBAL_RULES -> globalRulesContent()
                 destination == DashboardDestination.VOICE_SPEECH -> voiceSpeechContent()
+                destination == DashboardDestination.SETTINGS -> settingsContent()
                 else -> DestinationPlaceholder(destination = destination)
             }
         }
