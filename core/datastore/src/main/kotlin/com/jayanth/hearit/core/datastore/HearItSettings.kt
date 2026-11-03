@@ -9,6 +9,7 @@ import com.jayanth.hearit.core.common.model.HistorySettings
 import com.jayanth.hearit.core.common.model.KnownAudioDevice
 import com.jayanth.hearit.core.common.model.QueueSettings
 import com.jayanth.hearit.core.common.model.ResolvedSettings
+import com.jayanth.hearit.core.common.model.SecuritySettings
 import com.jayanth.hearit.core.tts.AnnouncementFormat
 import com.jayanth.hearit.core.tts.SpeechSettings
 
@@ -39,6 +40,7 @@ data class HearItSettings(
     val format: AnnouncementFormat = AnnouncementFormat(),
     val speech: SpeechSettings = SpeechSettings(),
     val history: HistorySettings = HistorySettings(),
+    val security: SecuritySettings = SecuritySettings(),
     val enabledApps: Set<String> = emptySet(),
     val priorityAnnounceApps: Set<String> = emptySet(),
     val knownDevices: List<KnownAudioDevice> = emptyList(),

@@ -24,6 +24,8 @@ class GeneralSettingsUiStateTest {
         assertEquals(OverflowPolicy.DISCARD_OLDEST, state.queue.overflowPolicy)
         assertFalse(state.queue.repeatNotificationUpdates)
         assertEquals(true, state.isServiceNotificationVisible)
+        assertFalse(state.security.biometricLockEnabled)
+        assertFalse(state.security.secureScreenEnabled)
     }
 
     @Test

@@ -18,6 +18,7 @@ import com.jayanth.hearit.core.common.model.OverflowPolicy
 import com.jayanth.hearit.core.common.model.PrivacySettings
 import com.jayanth.hearit.core.common.model.QueueSettings
 import com.jayanth.hearit.core.common.model.ScreenCondition
+import com.jayanth.hearit.core.common.model.SecuritySettings
 import com.jayanth.hearit.core.common.model.TextLengthSettings
 import com.jayanth.hearit.core.tts.AnnouncementFormat
 import com.jayanth.hearit.core.tts.SpeechSettings
@@ -87,6 +88,10 @@ class SettingsCodecTest {
             updateHandling = HistoryUpdateHandling.NEW_ENTRY,
             retentionDays = 30,
             requireAuth = true,
+        ),
+        security = SecuritySettings(
+            biometricLockEnabled = true,
+            secureScreenEnabled = true,
         ),
         enabledApps = setOf("com.whatsapp", "com.example.chat.app"),
         priorityAnnounceApps = setOf("com.whatsapp"),
@@ -278,5 +283,25 @@ class SettingsCodecTest {
         )
 
         assertNull(roundTrip(settings).eligibility.textLength.maxLengthChars)
+    }
+
+    @Test
+    fun securitySettings_roundTrip() {
+        val settings = HearItSettings(
+            security = SecuritySettings(
+                biometricLockEnabled = true,
+                secureScreenEnabled = true,
+            ),
+        )
+        val decoded = roundTrip(settings)
+        assertTrue(decoded.security.biometricLockEnabled)
+        assertTrue(decoded.security.secureScreenEnabled)
+    }
+
+    @Test
+    fun securitySettings_defaultOff() {
+        val decoded = SettingsCodec.decode(emptyMap())
+        assertFalse(decoded.security.biometricLockEnabled)
+        assertFalse(decoded.security.secureScreenEnabled)
     }
 }

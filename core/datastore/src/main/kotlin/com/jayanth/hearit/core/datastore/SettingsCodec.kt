@@ -19,6 +19,7 @@ import com.jayanth.hearit.core.common.model.OverflowPolicy
 import com.jayanth.hearit.core.common.model.PrivacySettings
 import com.jayanth.hearit.core.common.model.QueueSettings
 import com.jayanth.hearit.core.common.model.ScreenCondition
+import com.jayanth.hearit.core.common.model.SecuritySettings
 import com.jayanth.hearit.core.common.model.TextLengthSettings
 import com.jayanth.hearit.core.tts.AnnouncementFormat
 import com.jayanth.hearit.core.tts.SpeechSettings
@@ -105,6 +106,9 @@ object SettingsCodec {
     private const val KEY_HISTORY_UPDATES = "history.updateHandling"
     private const val KEY_HISTORY_RETENTION = "history.retentionDays"
     private const val KEY_HISTORY_AUTH = "history.requireAuth"
+
+    private const val KEY_SECURITY_BIOMETRIC = "security.biometricLock"
+    private const val KEY_SECURITY_FLAG_SECURE = "security.secureScreen"
 
     private const val KEY_ENABLED_APPS = "apps.enabled"
     private const val KEY_PRIORITY_APPS = "apps.priorityAnnounce"
@@ -196,6 +200,10 @@ object SettingsCodec {
         history.retentionDays?.let { values[KEY_HISTORY_RETENTION] = it.toString() }
         values[KEY_HISTORY_AUTH] = history.requireAuth.toString()
 
+        val security = settings.security
+        values[KEY_SECURITY_BIOMETRIC] = security.biometricLockEnabled.toString()
+        values[KEY_SECURITY_FLAG_SECURE] = security.secureScreenEnabled.toString()
+
         values[KEY_ENABLED_APPS] = encodeList(settings.enabledApps)
         values[KEY_PRIORITY_APPS] = encodeList(settings.priorityAnnounceApps)
         values[KEY_KNOWN_DEVICES] = encodeDevices(settings.knownDevices)
@@ -213,6 +221,7 @@ object SettingsCodec {
         format = decodeFormat(values),
         speech = decodeSpeech(values),
         history = decodeHistory(values),
+        security = decodeSecurity(values),
         enabledApps = splitList(values[KEY_ENABLED_APPS]).filter { it.isNotBlank() }.toSet(),
         priorityAnnounceApps = splitList(values[KEY_PRIORITY_APPS]).filter { it.isNotBlank() }.toSet(),
         knownDevices = decodeDevices(values[KEY_KNOWN_DEVICES]),
@@ -365,6 +374,14 @@ object SettingsCodec {
             updateHandling = values.enum(KEY_HISTORY_UPDATES, defaults.updateHandling),
             retentionDays = values[KEY_HISTORY_RETENTION]?.toIntOrNull()?.takeIf { it >= 0 },
             requireAuth = values.boolean(KEY_HISTORY_AUTH, defaults.requireAuth),
+        )
+    }
+
+    private fun decodeSecurity(values: Map<String, String>): SecuritySettings {
+        val defaults = SecuritySettings()
+        return SecuritySettings(
+            biometricLockEnabled = values.boolean(KEY_SECURITY_BIOMETRIC, defaults.biometricLockEnabled),
+            secureScreenEnabled = values.boolean(KEY_SECURITY_FLAG_SECURE, defaults.secureScreenEnabled),
         )
     }
 

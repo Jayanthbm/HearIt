@@ -507,4 +507,16 @@
     <string name="diagnostics_logs_clear_dialog_body">This will permanently delete all stored diagnostic log files from your device. Ongoing service events will continue recording fresh logs.</string>
     <string name="diagnostics_logs_clear_confirm">Clear All Logs</string>
     <string name="diagnostics_logs_dismiss">Dismiss</string>
+
+    <!-- Security & Privacy Additions (Master Prompt §15) -->
+    <string name="settings_security_title">Security &amp; Device Privacy</string>
+    <string name="settings_security_subtitle">Biometric authentication and screen protection · Master Prompt §15</string>
+    <string name="settings_security_biometric_title">Biometric &amp; Device Credential Gate</string>
+    <string name="settings_security_biometric_desc">Require fingerprint, face unlock, or device PIN/pattern to access History and Settings.</string>
+    <string name="settings_security_biometric_unavailable">No device lock (PIN/pattern/biometric) configured in Android Settings</string>
+    <string name="settings_security_secure_screen_title">Secure Screen Mode</string>
+    <string name="settings_security_secure_screen_desc">Hide app content in Android task switcher (Recents) and prevent screenshots to shield notification privacy.</string>
+    <string name="settings_security_unlock_title">Hear It is Locked</string>
+    <string name="settings_security_unlock_desc">Authenticate with biometric or device PIN/pattern to access notification history and settings.</string>
+    <string name="settings_security_unlock_button">Unlock with Biometrics</string>
 </resources>

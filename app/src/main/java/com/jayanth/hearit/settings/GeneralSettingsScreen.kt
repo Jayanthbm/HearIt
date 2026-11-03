@@ -1,5 +1,6 @@
 package com.jayanth.hearit.settings
 
+import android.app.Activity
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -25,9 +26,11 @@ import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.NotificationsOff
 import androidx.compose.material.icons.rounded.RestartAlt
+import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material.icons.rounded.Timer
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -54,6 +57,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -76,6 +80,8 @@ fun GeneralSettingsRoute(
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.state.collectAsState()
+    val context = LocalContext.current
+    val activity = context as? Activity
 
     // Refresh notification channel status whenever user resumes from Android settings
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -104,6 +110,13 @@ fun GeneralSettingsRoute(
         onRepeatNotificationUpdatesChanged = viewModel::onRepeatNotificationUpdatesChanged,
         onAudioFocusPolicyChanged = viewModel::onAudioFocusPolicyChanged,
         onOpenServiceNotificationSettings = viewModel::openServiceNotificationSettings,
+        onToggleSecureScreen = viewModel::onToggleSecureScreen,
+        onToggleBiometric = {
+            activity?.let {
+                viewModel.onToggleBiometricLock(it, !state.security.biometricLockEnabled)
+            }
+        },
+        onDismissSecurityError = viewModel::onClearSecurityErrorMessage,
         onResetToDefaults = viewModel::onResetToDefaults,
         modifier = modifier,
     )
@@ -126,6 +139,9 @@ fun GeneralSettingsScreen(
     onRepeatNotificationUpdatesChanged: (Boolean) -> Unit,
     onAudioFocusPolicyChanged: (AudioFocusPolicy) -> Unit,
     onOpenServiceNotificationSettings: () -> Unit,
+    onToggleSecureScreen: (Boolean) -> Unit,
+    onToggleBiometric: () -> Unit,
+    onDismissSecurityError: () -> Unit,
     onResetToDefaults: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -139,6 +155,48 @@ fun GeneralSettingsScreen(
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        // Optional Security Error Banner
+        state.securityErrorMessage?.let { error ->
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.errorContainer,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Warning,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Text(
+                            text = error,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                        )
+                    }
+                    TextButton(onClick = onDismissSecurityError) {
+                        Text(
+                            text = stringResource(R.string.diagnostics_logs_dismiss),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
+            }
+        }
         // Section 1: Audio Focus Card
         AudioFocusCard(
             selectedPolicy = state.audioFocus,
@@ -184,6 +242,15 @@ fun GeneralSettingsScreen(
             isVisible = state.isServiceNotificationVisible,
             onToggleClicked = { showNotificationDialog = true },
             onConfigureClicked = onOpenServiceNotificationSettings,
+        )
+
+        // Section 7: Security & Device Privacy Card (Master Prompt §15)
+        SecurityPrivacyCard(
+            biometricLockEnabled = state.security.biometricLockEnabled,
+            secureScreenEnabled = state.security.secureScreenEnabled,
+            isBiometricAvailable = state.isBiometricAvailable,
+            onToggleBiometric = onToggleBiometric,
+            onToggleSecureScreen = onToggleSecureScreen,
         )
 
         // Reset to Defaults Button
@@ -947,6 +1014,103 @@ private fun ServiceNotificationCard(
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+    }
+}
+
+@Composable
+private fun SecurityPrivacyCard(
+    biometricLockEnabled: Boolean,
+    secureScreenEnabled: Boolean,
+    isBiometricAvailable: Boolean,
+    onToggleBiometric: () -> Unit,
+    onToggleSecureScreen: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    SettingsCard(
+        title = stringResource(R.string.settings_security_title),
+        subtitle = stringResource(R.string.settings_security_subtitle),
+        icon = Icons.Rounded.Security,
+        modifier = modifier,
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            // Item 1: Biometric & Device Credential Gate
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = isBiometricAvailable || biometricLockEnabled) { onToggleBiometric() },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                    Text(
+                        text = stringResource(R.string.settings_security_biometric_title),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = stringResource(
+                            if (isBiometricAvailable) {
+                                R.string.settings_security_biometric_desc
+                            } else {
+                                R.string.settings_security_biometric_unavailable
+                            },
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (isBiometricAvailable) {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        } else {
+                            MaterialTheme.colorScheme.error
+                        },
+                    )
+                }
+                Switch(
+                    checked = biometricLockEnabled,
+                    onCheckedChange = { onToggleBiometric() },
+                    enabled = isBiometricAvailable || biometricLockEnabled,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = MaterialTheme.colorScheme.primary,
+                        checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
+                    ),
+                )
+            }
+
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                thickness = 1.dp,
+            )
+
+            // Item 2: Secure Screen Mode (FLAG_SECURE)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onToggleSecureScreen(!secureScreenEnabled) },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                    Text(
+                        text = stringResource(R.string.settings_security_secure_screen_title),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_security_secure_screen_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = secureScreenEnabled,
+                    onCheckedChange = onToggleSecureScreen,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = MaterialTheme.colorScheme.primary,
+                        checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
+                    ),
+                )
+            }
         }
     }
 }
