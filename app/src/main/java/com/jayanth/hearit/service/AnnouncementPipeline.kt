@@ -1,5 +1,7 @@
 package com.jayanth.hearit.service
 
+import com.jayanth.hearit.core.common.logger.HearItLogger
+import com.jayanth.hearit.core.common.logger.LogCategory
 import com.jayanth.hearit.core.common.model.AppPriority
 import com.jayanth.hearit.core.common.model.HistoryStatus
 import com.jayanth.hearit.core.common.model.NotificationSnapshot
@@ -122,6 +124,10 @@ class AnnouncementPipeline(
         priority: AppPriority = AppPriority.NORMAL,
     ): Processed {
         val decision = rules.evaluate(snapshot, settings, state)
+        HearItLogger.info(
+            LogCategory.RULES,
+            "Eligibility evaluated for pkg=${snapshot.packageName}: decision=${decision.javaClass.simpleName}${if (decision is EligibilityDecision.Skip) " (reason=${decision.reason})" else ""}",
+        )
         val events = when (decision) {
             EligibilityDecision.Announce -> queue.enqueue(snapshot, priority)
             is EligibilityDecision.Queue -> queue.hold(snapshot, priority, decision.reason)

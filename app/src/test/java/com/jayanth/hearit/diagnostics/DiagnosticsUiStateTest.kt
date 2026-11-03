@@ -24,6 +24,11 @@ class DiagnosticsUiStateTest {
         assertEquals(0, state.priorityAppsCount)
         assertEquals(0, state.totalHistoryCount)
         assertFalse(state.isRefreshing)
+        assertEquals(0, state.logFileCount)
+        assertEquals(0L, state.totalLogSizeBytes)
+        assertEquals(7, state.logRetentionDays)
+        assertEquals(null, state.logExportSuccessMessage)
+        assertEquals(null, state.logErrorMessage)
 
         assertFalse(state.allPermissionsHealthy)
         assertFalse(state.overallSystemHealthy)

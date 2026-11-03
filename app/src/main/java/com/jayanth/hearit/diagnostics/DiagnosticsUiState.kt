@@ -21,6 +21,11 @@ data class DiagnosticsUiState(
     val priorityAppsCount: Int = 0,
     val totalHistoryCount: Int = 0,
     val isRefreshing: Boolean = false,
+    val logFileCount: Int = 0,
+    val totalLogSizeBytes: Long = 0L,
+    val logRetentionDays: Int = 7,
+    val logExportSuccessMessage: String? = null,
+    val logErrorMessage: String? = null,
 ) {
     /** True when all required permissions and service access are granted. */
     val allPermissionsHealthy: Boolean

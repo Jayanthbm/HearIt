@@ -170,7 +170,7 @@ Status legend: `Not started` · `In progress (cloud, not locally verified)` · `
 | P16 Reading controls and temporary mute | Complete — Aligned card layout, custom duration dialog, mutual exclusion with Priority Announce, auto-resumption; verified on device |
 | P17 Priority Announce mode | Complete — Dashboard card controls, mutual exclusion with Temporary Mute, state resumption; verified on device |
 | P18 History feature UI | Implemented in L4 — search, status filter, sort, paging, delete/clear with confirmation, storage/retention settings |
-| P19 Backup & Restore, Diagnostics, General Settings | Complete — Settings-only SAF export/import, schema validation, live Diagnostics probes with TTS readiness polling, General Settings for pacing and audio focus; verified on device |
+| P19 Backup & Restore, Diagnostics, General Settings | Complete — Settings-only SAF export/import, schema validation, live Diagnostics probes with TTS readiness polling, General Settings for pacing and audio focus, and 7-day structured diagnostic file logging with SAF export; verified on device |
 | P19b Quick Settings tile | Repaired against the real `TileService`/`Tile` API and locally verified to compile |
 | P20 Release hardening | In progress / ready for final verification pass |
 | L1 Build/test verification of P00–P19b | Complete — `379` unit tests pass, debug APK builds, lint 0 errors (`2026-11-03`, `03edf18`) |

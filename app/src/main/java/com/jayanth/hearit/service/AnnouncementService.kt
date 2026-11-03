@@ -12,6 +12,8 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.SystemClock
+import com.jayanth.hearit.core.common.logger.HearItLogger
+import com.jayanth.hearit.core.common.logger.LogCategory
 import com.jayanth.hearit.core.common.model.NotificationSnapshot
 import com.jayanth.hearit.core.common.time.Clock
 import com.jayanth.hearit.core.database.HistoryRepository
@@ -176,10 +178,12 @@ class AnnouncementService : Service(), NotificationSink {
         AnnouncementNotification.ensureChannel(this)
         audioManager.registerAudioDeviceCallback(audioDeviceCallback, handler)
         NotificationRelay.sink = this
+        HearItLogger.info(LogCategory.SERVICE, "AnnouncementService created")
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val action = intent?.action
+        HearItLogger.info(LogCategory.SERVICE, "AnnouncementService onStartCommand action=$action")
         when (action) {
             ACTION_STOP -> {
                 sessionStore.isStarted = false
@@ -291,6 +295,7 @@ class AnnouncementService : Service(), NotificationSink {
         NotificationRelay.sink = null
         abandonAudioFocus()
         engine.shutdown()
+        HearItLogger.info(LogCategory.SERVICE, "AnnouncementService destroyed")
         super.onDestroy()
     }
 
@@ -382,6 +387,10 @@ class AnnouncementService : Service(), NotificationSink {
         currentAction = action
         lastAction = action
         requestAudioFocus(action)
+        HearItLogger.info(
+            LogCategory.TTS,
+            "Starting speech announcement: pkg=${action.selection.packageName}, sectionCount=${action.announcement.sections.size}",
+        )
         val accepted = engine.speak(
             announcement = action.announcement,
             settings = settingsSource.speech(),
@@ -414,6 +423,10 @@ class AnnouncementService : Service(), NotificationSink {
         currentAction = null
         abandonAudioFocus()
         pipeline.onSpeechFinished(spoken)
+        HearItLogger.info(
+            LogCategory.TTS,
+            "Finished speech announcement: pkg=${action.selection.packageName}, spoken=$spoken",
+        )
         startInForeground()
         publishStatus()
     }

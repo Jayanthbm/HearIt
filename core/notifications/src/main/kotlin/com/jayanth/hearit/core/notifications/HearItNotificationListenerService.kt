@@ -6,6 +6,8 @@ import android.os.Handler
 import android.os.Looper
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import com.jayanth.hearit.core.common.logger.HearItLogger
+import com.jayanth.hearit.core.common.logger.LogCategory
 
 /**
  * The single notification source (ADR-003): receives every posted/updated/removed
@@ -43,17 +45,20 @@ class HearItNotificationListenerService : NotificationListenerService() {
     override fun onListenerConnected() {
         super.onListenerConnected()
         handler.removeCallbacks(rebindAttempt)
+        HearItLogger.info(LogCategory.NOTIFICATION, "NotificationListener connected")
     }
 
     override fun onListenerDisconnected() {
         super.onListenerDisconnected()
         handler.removeCallbacks(rebindAttempt)
         handler.postDelayed(rebindAttempt, REBIND_DELAY_MILLIS)
+        HearItLogger.warn(LogCategory.NOTIFICATION, "NotificationListener disconnected; rebind scheduled")
     }
 
     override fun onDestroy() {
         handler.removeCallbacks(rebindAttempt)
         super.onDestroy()
+        HearItLogger.info(LogCategory.NOTIFICATION, "NotificationListener destroyed")
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
@@ -61,6 +66,7 @@ class HearItNotificationListenerService : NotificationListenerService() {
         // Our own notifications (the P08 persistent notification) are never candidates.
         if (sbn.packageName == packageName) return
 
+        HearItLogger.debug(LogCategory.NOTIFICATION, "Notification received: pkg=${sbn.packageName}, id=${sbn.id}")
         val raw = StatusBarNotificationMapper.toRaw(sbn, appLabelFor(sbn.packageName))
         val snapshot = extractor.extract(raw, System.currentTimeMillis())
         // Per-instance sink (tests) wins; otherwise the process-wide relay feeds the
@@ -72,6 +78,7 @@ class HearItNotificationListenerService : NotificationListenerService() {
         if (sbn == null) return
         if (sbn.packageName == packageName) return
 
+        HearItLogger.debug(LogCategory.NOTIFICATION, "Notification removed: pkg=${sbn.packageName}, id=${sbn.id}")
         val key = NotificationExtractor.keyOf(sbn.packageName, sbn.tag, sbn.id)
         extractor.forget(key)
         (sink ?: NotificationRelay).onRemoved(key)

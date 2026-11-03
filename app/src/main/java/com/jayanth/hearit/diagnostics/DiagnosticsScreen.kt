@@ -1,5 +1,7 @@
 package com.jayanth.hearit.diagnostics
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -22,13 +24,17 @@ import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.BatteryChargingFull
 import androidx.compose.material.icons.rounded.Bluetooth
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.RocketLaunch
 import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.Storage
+import androidx.compose.material.icons.rounded.Terminal
 import androidx.compose.material.icons.rounded.Warning
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -40,19 +46,27 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jayanth.hearit.R
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * Entry point for Diagnostics (master prompt §13, phase P19).
@@ -63,12 +77,29 @@ fun DiagnosticsRoute(
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.state.collectAsState()
+    val context = LocalContext.current
+
+    // SAF CreateDocument Launcher for Diagnostic Log Export
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/plain"),
+    ) { uri ->
+        if (uri != null) {
+            viewModel.onExportLogsToUri(context, uri)
+        }
+    }
 
     DiagnosticsScreen(
         state = state,
         onRefresh = viewModel::refresh,
         onOpenNotificationAccess = viewModel::openNotificationAccessSettings,
         onOpenBatterySettings = viewModel::openBatteryOptimizationSettings,
+        onExportLogsClicked = {
+            exportLauncher.launch(
+                "hearit_diagnostics_${SimpleDateFormat("yyyyMMdd_HHmm", Locale.US).format(Date())}.txt",
+            )
+        },
+        onClearLogsClicked = viewModel::onClearLogs,
+        onDismissStatusMessage = viewModel::onClearLogStatusMessage,
         modifier = modifier,
     )
 }
@@ -82,8 +113,13 @@ fun DiagnosticsScreen(
     onRefresh: () -> Unit,
     onOpenNotificationAccess: () -> Unit,
     onOpenBatterySettings: () -> Unit,
+    onExportLogsClicked: () -> Unit,
+    onClearLogsClicked: () -> Unit,
+    onDismissStatusMessage: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var showClearDialog by remember { mutableStateOf(false) }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -91,6 +127,87 @@ fun DiagnosticsScreen(
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        // Feedback banners
+        state.logExportSuccessMessage?.let { success ->
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = Color(0xFF064E3B).copy(alpha = 0.2f),
+                border = BorderStroke(1.dp, Color(0xFF10B981)),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.CheckCircle,
+                            contentDescription = null,
+                            tint = Color(0xFF34D399),
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Text(
+                            text = success,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+                    TextButton(onClick = onDismissStatusMessage) {
+                        Text(
+                            text = stringResource(R.string.diagnostics_logs_dismiss),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
+            }
+        }
+
+        state.logErrorMessage?.let { error ->
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Warning,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Text(
+                            text = error,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                        )
+                    }
+                    TextButton(onClick = onDismissStatusMessage) {
+                        Text(
+                            text = stringResource(R.string.diagnostics_logs_dismiss),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
+            }
+        }
+
         // Hero System Status Card
         SystemHealthHeroCard(healthy = state.overallSystemHealthy)
 
@@ -112,6 +229,15 @@ fun DiagnosticsScreen(
 
         // Section 5: Configuration & Storage Status
         StorageDiagnosticsCard(state = state)
+
+        // Section 6: Diagnostic Event Logging & Export
+        DiagnosticLogsCard(
+            fileCount = state.logFileCount,
+            totalSizeBytes = state.totalLogSizeBytes,
+            retentionDays = state.logRetentionDays,
+            onExportClicked = onExportLogsClicked,
+            onClearClicked = { showClearDialog = true },
+        )
 
         // Refresh Probes Button
         OutlinedButton(
@@ -142,6 +268,44 @@ fun DiagnosticsScreen(
         }
 
         Spacer(modifier = Modifier.height(24.dp))
+    }
+
+    if (showClearDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearDialog = false },
+            title = {
+                Text(
+                    text = stringResource(R.string.diagnostics_logs_clear_dialog_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+            },
+            text = {
+                Text(
+                    text = stringResource(R.string.diagnostics_logs_clear_dialog_body),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showClearDialog = false
+                        onClearLogsClicked()
+                    },
+                ) {
+                    Text(
+                        text = stringResource(R.string.diagnostics_logs_clear_confirm),
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearDialog = false }) {
+                    Text(text = stringResource(R.string.action_cancel))
+                }
+            },
+        )
     }
 }
 
@@ -562,6 +726,141 @@ private fun StatusBadge(text: String, isOk: Boolean) {
                 softWrap = false,
                 color = if (isOk) Color(0xFF34D399) else MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+    }
+}
+
+@Composable
+private fun DiagnosticLogsCard(
+    fileCount: Int,
+    totalSizeBytes: Long,
+    retentionDays: Int,
+    onExportClicked: () -> Unit,
+    onClearClicked: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val sizeKb = (totalSizeBytes / 1024L).coerceAtLeast(if (fileCount > 0) 1L else 0L)
+    DiagnosticsSectionCard(
+        title = stringResource(R.string.diagnostics_logs_title),
+        subtitle = stringResource(R.string.diagnostics_logs_subtitle),
+        icon = Icons.Rounded.Terminal,
+        modifier = modifier,
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            // Stat badges
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
+                ) {
+                    Text(
+                        text = stringResource(R.string.diagnostics_logs_stat_retention),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                ) {
+                    Text(
+                        text = stringResource(R.string.diagnostics_logs_stat_files, fileCount, sizeKb),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    )
+                }
+            }
+
+            // Privacy Guarantee Pill
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = Color(0xFF10B981).copy(alpha = 0.12f),
+                border = BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.35f)),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.CheckCircle,
+                        contentDescription = null,
+                        tint = Color(0xFF10B981),
+                        modifier = Modifier.size(14.dp),
+                    )
+                    Text(
+                        text = stringResource(R.string.diagnostics_logs_stat_privacy),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF047857),
+                    )
+                }
+            }
+
+            // Explanatory note
+            Text(
+                text = stringResource(R.string.diagnostics_logs_explanation),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            // Action buttons row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Button(
+                    onClick = onExportClicked,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .weight(1.3f)
+                        .height(44.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Download,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = stringResource(R.string.diagnostics_logs_export_button),
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                }
+
+                OutlinedButton(
+                    onClick = onClearClicked,
+                    shape = RoundedCornerShape(12.dp),
+                    enabled = fileCount > 0,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(44.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.DeleteOutline,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = stringResource(R.string.diagnostics_logs_clear_button),
+                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                }
+            }
         }
     }
 }

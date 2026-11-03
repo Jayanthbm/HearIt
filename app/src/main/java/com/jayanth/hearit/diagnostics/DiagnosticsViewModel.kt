@@ -1,5 +1,7 @@
 package com.jayanth.hearit.diagnostics
 
+import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jayanth.hearit.core.database.HistoryRepository
@@ -14,6 +16,7 @@ import com.jayanth.hearit.setup.SetupLauncher
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.Locale
 import javax.inject.Inject
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -37,6 +40,7 @@ class DiagnosticsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val historyRepository: HistoryRepository,
     private val setupLauncher: SetupLauncher,
+    private val fileDiagnosticLogger: FileDiagnosticLogger,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(DiagnosticsUiState())
@@ -63,6 +67,8 @@ class DiagnosticsViewModel @Inject constructor(
             val defaultLocale = Locale.getDefault()
             val localeSupported = isTtsAvail && engine.supportsLocale(defaultLocale)
             val outputs = audioOutputs.connectedOutputs()
+            val logFiles = fileDiagnosticLogger.getLogFiles()
+            val logBytes = fileDiagnosticLogger.getTotalSizeBytes()
 
             _state.update { current ->
                 current.copy(
@@ -78,12 +84,75 @@ class DiagnosticsViewModel @Inject constructor(
                     enabledAppsCount = settings.enabledApps.size,
                     priorityAppsCount = settings.priorityAnnounceApps.size,
                     totalHistoryCount = historyCount,
+                    logFileCount = logFiles.size,
+                    totalLogSizeBytes = logBytes,
                     isRefreshing = false,
                 )
             }
             if (!isTtsAvail) {
                 ensureTtsPolling()
             }
+        }
+    }
+
+    fun onExportLogsToUri(context: Context, uri: Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val outputStream = context.contentResolver.openOutputStream(uri)
+                if (outputStream == null) {
+                    _state.update { it.copy(logErrorMessage = "Failed to open destination file for export.") }
+                    return@launch
+                }
+                outputStream.use { stream ->
+                    fileDiagnosticLogger.exportLogs(stream)
+                }
+                val sizeKb = (fileDiagnosticLogger.getTotalSizeBytes() / 1024L).coerceAtLeast(1L)
+                _state.update {
+                    it.copy(
+                        logExportSuccessMessage = "Diagnostic logs successfully exported ($sizeKb KB).",
+                        logErrorMessage = null,
+                    )
+                }
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(
+                        logErrorMessage = "Failed to export logs: ${e.message}",
+                        logExportSuccessMessage = null,
+                    )
+                }
+            }
+        }
+    }
+
+    fun onClearLogs() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val success = fileDiagnosticLogger.clearAllLogs()
+            if (success) {
+                _state.update {
+                    it.copy(
+                        logFileCount = 0,
+                        totalLogSizeBytes = 0L,
+                        logExportSuccessMessage = "All diagnostic log files cleared.",
+                        logErrorMessage = null,
+                    )
+                }
+            } else {
+                _state.update {
+                    it.copy(
+                        logErrorMessage = "Could not clear all diagnostic logs.",
+                        logExportSuccessMessage = null,
+                    )
+                }
+            }
+        }
+    }
+
+    fun onClearLogStatusMessage() {
+        _state.update {
+            it.copy(
+                logExportSuccessMessage = null,
+                logErrorMessage = null,
+            )
         }
     }
 
