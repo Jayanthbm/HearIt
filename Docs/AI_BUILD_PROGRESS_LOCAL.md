@@ -423,7 +423,7 @@ scroll behaviour for long lists and the dialogs are compile-verified only.
 ## L5 — Devices feature (P14)
 
 - **Date:** 2026-11-03
-- **Commit:** recorded in the follow-up `docs(progress)` commit
+- **Commit:** `55e7066` — `feat(devices): add output selection and remembered devices (L5)`
 - **Branch:** `development`
 - **Scope:** The Devices tab was the last `DestinationPlaceholder`. The model and rules already had
   `AudioOutputSettings.allowedBluetoothIds` (persisted by the codec since P09), but there was no UI,
