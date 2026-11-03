@@ -1,5 +1,7 @@
 package com.jayanth.hearit.applications
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -9,24 +11,42 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.VolumeUp
+import androidx.compose.material.icons.rounded.Cable
+import androidx.compose.material.icons.rounded.FilterList
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.PhoneAndroid
+import androidx.compose.material.icons.rounded.Security
+import androidx.compose.material.icons.rounded.Straighten
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jayanth.hearit.R
@@ -116,243 +136,391 @@ fun GlobalSettingsRoute(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text(
-            text = stringResource(R.string.global_settings_title),
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.SemiBold,
-        )
-        Text(
-            text = stringResource(R.string.global_settings_description),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        // Description Card
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = stringResource(R.string.global_settings_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = stringResource(R.string.global_settings_description),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 18.sp,
+                )
+            }
+        }
 
-        Spacer(Modifier.height(16.dp))
-        ChoiceRow(
-            labelRes = R.string.global_screen_condition,
-            options = listOf(
-                R.string.global_screen_on to (state.screenCondition == ScreenCondition.ON),
-                R.string.global_screen_off to (state.screenCondition == ScreenCondition.OFF),
-                R.string.global_screen_both to (state.screenCondition == ScreenCondition.BOTH),
-            ),
-            onSelect = { index ->
-                viewModel.onScreenConditionChanged(
-                    when (index) {
-                        0 -> ScreenCondition.ON
-                        1 -> ScreenCondition.OFF
-                        else -> ScreenCondition.BOTH
+        // Section: Screen & Lock Condition
+        SectionCard(
+            title = "Device State Conditions",
+            icon = Icons.Rounded.PhoneAndroid,
+        ) {
+            Text(
+                text = stringResource(R.string.global_screen_condition),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                ChipOption(
+                    label = stringResource(R.string.global_screen_off),
+                    selected = state.screenCondition == ScreenCondition.OFF,
+                    onClick = { viewModel.onScreenConditionChanged(ScreenCondition.OFF) },
+                    modifier = Modifier.weight(1f),
+                )
+                ChipOption(
+                    label = stringResource(R.string.global_screen_on),
+                    selected = state.screenCondition == ScreenCondition.ON,
+                    onClick = { viewModel.onScreenConditionChanged(ScreenCondition.ON) },
+                    modifier = Modifier.weight(1f),
+                )
+                ChipOption(
+                    label = stringResource(R.string.global_screen_both),
+                    selected = state.screenCondition == ScreenCondition.BOTH,
+                    onClick = { viewModel.onScreenConditionChanged(ScreenCondition.BOTH) },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = stringResource(R.string.global_lock_condition),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                ChipOption(
+                    label = stringResource(R.string.global_lock_locked),
+                    selected = state.lockCondition == LockCondition.LOCKED,
+                    onClick = { viewModel.onLockConditionChanged(LockCondition.LOCKED) },
+                    modifier = Modifier.weight(1f),
+                )
+                ChipOption(
+                    label = stringResource(R.string.global_lock_unlocked),
+                    selected = state.lockCondition == LockCondition.UNLOCKED,
+                    onClick = { viewModel.onLockConditionChanged(LockCondition.UNLOCKED) },
+                    modifier = Modifier.weight(1f),
+                )
+                ChipOption(
+                    label = stringResource(R.string.global_lock_both),
+                    selected = state.lockCondition == LockCondition.BOTH,
+                    onClick = { viewModel.onLockConditionChanged(LockCondition.BOTH) },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+
+        // Section: Text Length Limits
+        SectionCard(
+            title = "Text Length Limits",
+            icon = Icons.Rounded.Straighten,
+        ) {
+            OutlinedTextField(
+                value = state.textLength.maxLengthChars?.toString() ?: "",
+                onValueChange = { raw ->
+                    viewModel.onTextLengthChanged(
+                        state.textLength.copy(maxLengthChars = raw.toIntOrNull()?.takeIf { it > 0 }),
+                    )
+                },
+                label = { Text(text = stringResource(R.string.global_max_length)) },
+                placeholder = { Text("No limit") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                text = "Apply limit to",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                ChipOption(
+                    label = stringResource(R.string.global_scope_message),
+                    selected = state.textLength.scope == LengthScope.MESSAGE,
+                    onClick = { viewModel.onTextLengthChanged(state.textLength.copy(scope = LengthScope.MESSAGE)) },
+                    modifier = Modifier.weight(1f),
+                )
+                ChipOption(
+                    label = stringResource(R.string.global_scope_whole_notification),
+                    selected = state.textLength.scope == LengthScope.WHOLE_NOTIFICATION,
+                    onClick = { viewModel.onTextLengthChanged(state.textLength.copy(scope = LengthScope.WHOLE_NOTIFICATION)) },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+
+        // Section: Keyword Filters
+        SectionCard(
+            title = "Keyword Filtering",
+            icon = Icons.Rounded.FilterList,
+        ) {
+            ModernSwitchRow(
+                label = stringResource(R.string.global_keywords_enabled),
+                checked = state.keywordFilter.enabled,
+                onCheckedChange = { enabled ->
+                    viewModel.onKeywordFilterChanged(state.keywordFilter.copy(enabled = enabled))
+                },
+            )
+
+            if (state.keywordFilter.enabled) {
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    ChipOption(
+                        label = stringResource(R.string.global_keyword_mode_whole_word),
+                        selected = state.keywordFilter.mode == KeywordMatchMode.WHOLE_WORD,
+                        onClick = { viewModel.onKeywordFilterChanged(state.keywordFilter.copy(mode = KeywordMatchMode.WHOLE_WORD)) },
+                        modifier = Modifier.weight(1f),
+                    )
+                    ChipOption(
+                        label = stringResource(R.string.global_keyword_mode_phrase),
+                        selected = state.keywordFilter.mode == KeywordMatchMode.PHRASE,
+                        onClick = { viewModel.onKeywordFilterChanged(state.keywordFilter.copy(mode = KeywordMatchMode.PHRASE)) },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedTextField(
+                    value = state.keywordFilter.keywords.joinToString(", "),
+                    onValueChange = { raw ->
+                        viewModel.onKeywordFilterChanged(
+                            state.keywordFilter.copy(keywords = splitList(raw)),
+                        )
                     },
+                    label = { Text(text = stringResource(R.string.global_keywords_keywords)) },
+                    placeholder = { Text("Comma-separated words…") },
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth(),
                 )
-            },
-        )
+            }
+        }
 
-        ChoiceRow(
-            labelRes = R.string.global_lock_condition,
-            options = listOf(
-                R.string.global_lock_locked to (state.lockCondition == LockCondition.LOCKED),
-                R.string.global_lock_unlocked to (state.lockCondition == LockCondition.UNLOCKED),
-                R.string.global_lock_both to (state.lockCondition == LockCondition.BOTH),
-            ),
-            onSelect = { index ->
-                viewModel.onLockConditionChanged(
-                    when (index) {
-                        0 -> LockCondition.LOCKED
-                        1 -> LockCondition.UNLOCKED
-                        else -> LockCondition.BOTH
-                    },
-                )
-            },
-        )
+        // Section: Privacy Protection
+        SectionCard(
+            title = "Privacy & Content Shields",
+            icon = Icons.Rounded.Security,
+        ) {
+            ModernSwitchRow(
+                label = stringResource(R.string.global_privacy_exclude_app),
+                checked = state.privacy.excludeApp,
+                onCheckedChange = { viewModel.onPrivacyChanged(state.privacy.copy(excludeApp = it)) },
+            )
+            ModernSwitchRow(
+                label = stringResource(R.string.global_privacy_skip_otp),
+                checked = state.privacy.skipOtp,
+                onCheckedChange = { viewModel.onPrivacyChanged(state.privacy.copy(skipOtp = it)) },
+            )
+            ModernSwitchRow(
+                label = stringResource(R.string.global_privacy_skip_password),
+                checked = state.privacy.skipPassword,
+                onCheckedChange = { viewModel.onPrivacyChanged(state.privacy.copy(skipPassword = it)) },
+            )
+            ModernSwitchRow(
+                label = stringResource(R.string.global_privacy_skip_banking),
+                checked = state.privacy.skipBanking,
+                onCheckedChange = { viewModel.onPrivacyChanged(state.privacy.copy(skipBanking = it)) },
+            )
+            ModernSwitchRow(
+                label = stringResource(R.string.global_privacy_skip_payment),
+                checked = state.privacy.skipPayment,
+                onCheckedChange = { viewModel.onPrivacyChanged(state.privacy.copy(skipPayment = it)) },
+            )
+            ModernSwitchRow(
+                label = stringResource(R.string.global_privacy_hide_content),
+                checked = state.privacy.hideContent,
+                onCheckedChange = { viewModel.onPrivacyChanged(state.privacy.copy(hideContent = it)) },
+            )
 
-        Spacer(Modifier.height(16.dp))
-        OutlinedTextField(
-            value = state.textLength.maxLengthChars?.toString() ?: "",
-            onValueChange = { raw ->
-                viewModel.onTextLengthChanged(
-                    state.textLength.copy(maxLengthChars = raw.toIntOrNull()?.takeIf { it > 0 }),
-                )
-            },
-            label = { Text(text = stringResource(R.string.global_max_length)) },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        ChoiceRow(
-            labelRes = R.string.global_scope_message,
-            options = listOf(
-                R.string.global_scope_message to (state.textLength.scope == LengthScope.MESSAGE),
-                R.string.global_scope_whole_notification to
-                    (state.textLength.scope == LengthScope.WHOLE_NOTIFICATION),
-            ),
-            onSelect = { index ->
-                viewModel.onTextLengthChanged(
-                    state.textLength.copy(
-                        scope = if (index == 0) LengthScope.MESSAGE else LengthScope.WHOLE_NOTIFICATION,
-                    ),
-                )
-            },
-        )
+            Spacer(modifier = Modifier.height(12.dp))
 
-        Spacer(Modifier.height(16.dp))
-        ToggleRow(
-            labelRes = R.string.global_keywords_enabled,
-            checked = state.keywordFilter.enabled,
-            onCheckedChange = { enabled ->
-                viewModel.onKeywordFilterChanged(state.keywordFilter.copy(enabled = enabled))
-            },
-        )
-        ChoiceRow(
-            labelRes = R.string.global_keywords_mode,
-            options = listOf(
-                R.string.global_keyword_mode_whole_word to
-                    (state.keywordFilter.mode == KeywordMatchMode.WHOLE_WORD),
-                R.string.global_keyword_mode_phrase to
-                    (state.keywordFilter.mode == KeywordMatchMode.PHRASE),
-            ),
-            onSelect = { index ->
-                viewModel.onKeywordFilterChanged(
-                    state.keywordFilter.copy(
-                        mode = if (index == 0) KeywordMatchMode.WHOLE_WORD else KeywordMatchMode.PHRASE,
-                    ),
-                )
-            },
-        )
-        OutlinedTextField(
-            value = state.keywordFilter.keywords.joinToString(", "),
-            onValueChange = { raw ->
-                viewModel.onKeywordFilterChanged(
-                    state.keywordFilter.copy(keywords = splitList(raw)),
-                )
-            },
-            label = { Text(text = stringResource(R.string.global_keywords_keywords)) },
-            modifier = Modifier.fillMaxWidth(),
-        )
+            OutlinedTextField(
+                value = state.privacy.sensitiveKeywords.joinToString(", "),
+                onValueChange = { raw ->
+                    viewModel.onPrivacyChanged(state.privacy.copy(sensitiveKeywords = splitList(raw)))
+                },
+                label = { Text(text = stringResource(R.string.global_privacy_sensitive_keywords)) },
+                placeholder = { Text("otp, pin, passcode…") },
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
 
-        Spacer(Modifier.height(16.dp))
-        ToggleRow(
-            labelRes = R.string.global_privacy_exclude_app,
-            checked = state.privacy.excludeApp,
-            onCheckedChange = { viewModel.onPrivacyChanged(state.privacy.copy(excludeApp = it)) },
-        )
-        ToggleRow(
-            labelRes = R.string.global_privacy_skip_otp,
-            checked = state.privacy.skipOtp,
-            onCheckedChange = { viewModel.onPrivacyChanged(state.privacy.copy(skipOtp = it)) },
-        )
-        ToggleRow(
-            labelRes = R.string.global_privacy_skip_password,
-            checked = state.privacy.skipPassword,
-            onCheckedChange = { viewModel.onPrivacyChanged(state.privacy.copy(skipPassword = it)) },
-        )
-        ToggleRow(
-            labelRes = R.string.global_privacy_skip_banking,
-            checked = state.privacy.skipBanking,
-            onCheckedChange = { viewModel.onPrivacyChanged(state.privacy.copy(skipBanking = it)) },
-        )
-        ToggleRow(
-            labelRes = R.string.global_privacy_skip_payment,
-            checked = state.privacy.skipPayment,
-            onCheckedChange = { viewModel.onPrivacyChanged(state.privacy.copy(skipPayment = it)) },
-        )
-        ToggleRow(
-            labelRes = R.string.global_privacy_hide_content,
-            checked = state.privacy.hideContent,
-            onCheckedChange = { viewModel.onPrivacyChanged(state.privacy.copy(hideContent = it)) },
-        )
-        OutlinedTextField(
-            value = state.privacy.sensitiveKeywords.joinToString(", "),
-            onValueChange = { raw ->
-                viewModel.onPrivacyChanged(state.privacy.copy(sensitiveKeywords = splitList(raw)))
-            },
-            label = { Text(text = stringResource(R.string.global_privacy_sensitive_keywords)) },
-            modifier = Modifier.fillMaxWidth(),
-        )
+        // Section: Audio Output Fallback Policies
+        SectionCard(
+            title = "Allowed Output Channels",
+            icon = Icons.Rounded.Cable,
+        ) {
+            ModernSwitchRow(
+                label = stringResource(R.string.global_audio_allow_bluetooth),
+                checked = state.audioOutput.allowBluetooth,
+                onCheckedChange = { viewModel.onAudioOutputChanged(allowBluetooth = it) },
+            )
+            ModernSwitchRow(
+                label = stringResource(R.string.global_audio_allow_wired),
+                checked = state.audioOutput.allowWired,
+                onCheckedChange = { viewModel.onAudioOutputChanged(allowWired = it) },
+            )
+            ModernSwitchRow(
+                label = stringResource(R.string.global_audio_allow_speaker),
+                checked = state.audioOutput.allowPhoneSpeaker,
+                onCheckedChange = { viewModel.onAudioOutputChanged(allowPhoneSpeaker = it) },
+            )
+        }
 
-        Spacer(Modifier.height(16.dp))
-        HorizontalDivider()
-        ToggleRow(
-            labelRes = R.string.global_audio_allow_wired,
-            checked = state.audioOutput.allowWired,
-            onCheckedChange = { viewModel.onAudioOutputChanged(allowWired = it) },
-        )
-        ToggleRow(
-            labelRes = R.string.global_audio_allow_bluetooth,
-            checked = state.audioOutput.allowBluetooth,
-            onCheckedChange = { viewModel.onAudioOutputChanged(allowBluetooth = it) },
-        )
-        ToggleRow(
-            labelRes = R.string.global_audio_allow_speaker,
-            checked = state.audioOutput.allowPhoneSpeaker,
-            onCheckedChange = { viewModel.onAudioOutputChanged(allowPhoneSpeaker = it) },
-        )
-
-        Spacer(Modifier.height(12.dp))
         Text(
             text = stringResource(R.string.global_settings_apply_note),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 4.dp),
         )
-        Spacer(Modifier.height(12.dp))
+
+        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 
-/** One labelled radio group; [options] pairs a label with its selected flag. */
 @Composable
-private fun ChoiceRow(
-    labelRes: Int,
-    options: List<Pair<Int, Boolean>>,
-    onSelect: (Int) -> Unit,
+private fun SectionCard(
+    title: String,
+    icon: ImageVector,
+    content: @Composable () -> Unit,
 ) {
-    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-        Text(
-            text = stringResource(labelRes),
-            style = MaterialTheme.typography.bodyLarge,
-        )
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(0.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            options.forEachIndexed { index, (optionLabelRes, selected) ->
-                Row(
-                    modifier = Modifier
-                        .heightIn(min = 48.dp)
-                        .selectable(
-                            selected = selected,
-                            role = Role.RadioButton,
-                            onClick = { onSelect(index) },
-                        ),
-                    verticalAlignment = Alignment.CenterVertically,
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Column(modifier = Modifier.padding(18.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(bottom = 14.dp),
+            ) {
+                Surface(
+                    modifier = Modifier.size(32.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer,
                 ) {
-                    RadioButton(selected = selected, onClick = null)
-                    Text(
-                        text = stringResource(optionLabelRes),
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(end = 8.dp),
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                    ) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
                 }
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
             }
+            content()
         }
     }
 }
 
-/** One labelled checkbox row at the 48 dp touch-target minimum. */
 @Composable
-private fun ToggleRow(
-    labelRes: Int,
+private fun ChipOption(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                maxLines = 1,
+            )
+        },
+        shape = RoundedCornerShape(10.dp),
+        colors = FilterChipDefaults.filterChipColors(
+            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+            selectedLabelColor = MaterialTheme.colorScheme.primary,
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        ),
+        modifier = modifier,
+    )
+}
+
+@Composable
+private fun ModernSwitchRow(
+    label: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(vertical = 4.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Text(
-            text = stringResource(labelRes),
-            style = MaterialTheme.typography.bodyLarge,
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Normal,
+            color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.weight(1f).padding(end = 12.dp),
         )
-        Checkbox(checked = checked, onCheckedChange = onCheckedChange)
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                checkedTrackColor = MaterialTheme.colorScheme.primary,
+            ),
+        )
     }
 }
 

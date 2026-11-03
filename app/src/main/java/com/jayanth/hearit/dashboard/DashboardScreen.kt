@@ -3,6 +3,15 @@ package com.jayanth.hearit.dashboard
 import android.text.format.DateUtils
 import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,21 +24,64 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.Apps
+import androidx.compose.material.icons.rounded.Backup
+import androidx.compose.material.icons.rounded.BugReport
+import androidx.compose.material.icons.rounded.Cable
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Headphones
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.NotificationImportant
+import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material.icons.rounded.NotificationsActive
+import androidx.compose.material.icons.rounded.NotificationsNone
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.RecordVoiceOver
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.Stop
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.VolumeOff
+import androidx.compose.material.icons.rounded.VolumeUp
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
@@ -40,13 +92,19 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
@@ -56,24 +114,18 @@ import com.jayanth.hearit.applications.ApplicationsViewModel
 import com.jayanth.hearit.applications.GlobalSettingsRoute
 import com.jayanth.hearit.applications.GlobalSettingsViewModel
 import com.jayanth.hearit.core.common.model.AudioOutputSettings
+import com.jayanth.hearit.core.common.model.HistoryStatus
 import com.jayanth.hearit.devices.DevicesRoute
 import com.jayanth.hearit.devices.DevicesViewModel
 import com.jayanth.hearit.history.HistoryRoute
 import com.jayanth.hearit.history.HistoryViewModel
-import com.jayanth.hearit.core.common.model.HistoryStatus
 import com.jayanth.hearit.setup.TestAnnouncementState
 
 /**
  * Entry point of the dashboard shell (master prompt §13, phase P12).
  *
- * Owns the only piece of transient UI state in the phase — the selected destination — and
- * keeps it in `rememberSaveable`, so both a configuration change and a system-initiated
- * process recreation restore the same screen (P12 acceptance). It also refreshes the
- * values that have no reactive source when the screen resumes (connected outputs, session
- * mute flag, recent history).
- *
- * Back from a secondary screen returns to Home instead of leaving the app, which matches
- * the tab model; the bottom tabs themselves are top-level destinations.
+ * Modern Material 3 Expressive Dashboard with hero service monitor, quick controls,
+ * clean recent announcements timeline, and interactive bottom navigation.
  */
 @Composable
 fun DashboardRoute(
@@ -128,12 +180,9 @@ fun DashboardRoute(
 }
 
 /**
- * The shell: header, content and bottom navigation.
- *
- * Stateless — it renders [state] and emits events, so no navigation or service policy
- * lives here (global standards). Every visible string is a resource, every interactive
- * target is at least 48 dp, and all status is written out as text (never colour alone).
+ * The shell: modern header, content and bottom navigation.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     state: DashboardUiState,
@@ -156,125 +205,207 @@ fun DashboardScreen(
 ) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        bottomBar = {
-            DashboardBottomBar(selected = destination, onSelect = onSelectDestination)
-        },
-    ) { innerPadding ->
-        Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
-            DashboardHeader(
-                title = stringResource(destination.labelRes),
-                showBack = !destination.isBottomBarDestination,
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            ModernDashboardTopBar(
+                destination = destination,
+                isRunning = state.service.isRunning,
                 onBack = onBackToHome,
             )
-            HorizontalDivider()
+        },
+        bottomBar = {
+            ModernBottomNav(selected = destination, onSelect = onSelectDestination)
+        },
+    ) { innerPadding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding),
+        ) {
+            when {
+                !state.loaded -> Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(36.dp))
+                }
 
-            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                when {
-                    !state.loaded -> Text(
-                        text = stringResource(R.string.dashboard_loading),
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier.padding(24.dp),
+                destination == DashboardDestination.HOME -> DashboardHome(
+                    state = state,
+                    onStartService = onStartService,
+                    onStopService = onStopService,
+                    onTestAnnouncement = onTestAnnouncement,
+                    onTemporaryMuteClicked = onTemporaryMuteClicked,
+                    onTemporaryMuteCleared = onTemporaryMuteCleared,
+                    onPriorityAnnounceToggled = onPriorityAnnounceToggled,
+                    onHistorySearch = onHistorySearch,
+                    onHistoryClearAll = onHistoryClearAll,
+                    onSelectDestination = onSelectDestination,
+                )
+
+                destination == DashboardDestination.DEVICES -> devicesContent()
+                destination == DashboardDestination.APPS -> appsContent()
+                destination == DashboardDestination.HISTORY -> historyContent()
+                destination == DashboardDestination.GLOBAL_RULES -> globalRulesContent()
+                else -> DestinationPlaceholder(destination = destination)
+            }
+        }
+    }
+}
+
+// ============================================================================
+// Top App Bar
+// ============================================================================
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ModernDashboardTopBar(
+    destination: DashboardDestination,
+    isRunning: Boolean,
+    onBack: () -> Unit,
+) {
+    TopAppBar(
+        title = {
+            if (destination == DashboardDestination.HOME) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        modifier = Modifier.size(36.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_logo_audio_lines),
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp),
+                                tint = Color.Unspecified,
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = stringResource(R.string.app_name),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground,
                     )
-
-                    destination == DashboardDestination.HOME -> DashboardHome(
-                        state = state,
-                        onStartService = onStartService,
-                        onStopService = onStopService,
-                        onTestAnnouncement = onTestAnnouncement,
-                        onTemporaryMuteClicked = onTemporaryMuteClicked,
-                        onTemporaryMuteCleared = onTemporaryMuteCleared,
-                        onPriorityAnnounceToggled = onPriorityAnnounceToggled,
-                        onHistorySearch = onHistorySearch,
-                        onHistoryClearAll = onHistoryClearAll,
-                        onSelectDestination = onSelectDestination,
+                }
+            } else {
+                Text(
+                    text = stringResource(destination.labelRes),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground,
+                )
+            }
+        },
+        navigationIcon = {
+            if (!destination.isBottomBarDestination) {
+                IconButton(onClick = onBack) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                        contentDescription = stringResource(R.string.dashboard_back),
+                        tint = MaterialTheme.colorScheme.onBackground,
                     )
-
-                    destination == DashboardDestination.DEVICES -> devicesContent()
-
-                    destination == DashboardDestination.APPS -> appsContent()
-
-                    destination == DashboardDestination.HISTORY -> historyContent()
-
-                    destination == DashboardDestination.GLOBAL_RULES -> globalRulesContent()
-
-                    else -> DestinationPlaceholder(destination = destination)
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun DashboardHeader(title: String, showBack: Boolean, onBack: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (showBack) {
-            TextButton(onClick = onBack, modifier = Modifier.heightIn(min = 48.dp)) {
-                Text(text = stringResource(R.string.dashboard_back))
+        },
+        actions = {
+            if (destination == DashboardDestination.HOME) {
+                // Live Service Pill in Top Bar
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = if (isRunning) Color(0xFF064E3B) else MaterialTheme.colorScheme.surfaceVariant,
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        if (isRunning) Color(0xFF10B981) else MaterialTheme.colorScheme.outlineVariant,
+                    ),
+                    modifier = Modifier.padding(end = 16.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(7.dp)
+                                .clip(CircleShape)
+                                .background(if (isRunning) Color(0xFF34D399) else MaterialTheme.colorScheme.onSurfaceVariant),
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (isRunning) "RUNNING" else "STOPPED",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isRunning) Color(0xFF34D399) else MaterialTheme.colorScheme.onSurfaceVariant,
+                            letterSpacing = 0.5.sp,
+                        )
+                    }
+                }
             }
-        }
-        Text(
-            text = title,
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.weight(1f).padding(start = if (showBack) 4.dp else 12.dp),
-        )
-    }
+        },
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = MaterialTheme.colorScheme.background,
+        ),
+    )
 }
 
-/**
- * Bottom navigation (master prompt §13).
- *
- * Plain `Surface` + selectable columns rather than `NavigationBar`: the Material
- * `NavigationBarItem` needs an icon per destination, and the icon set with Devices/History
- * glyphs is a separate artifact (ADR-024). Text labels are the accessible names either way.
- */
+// ============================================================================
+// Modern Bottom Navigation Bar
+// ============================================================================
+
 @Composable
-private fun DashboardBottomBar(
+private fun ModernBottomNav(
     selected: DashboardDestination,
     onSelect: (DashboardDestination) -> Unit,
 ) {
-    Surface(tonalElevation = 3.dp, modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(horizontal = 4.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            for (destination in DashboardDestination.bottomBar) {
-                val isSelected = destination == selected
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .heightIn(min = 48.dp)
-                        .selectable(
-                            selected = isSelected,
-                            role = Role.Tab,
-                            onClick = { onSelect(destination) },
-                        )
-                        .padding(horizontal = 4.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
+    NavigationBar(
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        tonalElevation = 8.dp,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        for (destination in DashboardDestination.bottomBar) {
+            val isSelected = destination == selected
+            val icon = when (destination) {
+                DashboardDestination.HOME -> Icons.Rounded.Home
+                DashboardDestination.APPS -> Icons.Rounded.Apps
+                DashboardDestination.DEVICES -> Icons.Rounded.Headphones
+                DashboardDestination.HISTORY -> Icons.Rounded.History
+                else -> Icons.Rounded.Home
+            }
+
+            NavigationBarItem(
+                selected = isSelected,
+                onClick = { onSelect(destination) },
+                icon = {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = stringResource(destination.labelRes),
+                        modifier = Modifier.size(24.dp),
+                    )
+                },
+                label = {
                     Text(
                         text = stringResource(destination.labelRes),
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                        color = if (isSelected) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                        textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                     )
-                }
-            }
+                },
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+                    selectedTextColor = MaterialTheme.colorScheme.primary,
+                    indicatorColor = MaterialTheme.colorScheme.primary,
+                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                ),
+            )
         }
     }
 }
+
+// ============================================================================
+// Dashboard Home Surface
+// ============================================================================
 
 @Composable
 private fun DashboardHome(
@@ -295,491 +426,666 @@ private fun DashboardHome(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 20.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        ServiceCard(
+        // Hero Service Monitor Card
+        HeroServiceCard(
             state = state,
-            onStartService = onStartService,
-            onStopService = onStopService,
+            onStart = onStartService,
+            onStop = onStopService,
         )
 
-        Spacer(Modifier.height(20.dp))
-        SectionTitle(R.string.dashboard_section_status)
-        StatusRow(
-            label = stringResource(R.string.dashboard_normal_announcements),
-            value = onOff(state.announcementsActive),
-        )
-        PriorityAnnounceRow(
-            isActive = state.priorityAnnounceActive,
-            onToggled = onPriorityAnnounceToggled,
-        )
-        TemporaryMuteRow(
-            isMuted = state.temporaryMuteActive,
-            onMuteClicked = onTemporaryMuteClicked,
-            onUnmuteClicked = onTemporaryMuteCleared,
-        )
-        StatusRow(
-            label = stringResource(R.string.dashboard_output),
-            value = state.outputLabel ?: stringResource(R.string.dashboard_output_none),
-        )
-        StatusRow(
-            label = stringResource(R.string.dashboard_allowed_outputs),
-            value = allowedOutputSummary(state.audioOutput),
-        )
-        StatusRow(
-            label = stringResource(R.string.dashboard_apps_enabled),
-            value = stringResource(R.string.dashboard_apps_count, state.enabledAppCount),
-        )
-
-        Spacer(Modifier.height(20.dp))
-        SectionTitle(R.string.dashboard_section_recent)
-        RecentHistoryContent(
-            state = state,
-            onHistorySearch = onHistorySearch,
-            onHistoryClearAll = onHistoryClearAll,
-            onSelectDestination = onSelectDestination,
-        )
-
-        Spacer(Modifier.height(20.dp))
-        SectionTitle(R.string.dashboard_section_actions)
-        ActionButton(
-            label = stringResource(R.string.dashboard_action_test),
-            onClick = { onTestAnnouncement(testAnnouncementText) },
-            enabled = state.testAnnouncement != TestAnnouncementState.SPEAKING,
-        )
-        TestAnnouncementStatus(state = state.testAnnouncement)
-        ActionButton(
-            label = stringResource(R.string.dashboard_action_apps),
-            onClick = { onSelectDestination(DashboardDestination.APPS) },
-        )
-        ActionButton(
-            label = stringResource(R.string.dashboard_action_devices),
-            onClick = { onSelectDestination(DashboardDestination.DEVICES) },
-        )
-        ActionButton(
-            label = stringResource(R.string.dashboard_action_diagnostics),
-            onClick = { onSelectDestination(DashboardDestination.DIAGNOSTICS) },
-        )
-
-        Spacer(Modifier.height(20.dp))
-        SectionTitle(R.string.dashboard_section_tools)
-        for (destination in DashboardDestination.secondary) {
-            NavigationRow(
-                label = stringResource(destination.labelRes),
-                onClick = { onSelectDestination(destination) },
-            )
-        }
-        Spacer(Modifier.height(12.dp))
-    }
-}
-
-@Composable
-private fun ServiceCard(
-    state: DashboardUiState,
-    onStartService: () -> Unit,
-    onStopService: () -> Unit,
-) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = stringResource(R.string.dashboard_service_title),
-                style = MaterialTheme.typography.titleMedium,
-            )
-            Text(
-                text = stringResource(
-                    if (state.service.isRunning) {
-                        R.string.dashboard_status_active
-                    } else {
-                        R.string.dashboard_status_inactive
-                    },
-                ),
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = if (state.service.isRunning) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = if (state.service.isSpeaking) {
-                    stringResource(R.string.dashboard_speaking_now)
-                } else {
-                    stringResource(R.string.dashboard_idle)
-                },
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Text(
-                text = pluralStringResource(
-                    R.plurals.dashboard_queue_waiting,
-                    state.service.pendingCount,
-                    state.service.pendingCount,
-                ),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Spacer(Modifier.height(12.dp))
-
-            if (state.service.isRunning) {
-                OutlinedButton(
-                    onClick = onStopService,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                ) {
-                    Text(text = stringResource(R.string.dashboard_stop_service))
-                }
-            } else {
-                Button(
-                    onClick = onStartService,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                ) {
-                    Text(text = stringResource(R.string.dashboard_start_service))
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SectionTitle(@StringRes titleRes: Int) {
-    Text(
-        text = stringResource(titleRes),
-        style = MaterialTheme.typography.titleMedium,
-        fontWeight = FontWeight.SemiBold,
-        modifier = Modifier.padding(bottom = 4.dp),
-    )
-}
-
-/** One read-only status line; [supporting] explains a deliberately missing control. */
-@Composable
-private fun StatusRow(label: String, value: String, supporting: String? = null) {
-    Column(modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(vertical = 4.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.weight(1f).padding(end = 12.dp),
-            )
-            Text(
-                text = value,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.End,
-            )
-        }
-        if (supporting != null) {
-            Text(
-                text = supporting,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-/** Temporary mute control row (P16): 15/30/60 minutes or unmute. */
-@Composable
-private fun TemporaryMuteRow(
-    isMuted: Boolean,
-    onMuteClicked: (Int) -> Unit,
-    onUnmuteClicked: () -> Unit,
-) {
-    Column(modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(vertical = 4.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = stringResource(R.string.dashboard_temporary_mute),
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.weight(1f).padding(end = 12.dp),
-            )
-            Text(
-                text = if (isMuted) {
-                    stringResource(R.string.dashboard_status_on)
-                } else {
-                    stringResource(R.string.dashboard_status_off)
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.End,
-            )
-        }
-        if (!isMuted) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(
-                    onClick = { onMuteClicked(15) },
-                    modifier = Modifier.heightIn(min = 48.dp),
-                ) {
-                    Text(text = stringResource(R.string.mute_15min))
-                }
-                OutlinedButton(
-                    onClick = { onMuteClicked(30) },
-                    modifier = Modifier.heightIn(min = 48.dp),
-                ) {
-                    Text(text = stringResource(R.string.mute_30min))
-                }
-                OutlinedButton(
-                    onClick = { onMuteClicked(60) },
-                    modifier = Modifier.heightIn(min = 48.dp),
-                ) {
-                    Text(text = stringResource(R.string.mute_60min))
-                }
-            }
-        } else {
-            OutlinedButton(
-                onClick = onUnmuteClicked,
-                modifier = Modifier.heightIn(min = 48.dp),
-            ) {
-                Text(text = stringResource(R.string.unmute))
-            }
-        }
-    }
-}
-
-/** Priority Announce row (P17): separate mode with its own on/off control. */
-@Composable
-private fun PriorityAnnounceRow(
-    isActive: Boolean,
-    onToggled: (Boolean) -> Unit,
-) {
-    Column(modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(vertical = 4.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = stringResource(R.string.dashboard_priority_announce),
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.weight(1f).padding(end = 12.dp),
-            )
-            Text(
-                text = if (isActive) {
-                    stringResource(R.string.priority_announce_on)
-                } else {
-                    stringResource(R.string.priority_announce_off)
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.End,
-            )
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(
-                onClick = { onToggled(true) },
-                modifier = Modifier.heightIn(min = 48.dp),
-            ) {
-                Text(text = stringResource(R.string.priority_announce_on))
-            }
-            OutlinedButton(
-                onClick = { onToggled(false) },
-                modifier = Modifier.heightIn(min = 48.dp),
-            ) {
-                Text(text = stringResource(R.string.priority_announce_off))
-            }
-        }
-    }
-}
-
-@Composable
-private fun RecentHistoryContent(
-    state: DashboardUiState,
-    onHistorySearch: (DashboardFilterState) -> Unit,
-    onHistoryClearAll: () -> Unit,
-    onSelectDestination: (DashboardDestination) -> Unit,
-) {
-    var filter by remember { mutableStateOf(DashboardFilterState()) }
-    var confirmingClear by rememberSaveable { mutableStateOf(false) }
-
-    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        // Quick Controls & Status
         Text(
-            text = stringResource(R.string.dashboard_recent_history),
+            text = "Quick Controls",
             style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(bottom = 4.dp),
-        )
-
-        OutlinedTextField(
-            value = filter.query,
-            onValueChange = { filter = filter.copy(query = it) },
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text(text = stringResource(R.string.dashboard_search_history)) },
-            placeholder = { Text(text = stringResource(R.string.dashboard_search_placeholder)) },
-            singleLine = true,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onBackground,
         )
 
         Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            OutlinedButton(
-                onClick = { onHistorySearch(filter) },
-                modifier = Modifier.heightIn(min = 48.dp),
+            // Priority Announce Card
+            Card(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { onPriorityAnnounceToggled(!state.priorityAnnounceActive) },
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (state.priorityAnnounceActive) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f) else MaterialTheme.colorScheme.surfaceContainer,
+                ),
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    if (state.priorityAnnounceActive) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant,
+                ),
             ) {
-                Text(text = stringResource(R.string.dashboard_search_history))
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(34.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (state.priorityAnnounceActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Star,
+                                    contentDescription = null,
+                                    tint = if (state.priorityAnnounceActive) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
+                        }
+                        Switch(
+                            checked = state.priorityAnnounceActive,
+                            onCheckedChange = onPriorityAnnounceToggled,
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                            ),
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = "Priority Announce",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = if (state.priorityAnnounceActive) "Bypassing lock rules" else "Normal rules active",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp,
+                    )
+                }
             }
-            OutlinedButton(
-                onClick = { confirmingClear = true },
-                modifier = Modifier.heightIn(min = 48.dp),
+
+            // Temporary Mute Card
+            Card(
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (state.temporaryMuteActive) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f) else MaterialTheme.colorScheme.surfaceContainer,
+                ),
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    if (state.temporaryMuteActive) MaterialTheme.colorScheme.error.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant,
+                ),
             ) {
-                Text(text = stringResource(R.string.dashboard_clear_all))
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Surface(
+                        modifier = Modifier.size(34.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (state.temporaryMuteActive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.surfaceVariant,
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Rounded.VolumeOff,
+                                contentDescription = null,
+                                tint = if (state.temporaryMuteActive) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = "Temporary Mute",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    if (state.temporaryMuteActive) {
+                        TextButton(
+                            onClick = onTemporaryMuteCleared,
+                            modifier = Modifier.height(32.dp),
+                        ) {
+                            Text("Unmute now", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                        }
+                    } else {
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            MuteChip(label = "15m", onClick = { onTemporaryMuteClicked(15) })
+                            MuteChip(label = "30m", onClick = { onTemporaryMuteClicked(30) })
+                            MuteChip(label = "1h", onClick = { onTemporaryMuteClicked(60) })
+                        }
+                    }
+                }
             }
         }
 
-        when {
-            state.historyUnavailable -> Text(
-                text = stringResource(R.string.dashboard_recent_unavailable),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.error,
-            )
-
-            !state.recentHistoryLoaded -> Text(
-                text = stringResource(R.string.dashboard_loading),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-
-            state.recentHistory.isEmpty() -> Text(
-                text = stringResource(R.string.dashboard_recent_empty),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-
-            else -> {
-                for (entry in state.recentHistory) {
-                    RecentRow(entry = entry)
+        // Test Voice Announcement Bar
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            ),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Rounded.PlayArrow,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp),
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = "Test Speech",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            text = if (state.testAnnouncement == TestAnnouncementState.SPEAKING) "Speaking sample…" else "Play test phrase",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
-                TextButton(
-                    onClick = { onSelectDestination(DashboardDestination.HISTORY) },
-                    modifier = Modifier.heightIn(min = 48.dp),
+
+                Button(
+                    onClick = { onTestAnnouncement(testAnnouncementText) },
+                    enabled = state.testAnnouncement != TestAnnouncementState.SPEAKING,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.height(40.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                    ),
                 ) {
-                    Text(text = stringResource(R.string.dashboard_view_all_history))
+                    if (state.testAnnouncement == TestAnnouncementState.SPEAKING) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), color = MaterialTheme.colorScheme.onPrimary)
+                    } else {
+                        Text("Play", fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }
-    }
 
-    if (confirmingClear) {
-        AlertDialog(
-            onDismissRequest = { confirmingClear = false },
-            title = { Text(text = stringResource(R.string.history_clear_all_confirm_title)) },
-            text = { Text(text = stringResource(R.string.history_clear_all_confirm_body)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        confirmingClear = false
-                        onHistoryClearAll()
-                    },
-                ) {
-                    Text(text = stringResource(R.string.dashboard_clear_all))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmingClear = false }) {
-                    Text(text = stringResource(R.string.action_cancel))
-                }
-            },
+        // Recent Announcements Feed
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "Recent Announcements",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            TextButton(onClick = { onSelectDestination(DashboardDestination.HISTORY) }) {
+                Text("View all", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+            }
+        }
+
+        RecentHistorySection(
+            state = state,
+            onSelectDestination = onSelectDestination,
         )
+
+        // Settings and Tools
+        Text(
+            text = "Settings & Rules",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onBackground,
+        )
+
+        ToolsGroupCard(onSelectDestination = onSelectDestination)
+
+        Spacer(modifier = Modifier.height(16.dp))
+    }
+}
+
+// ============================================================================
+// Hero Service Card
+// ============================================================================
+
+@Composable
+private fun HeroServiceCard(
+    state: DashboardUiState,
+    onStart: () -> Unit,
+    onStop: () -> Unit,
+) {
+    val isRunning = state.service.isRunning
+    val isSpeaking = state.service.isSpeaking
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        ),
+        border = androidx.compose.foundation.BorderStroke(
+            1.5.dp,
+            if (isRunning) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant,
+        ),
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            // Live Status Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(10.dp)
+                            .clip(CircleShape)
+                            .background(if (isRunning) Color(0xFF10B981) else Color(0xFF94A3B8)),
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = if (isSpeaking) "Speaking Announcement…" else if (isRunning) "Active & Listening" else "Service Inactive",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isRunning) Color(0xFF34D399) else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+
+                if (state.service.pendingCount > 0) {
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                    ) {
+                        Text(
+                            text = "${state.service.pendingCount} queued",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Main Metrics Grid
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                MetricChip(
+                    icon = Icons.Rounded.Headphones,
+                    label = "Audio Output",
+                    value = state.outputLabel ?: "No Output",
+                    modifier = Modifier.weight(1f),
+                )
+                MetricChip(
+                    icon = Icons.Rounded.Apps,
+                    label = "Enabled Apps",
+                    value = "${state.enabledAppCount} apps",
+                    modifier = Modifier.weight(1f),
+                )
+            }
+
+            Spacer(modifier = Modifier.height(18.dp))
+
+            // Big CTA Button (Start or Stop)
+            if (isRunning) {
+                OutlinedButton(
+                    onClick = onStop,
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                ) {
+                    Icon(Icons.Rounded.Stop, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(stringResource(R.string.dashboard_stop_service), fontWeight = FontWeight.Bold)
+                }
+            } else {
+                Button(
+                    onClick = onStart,
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                    ),
+                ) {
+                    Icon(Icons.Rounded.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(stringResource(R.string.dashboard_start_service), fontWeight = FontWeight.Bold)
+                }
+            }
+        }
     }
 }
 
 @Composable
-private fun RecentRow(entry: RecentAnnouncement) {
+private fun MetricChip(
+    icon: ImageVector,
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(18.dp),
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Column {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 10.sp,
+                )
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MuteChip(label: String, onClick: () -> Unit) {
+    Surface(
+        modifier = Modifier.clickable { onClick() },
+        shape = RoundedCornerShape(8.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+        )
+    }
+}
+
+// ============================================================================
+// Recent History Section
+// ============================================================================
+
+@Composable
+private fun RecentHistorySection(
+    state: DashboardUiState,
+    onSelectDestination: (DashboardDestination) -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            when {
+                state.historyUnavailable -> {
+                    Text(
+                        text = stringResource(R.string.dashboard_recent_unavailable),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+
+                !state.recentHistoryLoaded -> {
+                    Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                    }
+                }
+
+                state.recentHistory.isEmpty() -> {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.NotificationsNone,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp),
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = stringResource(R.string.dashboard_recent_empty),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+
+                else -> {
+                    state.recentHistory.forEachIndexed { index, entry ->
+                        RecentRowItem(entry = entry)
+                        if (index < state.recentHistory.size - 1) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(1.dp)
+                                    .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecentRowItem(entry: RecentAnnouncement) {
     val relativeTime = DateUtils.getRelativeTimeSpanString(
         entry.recordedAtMillis,
         System.currentTimeMillis(),
         DateUtils.MINUTE_IN_MILLIS,
     )
-    Row(
-        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = stringResource(
-                R.string.dashboard_recent_row,
-                entry.appName,
-                statusLabel(entry.status),
-                relativeTime,
-            ),
-            style = MaterialTheme.typography.bodyMedium,
-        )
-    }
-}
 
-@Composable
-private fun ActionButton(label: String, onClick: () -> Unit, enabled: Boolean = true) {
-    OutlinedButton(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).heightIn(min = 48.dp),
-    ) {
-        Text(text = label)
-    }
-}
-
-@Composable
-private fun NavigationRow(label: String, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 48.dp)
-            .clickable(role = Role.Button, onClick = onClick),
+            .padding(vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Text(text = label, style = MaterialTheme.typography.bodyLarge)
+        Row(
+            modifier = Modifier.weight(1f),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Surface(
+                modifier = Modifier.size(32.dp),
+                shape = RoundedCornerShape(8.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Rounded.Notifications,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.width(10.dp))
+            Column {
+                Text(
+                    text = entry.appName,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text = relativeTime.toString(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 11.sp,
+                )
+            }
+        }
+
+        // Status Chip
+        StatusPill(status = entry.status)
     }
 }
 
 @Composable
-private fun TestAnnouncementStatus(state: TestAnnouncementState) {
-    val statusRes = when (state) {
-        TestAnnouncementState.IDLE -> null
-        TestAnnouncementState.SPEAKING -> R.string.setup_test_speaking
-        TestAnnouncementState.COMPLETED -> R.string.setup_test_completed
-        TestAnnouncementState.FAILED -> R.string.setup_test_failed
+private fun StatusPill(status: HistoryStatus) {
+    val (bgColor, textColor, label) = when (status) {
+        HistoryStatus.ANNOUNCED -> Triple(Color(0xFF064E3B), Color(0xFF34D399), "Spoken")
+        HistoryStatus.SKIPPED -> Triple(Color(0xFF78350F), Color(0xFFFBBF24), "Skipped")
+        HistoryStatus.QUEUED -> Triple(Color(0xFF1E3A8A), Color(0xFF93C5FD), "Queued")
+        HistoryStatus.PENDING -> Triple(Color(0xFF1E3A8A), Color(0xFF93C5FD), "Pending")
+        HistoryStatus.INTERRUPTED -> Triple(Color(0xFF7F1D1D), Color(0xFFFCA5A5), "Interrupted")
     }
-    if (statusRes != null) {
+
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = bgColor,
+    ) {
         Text(
-            text = stringResource(statusRes),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 4.dp, start = 4.dp),
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = textColor,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+            fontSize = 11.sp,
         )
     }
 }
 
-/**
- * Placeholder for a destination whose feature screen has not landed yet.
- *
- * The shell ships the entry so navigation, back handling and accessibility are exercised
- * now; the copy says the screen is not implemented instead of showing dead controls.
- */
+// ============================================================================
+// Tools and Settings Group
+// ============================================================================
+
+@Composable
+private fun ToolsGroupCard(onSelectDestination: (DashboardDestination) -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Column {
+            for ((index, destination) in DashboardDestination.secondary.withIndex()) {
+                val icon = when (destination) {
+                    DashboardDestination.GLOBAL_RULES -> Icons.Rounded.Tune
+                    DashboardDestination.VOICE_SPEECH -> Icons.Rounded.RecordVoiceOver
+                    DashboardDestination.SETTINGS -> Icons.Rounded.Settings
+                    DashboardDestination.BACKUP_RESTORE -> Icons.Rounded.Backup
+                    DashboardDestination.DIAGNOSTICS -> Icons.Rounded.BugReport
+                    else -> Icons.Rounded.Settings
+                }
+
+                ToolRow(
+                    icon = icon,
+                    label = stringResource(destination.labelRes),
+                    onClick = { onSelectDestination(destination) },
+                )
+
+                if (index < DashboardDestination.secondary.size - 1) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(1.dp)
+                            .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ToolRow(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp),
+            )
+            Spacer(modifier = Modifier.width(14.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
+        Icon(
+            imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(18.dp),
+        )
+    }
+}
+
+// ============================================================================
+// Placeholder
+// ============================================================================
+
 @Composable
 private fun DestinationPlaceholder(destination: DashboardDestination) {
-    Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
-        Text(text = stringResource(destination.labelRes), style = MaterialTheme.typography.titleLarge)
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+    ) {
+        Text(
+            text = stringResource(destination.labelRes),
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onBackground,
+        )
         Spacer(Modifier.height(8.dp))
         Text(
             text = stringResource(R.string.dashboard_placeholder_body),
             style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
-
-@Composable
-private fun onOff(active: Boolean): String =
-    stringResource(if (active) R.string.dashboard_status_on else R.string.dashboard_status_off)
-
-@Composable
-private fun allowedOutputSummary(audio: AudioOutputSettings): String {
-    val allowed = mutableListOf<String>()
-    if (audio.allowBluetooth) allowed += stringResource(R.string.setup_devices_allow_bluetooth)
-    if (audio.allowWired) allowed += stringResource(R.string.setup_devices_allow_wired)
-    if (audio.allowPhoneSpeaker) allowed += stringResource(R.string.setup_devices_allow_speaker)
-    return if (allowed.isEmpty()) {
-        stringResource(R.string.dashboard_allowed_outputs_none)
-    } else {
-        allowed.joinToString(", ")
-    }
-}
-
-@Composable
-private fun statusLabel(status: HistoryStatus): String = stringResource(
-    when (status) {
-        HistoryStatus.ANNOUNCED -> R.string.dashboard_history_announced
-        HistoryStatus.SKIPPED -> R.string.dashboard_history_skipped
-        HistoryStatus.QUEUED -> R.string.dashboard_history_queued
-        HistoryStatus.PENDING -> R.string.dashboard_history_pending
-        HistoryStatus.INTERRUPTED -> R.string.dashboard_history_interrupted
-    },
-)

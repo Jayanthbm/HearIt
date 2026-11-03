@@ -2,22 +2,50 @@ package com.jayanth.hearit.history
 
 import android.text.format.DateUtils
 import androidx.annotation.StringRes
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.FilterList
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Sort
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -30,13 +58,17 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
@@ -47,9 +79,6 @@ import com.jayanth.hearit.core.common.model.HistoryUpdateHandling
 
 /**
  * Entry point of the History feature (master prompt §12, phase P18).
- *
- * Reloads the first page whenever the screen resumes, because the announcement service keeps
- * writing history while the user is elsewhere.
  */
 @Composable
 fun HistoryRoute(viewModel: HistoryViewModel, modifier: Modifier = Modifier) {
@@ -85,12 +114,7 @@ fun HistoryRoute(viewModel: HistoryViewModel, modifier: Modifier = Modifier) {
 }
 
 /**
- * Browsable history: search, status filter, sort, paged rows, per-entry delete, clear-all and
- * the global history settings.
- *
- * Stateless: every decision is the ViewModel's, every string is a resource, and every
- * interactive target is at least 48 dp. Destructive actions open a confirmation dialog first
- * (P18 acceptance).
+ * Modern Material 3 Browsable History Screen.
  */
 @Composable
 fun HistoryScreen(
@@ -110,59 +134,97 @@ fun HistoryScreen(
     var pendingDelete by remember { mutableStateOf<HistoryItem?>(null) }
     var confirmingClearAll by rememberSaveable { mutableStateOf(false) }
 
-    LazyColumn(modifier = modifier.fillMaxSize()) {
-        item(key = "search") {
-            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+    LazyColumn(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(horizontal = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        item(key = "header_spacing") {
+            Spacer(modifier = Modifier.height(4.dp))
+        }
+
+        // Search Bar & Filter Chips
+        item(key = "search_and_filters") {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedTextField(
                     value = state.filter.query,
                     onValueChange = onQueryChanged,
-                    label = { Text(text = stringResource(R.string.history_search_label)) },
+                    placeholder = { Text("Search notification history…") },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Rounded.Search,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    },
+                    trailingIcon = {
+                        if (state.filter.query.isNotBlank()) {
+                            IconButton(onClick = { onQueryChanged("") }) {
+                                Icon(Icons.Rounded.Close, contentDescription = "Clear search")
+                            }
+                        }
+                    },
                     singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth(),
                 )
-                Text(
-                    text = stringResource(R.string.history_search_note),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp),
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(
-                        onClick = { openDialog = DIALOG_STATUS },
-                        modifier = Modifier.heightIn(min = 48.dp),
-                    ) {
-                        Text(
-                            text = stringResource(
-                                R.string.history_status_filter,
-                                state.filter.status?.let { historyStatusLabel(it) }
-                                    ?: stringResource(R.string.history_status_all),
-                            ),
-                        )
-                    }
-                    TextButton(
-                        onClick = { openDialog = DIALOG_SORT },
-                        modifier = Modifier.heightIn(min = 48.dp),
-                    ) {
-                        Text(
-                            text = stringResource(
-                                R.string.history_sort_label,
-                                sortLabel(state.filter.sort),
-                            ),
-                        )
-                    }
-                }
-                TextButton(
-                    onClick = { confirmingClearAll = true },
-                    enabled = state.items.isNotEmpty(),
-                    modifier = Modifier.heightIn(min = 48.dp),
+
+                // Filter & Sort Pills Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(text = stringResource(R.string.history_clear_all_button))
+                    FilterChip(
+                        selected = state.filter.status != null,
+                        onClick = { openDialog = DIALOG_STATUS },
+                        label = {
+                            Text(
+                                text = state.filter.status?.let { historyStatusLabel(it) } ?: "All Statuses",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(Icons.Rounded.FilterList, contentDescription = null, modifier = Modifier.size(16.dp))
+                        },
+                        shape = RoundedCornerShape(10.dp),
+                    )
+
+                    FilterChip(
+                        selected = state.filter.sort != HistorySortOrder.RecentFirst,
+                        onClick = { openDialog = DIALOG_SORT },
+                        label = {
+                            Text(
+                                text = sortLabel(state.filter.sort),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(Icons.Rounded.Sort, contentDescription = null, modifier = Modifier.size(16.dp))
+                        },
+                        shape = RoundedCornerShape(10.dp),
+                    )
+
+                    Spacer(modifier = Modifier.weight(1f))
+
+                    if (state.items.isNotEmpty()) {
+                        TextButton(
+                            onClick = { confirmingClearAll = true },
+                            modifier = Modifier.height(36.dp),
+                        ) {
+                            Text("Clear", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
                 }
             }
         }
 
-        item(key = "settings") {
-            HistorySettingsSection(
+        // Global Storage Settings Collapsible Card
+        item(key = "settings_card") {
+            HistorySettingsCard(
                 settings = state.settings,
                 onStorageClick = { openDialog = DIALOG_STORAGE },
                 onUpdatesClick = { openDialog = DIALOG_UPDATES },
@@ -170,51 +232,72 @@ fun HistoryScreen(
             )
         }
 
-        item(key = "divider") { HorizontalDivider() }
+        // Section Title: History Timeline
+        item(key = "timeline_header") {
+            Text(
+                text = "Notification Feed",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
 
         when {
             state.unavailable -> item(key = "unavailable") {
-                Message(R.string.history_unavailable, error = true)
+                HistoryNoticeBanner(message = stringResource(R.string.history_unavailable), isError = true)
             }
 
-            !state.loaded -> item(key = "loading") { Message(R.string.history_loading) }
+            !state.loaded -> item(key = "loading") {
+                Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(modifier = Modifier.size(32.dp))
+                }
+            }
 
             state.items.isEmpty() -> item(key = "empty") {
-                Message(
-                    if (state.isFiltered) R.string.history_empty_filtered else R.string.history_empty,
+                HistoryNoticeBanner(
+                    message = if (state.isFiltered) stringResource(R.string.history_empty_filtered) else stringResource(R.string.history_empty),
+                    isError = false,
                 )
             }
 
             else -> items(items = state.items, key = { item -> item.id }) { item ->
-                HistoryRow(item = item, onDelete = { pendingDelete = item })
+                ModernHistoryCard(
+                    item = item,
+                    onDelete = { pendingDelete = item },
+                )
             }
         }
 
         item(key = "footer") {
-            Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                when {
-                    state.loading -> Text(
-                        text = stringResource(R.string.history_loading),
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-
-                    state.endReached && state.items.isNotEmpty() -> Text(
-                        text = stringResource(R.string.history_end),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-
-                    state.items.isNotEmpty() -> TextButton(
-                        onClick = onLoadMore,
-                        modifier = Modifier.heightIn(min = 48.dp),
-                    ) {
-                        Text(text = stringResource(R.string.history_load_more))
+            if (state.items.isNotEmpty()) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    if (state.loading) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                    } else if (state.endReached) {
+                        Text(
+                            text = "End of notification history",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    } else {
+                        OutlinedButton(
+                            onClick = onLoadMore,
+                            shape = RoundedCornerShape(12.dp),
+                        ) {
+                            Text(stringResource(R.string.history_load_more), fontWeight = FontWeight.SemiBold)
+                        }
                     }
                 }
             }
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 
+    // Dialogs
     when (openDialog) {
         DIALOG_STATUS -> ChoiceDialog(
             title = stringResource(R.string.history_status_title),
@@ -271,8 +354,8 @@ fun HistoryScreen(
     if (deleting != null) {
         AlertDialog(
             onDismissRequest = { pendingDelete = null },
-            title = { Text(text = stringResource(R.string.history_delete_confirm_title)) },
-            text = { Text(text = stringResource(R.string.history_delete_confirm_body, deleting.appName)) },
+            title = { Text(stringResource(R.string.history_delete_confirm_title), fontWeight = FontWeight.Bold) },
+            text = { Text(stringResource(R.string.history_delete_confirm_body, deleting.appName)) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -280,12 +363,12 @@ fun HistoryScreen(
                         onDeleteEntry(deleting.id)
                     },
                 ) {
-                    Text(text = stringResource(R.string.history_delete))
+                    Text(stringResource(R.string.history_delete), color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { pendingDelete = null }) {
-                    Text(text = stringResource(R.string.action_cancel))
+                    Text(stringResource(R.string.action_cancel))
                 }
             },
         )
@@ -294,8 +377,8 @@ fun HistoryScreen(
     if (confirmingClearAll) {
         AlertDialog(
             onDismissRequest = { confirmingClearAll = false },
-            title = { Text(text = stringResource(R.string.history_clear_all_confirm_title)) },
-            text = { Text(text = stringResource(R.string.history_clear_all_confirm_body)) },
+            title = { Text(stringResource(R.string.history_clear_all_confirm_title), fontWeight = FontWeight.Bold) },
+            text = { Text(stringResource(R.string.history_clear_all_confirm_body)) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -303,82 +386,23 @@ fun HistoryScreen(
                         onClearAll()
                     },
                 ) {
-                    Text(text = stringResource(R.string.history_clear_all_button))
+                    Text(stringResource(R.string.history_clear_all_button), color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { confirmingClearAll = false }) {
-                    Text(text = stringResource(R.string.action_cancel))
+                    Text(stringResource(R.string.action_cancel))
                 }
             },
         )
     }
 }
 
-/** Global history settings, each row opening its choice dialog. */
 @Composable
-private fun HistorySettingsSection(
-    settings: HistorySettingsState,
-    onStorageClick: () -> Unit,
-    onUpdatesClick: () -> Unit,
-    onRetentionClick: () -> Unit,
+private fun ModernHistoryCard(
+    item: HistoryItem,
+    onDelete: () -> Unit,
 ) {
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-        Text(
-            text = stringResource(R.string.history_settings_title),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(top = 8.dp),
-        )
-        SettingsValueRow(
-            label = stringResource(R.string.history_storage_label),
-            value = stringResource(storageLabelRes(settings.storageMode)),
-            onClick = onStorageClick,
-        )
-        SettingsValueRow(
-            label = stringResource(R.string.history_updates_label),
-            value = stringResource(updateHandlingLabelRes(settings.updateHandling)),
-            onClick = onUpdatesClick,
-        )
-        SettingsValueRow(
-            label = stringResource(R.string.history_retention_label),
-            value = settings.retentionDays?.let { stringResource(R.string.history_retention_days, it) }
-                ?: stringResource(R.string.history_retention_never),
-            onClick = onRetentionClick,
-        )
-        Text(
-            text = stringResource(R.string.history_settings_note),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
-@Composable
-private fun SettingsValueRow(label: String, value: String, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 48.dp)
-            .clickable(role = Role.Button, onClick = onClick),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.weight(1f).padding(end = 12.dp),
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
-/** One stored notification: app + outcome, reason, sender/content, time and delete. */
-@Composable
-private fun HistoryRow(item: HistoryItem, onDelete: () -> Unit) {
     val relativeTime = remember(item.recordedAtMillis) {
         DateUtils.getRelativeTimeSpanString(
             item.recordedAtMillis,
@@ -386,85 +410,276 @@ private fun HistoryRow(item: HistoryItem, onDelete: () -> Unit) {
             DateUtils.MINUTE_IN_MILLIS,
         ).toString()
     }
-    val deleteDescription = stringResource(R.string.history_delete_entry, item.appName)
 
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp),
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
-        Text(
-            text = stringResource(
-                R.string.history_row_title,
-                item.appName,
-                historyStatusLabel(item.status),
-            ),
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.SemiBold,
-        )
-        item.reason?.let { reason ->
-            Text(
-                text = stringResource(R.string.history_row_reason, skipReasonLabel(reason)),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        item.sender?.let { sender ->
-            Text(
-                text = stringResource(R.string.history_row_sender, sender),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        item.messageText?.let { message ->
-            Text(text = message, style = MaterialTheme.typography.bodyMedium)
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = relativeTime,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.weight(1f),
-            )
-            if (item.isUpdate) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            // App Name + Status + Delete Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Surface(
+                        modifier = Modifier.size(30.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Rounded.Notifications,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(16.dp),
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = item.appName,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    HistoryStatusPill(status = item.status)
+                    IconButton(
+                        onClick = onDelete,
+                        modifier = Modifier.size(32.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.DeleteOutline,
+                            contentDescription = stringResource(R.string.history_delete_entry, item.appName),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                }
+            }
+
+            // Reason / Skip Cause Tag
+            if (item.reason != null) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                ) {
+                    Text(
+                        text = "Reason: ${skipReasonLabel(item.reason)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                    )
+                }
+            }
+
+            // Sender
+            if (item.sender != null) {
+                Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = stringResource(R.string.history_row_updated),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(end = 8.dp),
+                    text = item.sender,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary,
                 )
             }
-            TextButton(
-                onClick = onDelete,
-                modifier = Modifier
-                    .heightIn(min = 48.dp)
-                    .semantics { contentDescription = deleteDescription },
+
+            // Message text
+            if (item.messageText != null) {
+                Spacer(modifier = Modifier.height(3.dp))
+                Text(
+                    text = item.messageText,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    lineHeight = 18.sp,
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Timestamp + Updated indicator
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Text(text = stringResource(R.string.history_delete))
+                Text(
+                    text = relativeTime,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 11.sp,
+                )
+
+                if (item.isUpdate) {
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                    ) {
+                        Text(
+                            text = "Updated",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+                            fontSize = 10.sp,
+                        )
+                    }
+                }
             }
         }
     }
-    HorizontalDivider()
 }
 
 @Composable
-private fun Message(@StringRes textRes: Int, error: Boolean = false) {
-    Text(
-        text = stringResource(textRes),
-        style = MaterialTheme.typography.bodyMedium,
-        color = if (error) {
-            MaterialTheme.colorScheme.error
-        } else {
-            MaterialTheme.colorScheme.onSurfaceVariant
-        },
-        modifier = Modifier.padding(24.dp),
-    )
+private fun HistoryStatusPill(status: HistoryStatus) {
+    val (bgColor, textColor, label) = when (status) {
+        HistoryStatus.ANNOUNCED -> Triple(Color(0xFF064E3B), Color(0xFF34D399), "Spoken")
+        HistoryStatus.SKIPPED -> Triple(Color(0xFF78350F), Color(0xFFFBBF24), "Skipped")
+        HistoryStatus.QUEUED -> Triple(Color(0xFF1E3A8A), Color(0xFF93C5FD), "Queued")
+        HistoryStatus.PENDING -> Triple(Color(0xFF1E3A8A), Color(0xFF93C5FD), "Pending")
+        HistoryStatus.INTERRUPTED -> Triple(Color(0xFF7F1D1D), Color(0xFFFCA5A5), "Interrupted")
+    }
+
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = bgColor,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = textColor,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+            fontSize = 11.sp,
+        )
+    }
 }
 
-/**
- * One single-choice dialog. [label] is composable so every option can be resolved to a string
- * resource inside the dialog's own composition.
- */
+@Composable
+private fun HistoryNoticeBanner(message: String, isError: Boolean) {
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isError) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f) else MaterialTheme.colorScheme.surfaceContainer,
+        ),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outlineVariant,
+        ),
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = if (isError) Icons.Rounded.Close else Icons.Rounded.History,
+                contentDescription = null,
+                tint = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (isError) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun HistorySettingsCard(
+    settings: HistorySettingsState,
+    onStorageClick: () -> Unit,
+    onUpdatesClick: () -> Unit,
+    onRetentionClick: () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Text(
+                text = "History & Privacy Settings",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            HistorySettingRow(
+                label = stringResource(R.string.history_storage_label),
+                value = stringResource(storageLabelRes(settings.storageMode)),
+                onClick = onStorageClick,
+            )
+
+            HistorySettingRow(
+                label = stringResource(R.string.history_updates_label),
+                value = stringResource(updateHandlingLabelRes(settings.updateHandling)),
+                onClick = onUpdatesClick,
+            )
+
+            HistorySettingRow(
+                label = stringResource(R.string.history_retention_label),
+                value = settings.retentionDays?.let { stringResource(R.string.history_retention_days, it) }
+                    ?: stringResource(R.string.history_retention_never),
+                onClick = onRetentionClick,
+            )
+        }
+    }
+}
+
+@Composable
+private fun HistorySettingRow(
+    label: String,
+    value: String,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 44.dp)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Icon(
+                imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp),
+            )
+        }
+    }
+}
+
 @Composable
 private fun <T> ChoiceDialog(
     title: String,
@@ -476,26 +691,35 @@ private fun <T> ChoiceDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(text = title) },
+        title = { Text(text = title, fontWeight = FontWeight.Bold) },
         text = {
             Column {
                 for (option in options) {
+                    val isSelected = option == selected
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(min = 48.dp)
+                            .heightIn(min = 44.dp)
                             .selectable(
-                                selected = option == selected,
+                                selected = isSelected,
                                 role = Role.RadioButton,
                                 onClick = { onSelect(option) },
                             )
                             .padding(vertical = 2.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        RadioButton(selected = option == selected, onClick = null)
+                        RadioButton(
+                            selected = isSelected,
+                            onClick = null,
+                            colors = RadioButtonDefaults.colors(
+                                selectedColor = MaterialTheme.colorScheme.primary,
+                            ),
+                        )
                         Text(
                             text = label(option),
                             style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.padding(start = 8.dp),
                         )
                     }
@@ -533,12 +757,11 @@ private fun updateHandlingLabelRes(handling: HistoryUpdateHandling): Int = when 
     HistoryUpdateHandling.NEW_ENTRY -> R.string.app_settings_update_new
 }
 
-private const val DIALOG_NONE = ""
-private const val DIALOG_STATUS = "status"
-private const val DIALOG_SORT = "sort"
-private const val DIALOG_STORAGE = "storage"
-private const val DIALOG_UPDATES = "updates"
-private const val DIALOG_RETENTION = "retention"
+private const val DIALOG_NONE = 0
+private const val DIALOG_STATUS = 1
+private const val DIALOG_SORT = 2
+private const val DIALOG_STORAGE = 3
+private const val DIALOG_UPDATES = 4
+private const val DIALOG_RETENTION = 5
 
-/** Retention choices from the master prompt §12 list, plus "never". */
-private val RETENTION_OPTIONS: List<Int?> = listOf(null, 1, 3, 7, 10, 15, 30, 60, 90)
+private val RETENTION_OPTIONS: List<Int?> = listOf(null, 7, 30, 90)
