@@ -432,4 +432,26 @@
     <string name="backup_copy_json">Copy Backup JSON</string>
     <string name="backup_apply_json">Apply Pasted JSON</string>
     <string name="backup_privacy_note">100% On-Device · Zero Cloud · Settings Only</string>
+
+    <!-- Diagnostics Feature (Phase P19) -->
+    <string name="diagnostics_subtitle">Real-time health check of permissions, service, audio hardware, and speech synthesis.</string>
+    <string name="diagnostics_service_title">Announcement Service</string>
+    <string name="diagnostics_permissions_title">System Permissions &amp; Access</string>
+    <string name="diagnostics_tts_title">Text-to-Speech Readiness</string>
+    <string name="diagnostics_audio_title">Audio Output Routing</string>
+    <string name="diagnostics_app_state_title">Rules &amp; Storage Health</string>
+    <string name="diagnostics_notification_access">Notification Listener Access</string>
+    <string name="diagnostics_notification_access_desc">Required to detect notifications from enabled apps</string>
+    <string name="diagnostics_post_notifications">Post Notifications Permission</string>
+    <string name="diagnostics_post_notifications_desc">Required to run persistent foreground service notification</string>
+    <string name="diagnostics_bluetooth_permission">Nearby Devices (Bluetooth)</string>
+    <string name="diagnostics_bluetooth_permission_desc">Allows detecting connected Bluetooth headsets and earbuds</string>
+    <string name="diagnostics_battery_optimization">Background Execution</string>
+    <string name="diagnostics_battery_desc">Unrestricted battery optimization ensures reliable background announcements</string>
+    <string name="diagnostics_run_probes">Refresh Probes</string>
+    <string name="diagnostics_status_granted">Granted</string>
+    <string name="diagnostics_status_missing">Missing</string>
+    <string name="diagnostics_status_healthy">Ready</string>
+    <string name="diagnostics_fix_action">Fix</string>
+    <string name="diagnostics_voices_count">%1$d voices installed</string>
 </resources>
