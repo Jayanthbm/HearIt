@@ -13,9 +13,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -71,10 +74,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -98,6 +103,7 @@ import com.jayanth.hearit.core.common.model.TextLengthSettings
 import com.jayanth.hearit.core.datastore.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -210,11 +216,12 @@ fun GlobalSettingsScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
+            .imePadding()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        // Hero Card
+        // Hero Card with un-truncated FlowRow status pills
         GlobalRulesHeroCard(state = state)
 
         // Section 1: Device State Conditions
@@ -225,19 +232,19 @@ fun GlobalSettingsScreen(
             onLockConditionChanged = onLockConditionChanged,
         )
 
-        // Section 2: Text Length Limits
+        // Section 2: Text Length Limits (Scope selector FIRST, 3 options: No limit, 100, 250)
         TextLengthCard(
             textLength = state.textLength,
             onTextLengthChanged = onTextLengthChanged,
         )
 
-        // Section 3: Keyword Filtering
+        // Section 3: Keyword Filtering (with keyboard bringIntoView)
         KeywordFilterCard(
             keywordFilter = state.keywordFilter,
             onKeywordFilterChanged = onKeywordFilterChanged,
         )
 
-        // Section 4: Privacy Protection & Content Shields
+        // Section 4: Privacy Protection & Content Shields (with keyboard bringIntoView)
         PrivacyShieldCard(
             privacy = state.privacy,
             onPrivacyChanged = onPrivacyChanged,
@@ -271,7 +278,7 @@ fun GlobalSettingsScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(120.dp))
     }
 
     if (showResetDialog) {
@@ -313,6 +320,7 @@ fun GlobalSettingsScreen(
 // Hero Header Card
 // ============================================================================
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun GlobalRulesHeroCard(state: GlobalSettingsUiState) {
     Card(
@@ -361,30 +369,48 @@ private fun GlobalRulesHeroCard(state: GlobalSettingsUiState) {
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Active Policy Summary Chips
-            Row(
-                modifier = Modifier.fillMaxWidth(),
+            // Active Policy Summary Chips in FlowRow - No Truncation!
+            FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth(),
             ) {
-                val screenLockSummary = when {
-                    state.screenCondition == ScreenCondition.OFF && state.lockCondition == LockCondition.LOCKED -> "Screen Off & Locked"
-                    state.screenCondition == ScreenCondition.BOTH && state.lockCondition == LockCondition.BOTH -> "Always Allowed"
-                    else -> "Custom State"
+                // Screen Status Pill
+                val (screenIcon, screenText, screenPositive) = when (state.screenCondition) {
+                    ScreenCondition.OFF -> Triple(Icons.Rounded.Nightlight, "Screen Off", true)
+                    ScreenCondition.ON -> Triple(Icons.Rounded.WbSunny, "Screen On", false)
+                    ScreenCondition.BOTH -> Triple(Icons.Rounded.Sync, "Screen: Any", false)
                 }
+                StatusPill(icon = screenIcon, text = screenText, isPositive = screenPositive)
 
-                StatusPill(
-                    icon = Icons.Rounded.Shield,
-                    text = screenLockSummary,
-                    isPositive = state.screenCondition == ScreenCondition.OFF && state.lockCondition == LockCondition.LOCKED,
-                    modifier = Modifier.weight(1f),
-                )
+                // Lock Status Pill
+                val (lockIcon, lockText, lockPositive) = when (state.lockCondition) {
+                    LockCondition.LOCKED -> Triple(Icons.Rounded.Lock, "Device Locked", true)
+                    LockCondition.UNLOCKED -> Triple(Icons.Rounded.LockOpen, "Unlocked", false)
+                    LockCondition.BOTH -> Triple(Icons.Rounded.Sync, "Lock: Any", false)
+                }
+                StatusPill(icon = lockIcon, text = lockText, isPositive = lockPositive)
 
-                val shieldsActive = state.privacy.skipOtp && state.privacy.skipPassword
+                // Privacy Shields Status Pill
+                val (shieldIcon, shieldText, shieldPositive) = when {
+                    state.privacy.skipOtp && state.privacy.skipPassword -> Triple(Icons.Rounded.Shield, "OTP Shield On", true)
+                    state.privacy.skipOtp || state.privacy.skipPassword -> Triple(Icons.Rounded.Key, "Shields Partial", true)
+                    else -> Triple(Icons.Rounded.Shield, "Shields Off", false)
+                }
+                StatusPill(icon = shieldIcon, text = shieldText, isPositive = shieldPositive)
+
+                // Audio Output Status Pill
+                val audioText = when {
+                    state.audioOutput.allowPhoneSpeaker -> "Speaker Allowed"
+                    state.audioOutput.allowBluetooth && state.audioOutput.allowWired -> "Headphones Only"
+                    state.audioOutput.allowBluetooth -> "Bluetooth Only"
+                    state.audioOutput.allowWired -> "Wired Only"
+                    else -> "No Audio Allowed"
+                }
                 StatusPill(
-                    icon = Icons.Rounded.Key,
-                    text = if (shieldsActive) "OTP Shield On" else "Shields Partial",
-                    isPositive = shieldsActive,
-                    modifier = Modifier.weight(1f),
+                    icon = if (state.audioOutput.allowPhoneSpeaker) Icons.AutoMirrored.Rounded.VolumeUp else Icons.Rounded.Headphones,
+                    text = audioText,
+                    isPositive = !state.audioOutput.allowPhoneSpeaker,
                 )
             }
         }
@@ -421,6 +447,7 @@ private fun StatusPill(
                 fontWeight = FontWeight.SemiBold,
                 color = if (isPositive) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
+                softWrap = false,
             )
         }
     }
@@ -529,7 +556,7 @@ private fun DeviceStateCard(
 }
 
 // ============================================================================
-// Section 2: Text Length Limits
+// Section 2: Text Length Limits (Reordered: Scope FIRST, 3 options: No limit, 100, 250)
 // ============================================================================
 
 @Composable
@@ -537,73 +564,16 @@ private fun TextLengthCard(
     textLength: TextLengthSettings,
     onTextLengthChanged: (TextLengthSettings) -> Unit,
 ) {
+    val coroutineScope = rememberCoroutineScope()
+    val bringIntoViewRequester = remember { BringIntoViewRequester() }
+
     SectionCard(
         title = stringResource(R.string.global_text_length_title),
         subtitle = stringResource(R.string.global_text_length_desc),
         icon = Icons.Rounded.Straighten,
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            // Preset Chips
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                val presets = listOf(
-                    null to "No limit",
-                    100 to "100",
-                    250 to "250",
-                    500 to "500",
-                )
-                for ((value, label) in presets) {
-                    val isSelected = textLength.maxLengthChars == value
-                    FilterChip(
-                        selected = isSelected,
-                        onClick = { onTextLengthChanged(textLength.copy(maxLengthChars = value)) },
-                        label = {
-                            Text(
-                                text = label,
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                            )
-                        },
-                        shape = RoundedCornerShape(10.dp),
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            selectedLabelColor = MaterialTheme.colorScheme.primary,
-                        ),
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-            }
-
-            // Custom Number Field
-            OutlinedTextField(
-                value = textLength.maxLengthChars?.toString() ?: "",
-                onValueChange = { raw ->
-                    onTextLengthChanged(
-                        textLength.copy(maxLengthChars = raw.toIntOrNull()?.takeIf { it > 0 }),
-                    )
-                },
-                label = { Text(text = stringResource(R.string.global_max_length)) },
-                placeholder = { Text("No limit") },
-                suffix = { Text(text = stringResource(R.string.global_chars), style = MaterialTheme.typography.labelSmall) },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Rounded.Straighten,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-
-            // Scope Selector
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            // 1. Scope Selector FIRST (Apply limit to)
             Column {
                 Text(
                     text = "Apply limit to",
@@ -634,12 +604,91 @@ private fun TextLengthCard(
                     )
                 }
             }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+            // 2. Character Length Threshold Presets (3 options: No limit, 100, 250)
+            Column {
+                Text(
+                    text = "Maximum character limit",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    val presets = listOf(
+                        null to "No limit",
+                        100 to "100",
+                        250 to "250",
+                    )
+                    for ((value, label) in presets) {
+                        val isSelected = textLength.maxLengthChars == value
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = { onTextLengthChanged(textLength.copy(maxLengthChars = value)) },
+                            label = {
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    maxLines = 1,
+                                )
+                            },
+                            shape = RoundedCornerShape(10.dp),
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                selectedLabelColor = MaterialTheme.colorScheme.primary,
+                            ),
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+            }
+
+            // 3. Custom Number Field with BringIntoView
+            OutlinedTextField(
+                value = textLength.maxLengthChars?.toString() ?: "",
+                onValueChange = { raw ->
+                    onTextLengthChanged(
+                        textLength.copy(maxLengthChars = raw.toIntOrNull()?.takeIf { it > 0 }),
+                    )
+                },
+                label = { Text(text = stringResource(R.string.global_max_length)) },
+                placeholder = { Text("No limit") },
+                suffix = { Text(text = stringResource(R.string.global_chars), style = MaterialTheme.typography.labelSmall) },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Rounded.Straighten,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .bringIntoViewRequester(bringIntoViewRequester)
+                    .onFocusChanged { focusState ->
+                        if (focusState.isFocused) {
+                            coroutineScope.launch {
+                                delay(250)
+                                bringIntoViewRequester.bringIntoView()
+                            }
+                        }
+                    },
+            )
         }
     }
 }
 
 // ============================================================================
-// Section 3: Keyword Filtering
+// Section 3: Keyword Filtering (with keyboard bringIntoView)
 // ============================================================================
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -649,6 +698,8 @@ private fun KeywordFilterCard(
     onKeywordFilterChanged: (KeywordFilterSettings) -> Unit,
 ) {
     var newKeywordInput by remember { mutableStateOf("") }
+    val coroutineScope = rememberCoroutineScope()
+    val bringIntoViewRequester = remember { BringIntoViewRequester() }
 
     SectionCard(
         title = stringResource(R.string.global_keywords_title),
@@ -697,7 +748,7 @@ private fun KeywordFilterCard(
 
                 Spacer(modifier = Modifier.height(4.dp))
 
-                // Input Field for Adding Keywords
+                // Input Field for Adding Keywords with BringIntoView
                 OutlinedTextField(
                     value = newKeywordInput,
                     onValueChange = { newKeywordInput = it },
@@ -730,7 +781,17 @@ private fun KeywordFilterCard(
                     ),
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .bringIntoViewRequester(bringIntoViewRequester)
+                        .onFocusChanged { focusState ->
+                            if (focusState.isFocused) {
+                                coroutineScope.launch {
+                                    delay(250)
+                                    bringIntoViewRequester.bringIntoView()
+                                }
+                            }
+                        },
                 )
 
                 // Keyword Tag Cloud
@@ -772,7 +833,7 @@ private fun KeywordFilterCard(
 }
 
 // ============================================================================
-// Section 4: Privacy Protection & Content Shields
+// Section 4: Privacy Protection & Content Shields (with keyboard bringIntoView)
 // ============================================================================
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -782,6 +843,8 @@ private fun PrivacyShieldCard(
     onPrivacyChanged: (PrivacySettings) -> Unit,
 ) {
     var newSensitiveInput by remember { mutableStateOf("") }
+    val coroutineScope = rememberCoroutineScope()
+    val bringIntoViewRequester = remember { BringIntoViewRequester() }
 
     SectionCard(
         title = stringResource(R.string.global_privacy_title),
@@ -855,7 +918,7 @@ private fun PrivacyShieldCard(
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            // Custom Sensitive Keywords
+            // Custom Sensitive Keywords with BringIntoView
             OutlinedTextField(
                 value = newSensitiveInput,
                 onValueChange = { newSensitiveInput = it },
@@ -888,7 +951,17 @@ private fun PrivacyShieldCard(
                 ),
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .bringIntoViewRequester(bringIntoViewRequester)
+                    .onFocusChanged { focusState ->
+                        if (focusState.isFocused) {
+                            coroutineScope.launch {
+                                delay(250)
+                                bringIntoViewRequester.bringIntoView()
+                            }
+                        }
+                    },
             )
 
             // Sensitive Keyword Tag Cloud
