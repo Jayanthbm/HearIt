@@ -417,4 +417,19 @@
     <string name="settings_reset">Reset to defaults</string>
     <string name="settings_reset_confirm_title">Reset settings to defaults?</string>
     <string name="settings_reset_confirm_body">This will restore grouping window, pacing delays, queue capacity limits, and audio focus back to their default values.</string>
+
+    <!-- Backup & Restore Feature (Phase P19) -->
+    <string name="backup_export_title">Export Settings</string>
+    <string name="backup_export_desc">Save a portable, private JSON file with your rules, voice preferences, and app configurations. Notification content and history are never included.</string>
+    <string name="backup_export_button">Export to JSON File</string>
+    <string name="backup_import_title">Restore Settings</string>
+    <string name="backup_import_desc">Restore your configuration from a previously saved backup file. This will update your active rules and speech settings.</string>
+    <string name="backup_import_button">Select Backup File</string>
+    <string name="backup_import_confirm_title">Restore settings from backup?</string>
+    <string name="backup_import_confirm_body">This will overwrite your current rules, speech settings, and queue pacing with the configuration from the selected backup file.</string>
+    <string name="backup_manual_json_title">Raw JSON Configuration</string>
+    <string name="backup_manual_json_desc">Directly inspect, copy, or apply a JSON configuration string.</string>
+    <string name="backup_copy_json">Copy Backup JSON</string>
+    <string name="backup_apply_json">Apply Pasted JSON</string>
+    <string name="backup_privacy_note">100% On-Device · Zero Cloud · Settings Only</string>
 </resources>

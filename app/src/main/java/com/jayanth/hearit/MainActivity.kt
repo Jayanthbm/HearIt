@@ -17,6 +17,7 @@ import com.jayanth.hearit.applications.ApplicationsViewModel
 import com.jayanth.hearit.applications.GlobalSettingsViewModel
 import com.jayanth.hearit.dashboard.DashboardRoute
 import com.jayanth.hearit.dashboard.DashboardViewModel
+import com.jayanth.hearit.backup.BackupRestoreViewModel
 import com.jayanth.hearit.devices.DevicesViewModel
 import com.jayanth.hearit.history.HistoryViewModel
 import com.jayanth.hearit.settings.GeneralSettingsViewModel
@@ -45,6 +46,7 @@ class MainActivity : ComponentActivity() {
     private val devicesViewModel: DevicesViewModel by viewModels()
     private val voiceSpeechViewModel: VoiceSpeechViewModel by viewModels()
     private val generalSettingsViewModel: GeneralSettingsViewModel by viewModels()
+    private val backupRestoreViewModel: BackupRestoreViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -81,6 +83,7 @@ class MainActivity : ComponentActivity() {
                         devicesViewModel = devicesViewModel,
                         voiceSpeechViewModel = voiceSpeechViewModel,
                         generalSettingsViewModel = generalSettingsViewModel,
+                        backupRestoreViewModel = backupRestoreViewModel,
                     )
                 } else {
                     // Modern back gesture handling: navigate back step-by-step

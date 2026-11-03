@@ -119,6 +119,8 @@ import com.jayanth.hearit.core.common.model.AudioOutputSettings
 import com.jayanth.hearit.core.common.model.HistoryStatus
 import com.jayanth.hearit.devices.DevicesRoute
 import com.jayanth.hearit.devices.DevicesViewModel
+import com.jayanth.hearit.backup.BackupRestoreRoute
+import com.jayanth.hearit.backup.BackupRestoreViewModel
 import com.jayanth.hearit.history.HistoryRoute
 import com.jayanth.hearit.history.HistoryViewModel
 import com.jayanth.hearit.settings.GeneralSettingsRoute
@@ -142,6 +144,7 @@ fun DashboardRoute(
     devicesViewModel: DevicesViewModel,
     voiceSpeechViewModel: VoiceSpeechViewModel,
     generalSettingsViewModel: GeneralSettingsViewModel,
+    backupRestoreViewModel: BackupRestoreViewModel,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.state.collectAsState()
@@ -183,6 +186,7 @@ fun DashboardRoute(
         globalRulesContent = { GlobalSettingsRoute(viewModel = globalSettingsViewModel) },
         voiceSpeechContent = { VoiceSpeechRoute(viewModel = voiceSpeechViewModel) },
         settingsContent = { GeneralSettingsRoute(viewModel = generalSettingsViewModel) },
+        backupRestoreContent = { BackupRestoreRoute(viewModel = backupRestoreViewModel) },
         historyContent = { HistoryRoute(viewModel = historyViewModel) },
         devicesContent = { DevicesRoute(viewModel = devicesViewModel) },
         modifier = modifier,
@@ -211,6 +215,7 @@ fun DashboardScreen(
     globalRulesContent: @Composable () -> Unit,
     voiceSpeechContent: @Composable () -> Unit = {},
     settingsContent: @Composable () -> Unit = {},
+    backupRestoreContent: @Composable () -> Unit = {},
     historyContent: @Composable () -> Unit,
     devicesContent: @Composable () -> Unit,
     modifier: Modifier = Modifier,
@@ -261,6 +266,7 @@ fun DashboardScreen(
                 destination == DashboardDestination.GLOBAL_RULES -> globalRulesContent()
                 destination == DashboardDestination.VOICE_SPEECH -> voiceSpeechContent()
                 destination == DashboardDestination.SETTINGS -> settingsContent()
+                destination == DashboardDestination.BACKUP_RESTORE -> backupRestoreContent()
                 else -> DestinationPlaceholder(destination = destination)
             }
         }
