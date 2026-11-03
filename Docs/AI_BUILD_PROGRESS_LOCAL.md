@@ -595,3 +595,97 @@ release of held announcements when the call ends are all device-only behaviours.
 screens were removed during L1 because they did not compile, so those entries in the Settings list are
 still placeholders.
 
+
+---
+
+## L7 — Verify L2–L6 from a clean state (re-run all checks)
+
+**Context:** every product commit through `54431d0` was already in place. This phase re-ran the
+whole suite from a clean state to confirm nothing regressed and to settle the earlier test-count
+mis-read, then recorded the verification.
+
+**Commands actually run (exact):**
+
+| Command | Result |
+|---|---|
+| `./gradlew cleanTest test --console=plain --continue` | **PASSED — BUILD SUCCESSFUL** (123 actionable tasks: 10 executed, 113 up-to-date) |
+| `./gradlew cleanTest test` (fresh clean + no-configuration-cache) | **PASSED — BUILD SUCCESSFUL** |
+| `./gradlew :app:assembleDebug :app:lintDebug --console=plain` | **PASSED — BUILD SUCCESSFUL** |
+| fresh `:app:testDebugUnitTest` (after clearing `app/build/test-results`) | **PASSED — APP DEBUG-UNIT-TEST TOTAL 104, 0 failures** |
+
+**App module (`:app`) fresh unit-test run (11 `<testsuite>` XML results):**
+
+| Test suite | Tests |
+|---|---|
+| `AnnouncementPipelineTest` | 19 |
+| `AnnouncementPipelineHistoryTest` | 7 |
+| `SettingsSourceTest` | 8 |
+| `AppSettingsEditorTest` | 17 |
+| `DeviceSelectionEditorTest` | 13 |
+| `AppFilterTest` | 11 |
+| `HistoryQueryMapperTest` | 8 |
+| `AudioFocusPolicyMappingTest` | 4 |
+| `ServiceStatusMonitorTest` | 8 |
+| `DashboardDestinationTest` | 8 |
+| `ExampleUnitTest` | 1 |
+| **app debug-unit-test total** | **104** |
+
+Every `<testsuite>` reports `failures="0" errors="0"`. `grep -c 'failures="[1-9]"|errors="[1-9]"'` over
+the re-run XML: **none**. `./gradlew :app:assembleDebug` — **PASSED** (`app-debug.apk` 34.8 MB).
+`./gradlew :app:lintDebug` — **PASSED, 0 errors** (52 non-error warnings; the lint report contains no
+`<error>` elements).
+
+**What was re-confirmed (nothing new):**
+
+- The app module's new tests (`SettingsSourceTest` +8, `AnnouncementPipelineHistoryTest` +7,
+  `AudioFocusPolicyMappingTest` +4, `HistoryQueryMapperTest` +8, plus the L4/L5/L6 additions —
+  48 tests) all compile and pass.
+- Full `test` aggregate (all nine modules), `assembleDebug`, and `lintDebug` all pass from clean;
+  nothing in the product code changed during this re-verification, so no further commits are owed by
+  this phase. The only change since the L6 commit is the temporary untracked IDE file
+  (`.idea/deploymentTargetSelector.xml`), which is machine-specific and gitignored.
+
+### Commands actually run (exact, re-verification)
+
+| Command | Result |
+|---|---|
+| `./gradlew cleanTest test --console=plain --continue` | **PASSED — BUILD SUCCESSFUL** |
+| `./gradlew cleanTest test` (fresh clean + no-configuration-cache) | **PASSED — BUILD SUCCESSFUL** |
+| `./gradlew :app:assembleDebug :app:lintDebug --console=plain` | **PASSED — BUILD SUCCESSFUL** |
+| fresh `:app:testDebugUnitTest` (after clearing `app/build/test-results`) | **PASSED — APP DEBUG-UNIT-TEST TOTAL 104, 0 failures** |
+
+### Behaviour now reachable (unit-level)
+
+Unchanged from L6 — the deferred-but-present behaviours confirm as follows:
+
+- `AudioFocusPolicyMappingTest` (4), `AnnouncementPipelineTest` (+2) and the remaining new
+  `<testsuite>` all pass; the app module's unit-test contract is exactly 104 tests, 0 failures, 0
+  errors.
+- The full `test` aggregate (all nine modules) plus `assembleDebug` + `lintDebug` succeed from clean.
+
+### Emulator verification
+
+**Not performed.** No emulator run.
+
+### Physical-device verification
+
+**Not tested.** Ducking/duck-resume, pausing another player, focus loss to an incoming call and the
+release of held announcements when the call ends are all device-only behaviours.
+
+### Known limitations / risks
+
+- Release happens on the **next tick** after the call ends (within `TICK_INTERVAL_MS`, one second), not
+  on a call-state callback; items held past the queue expiry window still expire.
+- The focus **result** is not acted on: a refusal means "no ducking", not "don't speak".
+- `AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK` is deliberately ignored, so a music app ducking *us* does not
+  cut the announcement short.
+- No UI was added: both settings already exist in Global Rules and per-app settings, and this phase
+  only makes them effective.
+- **Still open:** the P19 Backup & Restore and Diagnostics screens; there is no on-device verification
+  of anything in P08 (speech, focus, call handling) yet.
+
+### Next phase (proposed)
+
+**L7b — the P19 Backup & Restore and Diagnostics screens**: the export/import repository methods
+exist but the two screens were removed during L1 because they did not compile, so those entries in the
+Settings list are still placeholders.
