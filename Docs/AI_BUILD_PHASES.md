@@ -159,7 +159,7 @@ Status legend: `Not started` · `In progress (cloud, not locally verified)` · `
 | P05 Queue, grouping and scheduling | Locally verified — builds, unit tests pass |
 | P06 Build foundation: Hilt, Application and manifest baseline | Locally verified — debug APK builds; manifest repaired for the tile |
 | P07 Notification listener foundation | Locally verified — builds, unit tests pass; device behaviour untested |
-| P08 Foreground announcement service and speech pipeline | Repaired and locally verified to compile; **not behaviourally tested** (no device) |
+| P08 Foreground announcement service and speech pipeline | Repaired and locally verified to compile; settings wiring added in L2; **not behaviourally tested** (no device) |
 | P09 Preferences foundation (`:core:datastore`) | Locally verified — builds, unit tests pass |
 | P10 History storage (`:core:database`) | Locally verified — builds, unit tests pass |
 | P11 Setup and onboarding (`:core:setup`, `:app`) | Locally verified to compile; UI not interacted with |
@@ -174,3 +174,4 @@ Status legend: `Not started` · `In progress (cloud, not locally verified)` · `
 | P19b Quick Settings tile | Repaired against the real `TileService`/`Tile` API and locally verified to compile |
 | P20 Release hardening | Not started (blocked by the P14/P18/P19 gaps) |
 | L1 Build/test verification of P00–P19b | Complete — `379` unit tests pass, debug APK builds, lint 0 errors (`2026-11-03`, `03edf18`) |
+| L2 Persisted settings wired into the service (`SettingsSource` → `SettingsRepository`) | Complete — `387` unit tests pass, debug APK builds, lint 0 errors (`2026-11-03`); history recording, call-hold release and audio focus remain unwired |

@@ -136,13 +136,14 @@ class AnnouncementPipeline(
      */
     fun tick(
         state: RuntimeState,
+        announcementFormat: AnnouncementFormat = format,
         settingsOf: (String) -> ResolvedSettings,
     ): Action.Speak? {
         if (active != null) return null
 
         repeat(MAX_RETIRE_STEPS) {
             val selection = queue.pollReady().announcement ?: return null
-            val built = AnnouncementTemplate.build(selection.items, format)
+            val built = AnnouncementTemplate.build(selection.items, announcementFormat)
             queue.markStarted(selection.id)
             if (built.isEmpty) {
                 // Nothing speakable (every section disabled/empty): retire without speaking.

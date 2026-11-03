@@ -12,6 +12,7 @@ import android.os.Looper
 import android.os.SystemClock
 import com.jayanth.hearit.core.common.model.NotificationSnapshot
 import com.jayanth.hearit.core.common.time.Clock
+import com.jayanth.hearit.core.datastore.HearItSettings
 import com.jayanth.hearit.core.notifications.NotificationRelay
 import com.jayanth.hearit.core.notifications.NotificationSink
 import com.jayanth.hearit.core.queue.AnnouncementQueue
@@ -23,6 +24,11 @@ import com.jayanth.hearit.core.tts.UtteranceListener
 import com.jayanth.hearit.dashboard.ServiceStatusMonitor
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 /**
  * The single foreground announcement service (ADR-010): hosts the queue + TTS loop and the
@@ -57,10 +63,20 @@ class AnnouncementService : Service(), NotificationSink {
     @Inject
     lateinit var serviceStatus: ServiceStatusMonitor
 
+    /** Persisted settings snapshot (L2); the rules/queue/format/speech all read from it. */
+    @Inject
+    lateinit var settingsSource: SettingsSource
+
     private lateinit var sessionStore: SessionStore
-    private lateinit var settingsSource: SettingsSource
     private lateinit var stateReader: RuntimeStateReader
+    private lateinit var queue: AnnouncementQueue
     private lateinit var pipeline: AnnouncementPipeline
+
+    /** Collects the settings flow only while the service is alive. */
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
+    /** Snapshot the queue was last configured with (identity compare, no deep equality). */
+    private var appliedSettings: HearItSettings? = null
 
     /** The announcement currently being spoken, or null. */
     private var currentAction: AnnouncementPipeline.Action.Speak? = null
@@ -89,17 +105,22 @@ class AnnouncementService : Service(), NotificationSink {
     override fun onCreate() {
         super.onCreate()
         sessionStore = SessionStore(this)
-        settingsSource = SettingsSource(sessionStore)
         stateReader = RuntimeStateReader(this, audioManager, sessionStore)
 
         val clock = Clock { SystemClock.elapsedRealtime() }
-        val queue = AnnouncementQueue(
+        queue = AnnouncementQueue(
             clock = clock,
             deviceAudio = DeviceAudioState {
                 audioManager.ringerMode == AudioManager.RINGER_MODE_SILENT
             },
         )
         pipeline = AnnouncementPipeline(queue)
+
+        // The pipeline is synchronous (main-thread tick loop) while DataStore is not: mirror
+        // the persisted settings into the source's snapshot. Before the first emission every
+        // app is disabled, so a slow read can only lose an announcement, never invent one.
+        settingsSource.observe(serviceScope)
+        applyQueueSettings()
 
         AnnouncementNotification.ensureChannel(this)
         audioManager.registerAudioDeviceCallback(audioDeviceCallback, handler)
@@ -166,6 +187,7 @@ class AnnouncementService : Service(), NotificationSink {
                 pipeline.tick(
                     state = currentState(),
                     settingsOf = { packageName -> settingsSource.forApp(packageName) },
+                    announcementFormat = settingsSource.format(),
                 )?.let { speak(it) }
                 publishStatus()
                 return START_STICKY
@@ -201,6 +223,7 @@ class AnnouncementService : Service(), NotificationSink {
             snapshot = snapshot,
             settings = settingsSource.forApp(snapshot.packageName),
             state = currentState(),
+            priority = settingsSource.priorityFor(snapshot.packageName),
         )
     }
 
@@ -211,6 +234,7 @@ class AnnouncementService : Service(), NotificationSink {
 
     override fun onDestroy() {
         serviceStatus.markStopped()
+        serviceScope.cancel()
         handler.removeCallbacksAndMessages(null)
         audioManager.unregisterAudioDeviceCallback(audioDeviceCallback)
         NotificationRelay.sink = null
@@ -219,6 +243,7 @@ class AnnouncementService : Service(), NotificationSink {
     }
 
     private fun tickOnce() {
+        applyQueueSettings()
         val state = currentState()
         val speaking = currentAction
         if (speaking != null) {
@@ -228,8 +253,28 @@ class AnnouncementService : Service(), NotificationSink {
             return
         }
 
-        pipeline.tick(state) { packageName -> settingsSource.forApp(packageName) }?.let { speak(it) }
+        pipeline.tick(
+            state = state,
+            settingsOf = { packageName -> settingsSource.forApp(packageName) },
+            announcementFormat = settingsSource.format(),
+        )?.let { speak(it) }
         publishStatus()
+    }
+
+    /**
+     * Reconfigures the queue when the persisted settings changed.
+     *
+     * The codec builds a fresh immutable value per emission, so identity comparison is
+     * exact and an unchanged store never re-triggers limit enforcement.
+     */
+    private fun applyQueueSettings() {
+        val snapshot = settingsSource.settings
+        if (snapshot === appliedSettings) return
+        appliedSettings = snapshot
+        queue.updateSettings(
+            settings = settingsSource.queueSettings(),
+            appOverrides = settingsSource.queueOverrides(),
+        )
     }
 
     private fun speak(action: AnnouncementPipeline.Action.Speak) {

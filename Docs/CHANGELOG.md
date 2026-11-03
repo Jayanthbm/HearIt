@@ -23,6 +23,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 - `:core:common` and `:core:rules` Kotlin/JVM modules (P01): notification snapshot, eligibility settings with per-app inheritance, runtime state, skip reasons, and the deterministic announcement-eligibility pipeline covering the enabled-app list, temporary mute and screen/lock with the Priority Announce override. JVM unit tests written for all three rule families — not yet executed (cloud-agent restriction).
 
 ### Changed
+- Settings wiring (phase L2): `AnnouncementService` now reads the persisted settings through a
+  `SettingsRepository`-backed `SettingsSource` (a snapshot mirrored from the repository flow for the
+  service's lifetime), so enabling an app in Applications actually reaches the eligibility rules.
+  Per-app priority, Priority Announce listings (now persisted rather than in-memory), the
+  announcement format, speech speed/pitch/voice and the queue's grouping/size/delay/gap values all
+  come from the user's stored settings; the queue is reconfigured once per settings emission.
 - First local build (phase L1): the project now compiles. Five Kotlin/JVM modules had their Java/Kotlin targets aligned, `:core:database` gained its Room schema input directory, `:app` gained the Room runtime dependency, and the Quick Settings tile was rebuilt against the real `TileService`/`Tile` API (correct `BIND_QUICK_SETTINGS_TILE` permission, `QS_TILE` action, `TOGGLEABLE_TILE` metadata; the unsupported tile layout/config resources were removed).
 - Rewritten because they never compiled: dashboard models/ViewModel/screen, the Global Rules screen (now backed by a real `GlobalSettingsViewModel` writing through `SettingsRepository`), the global settings UI state, `SettingsSource` (apps stay disabled by default; Priority listing separate), and the history DAO sort (enum names instead of enum constants in `@Query`).
 - Announcement history now records `ANNOUNCED` via the new `QueueEvent.Announced`, and the lock skip reason names the actual device state.
@@ -33,7 +39,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ### Notes
 - Cloud-agent changes are **Not locally verified** until the local agent builds and tests them.
-- **Local verification (2026-11-03):** `./gradlew test` 379 tests / 0 failures, `assembleDebug` succeeds, `lintDebug` 0 errors. Emulator and physical-device behaviour remain untested; P14 (Devices) has no implementation and P18/P19 are partial.
+- **Local verification (2026-11-03):** `./gradlew test` 379 tests / 0 failures, `assembleDebug` succeeds, `lintDebug` 0 errors; after L2, `387` tests / 0 failures with the same build and lint result. Emulator and physical-device behaviour remain untested; P14 (Devices) has no implementation and P18/P19 are partial, and history recording, call-hold release and audio-focus handling are still unwired.
 
 ## [1.0.0] — not released
 

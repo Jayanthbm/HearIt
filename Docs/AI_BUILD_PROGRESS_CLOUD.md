@@ -586,3 +586,18 @@ and executed. Full detail: `AI_BUILD_PROGRESS_LOCAL.md` → **L1**.
   Diagnostics screens removed) — the cloud entries overstate completion.
 - **Not verified on any device or emulator.** Notification access, Bluetooth/wired routing, TTS,
   calls, DND, reboot, background behaviour and the Quick Settings tile remain device-only tests.
+
+### Local completion log — L2 (2026-11-03)
+
+Full detail: `AI_BUILD_PROGRESS_LOCAL.md` → **L2**.
+
+- **Cloud items superseded:** every cloud entry that called `SettingsSource` a deliberate
+  placeholder (P08/P11/P13 notes at lines above) is now wired: the service reads
+  `:core:datastore`'s persisted settings, so enabling an app reaches the eligibility rules.
+- **Commands:** `./gradlew test assembleDebug lintDebug` — **PASSED**; 387 tests / 0 failures
+  (`:app` grew 62 → 70 with the new `SettingsSourceTest`), `app-debug.apk` built, lint 0 errors /
+  57 warnings.
+- **Still not wired (not claimed as complete):** history recording from pipeline events, release of
+  call-held items after a call, audio-focus policy application in the player, output *selection*
+  (P14 has no implementation), and the P18/P19 backup & diagnostics screens.
+- **Device verification:** none; unchanged from L1.

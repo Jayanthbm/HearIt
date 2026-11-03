@@ -139,6 +139,103 @@ behaviour all still require a physical device per `MANUAL_TEST_CHECKLIST.md`.
 
 P20 release hardening cannot start honestly until the gaps above are closed. Proposed next phase:
 **L2 — wire persisted settings into the service (`SettingsSource` → `SettingsRepository`), so enabling
-an app actually produces an announcement**, then a dedicated History screen (P18) and Devices screen
-(P14).
+an app actually produces an announcement** (done — see L2 below), then a dedicated History screen
+(P18) and Devices screen (P14).
+
+---
+
+## L2 — Persisted settings wired into the announcement service
+
+- **Date:** 2026-11-03
+- **Commit:** `768cf23` — `feat(service): read persisted settings in the announcement pipeline (L2)`
+- **Branch:** `development`
+- **Scope:** Close the largest functional gap left by L1 — the service ran on a hard-coded
+  placeholder, so enabling an app in the Applications screen never produced an announcement.
+- **Working tree at start:** clean apart from the untracked IDE file
+  `.idea/deploymentTargetSelector.xml`, which was again left untouched and not committed.
+
+### The gap
+
+`AnnouncementService` built `SettingsSource(sessionStore)` itself; that class returned
+`appEnabled = false` for every package and default format/speech. `:core:datastore` already
+owned the real values (P09) and the Applications/Global Rules screens already wrote them (P13/P15),
+so the pipeline and the UI were simply not connected.
+
+### What changed
+
+- **`app/.../service/SettingsSource.kt` (rewritten).** Now a `SettingsRepository`-backed seam: it
+  mirrors the repository `Flow` into an immutable `HearItSettings` snapshot
+  (`observe(scope)`, `reload()`), because the pipeline is synchronous on the main thread while
+  DataStore is not. It exposes `forApp` (`resolvedFor`), `priorityFor`, `format`, `speech`,
+  `queueSettings`, `queueOverrides` and `isPriorityApp`; `setPriorityApp` now **persists** the
+  Priority Announce list through `repository.update` instead of an in-memory set. Until the first
+  emission the snapshot is `HearItSettings()`'s default — **all apps disabled** — so a slow or
+  failed read loses an announcement rather than inventing one.
+- **`app/.../service/AnnouncementService.kt`.** Injects `SettingsSource` from Hilt instead of
+  constructing it, owns a `serviceScope` (`SupervisorJob` + main dispatcher) cancelled in
+  `onDestroy` to collect the settings flow only while the service lives, promotes the queue to a
+  field, and reconfigures it (`queue.updateSettings`) exactly once per settings emission via identity
+  comparison. Snapshots now carry the per-app `priorityFor`, the queue now uses the user's grouping
+  window / size / delay / gap settings plus per-app grouping overrides, and speech uses the stored
+  speed/pitch/voice.
+- **`app/.../service/AnnouncementPipeline.kt`.** `tick` takes the announcement format per call
+  (`announcementFormat`, defaulting to the constructor value so existing tests are unchanged), so a
+  format edit applies to the next announcement without recreating the pipeline.
+- **`app/.../di/SetupModule.kt`.** Singleton provider for `SettingsSource` over the existing
+  `SettingsRepository` provider.
+- **`app/src/test/java/com/jayanth/hearit/service/SettingsSourceTest.kt` (new, 8 tests).** Defaults
+  (every app disabled, master-prompt format/speech/queue), enabled-app resolution, global +
+  per-app merge, Priority Announce list and per-app priority, stored format/speech, per-app queue
+  override, flow mirroring via `observe`, and persistence of `setPriorityApp`.
+
+### Commands actually run (exact)
+
+| Command | Result |
+|---|---|
+| `./gradlew :app:testDebugUnitTest --tests "com.jayanth.hearit.service.*"` (first attempt) | **FAILED** — compile errors: the trailing lambda bound to the new last parameter in `tick`, and a wrong `AppEligibilityOverride` import in the new test |
+| same command after fixes | **PASSED** |
+| `./gradlew test assembleDebug lintDebug --console=plain` | **PASSED** — 387 tests, 0 failures, 0 skipped; `app-debug.apk` (34.5 MB); lint **0 errors, 57 warnings** |
+
+Per-module totals: `:core:rules` 88, `:app` **70** (62 + 8 new), `:core:queue` 46, `:core:datastore` 32,
+`:core:setup` 32, `:core:tts` 32, `:core:notifications` 30, `:core:common` 29, `:core:database` 28.
+
+### Behaviour now reachable (unit-level)
+
+An app the user enables in Applications is reported as `appEnabled = true` to the rules, its
+per-app eligibility/priority overrides apply, its Priority Announce listing and priority are
+honoured, the announcement uses the configured format and speech settings, and the queue uses the
+configured grouping/size/delay/gap values. Combined with the L1 fix that added
+`QueueEvent.Announced`, the pipeline is no longer structurally silent.
+
+### Emulator verification
+
+Not performed (no emulator started, no UI interaction).
+
+### Physical-device verification
+
+**Not tested.** Notification access, TTS, Bluetooth/wired routing, calls, DND, reboot/background
+behaviour still require a physical device per `MANUAL_TEST_CHECKLIST.md`.
+
+### Known limitations / risks (remaining wiring gaps)
+
+- **History is still not written.** `QueueEvent`s and `EligibilityDecision`s produced by the
+  pipeline are not yet recorded through `HistoryRepository`; the history UI therefore shows only
+  what earlier phases recorded (nothing, end-to-end). This is the next honest wiring phase.
+- **Call-held items are never released.** `AnnouncementPipeline.releaseHeld(state) { … }` exists and
+  is unit-tested, but the service does not call it after a call ends, so `queueDuringCall` items
+  stay held until they expire.
+- **Audio focus policy is not applied by the player.** `EligibilitySettings.audioFocus` is resolved
+  and stored but the service requests no focus yet (P08 scope item, unimplemented).
+- **Audio-output disconnection** only stops speech; it does not re-check the output rule through
+  `onStateChanged`'s `OUTPUT_LOST` reason.
+- Physical output *selection* is still missing (P14 has no implementation), so the allowed-output
+  rule can only see connected devices.
+- Test-announcement from setup/dashboard continues to bypass the queue (by design); it uses the
+  stored speech settings only.
+
+### Next phase (proposed)
+
+**L3 — record history from the pipeline** (`QueueEvent` + eligibility outcomes → `HistoryRepository`,
+respecting storage mode/update handling), since it is the last seam that makes the shipped screens
+show real data; then the missing **P14 Devices** and **P18 History** screens.
 

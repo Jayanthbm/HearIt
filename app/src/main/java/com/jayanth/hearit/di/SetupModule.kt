@@ -6,6 +6,7 @@ import com.jayanth.hearit.core.datastore.HearItSetupDataStore
 import com.jayanth.hearit.core.datastore.SettingsRepository
 import com.jayanth.hearit.core.datastore.SetupStateRepository
 import com.jayanth.hearit.service.SessionStore
+import com.jayanth.hearit.service.SettingsSource
 import com.jayanth.hearit.setup.AndroidAppCatalogProbe
 import com.jayanth.hearit.setup.AndroidAudioOutputProbe
 import com.jayanth.hearit.setup.AndroidBluetoothPermissionProbe
@@ -41,6 +42,15 @@ object SetupModule {
     @Singleton
     fun settingsRepository(@ApplicationContext context: Context): SettingsRepository =
         HearItSettingsDataStore.repository(context)
+
+    /**
+     * One settings source per process: it mirrors the repository flow into a snapshot that
+     * the announcement service and (later) other pipeline consumers read synchronously.
+     */
+    @Provides
+    @Singleton
+    fun settingsSource(repository: SettingsRepository): SettingsSource =
+        SettingsSource(repository)
 
     @Provides
     @Singleton
