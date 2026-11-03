@@ -815,28 +815,27 @@ private fun DiagnosticLogsCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            // Action buttons row
-            Row(
+            // Action buttons
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Button(
                     onClick = onExportClicked,
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier
-                        .weight(1.3f)
-                        .height(44.dp),
+                        .fillMaxWidth()
+                        .height(48.dp),
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Download,
                         contentDescription = null,
-                        modifier = Modifier.size(16.dp),
+                        modifier = Modifier.size(18.dp),
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = stringResource(R.string.diagnostics_logs_export_button),
-                        fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
                     )
                 }
 
@@ -845,19 +844,30 @@ private fun DiagnosticLogsCard(
                     shape = RoundedCornerShape(12.dp),
                     enabled = fileCount > 0,
                     modifier = Modifier
-                        .weight(1f)
-                        .height(44.dp),
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error,
+                        disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                    ),
+                    border = BorderStroke(
+                        width = 1.dp,
+                        color = if (fileCount > 0) {
+                            MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
+                        } else {
+                            MaterialTheme.colorScheme.outlineVariant
+                        },
+                    ),
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.DeleteOutline,
                         contentDescription = null,
-                        modifier = Modifier.size(16.dp),
+                        modifier = Modifier.size(18.dp),
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = stringResource(R.string.diagnostics_logs_clear_button),
                         fontWeight = FontWeight.SemiBold,
-                        style = MaterialTheme.typography.labelMedium,
                     )
                 }
             }

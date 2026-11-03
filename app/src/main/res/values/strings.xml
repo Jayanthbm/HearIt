@@ -501,8 +501,8 @@
     <string name="diagnostics_logs_stat_files">%1$d files (%2$d KB)</string>
     <string name="diagnostics_logs_stat_privacy">Privacy Verified · Metadata Only</string>
     <string name="diagnostics_logs_explanation">Hear It records technical diagnostic events (service lifecycle, rules decisions, queue pacing, audio routing, and speech synthesis) on-device for troubleshooting. Notification message content, sender names, and OTPs are strictly excluded.</string>
-    <string name="diagnostics_logs_export_button">Export Logs (.txt)</string>
-    <string name="diagnostics_logs_clear_button">Clear Logs</string>
+    <string name="diagnostics_logs_export_button">Export Diagnostic Logs</string>
+    <string name="diagnostics_logs_clear_button">Clear Diagnostic Logs</string>
     <string name="diagnostics_logs_clear_dialog_title">Clear all diagnostic logs?</string>
     <string name="diagnostics_logs_clear_dialog_body">This will permanently delete all stored diagnostic log files from your device. Ongoing service events will continue recording fresh logs.</string>
     <string name="diagnostics_logs_clear_confirm">Clear All Logs</string>
