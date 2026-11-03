@@ -326,7 +326,7 @@ Not performed.
 ## L4 — Dedicated History screen (P18)
 
 - **Date:** 2026-11-03
-- **Commit:** recorded in the follow-up `docs(progress)` commit
+- **Commit:** `4c3d688` — `feat(history): add the dedicated History screen with search and paging (L4)`
 - **Branch:** `development`
 - **Scope:** The History tab still showed the `DestinationPlaceholder`; only the dashboard's five-row
   summary could read the rows L3 started writing. This phase builds the real screen: search, status
