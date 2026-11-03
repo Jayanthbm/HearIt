@@ -178,3 +178,4 @@ Status legend: `Not started` · `In progress (cloud, not locally verified)` · `
 | L3 History recorded from the announcement pipeline | Complete — `394` unit tests pass, debug APK builds, lint 0 errors (`2026-11-03`); call-hold release, audio focus, P14 and the P18 History screen remain open |
 | L4 Dedicated History screen (P18) | Complete — `403` unit tests pass, debug APK builds, lint 0 errors (`2026-11-03`); UI not interaction-tested, no per-app/date filter, P14 remains missing |
 | L5 Devices feature (P14) | Complete — `423` unit tests pass, debug APK builds, lint 0 errors (`2026-11-03`); Bluetooth behaviour untested, per-device selection is Bluetooth-only |
+| L6 Call-end hold release and audio-focus application | Complete — `429` unit tests pass, debug APK builds, lint 0 errors (`2026-11-03`); focus negotiation and call-end release are device-untested |

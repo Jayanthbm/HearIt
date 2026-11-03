@@ -3,8 +3,10 @@ package com.jayanth.hearit.service
 import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.media.AudioAttributes
 import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
+import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.os.Handler
 import android.os.IBinder
@@ -96,6 +98,25 @@ class AnnouncementService : Service(), NotificationSink {
 
     /** Last accepted announcement, so Pause/Resume can re-speak it (P16). */
     private var lastAction: AnnouncementPipeline.Action.Speak? = null
+
+    /** Active audio-focus request while an announcement is being spoken, or null. */
+    private var focusRequest: AudioFocusRequest? = null
+
+    /**
+     * Another app taking focus away ends the utterance: HearIt never talks over a caller
+     * or a competing player. Losing focus *transiently while ducking* is our own request
+     * working as intended, so it is ignored.
+     */
+    private val audioFocusListener = AudioManager.OnAudioFocusChangeListener { change ->
+        handler.post {
+            if (currentAction == null) return@post
+            when (change) {
+                AudioManager.AUDIOFOCUS_LOSS,
+                AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> engine.stop()
+                else -> Unit
+            }
+        }
+    }
 
     private val handler = Handler(Looper.getMainLooper())
 
@@ -268,13 +289,58 @@ class AnnouncementService : Service(), NotificationSink {
         handler.removeCallbacksAndMessages(null)
         audioManager.unregisterAudioDeviceCallback(audioDeviceCallback)
         NotificationRelay.sink = null
+        abandonAudioFocus()
         engine.shutdown()
         super.onDestroy()
+    }
+
+    /**
+     * Applies the stored audio-focus policy (master prompt §6, ADR-017).
+     *
+     * `NONE` asks for nothing at all, so other audio keeps playing underneath — that is the
+     * setting's promise. A refused request is not fatal: speech still runs, it just no longer
+     * pauses or ducks the other app.
+     */
+    private fun requestAudioFocus(action: AnnouncementPipeline.Action.Speak) {
+        val policy = settingsSource.forApp(action.selection.packageName).eligibility.audioFocus
+        val gain = when (AudioFocusPolicyMapping.gainFor(policy)) {
+            AudioFocusGain.DUCK_OTHERS -> AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK
+            AudioFocusGain.PAUSE_OTHERS -> AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
+            AudioFocusGain.NONE -> {
+                abandonAudioFocus()
+                return
+            }
+        }
+        abandonAudioFocus()
+        val request = AudioFocusRequest.Builder(gain)
+            .setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_ASSISTANCE_ACCESSIBILITY)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build(),
+            )
+            .setWillPauseWhenDucked(false)
+            .setOnAudioFocusChangeListener(audioFocusListener, handler)
+            .build()
+        audioManager.requestAudioFocus(request)
+        focusRequest = request
+    }
+
+    /** Idempotent: releasing focus twice is a no-op, so every exit path can call it. */
+    private fun abandonAudioFocus() {
+        val request = focusRequest ?: return
+        audioManager.abandonAudioFocusRequest(request)
+        focusRequest = null
     }
 
     private fun tickOnce() {
         applyQueueSettings()
         val state = currentState()
+        // A call that has ended hands its held notifications back for full re-evaluation
+        // (ADR-004/ADR-006): nothing is announced on the strength of its held decision.
+        if (!state.isCallActive && pipeline.heldCount > 0) {
+            pipeline.releaseHeld(state) { packageName -> settingsSource.forApp(packageName) }
+        }
         val speaking = currentAction
         if (speaking != null) {
             pipeline.onStateChanged(state) { packageName -> settingsSource.forApp(packageName) }
@@ -315,6 +381,7 @@ class AnnouncementService : Service(), NotificationSink {
     private fun speak(action: AnnouncementPipeline.Action.Speak) {
         currentAction = action
         lastAction = action
+        requestAudioFocus(action)
         val accepted = engine.speak(
             announcement = action.announcement,
             settings = settingsSource.speech(),
@@ -345,6 +412,7 @@ class AnnouncementService : Service(), NotificationSink {
     private fun finishSpeech(action: AnnouncementPipeline.Action.Speak, spoken: Boolean = true) {
         if (currentAction !== action) return
         currentAction = null
+        abandonAudioFocus()
         pipeline.onSpeechFinished(spoken)
         startInForeground()
         publishStatus()

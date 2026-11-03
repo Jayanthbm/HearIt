@@ -53,6 +53,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 - Announcement history now records `ANNOUNCED` via the new `QueueEvent.Announced`, and the lock skip reason names the actual device state.
 
 ### Fixed
+- Announcements held because a call was in progress are now spoken once the call ends (phase L6):
+  `AnnouncementService` releases them on the next tick through the full pipeline, so screen, lock,
+  mute, DND and output are re-checked and nothing is spoken on the strength of its held-time decision.
+  Previously `AnnouncementPipeline.releaseHeld` was never called and held items simply expired, so the
+  "announce after a call" setting did nothing.
+- The stored audio-focus policy is now applied while speaking (phase L6): transient focus is requested
+  with ducking (`DUCK`, the default) or without (`PAUSE`), `NONE` requests nothing, focus is abandoned
+  whenever the utterance ends, and losing focus to another app or a call stops the announcement. The
+  setting was previously resolved but never acted on.
 - History no longer records `ANNOUNCED` for speech that never completed: a stop, skip, engine error
   or rejected utterance is stored as `INTERRUPTED`, and a group retired because every announcement
   section was empty is stored as `SKIPPED`.
@@ -61,7 +70,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ### Notes
 - Cloud-agent changes are **Not locally verified** until the local agent builds and tests them.
-- **Local verification (2026-11-03):** `./gradlew test` 379 tests / 0 failures, `assembleDebug` succeeds, `lintDebug` 0 errors; after L2 `387`, L3 `394`, L4 `403`, and L5 `423` tests / 0 failures with the same build and lint result. Emulator and physical-device behaviour remain untested; P19 is partial, and call-held release plus audio-focus handling are still unwired.
+- **Local verification (2026-11-03):** `./gradlew test` 379 tests / 0 failures, `assembleDebug` succeeds, `lintDebug` 0 errors; after L2 `387`, L3 `394`, L4 `403`, L5 `423` and L6 `429` tests / 0 failures with the same build and lint result (0 errors, 52 warnings). Emulator and physical-device behaviour remain untested — including audio-focus negotiation and call-end release — and P19 is partial.
 
 ## [1.0.0] — not released
 

@@ -104,6 +104,12 @@ class AnnouncementPipeline(
     val pendingCount: Int get() = queue.pendingCount
 
     /**
+     * Items parked because a call was in progress. The service releases them once the call
+     * ends (L6); until then they age out under the queue's expiry window.
+     */
+    val heldCount: Int get() = queue.heldCount
+
+    /**
      * Routes one snapshot through the rules and into the queue or the call-hold list.
      *
      * @param priority per-app priority; defaults to [AppPriority.NORMAL] (ADR-019) until

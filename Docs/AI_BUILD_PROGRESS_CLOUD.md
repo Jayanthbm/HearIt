@@ -653,3 +653,22 @@ Full detail: `AI_BUILD_PROGRESS_LOCAL.md` → **L5**.
 - **Not verified:** no emulator run, no Bluetooth device connected/disconnected; device names need
   `BLUETOOTH_CONNECT`, which setup owns.
 - **Still open:** call-held release after a call, audio-focus application, P19 screens.
+
+### Local completion log — L6 (2026-11-03)
+
+Full detail: `AI_BUILD_PROGRESS_LOCAL.md` → **L6**.
+
+- **Cloud gap closed:** two P08 behaviours were implemented in the pipeline but never invoked by the
+  service, so the settings behind them did nothing. `AnnouncementService` now releases call-held items
+  as soon as a tick sees the call has ended (full re-evaluation, never on the held decision) and
+  requests/abandons audio focus according to the stored per-app policy.
+- **New seam:** `AudioFocusPolicyMapping` (`DUCK`/`PAUSE`/`NONE` → `DUCK_OTHERS`/`PAUSE_OTHERS`/
+  `NONE`) keeps the `AudioManager` constants out of the tested code; the service builds the
+  `AudioFocusRequest` (`USAGE_ASSISTANCE_ACCESSIBILITY`, `CONTENT_TYPE_SPEECH`,
+  `setWillPauseWhenDucked(false)`) and stops speech on `AUDIOFOCUS_LOSS`/`LOSS_TRANSIENT`.
+- **Commands:** `./gradlew test assembleDebug lintDebug` — **PASSED**; 429 tests / 0 failures (`:app`
+  98 → 104 with `AudioFocusPolicyMappingTest` and two held-count pipeline tests), `app-debug.apk`
+  built, lint 0 errors / 52 warnings (unchanged).
+- **Not verified:** no emulator or device run — ducking, pause, focus loss to a call and the
+  one-second delayed release are device-only behaviours.
+- **Still open:** P19 Backup & Restore / Diagnostics screens.

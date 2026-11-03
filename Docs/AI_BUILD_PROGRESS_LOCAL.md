@@ -510,3 +510,87 @@ connect/disconnect handling are device-only behaviours.
 ends (`AnnouncementPipeline.releaseHeld` is implemented and tested but never called) and apply the
 per-app audio-focus policy in the player, which is stored and resolved but never requested.
 
+## L6 — Service gaps closed: call-end release and audio focus
+
+**Phase:** L6 (finishes P08's two unwired behaviours; no new user-facing screen).
+
+### The gap
+
+Two settings the user can already change did nothing:
+
+1. **“Announce after a call”** (`queueDuringCall`). Notifications arriving during a call were held by
+the queue, but nothing ever released them — `AnnouncementPipeline.releaseHeld` existed and was unit
+tested since P08 and was **never called from the service**, so a held item simply sat there until it
+hit the queue's expiry window.
+2. **Audio focus** (`AudioFocusPolicy`, DUCK by default, per-app inheritable and exposed in Global
+Rules and each app's settings). The pipeline resolved the value into
+`EligibilitySettings.audioFocus` and the player ignored it: no focus was requested, nothing ducked or
+paused, and losing focus to a phone call did not stop the announcement.
+
+### What changed
+
+- **Call-end release (`AnnouncementService`).** Each tick now checks `pipeline.heldCount`; when the
+device reports **no call active** and items are held, the service calls
+`pipeline.releaseHeld(state) { packageName -> settingsSource.forApp(packageName) }`. The release is a
+full re-evaluation — screen/lock/mute/output/DND are re-checked and a skip is recorded as a skip — so
+nothing is ever spoken on the strength of its held-time decision (ADR-004/ADR-006).
+`AnnouncementPipeline` gained the read-only `heldCount` the check needs.
+- **Audio focus (`AnnouncementService` + new `AudioFocusPolicyMapping`).**
+  - `AudioFocusPolicyMapping` maps the stored policy to a JVM-testable `AudioFocusGain`:
+    `DUCK → DUCK_OTHERS`, `PAUSE → PAUSE_OTHERS`, `NONE → NONE`. The settings model stays free of
+    playback concerns and the Android `AudioManager` constants never reach a test.
+  - Before each utterance the service requests `AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK` (DUCK) or
+    `AUDIOFOCUS_GAIN_TRANSIENT` (PAUSE) through an `AudioFocusRequest` built with
+    `USAGE_ASSISTANCE_ACCESSIBILITY` + `CONTENT_TYPE_SPEECH`, `setWillPauseWhenDucked(false)` and the
+    service's own handler. `NONE` requests nothing at all — the setting's promise is that other audio
+    keeps playing underneath.
+  - Focus is **abandoned** when speech finishes, is stopped, is skipped, fails, or the service is
+destroyed (idempotent, so every exit path can call it).
+  - `AUDIOFOCUS_LOSS` and `AUDIOFOCUS_LOSS_TRANSIENT` stop the utterance (another app or a call now
+    owns playback); the duck-loss signal is ignored because it is our own request working as intended.
+  - A refused focus request is not fatal: speech still runs, it simply no longer pauses or ducks.
+
+### Commands actually run
+
+| Command | Result |
+|---|---|
+| `./gradlew test assembleDebug lintDebug --console=plain` | **PASSED** — 429 tests, 0 failures, 0 skipped; `app-debug.apk`; lint **0 errors, 52 warnings** (unchanged set; none in the touched files) |
+
+Per-module totals: `:core:rules` 88, `:app` **104** (98 + 6), `:core:queue` 46, `:core:datastore` 39,
+`:core:setup` 32, `:core:tts` 32, `:core:notifications` 30, `:core:common` 29, `:core:database` 29.
+
+### Behaviour now reachable (unit-level)
+
+- `AudioFocusPolicyMappingTest` (4): DUCK, PAUSE and NONE map to the intended gain, and every enum
+  constant is mapped (the `when` is exhaustive, so a new policy cannot silently fall through).
+- `AnnouncementPipelineTest` (+2): a call-held item reports `heldCount == 1` with nothing pending, and
+  releasing it after the call empties the held list and refills the queue.
+
+### Emulator verification
+
+**Not performed.** No emulator run: the focus negotiation and the call-end release were never exercised
+against a real `AudioManager`, a music app or a call.
+
+### Physical-device verification
+
+**Not tested.** Ducking/duck-resume, pausing another player, focus loss to an incoming call and the
+release of held announcements when the call ends are all device-only behaviours.
+
+### Known limitations / risks
+
+- Release happens on the **next tick** after the call ends (within `TICK_INTERVAL_MS`, one second), not
+  on a call-state callback; items held past the queue expiry window still expire.
+- The focus **result** is not acted on: a refusal means “no ducking”, not “don't speak”.
+- `AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK` is deliberately ignored, so a music app ducking *us* does not
+  cut the announcement short.
+- No UI was added: both settings already exist in Global Rules and per-app settings, and this phase
+  only makes them effective.
+- **Still open:** the P19 Backup & Restore and Diagnostics screens; there is no on-device verification
+  of anything in P08 (speech, focus, call handling) yet.
+
+### Next phase (proposed)
+
+**L7 — P19 Backup & Restore and Diagnostics**: the export/import repository methods exist but the two
+screens were removed during L1 because they did not compile, so those entries in the Settings list are
+still placeholders.
+

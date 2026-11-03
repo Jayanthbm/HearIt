@@ -255,4 +255,33 @@ class AnnouncementPipelineTest {
 
         assertTrue(released.single().decision is EligibilityDecision.Queue)
     }
+
+    @Test
+    fun heldCount_duringCall_reportsHeldItemAndEmptiesPending() {
+        val pipeline = AnnouncementPipeline(newQueue())
+        val settings = ResolvedSettings(
+            appEnabled = true,
+            eligibility = EligibilitySettings(queueDuringCall = true),
+        )
+
+        pipeline.onNotification(snapshot(), settings, state(call = true))
+
+        assertEquals(1, pipeline.heldCount)
+        assertEquals(0, pipeline.pendingCount)
+    }
+
+    @Test
+    fun releaseHeld_callEnded_clearsHeldCountAndRefillsQueue() {
+        val pipeline = AnnouncementPipeline(newQueue())
+        val settings = ResolvedSettings(
+            appEnabled = true,
+            eligibility = EligibilitySettings(queueDuringCall = true),
+        )
+        pipeline.onNotification(snapshot(), settings, state(call = true))
+
+        pipeline.releaseHeld(state(call = false)) { settings }
+
+        assertEquals(0, pipeline.heldCount)
+        assertEquals(1, pipeline.pendingCount)
+    }
 }
