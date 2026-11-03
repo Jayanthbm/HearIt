@@ -342,4 +342,38 @@
     <string name="splash_icon_description">Hear It app icon</string>
     <string name="splash_subtitle">Your notifications, read aloud.</string>
     <string name="splash_privacy_badge">100% On-Device · Private</string>
+
+    <!-- Voice & Speech Settings (Phase P15) -->
+    <string name="voice_speech_reset">Reset to defaults</string>
+    <string name="voice_speech_reset_confirm_title">Reset Voice &amp; Speech settings?</string>
+    <string name="voice_speech_reset_confirm_body">This will restore the speech speed, pitch, voice, and announcement format back to their initial default values.</string>
+    <string name="voice_speech_preview_title">Live Spoken Preview</string>
+    <string name="voice_speech_preview_play">Test Voice</string>
+    <string name="voice_speech_preview_stop">Stop Sample</string>
+    <string name="voice_speech_preview_subtext">Simulates how notifications sound with current settings. Does not affect history or queue.</string>
+    <string name="voice_speech_tts_unavailable">Text-to-speech engine is currently unavailable or initialising on this device.</string>
+    <string name="voice_speech_tuning_title">Speech Tuning</string>
+    <string name="voice_speech_rate_label">Speech Rate</string>
+    <string name="voice_speech_pitch_label">Pitch</string>
+    <string name="voice_speech_voice_label">Voice Selection</string>
+    <string name="voice_speech_voice_system_default">System default</string>
+    <string name="voice_speech_voice_dialog_title">Select TTS Voice</string>
+    <string name="voice_speech_voice_network_required">Requires network</string>
+    <string name="voice_speech_format_title">Announcement Structure</string>
+    <string name="voice_speech_format_subtitle">Configure which notification details are spoken aloud.</string>
+    <string name="voice_speech_include_app_name">App Name</string>
+    <string name="voice_speech_include_app_name_desc">Speak the posting app\'s name (e.g. \"WhatsApp\")</string>
+    <string name="voice_speech_include_sender">Sender Name</string>
+    <string name="voice_speech_include_sender_desc">Speak the sender or chat contact if available (e.g. \"Rahul says,\")</string>
+    <string name="voice_speech_include_message">Message Content</string>
+    <string name="voice_speech_include_message_desc">Speak the text body of the notification</string>
+    <string name="voice_speech_intro_label">Custom Introduction</string>
+    <string name="voice_speech_intro_placeholder">e.g. Attention, New message (optional)</string>
+    <string name="voice_speech_intro_helper">Spoken first before any notification content</string>
+    <string name="voice_speech_pause_label">Pause Between Sections</string>
+    <string name="voice_speech_pause_desc">Brief silence inserted between app, sender, and message</string>
+    <string name="voice_speech_pause_none">None (0ms)</string>
+    <string name="voice_speech_pause_short">250 ms</string>
+    <string name="voice_speech_pause_medium">500 ms</string>
+    <string name="voice_speech_pause_long">1.0 s</string>
 </resources>
