@@ -341,4 +341,5 @@
     <!-- App icon / splash -->
     <string name="splash_icon_description">Hear It app icon</string>
     <string name="splash_subtitle">Your notifications, read aloud.</string>
+    <string name="splash_privacy_badge">100% On-Device · Private</string>
 </resources>

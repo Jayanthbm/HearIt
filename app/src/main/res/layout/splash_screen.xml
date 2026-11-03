@@ -1,38 +1,80 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Cold-start launcher surface. Uses a plain vertical LinearLayout so the app has no
-     ConstraintLayout dependency; the drawable and the app/splash strings are the only
-     behaviour here. -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- Modern Branded Splash Screen -->
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:gravity="center_horizontal"
-    android:background="@drawable/splash_background">
+    android:background="@drawable/splash_background"
+    android:fitsSystemWindows="true">
 
-    <ImageView
-        android:id="@+id/splash_icon"
-        android:layout_width="140dp"
-        android:layout_height="140dp"
-        android:contentDescription="@string/splash_icon_description"
-        android:scaleType="centerInside" />
-
-    <TextView
-        android:id="@+id/splash_title"
+    <!-- Centered Brand Identity -->
+    <LinearLayout
+        android:id="@+id/splash_content_center"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:text="@string/app_name"
-        android:textColor="?attr/colorOnBackground"
-        android:textSize="28sp"
-        android:textStyle="bold" />
+        android:layout_centerInParent="true"
+        android:gravity="center_horizontal"
+        android:orientation="vertical">
 
+        <!-- Modern Emblem Container -->
+        <FrameLayout
+            android:id="@+id/splash_icon_container"
+            android:layout_width="104dp"
+            android:layout_height="104dp"
+            android:background="@drawable/splash_logo_container">
+
+            <ImageView
+                android:id="@+id/splash_icon"
+                android:layout_width="52dp"
+                android:layout_height="52dp"
+                android:layout_gravity="center"
+                android:contentDescription="@string/splash_icon_description"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_logo_audio_lines" />
+        </FrameLayout>
+
+        <!-- App Title -->
+        <TextView
+            android:id="@+id/splash_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:fontFamily="sans-serif-medium"
+            android:letterSpacing="0.03"
+            android:text="@string/app_name"
+            android:textColor="#F8FAFC"
+            android:textSize="32sp"
+            android:textStyle="bold" />
+
+        <!-- App Subtitle -->
+        <TextView
+            android:id="@+id/splash_subtitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:fontFamily="sans-serif"
+            android:letterSpacing="0.02"
+            android:text="@string/splash_subtitle"
+            android:textColor="#94A3B8"
+            android:textSize="14sp" />
+    </LinearLayout>
+
+    <!-- Bottom Privacy Badge -->
     <TextView
-        android:id="@+id/splash_subtitle"
+        android:id="@+id/splash_badge"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:text="@string/splash_subtitle"
-        android:textColor="?attr/colorOnBackground"
-        android:textSize="15sp" />
+        android:layout_alignParentBottom="true"
+        android:layout_centerHorizontal="true"
+        android:layout_marginBottom="40dp"
+        android:background="@drawable/splash_badge_background"
+        android:fontFamily="sans-serif-medium"
+        android:letterSpacing="0.05"
+        android:paddingStart="16dp"
+        android:paddingTop="7dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="7dp"
+        android:text="@string/splash_privacy_badge"
+        android:textColor="#64748B"
+        android:textSize="11sp" />
 
-</LinearLayout>
+</RelativeLayout>

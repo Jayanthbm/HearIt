@@ -1,47 +1,34 @@
 package com.jayanth.hearit.ui.theme
 
-import android.app.Activity
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
 /**
  * Material 3 Expressive theme for Hear It.
  *
- * Builds each scheme from the library's [lightColorScheme]/[darkColorScheme] so every
- * role (primary, secondary, background, onSurface, surface, error, ...) is copied with its
- * correct on-* contrast pair and no-token is missing. The brand's deep-navy primary is
- * applied on top by overriding the `primary`, `onPrimary` and `surface` roles; the violet
- * and cyan accents are available as [Secondary] / [Tertiary] values for custom components.
+ * Ensures WCAG AAA/AA accessible contrast ratios across both Dark and Light themes.
+ * Uses HearIt's signature brand palette (Electric Blue, Cyan, Violet, Slate) by default.
  */
 @Composable
 fun HearItTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic colour is available on Android 12+; overridden per-scheme on older devices.
-    dynamicColor: Boolean = true,
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val colorScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current
-            if (darkTheme) {
-                dynamicDarkColorScheme(context)
-            } else {
-                dynamicLightColorScheme(context)
-            }
+            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
-
-        // Stylised dark scheme: deep navy surface, violet/cyan accents, high-contrast text.
         darkTheme -> DarkColorScheme
-
-        // Stylised light scheme: deep navy surface, accent cream cards, cyan/violet text.
         else -> LightColorScheme
     }
 
@@ -52,34 +39,86 @@ fun HearItTheme(
     )
 }
 
-private val DarkColorScheme = darkColorScheme().copy(
-    primary = Primary,
-    onPrimary = OnPrimary,
-    primaryContainer = PrimaryContainer,
-    onPrimaryContainer = OnPrimaryContainer,
-    background = Surface,
-    onBackground = OnSurface,
-    surface = Surface,
-    onSurface = OnSurface,
-    surfaceVariant = SurfaceVariant,
-    onSurfaceVariant = OnSurfaceVariant,
-    error = Error,
-    errorContainer = ErrorContainer,
-    onError = OnError,
+/**
+ * Curated high-contrast dark theme with glowing neon accents and deep OLED-ready surfaces.
+ */
+private val DarkColorScheme = darkColorScheme(
+    primary = Blue400,
+    onPrimary = Color(0xFF030712),
+    primaryContainer = Blue900,
+    onPrimaryContainer = Blue100,
+
+    secondary = Violet400,
+    onSecondary = Color(0xFF030712),
+    secondaryContainer = Violet950,
+    onSecondaryContainer = Violet300,
+
+    tertiary = Cyan400,
+    onTertiary = Color(0xFF030712),
+    tertiaryContainer = Cyan950,
+    onTertiaryContainer = Cyan300,
+
+    background = Slate950,
+    onBackground = Slate50,
+
+    surface = Slate900,
+    onSurface = Slate50,
+    surfaceVariant = Slate800,
+    onSurfaceVariant = Slate300,
+
+    surfaceContainerLowest = Color(0xFF050810),
+    surfaceContainerLow = Slate950,
+    surfaceContainer = Slate900,
+    surfaceContainerHigh = Color(0xFF131D31),
+    surfaceContainerHighest = Slate800,
+
+    outline = Slate700,
+    outlineVariant = Color(0xFF1E293B),
+
+    error = ErrorRed,
+    onError = Color(0xFF450A0A),
+    errorContainer = ErrorRedContainer,
+    onErrorContainer = Color(0xFFFECACA),
 )
 
-private val LightColorScheme = lightColorScheme().copy(
-    primary = Primary,
-    onPrimary = OnPrimary,
-    primaryContainer = PrimaryContainer,
-    onPrimaryContainer = OnPrimaryContainer,
-    background = Surface,
-    onBackground = OnSurface,
-    surface = Surface,
-    onSurface = OnSurface,
-    surfaceVariant = SurfaceVariant,
-    onSurfaceVariant = OnSurfaceVariant,
-    error = Error,
-    errorContainer = ErrorContainer,
-    onError = OnError,
+/**
+ * Clean high-contrast light theme.
+ */
+private val LightColorScheme = lightColorScheme(
+    primary = Blue600,
+    onPrimary = Color.White,
+    primaryContainer = Blue100,
+    onPrimaryContainer = Blue900,
+
+    secondary = Violet600,
+    onSecondary = Color.White,
+    secondaryContainer = Violet300,
+    onSecondaryContainer = Violet950,
+
+    tertiary = Cyan600,
+    onTertiary = Color.White,
+    tertiaryContainer = Cyan300,
+    onTertiaryContainer = Cyan950,
+
+    background = Slate50,
+    onBackground = Slate900,
+
+    surface = Color.White,
+    onSurface = Slate900,
+    surfaceVariant = Slate100,
+    onSurfaceVariant = Slate600,
+
+    surfaceContainerLowest = Color.White,
+    surfaceContainerLow = Slate50,
+    surfaceContainer = Color(0xFFF1F5F9),
+    surfaceContainerHigh = Slate200,
+    surfaceContainerHighest = Slate300,
+
+    outline = Slate300,
+    outlineVariant = Slate200,
+
+    error = ErrorRed,
+    onError = Color.White,
+    errorContainer = Color(0xFFFEE2E2),
+    onErrorContainer = Color(0xFF7F1D1D),
 )

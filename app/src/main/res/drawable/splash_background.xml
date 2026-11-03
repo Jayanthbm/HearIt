@@ -1,18 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="360dp"
-    android:height="640dp"
-    android:viewportWidth="360"
-    android:viewportHeight="640">
-    <!-- Deep background matching the app's dark primaries -->
-    <path
-        android:fillColor="#0A1628"
-        android:pathData="M0,0h360v640h-360z" />
-    <!-- Decorative gradient block behind the icon -->
-    <path
-        android:fillColor="#0D2137"
-        android:pathData="M64,256h232v200h-232z" />
-    <path
-        android:fillColor="#103050"
-        android:pathData="M100,300h160v60h-160z" />
-</vector>
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <gradient
+        android:angle="270"
+        android:startColor="#0B132B"
+        android:centerColor="#091024"
+        android:endColor="#060A17"
+        android:type="linear" />
+</shape>

@@ -34,7 +34,7 @@
 
     <!-- Branded splash: transparent frame over the dark primary, so the themed splash
          drawable (drawn behind the icon and title) is the only thing the user sees. -->
-    <style name="Theme.Splash" parent="android:Theme.Material.Light.NoActionBar">
+    <style name="Theme.Splash" parent="android:Theme.Material.NoActionBar">
         <!-- The root-level <attr> declarations above define the attributes; the items below
              supply concrete values for the Splash theme so ?attr/ lookups resolve. -->
         <item name="colorOnBackground">@color/colorOnBackground</item>
@@ -44,6 +44,8 @@
         <item name="android:windowBackground">@drawable/splash_background</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
         <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
         <item name="android:windowFullscreen">true</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>

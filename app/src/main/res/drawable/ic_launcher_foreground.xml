@@ -4,16 +4,41 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Core "Hear" mark: a speech-bubble shape. Kept simple so the adaptive icon renders
-         reliably on API 29-37 and in monochrome. -->
+    <!-- HearIt Audio Lines: Adaptive Foreground Mark -->
     <path
-        android:fillColor="#44A5F7"
-        android:pathData="M6,82c0,0 12,-12 13,-22c2,-20 34,-78 34,-78L107,108c0,0 -4,14 -12,24c-8,10 -22,11 -22,11l-38,-38L22,108z" />
-    <!-- Speech bubbles (drop shadows clipped by the bubble). -->
+        android:pathData="M28,48.8v7.8"
+        android:strokeColor="#38BDF8"
+        android:strokeWidth="5.2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
     <path
-        android:fillColor="#73C8FC"
-        android:pathData="M72,52h-12v24c0,0 2,-6 6,-6c4,0 6,6 6,6l8,-21z" />
+        android:pathData="M38.4,38.4v28.6"
+        android:strokeColor="#2366C9"
+        android:strokeWidth="5.2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
     <path
-        android:fillColor="#A9DFF0"
-        android:pathData="M92,52h-6v24c0,0 2,-6 4,-6c2,0 4,6 4,6l3,-16z" />
+        android:pathData="M48.8,30.6v46.8"
+        android:strokeColor="#60A5FA"
+        android:strokeWidth="5.2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M59.2,43.6v18.2"
+        android:strokeColor="#2366C9"
+        android:strokeWidth="5.2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M69.6,35.8v33.8"
+        android:strokeColor="#818CF8"
+        android:strokeWidth="5.2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M80,48.8v7.8"
+        android:strokeColor="#38BDF8"
+        android:strokeWidth="5.2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
 </vector>
