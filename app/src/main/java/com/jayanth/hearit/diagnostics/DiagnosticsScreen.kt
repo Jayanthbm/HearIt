@@ -198,6 +198,7 @@ private fun ServiceDiagnosticsCard(state: DiagnosticsUiState) {
             // Running State
             DiagnosticRow(
                 label = "Daemon Status",
+                subtitle = "Foreground service lifecycle state",
                 statusText = if (service.isRunning) "RUNNING" else "STOPPED",
                 isOk = service.isRunning,
             )
@@ -207,6 +208,7 @@ private fun ServiceDiagnosticsCard(state: DiagnosticsUiState) {
             // Speech State
             DiagnosticRow(
                 label = "Speaking Activity",
+                subtitle = "Current audio playback state",
                 statusText = if (service.isSpeaking) "Reading out loud" else "Idle",
                 isOk = true,
             )
@@ -216,6 +218,7 @@ private fun ServiceDiagnosticsCard(state: DiagnosticsUiState) {
             // Queue Depth
             DiagnosticRow(
                 label = "Pending Queue Items",
+                subtitle = "Notifications buffered for announcement",
                 statusText = "${service.pendingCount} queued",
                 isOk = true,
             )
@@ -225,6 +228,7 @@ private fun ServiceDiagnosticsCard(state: DiagnosticsUiState) {
             // Priority Announce
             DiagnosticRow(
                 label = "Priority Announce Mode",
+                subtitle = "Screen and lock rule bypass state",
                 statusText = if (service.isPriorityAnnounceActive) "ACTIVE" else "INACTIVE",
                 isOk = true,
             )
@@ -284,6 +288,7 @@ private fun PermissionsDiagnosticsCard(
             // Post Notifications
             DiagnosticRow(
                 label = stringResource(R.string.diagnostics_post_notifications),
+                subtitle = stringResource(R.string.diagnostics_post_notifications_desc),
                 statusText = if (state.isPostNotificationGranted) {
                     stringResource(R.string.diagnostics_status_granted)
                 } else {
@@ -297,6 +302,7 @@ private fun PermissionsDiagnosticsCard(
             // Bluetooth
             DiagnosticRow(
                 label = stringResource(R.string.diagnostics_bluetooth_permission),
+                subtitle = stringResource(R.string.diagnostics_bluetooth_permission_desc),
                 statusText = if (!state.isBluetoothPermissionRequired || state.isBluetoothPermissionGranted) {
                     stringResource(R.string.diagnostics_status_granted)
                 } else {
@@ -347,8 +353,9 @@ private fun TtsDiagnosticsCard(state: DiagnosticsUiState) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             // Engine Ready
             DiagnosticRow(
-                label = "TTS Engine Ready",
-                statusText = if (state.isTtsAvailable) "Available" else "Initializing / Missing",
+                label = "TTS Engine Status",
+                subtitle = if (state.isTtsAvailable) "Android TextToSpeech engine initialized" else "Synthesizer initializing or unavailable",
+                statusText = if (state.isTtsAvailable) "Available" else "Initializing",
                 isOk = state.isTtsAvailable,
             )
 
@@ -356,7 +363,8 @@ private fun TtsDiagnosticsCard(state: DiagnosticsUiState) {
 
             // System Locale Supported
             DiagnosticRow(
-                label = "Default Locale (${state.defaultLocaleLanguage})",
+                label = "Default Language",
+                subtitle = state.defaultLocaleLanguage.ifBlank { "System default locale" },
                 statusText = if (state.isTtsLocaleSupported) "Supported" else "Missing Data",
                 isOk = state.isTtsLocaleSupported,
             )
@@ -366,9 +374,38 @@ private fun TtsDiagnosticsCard(state: DiagnosticsUiState) {
             // Voices Count
             DiagnosticRow(
                 label = "Installed Engine Voices",
+                subtitle = "Available voice synthesis models on device",
                 statusText = "${state.installedVoiceCount} voices",
                 isOk = state.installedVoiceCount > 0,
             )
+
+            if (state.isTtsAvailable && state.isTtsLocaleSupported) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.CheckCircle,
+                            contentDescription = null,
+                            tint = Color(0xFF10B981),
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Text(
+                            text = "Speech synthesis is ready for spoken announcements in ${state.defaultLocaleLanguage}.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -436,6 +473,7 @@ private fun StorageDiagnosticsCard(state: DiagnosticsUiState) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             DiagnosticRow(
                 label = "Enabled Apps for Reading",
+                subtitle = "Applications allowed to trigger speech",
                 statusText = "${state.enabledAppsCount} apps",
                 isOk = state.enabledAppsCount > 0,
             )
@@ -444,6 +482,7 @@ private fun StorageDiagnosticsCard(state: DiagnosticsUiState) {
 
             DiagnosticRow(
                 label = "Priority Announce Apps",
+                subtitle = "Configured apps that bypass lock rules",
                 statusText = "${state.priorityAppsCount} apps",
                 isOk = true,
             )
@@ -452,6 +491,7 @@ private fun StorageDiagnosticsCard(state: DiagnosticsUiState) {
 
             DiagnosticRow(
                 label = "Logged History Entries",
+                subtitle = "Persisted announcement records in database",
                 statusText = "${state.totalHistoryCount} entries",
                 isOk = true,
             )
@@ -464,18 +504,34 @@ private fun DiagnosticRow(
     label: String,
     statusText: String,
     isOk: Boolean,
+    subtitle: String? = null,
+    modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(end = 12.dp),
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            if (!subtitle.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
         StatusBadge(text = statusText, isOk = isOk)
     }
 }
@@ -488,7 +544,7 @@ private fun StatusBadge(text: String, isOk: Boolean) {
         border = BorderStroke(1.dp, if (isOk) Color(0xFF10B981) else MaterialTheme.colorScheme.outlineVariant),
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
@@ -502,6 +558,8 @@ private fun StatusBadge(text: String, isOk: Boolean) {
                 text = text,
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                softWrap = false,
                 color = if (isOk) Color(0xFF34D399) else MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
