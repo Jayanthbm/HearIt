@@ -147,7 +147,7 @@ an app actually produces an announcement** (done — see L2 below), then a dedic
 ## L2 — Persisted settings wired into the announcement service
 
 - **Date:** 2026-11-03
-- **Commit:** `768cf23` — `feat(service): read persisted settings in the announcement pipeline (L2)`
+- **Commit:** `98227ed` — `feat(service): read persisted settings in the announcement pipeline (L2)`
 - **Branch:** `development`
 - **Scope:** Close the largest functional gap left by L1 — the service ran on a hard-coded
   placeholder, so enabling an app in the Applications screen never produced an announcement.
