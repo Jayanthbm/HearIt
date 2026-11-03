@@ -448,6 +448,8 @@ private fun DashboardHome(
         )
 
         val isRunning = state.service.isRunning
+        val muteActive = state.temporaryMuteActive && isRunning
+        val priorityEnabled = isRunning && !muteActive
 
         Row(
             modifier = Modifier
@@ -460,11 +462,11 @@ private fun DashboardHome(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
-                    .clickable(enabled = isRunning) { onPriorityAnnounceToggled(!state.priorityAnnounceActive) },
+                    .clickable(enabled = priorityEnabled) { onPriorityAnnounceToggled(!state.priorityAnnounceActive) },
                 shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = when {
-                        !isRunning -> MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.5f)
+                        !isRunning || muteActive -> MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.5f)
                         state.priorityAnnounceActive -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
                         else -> MaterialTheme.colorScheme.surfaceContainer
                     },
@@ -472,7 +474,7 @@ private fun DashboardHome(
                 border = androidx.compose.foundation.BorderStroke(
                     1.dp,
                     when {
-                        !isRunning -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                        !isRunning || muteActive -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
                         state.priorityAnnounceActive -> MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
                         else -> MaterialTheme.colorScheme.outlineVariant
                     },
@@ -493,7 +495,7 @@ private fun DashboardHome(
                             modifier = Modifier.size(34.dp),
                             shape = RoundedCornerShape(10.dp),
                             color = when {
-                                !isRunning -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                !isRunning || muteActive -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                                 state.priorityAnnounceActive -> MaterialTheme.colorScheme.primary
                                 else -> MaterialTheme.colorScheme.surfaceVariant
                             },
@@ -503,7 +505,7 @@ private fun DashboardHome(
                                     imageVector = Icons.Rounded.Star,
                                     contentDescription = null,
                                     tint = when {
-                                        !isRunning -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                                        !isRunning || muteActive -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
                                         state.priorityAnnounceActive -> MaterialTheme.colorScheme.onPrimary
                                         else -> MaterialTheme.colorScheme.onSurfaceVariant
                                     },
@@ -512,8 +514,8 @@ private fun DashboardHome(
                             }
                         }
                         Switch(
-                            checked = state.priorityAnnounceActive && isRunning,
-                            enabled = isRunning,
+                            checked = state.priorityAnnounceActive,
+                            enabled = priorityEnabled,
                             onCheckedChange = onPriorityAnnounceToggled,
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
@@ -528,7 +530,7 @@ private fun DashboardHome(
                             style = MaterialTheme.typography.titleSmall,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = if (isRunning) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                            color = if (priorityEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -536,11 +538,13 @@ private fun DashboardHome(
                         Text(
                             text = when {
                                 !isRunning -> "Requires service"
+                                muteActive && state.priorityAnnounceActive -> "Muted · Resumes on unmute"
+                                muteActive -> "Muted by timer"
                                 state.priorityAnnounceActive -> "Bypassing lock rules"
                                 else -> "Normal rules active"
                             },
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (isRunning) 1f else 0.5f),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (priorityEnabled) 1f else 0.5f),
                             fontSize = 11.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -550,7 +554,6 @@ private fun DashboardHome(
             }
 
             // Temporary Mute Card
-            val muteActive = state.temporaryMuteActive && isRunning
             Card(
                 modifier = Modifier
                     .weight(1f)
