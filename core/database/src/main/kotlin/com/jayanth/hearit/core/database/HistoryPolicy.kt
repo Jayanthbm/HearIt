@@ -105,6 +105,9 @@ object HistoryRetentionPolicy {
  * @property packageName Restrict to one app, or null for all apps.
  * @property status Restrict to one status, or null for all statuses.
  * @property appName Restrict to one app name, or null for all apps.
+ * @property searchText Free-text search across app name, sender and stored message text
+ *   (case-insensitive `LIKE`), or null for no text filter. Message text that was never
+ *   stored (`METADATA_ONLY`) cannot match, by design.
  * @property sender Filter by sender, or null for all senders.
  * @property dateFrom Start of date range (inclusive), null for no start.
  * @property dateTo End of date range (inclusive), null for no end.
@@ -116,6 +119,7 @@ data class HistoryQuery(
     val packageName: String? = null,
     val status: HistoryStatus? = null,
     val appName: String? = null,
+    val searchText: String? = null,
     val sender: String? = null,
     val dateFrom: Long? = null,
     val dateTo: Long? = null,
@@ -130,6 +134,9 @@ data class HistoryQuery(
         require(offset >= 0) { "HistoryQuery.offset must not be negative, was $offset" }
         if (packageName != null) {
             require(packageName.isNotBlank()) { "HistoryQuery.packageName must not be blank when set" }
+        }
+        if (searchText != null) {
+            require(searchText.isNotBlank()) { "HistoryQuery.searchText must not be blank when set" }
         }
     }
 

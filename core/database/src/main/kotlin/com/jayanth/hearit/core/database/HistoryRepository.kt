@@ -103,6 +103,7 @@ class RoomHistoryRepository(
             packageName = query.packageName,
             status = query.status?.let(HistoryEntryMapper::statusToName),
             appName = query.appName,
+            searchText = query.searchText,
             sender = query.sender,
             dateFrom = query.dateFrom,
             dateTo = query.dateTo,

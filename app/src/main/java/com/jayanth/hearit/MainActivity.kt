@@ -11,6 +11,7 @@ import com.jayanth.hearit.applications.ApplicationsViewModel
 import com.jayanth.hearit.applications.GlobalSettingsViewModel
 import com.jayanth.hearit.dashboard.DashboardRoute
 import com.jayanth.hearit.dashboard.DashboardViewModel
+import com.jayanth.hearit.history.HistoryViewModel
 import com.jayanth.hearit.setup.SetupRoute
 import com.jayanth.hearit.setup.SetupViewModel
 import com.jayanth.hearit.ui.theme.HearItTheme
@@ -35,6 +36,7 @@ class MainActivity : ComponentActivity() {
     private val dashboardViewModel: DashboardViewModel by viewModels()
     private val applicationsViewModel: ApplicationsViewModel by viewModels()
     private val globalSettingsViewModel: GlobalSettingsViewModel by viewModels()
+    private val historyViewModel: HistoryViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -47,6 +49,7 @@ class MainActivity : ComponentActivity() {
                         viewModel = dashboardViewModel,
                         applicationsViewModel = applicationsViewModel,
                         globalSettingsViewModel = globalSettingsViewModel,
+                        historyViewModel = historyViewModel,
                     )
                 } else {
                     SetupRoute(viewModel = setupViewModel)

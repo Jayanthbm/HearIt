@@ -45,6 +45,10 @@ interface HistoryDao {
      * `sortBy` is the enum **name** as a string: Room only accepts compile-time constants
      * in `@Query`, and binding an enum directly is not supported. Each of the three
      * `CASE` keys is NULL for the two unused modes, so exactly one ordering applies.
+     *
+     * `searchText` matches app name, sender or stored message text; SQLite's `LIKE` is
+     * case-insensitive for ASCII, and rows whose body was never stored simply cannot match
+     * on content (master prompt §12 storage modes).
      */
     @Query(
         "SELECT * FROM history_entries " +
@@ -52,6 +56,9 @@ interface HistoryDao {
             "AND (:status IS NULL OR status = :status) " +
             "AND (:appName IS NULL OR appName = :appName) " +
             "AND (:sender IS NULL OR sender = :sender) " +
+            "AND (:searchText IS NULL OR (appName LIKE '%' || :searchText || '%' " +
+            "OR sender LIKE '%' || :searchText || '%' " +
+            "OR messageText LIKE '%' || :searchText || '%')) " +
             "AND (:dateFrom IS NULL OR recordedAtMillis >= :dateFrom) " +
             "AND (:dateTo IS NULL OR recordedAtMillis <= :dateTo) " +
             "ORDER BY " +
@@ -64,6 +71,7 @@ interface HistoryDao {
         packageName: String?,
         status: String?,
         appName: String?,
+        searchText: String?,
         sender: String?,
         dateFrom: Long?,
         dateTo: Long?,

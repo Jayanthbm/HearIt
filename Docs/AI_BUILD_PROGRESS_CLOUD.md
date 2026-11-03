@@ -618,3 +618,20 @@ Full detail: `AI_BUILD_PROGRESS_LOCAL.md` → **L3**.
 - **Still open:** call-held release after a call, audio-focus application, `PENDING` status emission,
   **P14 Devices** (no implementation) and the **P18 History screen**.
 - **Device verification:** none.
+
+### Local completion log — L4 (2026-11-03)
+
+Full detail: `AI_BUILD_PROGRESS_LOCAL.md` → **L4**.
+
+- **Cloud item superseded:** the P12/P18 note that the History destination is a placeholder is now
+  resolved — the tab renders the real feature (search, status filter, sort, paging, delete/clear with
+  confirmation, global storage/retention settings).
+- **Storage-layer addition:** `HistoryQuery.searchText` plus a `LIKE` clause in `HistoryDao.page`
+  covering app name, sender and stored message text; no schema change or migration. The dashboard's
+  search uses the same field, so both surfaces now match content, not just the app name.
+- **Commands:** `./gradlew test assembleDebug lintDebug` — **PASSED**; 403 tests / 0 failures
+  (`:app` 77 → 85 with `HistoryQueryMapperTest`, `:core:database` 28 → 29), `app-debug.apk` built,
+  lint 0 errors / 58 warnings.
+- **Not verified:** the screen has never been rendered or interacted with (no emulator run); no
+  per-app or date-range filter in the UI; `METADATA_ONLY` rows cannot match content search.
+- **Still open:** **P14 Devices**, call-held release, audio-focus application, P19 screens.

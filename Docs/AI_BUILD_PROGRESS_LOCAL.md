@@ -319,7 +319,103 @@ Not performed.
 
 ### Next phase (proposed)
 
-**L4 — the dedicated History screen (P18)**: filter by app/status, search, lazy paging, clear single
-and clear all with confirmation, storage-mode/retention settings — the phase that makes the newly
-written history actually browsable. After that, **P14 Devices**.
+**L4 — the dedicated History screen (P18)** (done — see L4 below), then **P14 Devices**.
+
+---
+
+## L4 — Dedicated History screen (P18)
+
+- **Date:** 2026-11-03
+- **Commit:** recorded in the follow-up `docs(progress)` commit
+- **Branch:** `development`
+- **Scope:** The History tab still showed the `DestinationPlaceholder`; only the dashboard's five-row
+  summary could read the rows L3 started writing. This phase builds the real screen: search, status
+  filter, sort, paged loading, per-entry delete, clear-all with confirmation, and the global history
+  settings. Content/sender search needed a storage-layer addition, so `HistoryQuery` gained
+  `searchText`.
+- **Working tree at start:** clean apart from the untracked IDE file, left untouched again.
+
+### What changed
+
+**`:core:database` (search support)**
+
+- `HistoryQuery.searchText` (validated: non-blank when set) documented as a case-insensitive
+  `LIKE` over app name, sender and stored message text — so `METADATA_ONLY` rows cannot match on
+  content, by design.
+- `HistoryDao.page` gained the matching `AND (:searchText IS NULL OR (... LIKE ...))` clause;
+  `RoomHistoryRepository` passes it through. No schema change, no migration.
+- `HistoryPolicyTest.query_blankSearchText_isRejected` added.
+
+**`:app` — new `history` package**
+
+- `HistoryModels.kt` — `HistoryFilter`, `HistorySortOrder`, `HistoryItem`, `HistorySettingsState`
+  and `HistoryUiState` (with `isFiltered` so empty-state copy can differ).
+- `HistoryQueryMapper.kt` (pure) — filter → `HistoryQuery` (trimmed search, status, sort, page size
+  50, offset) and `HistoryEntry` → `HistoryItem`. JVM-tested, so the screen and ViewModel never
+  build a query or SQL by hand.
+- `HistoryViewModel.kt` — Hilt VM: pages through `HistoryRepository` (never the whole table), resets
+  and **cancels the in-flight read** on a filter change so results can never mix filters, appends
+  pages via load-more, deletes one entry or all of them, and writes storage mode / update handling /
+  retention through `SettingsRepository`. Failures surface as `unavailable`; cancellation is
+  rethrown so a superseded read cannot mark history broken.
+- `HistoryScreen.kt` — `HistoryRoute` (refreshes on `ON_RESUME` because the service keeps writing)
+  and a stateless `HistoryScreen`: search field with an honest note about what can match, status and
+  sort pickers as accessible single-choice dialogs, global history settings rows, a `LazyColumn` of
+  rows (app · status, reason, sender, stored message text, relative time, update marker, delete),
+  load-more / end-of-history footer, and confirmation dialogs for both delete paths. Every target is
+  ≥48 dp, every string is a resource, and the per-row delete carries a content description naming
+  the app.
+- `HistoryLabels.kt` — exhaustive status and skip-reason label mapping (adding a reason to the domain
+  cannot silently fall back to a generic label).
+- Wiring: `DashboardDestination.HISTORY` now renders the feature instead of the placeholder;
+  `DashboardRoute`/`MainActivity` take a `HistoryViewModel`.
+- `DashboardViewModel` search now uses `searchText`, so the dashboard matches sender/content too
+  instead of app name only (its stale “empty on a fresh install” comment was corrected).
+- 52 new string resources (screen copy plus one label per skip reason).
+
+**Tests**
+
+- `HistoryQueryMapperTest` (new, 8 tests): blank search sends no filter, trimming, status/offset
+  pass-through, page size, all three sort orders, full field mapping, metadata-only rows keep no
+  content, order preserved.
+
+### Commands actually run (exact)
+
+| Command | Result |
+|---|---|
+| `./gradlew :app:testDebugUnitTest --tests "com.jayanth.hearit.history.*" :core:database:test` | **PASSED** (Hilt graph compiles with the new ViewModel) |
+| `./gradlew test assembleDebug lintDebug --console=plain` | **PASSED** — 403 tests, 0 failures, 0 skipped; `app-debug.apk`; lint **0 errors, 58 warnings** |
+
+Per-module totals: `:core:rules` 88, `:app` **85** (77 + 8), `:core:queue` 46, `:core:datastore` 32,
+`:core:setup` 32, `:core:tts` 32, `:core:notifications` 30, `:core:common` 29,
+`:core:database` **29** (28 + 1).
+
+### Emulator verification
+
+**Not performed.** The History screen has never been rendered or interacted with; TalkBack order,
+scroll behaviour for long lists and the dialogs are compile-verified only.
+
+### Physical-device verification
+
+**Not tested.**
+
+### Known limitations / risks
+
+- **Search matches only what was stored.** With `METADATA_ONLY` (global or per app) the body was
+  never written, so content search cannot find those rows; `LIKE` is case-insensitive for ASCII only
+  (SQLite behaviour), and there is no FTS index yet.
+- **No per-app filter in the UI.** The repository supports `packageName`/`sender`/date-range filters
+  and `HistoryQuery` carries them, but this screen exposes status + free text + sort; a per-app and
+  date-range picker remains future work.
+- **Storage-mode changes do not rewrite existing rows** — only new notifications are affected.
+  Retention is global-only by design (`HistorySettings.retentionDays`), and the sweep runs from the
+  service, so a device that never runs the service never prunes.
+- No biometric lock / secure-screen handling for history (P19 scope), and the dashboard still keeps
+  its own five-row summary with app-outcome-time only.
+- **P14 Devices** still has no implementation; audio focus and call-held release remain unwired.
+
+### Next phase (proposed)
+
+**L5 — the Devices feature (P14)**: output selection with persistence and previously-connected
+history, replacing the last placeholder tab. Then call-held release + audio focus.
 

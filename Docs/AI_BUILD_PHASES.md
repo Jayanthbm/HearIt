@@ -169,10 +169,11 @@ Status legend: `Not started` · `In progress (cloud, not locally verified)` · `
 | P15 Global Rules, Voice & Speech settings | Repaired (screen was non-compiling) and locally verified to compile |
 | P16 Reading controls and temporary mute | Locally verified to compile; pause = stop + re-speak (no native TTS pause) |
 | P17 Priority Announce mode | Locally verified to compile; rule precedence unit-tested |
-| P18 History feature UI | **Partial — dashboard search/clear only; no dedicated History screen** |
+| P18 History feature UI | Implemented in L4 — search, status filter, sort, paging, delete/clear with confirmation, storage/retention settings; UI not interaction-tested, no per-app/date filter |
 | P19 Backup & Restore, Diagnostics, logging | **Partial — export/import repository methods only; the two screens were non-compiling and were removed** |
 | P19b Quick Settings tile | Repaired against the real `TileService`/`Tile` API and locally verified to compile |
 | P20 Release hardening | Not started (blocked by the P14/P18/P19 gaps) |
 | L1 Build/test verification of P00–P19b | Complete — `379` unit tests pass, debug APK builds, lint 0 errors (`2026-11-03`, `03edf18`) |
 | L2 Persisted settings wired into the service (`SettingsSource` → `SettingsRepository`) | Complete — `387` unit tests pass, debug APK builds, lint 0 errors (`2026-11-03`); history recording, call-hold release and audio focus remain unwired |
 | L3 History recorded from the announcement pipeline | Complete — `394` unit tests pass, debug APK builds, lint 0 errors (`2026-11-03`); call-hold release, audio focus, P14 and the P18 History screen remain open |
+| L4 Dedicated History screen (P18) | Complete — `403` unit tests pass, debug APK builds, lint 0 errors (`2026-11-03`); UI not interaction-tested, no per-app/date filter, P14 remains missing |

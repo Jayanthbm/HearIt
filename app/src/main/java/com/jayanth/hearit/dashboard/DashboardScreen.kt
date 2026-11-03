@@ -56,6 +56,8 @@ import com.jayanth.hearit.applications.ApplicationsViewModel
 import com.jayanth.hearit.applications.GlobalSettingsRoute
 import com.jayanth.hearit.applications.GlobalSettingsViewModel
 import com.jayanth.hearit.core.common.model.AudioOutputSettings
+import com.jayanth.hearit.history.HistoryRoute
+import com.jayanth.hearit.history.HistoryViewModel
 import com.jayanth.hearit.core.common.model.HistoryStatus
 import com.jayanth.hearit.setup.TestAnnouncementState
 
@@ -76,6 +78,7 @@ fun DashboardRoute(
     viewModel: DashboardViewModel,
     applicationsViewModel: ApplicationsViewModel,
     globalSettingsViewModel: GlobalSettingsViewModel,
+    historyViewModel: HistoryViewModel,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.state.collectAsState()
@@ -115,6 +118,7 @@ fun DashboardRoute(
         onHistoryClearAll = viewModel::onHistoryClearAll,
         appsContent = { ApplicationsRoute(viewModel = applicationsViewModel) },
         globalRulesContent = { GlobalSettingsRoute(viewModel = globalSettingsViewModel) },
+        historyContent = { HistoryRoute(viewModel = historyViewModel) },
         modifier = modifier,
     )
 }
@@ -142,6 +146,7 @@ fun DashboardScreen(
     onHistoryClearAll: () -> Unit,
     appsContent: @Composable () -> Unit,
     globalRulesContent: @Composable () -> Unit,
+    historyContent: @Composable () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Scaffold(
@@ -180,6 +185,8 @@ fun DashboardScreen(
                     )
 
                     destination == DashboardDestination.APPS -> appsContent()
+
+                    destination == DashboardDestination.HISTORY -> historyContent()
 
                     destination == DashboardDestination.GLOBAL_RULES -> globalRulesContent()
 

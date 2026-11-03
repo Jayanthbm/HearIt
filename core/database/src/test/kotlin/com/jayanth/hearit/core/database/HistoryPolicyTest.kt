@@ -249,4 +249,9 @@ class HistoryPolicyTest {
     fun query_blankPackageName_isRejected() {
         assertThrows(IllegalArgumentException::class.java) { HistoryQuery(packageName = " ") }
     }
+
+    @Test
+    fun query_blankSearchText_isRejected() {
+        assertThrows(IllegalArgumentException::class.java) { HistoryQuery(searchText = "  ") }
+    }
 }

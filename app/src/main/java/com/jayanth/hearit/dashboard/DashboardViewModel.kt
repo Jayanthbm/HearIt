@@ -175,10 +175,10 @@ class DashboardViewModel @Inject constructor(
     /**
      * Loads the newest history rows for the dashboard summary.
      *
-     * History recording is not wired into the pipeline yet, so this is genuinely empty on
-     * a fresh install — the empty copy says that rather than pretending. A read failure is
-     * surfaced as [DashboardUiState.historyUnavailable] instead of being swallowed,
-     * because an unreadable database is something the user should see.
+     * The service records every pipeline outcome (L3), so this is empty only when nothing
+     * has been announced yet. A read failure is surfaced as
+     * [DashboardUiState.historyUnavailable] instead of being swallowed, because an
+     * unreadable database is something the user should see.
      */
     private fun loadRecentHistory() {
         viewModelScope.launch {
@@ -220,13 +220,14 @@ class DashboardViewModel @Inject constructor(
     /**
      * Maps the UI filter onto the database query.
      *
-     * The free-text query searches the app name only: content search needs its own Room
-     * index and is a P18 follow-up, so it is not faked here.
+     * The free-text query goes to `searchText`, which matches app name, sender or stored
+     * message text — the same field the History screen searches, so both surfaces agree.
      */
     private fun toQuery(filter: DashboardFilterState): HistoryQuery = HistoryQuery(
         packageName = filter.filterPackageName,
         status = filter.filterStatus,
-        appName = filter.filterAppName ?: filter.query.trim().takeIf { it.isNotEmpty() },
+        appName = filter.filterAppName,
+        searchText = filter.query.trim().takeIf { it.isNotEmpty() },
         sender = filter.filterSender,
         dateFrom = filter.filterDateFrom,
         dateTo = filter.filterDateTo,
