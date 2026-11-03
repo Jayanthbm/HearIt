@@ -34,6 +34,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.rounded.VolumeOff
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Backup
 import androidx.compose.material.icons.rounded.BugReport
@@ -54,7 +55,6 @@ import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material.icons.rounded.VolumeOff
 import androidx.compose.material.icons.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.AlertDialog
@@ -421,6 +421,7 @@ private fun DashboardHome(
     onSelectDestination: (DashboardDestination) -> Unit,
 ) {
     val testAnnouncementText = stringResource(R.string.dashboard_test_announcement_spoken)
+    var showMuteDurationDialog by rememberSaveable { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -510,10 +511,12 @@ private fun DashboardHome(
 
             // Temporary Mute Card
             Card(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { showMuteDurationDialog = true },
                 shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = if (state.temporaryMuteActive) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f) else MaterialTheme.colorScheme.surfaceContainer,
+                    containerColor = if (state.temporaryMuteActive) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f) else MaterialTheme.colorScheme.surfaceContainer,
                 ),
                 border = androidx.compose.foundation.BorderStroke(
                     1.dp,
@@ -521,19 +524,39 @@ private fun DashboardHome(
                 ),
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
-                    Surface(
-                        modifier = Modifier.size(34.dp),
-                        shape = RoundedCornerShape(10.dp),
-                        color = if (state.temporaryMuteActive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.surfaceVariant,
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Rounded.VolumeOff,
-                                contentDescription = null,
-                                tint = if (state.temporaryMuteActive) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(18.dp),
-                            )
+                        Surface(
+                            modifier = Modifier.size(34.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (state.temporaryMuteActive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.surfaceVariant,
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Rounded.VolumeOff,
+                                    contentDescription = null,
+                                    tint = if (state.temporaryMuteActive) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
                         }
+                        Switch(
+                            checked = state.temporaryMuteActive,
+                            onCheckedChange = { active ->
+                                if (active) {
+                                    onTemporaryMuteClicked(30)
+                                } else {
+                                    onTemporaryMuteCleared()
+                                }
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = MaterialTheme.colorScheme.onError,
+                                checkedTrackColor = MaterialTheme.colorScheme.error,
+                            ),
+                        )
                     }
                     Spacer(modifier = Modifier.height(10.dp))
                     Text(
@@ -542,21 +565,13 @@ private fun DashboardHome(
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    if (state.temporaryMuteActive) {
-                        TextButton(
-                            onClick = onTemporaryMuteCleared,
-                            modifier = Modifier.height(32.dp),
-                        ) {
-                            Text("Unmute now", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
-                        }
-                    } else {
-                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            MuteChip(label = "15m", onClick = { onTemporaryMuteClicked(15) })
-                            MuteChip(label = "30m", onClick = { onTemporaryMuteClicked(30) })
-                            MuteChip(label = "1h", onClick = { onTemporaryMuteClicked(60) })
-                        }
-                    }
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = if (state.temporaryMuteActive) "Announcements muted" else "Normal audio active",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (state.temporaryMuteActive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp,
+                    )
                 }
             }
         }
@@ -652,6 +667,81 @@ private fun DashboardHome(
         ToolsGroupCard(onSelectDestination = onSelectDestination)
 
         Spacer(modifier = Modifier.height(16.dp))
+    }
+
+    if (showMuteDurationDialog) {
+        AlertDialog(
+            onDismissRequest = { showMuteDurationDialog = false },
+            title = {
+                Text(
+                    text = "Temporary Mute",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Silence all speech announcements temporarily without disabling apps.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    val durations = listOf(15 to "15 minutes", 30 to "30 minutes", 60 to "1 hour")
+                    durations.forEach { (mins, label) ->
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onTemporaryMuteClicked(mins)
+                                    showMuteDurationDialog = false
+                                },
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
+                        }
+                    }
+                    if (state.temporaryMuteActive) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        TextButton(
+                            onClick = {
+                                onTemporaryMuteCleared()
+                                showMuteDurationDialog = false
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text("Unmute now", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showMuteDurationDialog = false }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            },
+            shape = RoundedCornerShape(20.dp),
+        )
     }
 }
 
@@ -814,23 +904,6 @@ private fun MetricChip(
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun MuteChip(label: String, onClick: () -> Unit) {
-    Surface(
-        modifier = Modifier.clickable { onClick() },
-        shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant,
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-        )
     }
 }
 
