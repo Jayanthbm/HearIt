@@ -16,8 +16,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -445,25 +447,43 @@ private fun DashboardHome(
             color = MaterialTheme.colorScheme.onBackground,
         )
 
+        val isRunning = state.service.isRunning
+
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Max),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             // Priority Announce Card
             Card(
                 modifier = Modifier
                     .weight(1f)
-                    .clickable { onPriorityAnnounceToggled(!state.priorityAnnounceActive) },
+                    .fillMaxHeight()
+                    .clickable(enabled = isRunning) { onPriorityAnnounceToggled(!state.priorityAnnounceActive) },
                 shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = if (state.priorityAnnounceActive) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f) else MaterialTheme.colorScheme.surfaceContainer,
+                    containerColor = when {
+                        !isRunning -> MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.5f)
+                        state.priorityAnnounceActive -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                        else -> MaterialTheme.colorScheme.surfaceContainer
+                    },
                 ),
                 border = androidx.compose.foundation.BorderStroke(
                     1.dp,
-                    if (state.priorityAnnounceActive) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant,
+                    when {
+                        !isRunning -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                        state.priorityAnnounceActive -> MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                        else -> MaterialTheme.colorScheme.outlineVariant
+                    },
                 ),
             ) {
-                Column(modifier = Modifier.padding(14.dp)) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 12.dp, vertical = 14.dp),
+                    verticalArrangement = Arrangement.SpaceBetween,
+                ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -472,19 +492,28 @@ private fun DashboardHome(
                         Surface(
                             modifier = Modifier.size(34.dp),
                             shape = RoundedCornerShape(10.dp),
-                            color = if (state.priorityAnnounceActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                            color = when {
+                                !isRunning -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                state.priorityAnnounceActive -> MaterialTheme.colorScheme.primary
+                                else -> MaterialTheme.colorScheme.surfaceVariant
+                            },
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
                                     imageVector = Icons.Rounded.Star,
                                     contentDescription = null,
-                                    tint = if (state.priorityAnnounceActive) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    tint = when {
+                                        !isRunning -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                                        state.priorityAnnounceActive -> MaterialTheme.colorScheme.onPrimary
+                                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
                                     modifier = Modifier.size(18.dp),
                                 )
                             }
                         }
                         Switch(
-                            checked = state.priorityAnnounceActive,
+                            checked = state.priorityAnnounceActive && isRunning,
+                            enabled = isRunning,
                             onCheckedChange = onPriorityAnnounceToggled,
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
@@ -492,38 +521,64 @@ private fun DashboardHome(
                             ),
                         )
                     }
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text(
-                        text = "Priority Announce",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = if (state.priorityAnnounceActive) "Bypassing lock rules" else "Normal rules active",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 11.sp,
-                    )
+                    Column {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(
+                            text = "Priority Announce",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (isRunning) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = when {
+                                !isRunning -> "Requires service"
+                                state.priorityAnnounceActive -> "Bypassing lock rules"
+                                else -> "Normal rules active"
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (isRunning) 1f else 0.5f),
+                            fontSize = 11.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
             }
 
             // Temporary Mute Card
+            val muteActive = state.temporaryMuteActive && isRunning
             Card(
                 modifier = Modifier
                     .weight(1f)
-                    .clickable { showMuteDurationDialog = true },
+                    .fillMaxHeight()
+                    .clickable(enabled = isRunning) { showMuteDurationDialog = true },
                 shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = if (state.temporaryMuteActive) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f) else MaterialTheme.colorScheme.surfaceContainer,
+                    containerColor = when {
+                        !isRunning -> MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.5f)
+                        muteActive -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f)
+                        else -> MaterialTheme.colorScheme.surfaceContainer
+                    },
                 ),
                 border = androidx.compose.foundation.BorderStroke(
                     1.dp,
-                    if (state.temporaryMuteActive) MaterialTheme.colorScheme.error.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant,
+                    when {
+                        !isRunning -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                        muteActive -> MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
+                        else -> MaterialTheme.colorScheme.outlineVariant
+                    },
                 ),
             ) {
-                Column(modifier = Modifier.padding(14.dp)) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 12.dp, vertical = 14.dp),
+                    verticalArrangement = Arrangement.SpaceBetween,
+                ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -532,19 +587,28 @@ private fun DashboardHome(
                         Surface(
                             modifier = Modifier.size(34.dp),
                             shape = RoundedCornerShape(10.dp),
-                            color = if (state.temporaryMuteActive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.surfaceVariant,
+                            color = when {
+                                !isRunning -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                muteActive -> MaterialTheme.colorScheme.error
+                                else -> MaterialTheme.colorScheme.surfaceVariant
+                            },
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Rounded.VolumeOff,
                                     contentDescription = null,
-                                    tint = if (state.temporaryMuteActive) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    tint = when {
+                                        !isRunning -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                                        muteActive -> MaterialTheme.colorScheme.onError
+                                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
                                     modifier = Modifier.size(18.dp),
                                 )
                             }
                         }
                         Switch(
-                            checked = state.temporaryMuteActive,
+                            checked = muteActive,
+                            enabled = isRunning,
                             onCheckedChange = { active ->
                                 if (active) {
                                     onTemporaryMuteClicked(30)
@@ -558,20 +622,35 @@ private fun DashboardHome(
                             ),
                         )
                     }
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text(
-                        text = "Temporary Mute",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = if (state.temporaryMuteActive) "Announcements muted" else "Normal audio active",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (state.temporaryMuteActive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 11.sp,
-                    )
+                    Column {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(
+                            text = "Temporary Mute",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (isRunning) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = when {
+                                !isRunning -> "Requires service"
+                                muteActive -> "Announcements muted"
+                                else -> "Normal audio active"
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = when {
+                                !isRunning -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                muteActive -> MaterialTheme.colorScheme.error
+                                else -> MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                            fontSize = 11.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
             }
         }
