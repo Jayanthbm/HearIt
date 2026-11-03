@@ -601,3 +601,20 @@ Full detail: `AI_BUILD_PROGRESS_LOCAL.md` → **L2**.
   call-held items after a call, audio-focus policy application in the player, output *selection*
   (P14 has no implementation), and the P18/P19 backup & diagnostics screens.
 - **Device verification:** none; unchanged from L1.
+
+### Local completion log — L3 (2026-11-03)
+
+Full detail: `AI_BUILD_PROGRESS_LOCAL.md` → **L3**.
+
+- **Cloud items superseded:** the P10 note that `HistoryRepository` exists but nothing writes to it,
+  and the P12 dashboard note that the recent-history section is necessarily empty, are both resolved:
+  every pipeline outcome (skip, queued, announced, interrupted, expired, overflow, deduplicated) is
+  now persisted through `HistoryRepository`.
+- **Correctness fixes found while wiring:** completion was previously reported as `ANNOUNCED` for any
+  end of speech, including stops, skips, engine errors and groups retired with every section empty;
+  those now record `INTERRUPTED` / `SKIPPED` instead.
+- **Commands:** `./gradlew test assembleDebug lintDebug` — **PASSED**; 394 tests / 0 failures (`:app`
+  70 → 77 with `AnnouncementPipelineHistoryTest`), `app-debug.apk` built, lint 0 errors / 57 warnings.
+- **Still open:** call-held release after a call, audio-focus application, `PENDING` status emission,
+  **P14 Devices** (no implementation) and the **P18 History screen**.
+- **Device verification:** none.

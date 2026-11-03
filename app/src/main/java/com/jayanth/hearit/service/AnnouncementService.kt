@@ -12,6 +12,7 @@ import android.os.Looper
 import android.os.SystemClock
 import com.jayanth.hearit.core.common.model.NotificationSnapshot
 import com.jayanth.hearit.core.common.time.Clock
+import com.jayanth.hearit.core.database.HistoryRepository
 import com.jayanth.hearit.core.datastore.HearItSettings
 import com.jayanth.hearit.core.notifications.NotificationRelay
 import com.jayanth.hearit.core.notifications.NotificationSink
@@ -28,6 +29,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 
 /**
@@ -67,6 +69,10 @@ class AnnouncementService : Service(), NotificationSink {
     @Inject
     lateinit var settingsSource: SettingsSource
 
+    /** History storage (L3); written from a single consumer coroutine, never the main thread. */
+    @Inject
+    lateinit var history: HistoryRepository
+
     private lateinit var sessionStore: SessionStore
     private lateinit var stateReader: RuntimeStateReader
     private lateinit var queue: AnnouncementQueue
@@ -74,6 +80,13 @@ class AnnouncementService : Service(), NotificationSink {
 
     /** Collects the settings flow only while the service is alive. */
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
+    /**
+     * Ordered hand-off from the pipeline's synchronous loop to the history consumer.
+     * Unlimited so the main thread never waits, single-consumer so rows land in pipeline
+     * order (update handling compares against the previous row for the same key).
+     */
+    private val historyQueue = Channel<AnnouncementPipeline.HistoryRecord>(Channel.UNLIMITED)
 
     /** Snapshot the queue was last configured with (identity compare, no deep equality). */
     private var appliedSettings: HearItSettings? = null
@@ -114,13 +127,30 @@ class AnnouncementService : Service(), NotificationSink {
                 audioManager.ringerMode == AudioManager.RINGER_MODE_SILENT
             },
         )
-        pipeline = AnnouncementPipeline(queue)
+        pipeline = AnnouncementPipeline(
+            queue = queue,
+            onRecord = { record -> historyQueue.trySend(record) },
+        )
 
         // The pipeline is synchronous (main-thread tick loop) while DataStore is not: mirror
         // the persisted settings into the source's snapshot. Before the first emission every
         // app is disabled, so a slow read can only lose an announcement, never invent one.
         settingsSource.observe(serviceScope)
         applyQueueSettings()
+
+        // Every pipeline outcome becomes a history row (ADR-007): collection never depends on
+        // eligibility, and the storage mode/update handling come from the app's own settings.
+        serviceScope.launch {
+            for (record in historyQueue) {
+                history.record(
+                    snapshot = record.snapshot,
+                    settings = settingsSource.settings.historyFor(record.snapshot.packageName),
+                    status = record.status,
+                    reason = record.reason,
+                    priority = record.priority,
+                )
+            }
+        }
 
         AnnouncementNotification.ensureChannel(this)
         audioManager.registerAudioDeviceCallback(audioDeviceCallback, handler)
@@ -183,7 +213,7 @@ class AnnouncementService : Service(), NotificationSink {
             }
 
             ACTION_SKIP -> {
-                currentAction?.let { finishSpeech(it) }
+                currentAction?.let { finishSpeech(it, spoken = false) }
                 pipeline.tick(
                     state = currentState(),
                     settingsOf = { packageName -> settingsSource.forApp(packageName) },
@@ -275,6 +305,11 @@ class AnnouncementService : Service(), NotificationSink {
             settings = settingsSource.queueSettings(),
             appOverrides = settingsSource.queueOverrides(),
         )
+
+        // Retention follows the settings that produced the sweep, and runs off the main thread.
+        serviceScope.launch {
+            history.prune(snapshot.history, System.currentTimeMillis())
+        }
     }
 
     private fun speak(action: AnnouncementPipeline.Action.Speak) {
@@ -289,21 +324,28 @@ class AnnouncementService : Service(), NotificationSink {
                 }
 
                 override fun onError(announcement: BuiltAnnouncement, error: TtsError) {
-                    handler.post { finishSpeech(action) }
+                    // Stopped, replaced or failed: history records INTERRUPTED, not ANNOUNCED.
+                    handler.post { finishSpeech(action, spoken = false) }
                 }
             },
         )
         if (!accepted) {
             // Engine busy/unavailable: retire the selection so it is not stuck "speaking".
-            finishSpeech(action)
+            finishSpeech(action, spoken = false)
         }
         publishStatus()
     }
 
-    private fun finishSpeech(action: AnnouncementPipeline.Action.Speak) {
+    /**
+     * Ends the current utterance exactly once.
+     *
+     * @param spoken false when it was stopped, skipped, replaced or never started, so the
+     *   pipeline records `INTERRUPTED` instead of `ANNOUNCED`.
+     */
+    private fun finishSpeech(action: AnnouncementPipeline.Action.Speak, spoken: Boolean = true) {
         if (currentAction !== action) return
         currentAction = null
-        pipeline.onSpeechFinished()
+        pipeline.onSpeechFinished(spoken)
         startInForeground()
         publishStatus()
     }

@@ -23,6 +23,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 - `:core:common` and `:core:rules` Kotlin/JVM modules (P01): notification snapshot, eligibility settings with per-app inheritance, runtime state, skip reasons, and the deterministic announcement-eligibility pipeline covering the enabled-app list, temporary mute and screen/lock with the Priority Announce override. JVM unit tests written for all three rule families — not yet executed (cloud-agent restriction).
 
 ### Changed
+- History recording (phase L3): the announcement pipeline now reports every outcome to a history
+  sink, and `AnnouncementService` persists it through `HistoryRepository` (single ordered consumer,
+  app-specific storage mode and update handling, retention sweep after a settings change). Skips,
+  queued items, announced items, expiries, overflow discards and deduplicated updates all reach
+  history, so the dashboard's recent-history section and its search/clear actions now have data.
 - Settings wiring (phase L2): `AnnouncementService` now reads the persisted settings through a
   `SettingsRepository`-backed `SettingsSource` (a snapshot mirrored from the repository flow for the
   service's lifetime), so enabling an app in Applications actually reaches the eligibility rules.
@@ -34,12 +39,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 - Announcement history now records `ANNOUNCED` via the new `QueueEvent.Announced`, and the lock skip reason names the actual device state.
 
 ### Fixed
+- History no longer records `ANNOUNCED` for speech that never completed: a stop, skip, engine error
+  or rejected utterance is stored as `INTERRUPTED`, and a group retired because every announcement
+  section was empty is stored as `SKIPPED`.
 - `strings.xml` was invalid XML (literal `\n` escapes, `unicode_escape` encoding, raw `&`, seven duplicate string names); `AndroidManifest.xml` had an unclosed `meta-data` element and a non-existent Quick Settings permission.
 - Settings backup import now converts the exported JSON object back into the codec's string map instead of passing a `JSONObject` where a `Map<String, String>` was required.
 
 ### Notes
 - Cloud-agent changes are **Not locally verified** until the local agent builds and tests them.
-- **Local verification (2026-11-03):** `./gradlew test` 379 tests / 0 failures, `assembleDebug` succeeds, `lintDebug` 0 errors; after L2, `387` tests / 0 failures with the same build and lint result. Emulator and physical-device behaviour remain untested; P14 (Devices) has no implementation and P18/P19 are partial, and history recording, call-hold release and audio-focus handling are still unwired.
+- **Local verification (2026-11-03):** `./gradlew test` 379 tests / 0 failures, `assembleDebug` succeeds, `lintDebug` 0 errors; after L2 `387`, and after L3 `394` tests / 0 failures with the same build and lint result. Emulator and physical-device behaviour remain untested; P14 (Devices) has no implementation, P18/P19 are partial, and call-held release plus audio-focus handling are still unwired.
 
 ## [1.0.0] — not released
 

@@ -175,3 +175,4 @@ Status legend: `Not started` · `In progress (cloud, not locally verified)` · `
 | P20 Release hardening | Not started (blocked by the P14/P18/P19 gaps) |
 | L1 Build/test verification of P00–P19b | Complete — `379` unit tests pass, debug APK builds, lint 0 errors (`2026-11-03`, `03edf18`) |
 | L2 Persisted settings wired into the service (`SettingsSource` → `SettingsRepository`) | Complete — `387` unit tests pass, debug APK builds, lint 0 errors (`2026-11-03`); history recording, call-hold release and audio focus remain unwired |
+| L3 History recorded from the announcement pipeline | Complete — `394` unit tests pass, debug APK builds, lint 0 errors (`2026-11-03`); call-hold release, audio focus, P14 and the P18 History screen remain open |

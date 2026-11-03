@@ -22,9 +22,9 @@ import javax.inject.Singleton
  * [ServiceStatusMonitor] must be a process singleton: the service writes it and the
  * dashboard reads it, so two instances would silently disconnect the two.
  *
- * The history database is provided here for the first time; history recording itself is
- * still unwired (P18), so the dashboard reads an empty table on a fresh install and the
- * section says so.
+ * History is recorded by `AnnouncementService` from the pipeline's events (L3), so the
+ * dashboard and history feature read real rows; the dedicated History screen (P18) is still
+ * pending.
  */
 @Module
 @InstallIn(SingletonComponent::class)

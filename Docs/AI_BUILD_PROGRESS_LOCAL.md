@@ -235,7 +235,91 @@ behaviour still require a physical device per `MANUAL_TEST_CHECKLIST.md`.
 
 ### Next phase (proposed)
 
-**L3 — record history from the pipeline** (`QueueEvent` + eligibility outcomes → `HistoryRepository`,
-respecting storage mode/update handling), since it is the last seam that makes the shipped screens
-show real data; then the missing **P14 Devices** and **P18 History** screens.
+**L3 — record history from the pipeline** (done — see L3 below), then the missing **P14 Devices** and
+**P18 History** screens.
+
+---
+
+## L3 — History recorded from the announcement pipeline
+
+- **Date:** 2026-11-03
+- **Commit:** recorded in the follow-up `docs(progress)` commit
+- **Branch:** `development`
+- **Scope:** Close the second functional gap named in L2 — the pipeline produced `QueueEvent`s and
+  eligibility decisions that nothing persisted, so `HistoryRepository` (P10) was never written to and
+  the dashboard's recent-history section could only ever be empty.
+- **Working tree at start:** clean apart from the untracked IDE file, left untouched again.
+
+### What changed
+
+- **`app/.../service/AnnouncementPipeline.kt`.** New `HistoryRecord(snapshot, status, reason,
+  priority)` value and an `onRecord` sink (default no-op), called inline from the pipeline's existing
+  single-threaded loop. Recorded now:
+  - every `EligibilityDecision.Skip` — `SKIPPED` with the rule's reason (ADR-007: collection is
+    independent of eligibility);
+  - every queue event — `QUEUED` on accept/hold, `Replaced`, `Deduplicated`, `Expired`,
+    `OverflowDiscarded`, `Announced`;
+  - the sweep events `pollReady()`/`markStarted()` return, which were previously discarded;
+  - `onSpeechFinished(spoken)` now distinguishes completion from a stop/skip/failure: the queue
+    reports any completion as `ANNOUNCED`, so a non-spoken finish is overridden to `INTERRUPTED`;
+  - a group retired because every enabled section was empty is overridden from `ANNOUNCED` to
+    `SKIPPED` — it was never spoken.
+- **`app/.../service/AnnouncementService.kt`.** Injects `HistoryRepository`, hands pipeline records to
+  an `UNLIMITED` `Channel` drained by **one** consumer coroutine (rows land in pipeline order, which
+  update-handling depends on; the main thread never waits on Room), records with the app's own
+  `historyFor(packageName)` (storage mode / update handling), and runs the retention sweep
+  (`history.prune`) off the main thread whenever the settings snapshot changes. `finishSpeech` takes
+  `spoken`, and the engine's `onError`, `ACTION_SKIP` and a rejected `speak` all pass `false`.
+- **`app/.../di/DashboardModule.kt`.** Comment corrected: the database is now written, only the
+  dedicated History screen is still pending.
+- **`app/src/test/.../AnnouncementPipelineHistoryTest.kt` (new, 7 tests).** Skip reasons reach the
+  sink, accept records `QUEUED`, completion records `ANNOUNCED`, a stopped utterance records
+  `INTERRUPTED` (never `ANNOUNCED`), an empty-section group records `SKIPPED`, rules still decide the
+  reason, and priority is carried through.
+
+### Commands actually run (exact)
+
+| Command | Result |
+|---|---|
+| `./gradlew :app:testDebugUnitTest --tests "com.jayanth.hearit.service.*"` | **PASSED** (first attempt; no fixes needed after the L3 edits) |
+| `./gradlew test assembleDebug lintDebug --console=plain` | **PASSED** — 394 tests, 0 failures, 0 skipped; `app-debug.apk`; lint **0 errors, 57 warnings** |
+
+Per-module totals: `:core:rules` 88, `:app` **77** (70 + 7 new), `:core:queue` 46, `:core:datastore` 32,
+`:core:setup` 32, `:core:tts` 32, `:core:notifications` 30, `:core:common` 29, `:core:database` 28.
+
+### Behaviour now reachable (unit-level)
+
+With an app enabled and the service running, each notification now produces history rows with the
+right status and reason: skipped items keep their rule reason, queued items are visible before
+speech, completed announcements are `ANNOUNCED`, and stopped/skipped/failed speech is `INTERRUPTED`.
+The dashboard's recent-history section reads these rows.
+
+### Emulator verification
+
+Not performed.
+
+### Physical-device verification
+
+**Not tested.**
+
+### Known limitations / risks
+
+- **Recording only happens while the service runs.** The listener forwards snapshots through
+  `AnnouncementService`, so a stopped service records nothing — consistent with "nothing is collected
+  when HearIt is not running", but worth stating.
+- `HistoryStatus.PENDING` is still never emitted: the queue does not re-report items that merely keep
+  waiting after their accept event.
+- **Call-held items are still never released** (`releaseHeld` remains uncalled by the service), so
+  `queueDuringCall` items are recorded `QUEUED`/`CALL_ACTIVE` and then expire.
+- The retention sweep uses the global `HistorySettings`; per-app retention is not overridable by
+  design (`HistorySettings.retentionDays` is global-only), so this is correct rather than a gap.
+- **P18 History screen still does not exist** — only the dashboard's recent list and its search/clear
+  actions read the new rows. **P14 Devices** still has no implementation.
+- Audio-focus policy is still not applied by the player; output disconnection still only stops speech.
+
+### Next phase (proposed)
+
+**L4 — the dedicated History screen (P18)**: filter by app/status, search, lazy paging, clear single
+and clear all with confirmation, storage-mode/retention settings — the phase that makes the newly
+written history actually browsable. After that, **P14 Devices**.
 

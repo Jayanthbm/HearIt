@@ -1,9 +1,11 @@
 package com.jayanth.hearit.service
 
 import com.jayanth.hearit.core.common.model.AppPriority
+import com.jayanth.hearit.core.common.model.HistoryStatus
 import com.jayanth.hearit.core.common.model.NotificationSnapshot
 import com.jayanth.hearit.core.common.model.ResolvedSettings
 import com.jayanth.hearit.core.common.model.RuntimeState
+import com.jayanth.hearit.core.common.model.SkipReason
 import com.jayanth.hearit.core.queue.AnnouncementQueue
 import com.jayanth.hearit.core.queue.QueueEvent
 import com.jayanth.hearit.core.queue.ReadyAnnouncement
@@ -29,9 +31,10 @@ import com.jayanth.hearit.core.tts.BuiltAnnouncement
  *  3. [onSpeechFinished] marks the group completed so the minimum gap starts.
  *  4. [onStateChanged] re-evaluates the **speaking** group against fresh device state and
  *     returns `StopSpeech` the moment eligibility is lost or the device becomes silent
- *     (ADR-011, ADR-017).
- *  5. [releaseHeld] re-runs call-held items through the full pipeline once a call ends
- *     (ADR-004/ADR-006 — nothing is ever announced on the strength of its old decision).
+ *     (ADR-011, ADR-017). * 5. [releaseHeld] re-runs call-held items through the full pipeline once a call ends
+ *    (ADR-004/ADR-006 — nothing is ever announced on the strength of its old decision).
+ * 6. Every outcome is reported to [onRecord] as a [HistoryRecord], including skips, so
+ *    history collection stays independent of eligibility (ADR-007).
  *
  * Not thread-safe: driven from the service's single main-thread loop (architecture §5).
  */
@@ -39,6 +42,8 @@ class AnnouncementPipeline(
     private val queue: AnnouncementQueue,
     private val rules: EligibilityRules = EligibilityRules(),
     private val format: AnnouncementFormat = AnnouncementFormat(),
+    /** History sink; called inline, so implementations must not block (see ADR-007). */
+    private val onRecord: (HistoryRecord) -> Unit = {},
 ) {
 
     /** What the service should do next; the service owns the engine. */
@@ -72,6 +77,19 @@ class AnnouncementPipeline(
         val queueEvents: List<QueueEvent>,
     )
 
+    /**
+     * One history fact produced by the pipeline (master prompt §12, phase L3).
+     *
+     * Carries no history **settings**: storage mode, update handling and retention belong to
+     * the app that receives it, so the service resolves them per package.
+     */
+    data class HistoryRecord(
+        val snapshot: NotificationSnapshot,
+        val status: HistoryStatus,
+        val reason: SkipReason?,
+        val priority: AppPriority,
+    )
+
     private data class ActiveSpeech(
         val selection: ReadyAnnouncement,
         val settings: ResolvedSettings,
@@ -101,8 +119,13 @@ class AnnouncementPipeline(
         val events = when (decision) {
             EligibilityDecision.Announce -> queue.enqueue(snapshot, priority)
             is EligibilityDecision.Queue -> queue.hold(snapshot, priority, decision.reason)
-            is EligibilityDecision.Skip -> emptyList()
+            is EligibilityDecision.Skip -> {
+                // A skip is a history fact too, and keeps the reason it was skipped for.
+                onRecord(HistoryRecord(snapshot, HistoryStatus.SKIPPED, decision.reason, priority))
+                emptyList()
+            }
         }
+        events.forEach { event -> onRecord(event.toHistoryRecord(priority)) }
         return Processed(decision, events)
     }
 
@@ -142,12 +165,18 @@ class AnnouncementPipeline(
         if (active != null) return null
 
         repeat(MAX_RETIRE_STEPS) {
-            val selection = queue.pollReady().announcement ?: return null
+            val poll = queue.pollReady()
+            poll.events.forEach { event -> onRecord(event.toHistoryRecord()) }
+            val selection = poll.announcement ?: return null
             val built = AnnouncementTemplate.build(selection.items, announcementFormat)
             queue.markStarted(selection.id)
+                .forEach { event -> onRecord(event.toHistoryRecord(selection.priority)) }
             if (built.isEmpty) {
                 // Nothing speakable (every section disabled/empty): retire without speaking.
-                queue.markCompleted(selection.id)
+                // The queue reports that completion as ANNOUNCED, which would be a lie here.
+                queue.markCompleted(selection.id).forEach { event ->
+                    onRecord(event.toHistoryRecord(selection.priority, overrideStatus = HistoryStatus.SKIPPED))
+                }
                 return@repeat
             }
             active = ActiveSpeech(selection, settingsOf(selection.packageName))
@@ -156,11 +185,39 @@ class AnnouncementPipeline(
         return null
     }
 
-    /** The engine finished, failed or rejected the announcement: start the minimum gap. */
-    fun onSpeechFinished(): List<QueueEvent> {
+    /**
+     * The utterance ended: start the minimum gap and record the outcome.
+     *
+     * @param spoken true only when every section was actually spoken. A stop, a skip or an
+     *   engine error passes false, so history records `INTERRUPTED` instead of `ANNOUNCED`
+     *   for a group the queue considers completed.
+     */
+    fun onSpeechFinished(spoken: Boolean = true): List<QueueEvent> {
         val finished = active ?: return emptyList()
         active = null
-        return queue.markCompleted(finished.selection.id)
+        val events = queue.markCompleted(finished.selection.id)
+        val overrideStatus = if (spoken) null else HistoryStatus.INTERRUPTED
+        events.forEach { event ->
+            onRecord(event.toHistoryRecord(finished.selection.priority, overrideStatus))
+        }
+        return events
+    }
+
+    /**
+     * Maps one queue event to the history fact to store.
+     *
+     * @param priority priority of the group; queue events carry the snapshot only.
+     * @param overrideStatus Replaces the queue's `ANNOUNCED` when nothing was really spoken:
+     *   `SKIPPED` for a group retired with every section empty, `INTERRUPTED` for an
+     *   utterance that was stopped, skipped or failed.
+     */
+    private fun QueueEvent.toHistoryRecord(
+        priority: AppPriority = AppPriority.NORMAL,
+        overrideStatus: HistoryStatus? = null,
+    ): HistoryRecord = if (overrideStatus != null && this is QueueEvent.Announced) {
+        HistoryRecord(snapshot, overrideStatus, null, priority)
+    } else {
+        HistoryRecord(snapshot, historyStatus, reason, priority)
     }
 
     /**
