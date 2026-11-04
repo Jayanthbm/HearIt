@@ -70,6 +70,11 @@ class DashboardViewModel @Inject constructor(
                 _state.update { current -> current.copy(service = snapshot) }
             }
         }
+        viewModelScope.launch {
+            historyRepository.observeCount().collect { count ->
+                _state.update { current -> current.copy(totalAnnouncementsCount = count) }
+            }
+        }
         onRefresh()
     }
 

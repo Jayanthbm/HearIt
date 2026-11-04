@@ -64,6 +64,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -465,8 +468,8 @@ private fun DeviceStateCard(
     onLockConditionChanged: (LockCondition) -> Unit,
 ) {
     SectionCard(
-        title = stringResource(R.string.global_device_state_title),
-        subtitle = stringResource(R.string.global_device_state_desc),
+        title = "Device State",
+        subtitle = "Prerequisites for screen and lock states",
         icon = Icons.Rounded.PhoneAndroid,
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -568,8 +571,8 @@ private fun TextLengthCard(
     val bringIntoViewRequester = remember { BringIntoViewRequester() }
 
     SectionCard(
-        title = stringResource(R.string.global_text_length_title),
-        subtitle = stringResource(R.string.global_text_length_desc),
+        title = "Character Limits",
+        subtitle = "Skip messages exceeding character limit",
         icon = Icons.Rounded.Straighten,
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -607,7 +610,7 @@ private fun TextLengthCard(
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 
-            // 2. Character Length Threshold Presets (3 options: No limit, 100, 250)
+            // 2. Character Length Threshold Segmented Buttons (No limit, 100, 250)
             Column {
                 Text(
                     text = "Maximum character limit",
@@ -616,35 +619,21 @@ private fun TextLengthCard(
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                     val presets = listOf(
                         null to "No limit",
                         100 to "100",
                         250 to "250",
                     )
-                    for ((value, label) in presets) {
+                    presets.forEachIndexed { index, (value, label) ->
                         val isSelected = textLength.maxLengthChars == value
-                        FilterChip(
+                        SegmentedButton(
                             selected = isSelected,
                             onClick = { onTextLengthChanged(textLength.copy(maxLengthChars = value)) },
-                            label = {
-                                Text(
-                                    text = label,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                    maxLines = 1,
-                                )
-                            },
-                            shape = RoundedCornerShape(10.dp),
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                selectedLabelColor = MaterialTheme.colorScheme.primary,
-                            ),
-                            modifier = Modifier.weight(1f),
-                        )
+                            shape = SegmentedButtonDefaults.itemShape(index = index, count = 3),
+                        ) {
+                            Text(label, style = MaterialTheme.typography.labelSmall)
+                        }
                     }
                 }
             }
@@ -702,8 +691,8 @@ private fun KeywordFilterCard(
     val bringIntoViewRequester = remember { BringIntoViewRequester() }
 
     SectionCard(
-        title = stringResource(R.string.global_keywords_title),
-        subtitle = stringResource(R.string.global_keywords_desc),
+        title = "Filter keywords",
+        subtitle = "Silence notifications containing blocked terms",
         icon = Icons.Rounded.FilterList,
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -847,8 +836,8 @@ private fun PrivacyShieldCard(
     val bringIntoViewRequester = remember { BringIntoViewRequester() }
 
     SectionCard(
-        title = stringResource(R.string.global_privacy_title),
-        subtitle = stringResource(R.string.global_privacy_desc),
+        title = "Privacy Shields",
+        subtitle = "Redact sensitive content like OTPs and balances",
         icon = Icons.Rounded.Security,
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1014,8 +1003,8 @@ private fun AudioOutputsCard(
     onAudioOutputChanged: (Boolean?, Boolean?, Boolean?) -> Unit,
 ) {
     SectionCard(
-        title = stringResource(R.string.global_audio_title),
-        subtitle = stringResource(R.string.global_audio_desc),
+        title = "Audio Outputs",
+        subtitle = "Allowed playback channels for announcements",
         icon = Icons.Rounded.Cable,
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {

@@ -51,6 +51,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -90,6 +93,7 @@ fun VoiceSpeechRoute(
         state = state,
         onSpeechRateChanged = viewModel::onSpeechRateChanged,
         onPitchChanged = viewModel::onPitchChanged,
+        onVolumeChanged = viewModel::onVolumeChanged,
         onVoiceChanged = viewModel::onVoiceChanged,
         onIncludeAppNameChanged = viewModel::onIncludeAppNameChanged,
         onIncludeSenderChanged = viewModel::onIncludeSenderChanged,
@@ -110,6 +114,7 @@ fun VoiceSpeechScreen(
     state: VoiceSpeechUiState,
     onSpeechRateChanged: (Float) -> Unit,
     onPitchChanged: (Float) -> Unit,
+    onVolumeChanged: (Float) -> Unit,
     onVoiceChanged: (String?) -> Unit,
     onIncludeAppNameChanged: (Boolean) -> Unit,
     onIncludeSenderChanged: (Boolean) -> Unit,
@@ -141,6 +146,7 @@ fun VoiceSpeechScreen(
             state = state,
             onSpeechRateChanged = onSpeechRateChanged,
             onPitchChanged = onPitchChanged,
+            onVolumeChanged = onVolumeChanged,
             onOpenVoicePicker = { showVoiceDialog = true },
         )
 
@@ -439,14 +445,14 @@ private fun LivePreviewCard(
 }
 
 /**
- * Speech Tuning Card for Speed, Pitch, and Voice Engine.
+ * Speech Tuning Card for Speed, Pitch, Volume, and Voice Engine.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SpeechTuningCard(
     state: VoiceSpeechUiState,
     onSpeechRateChanged: (Float) -> Unit,
     onPitchChanged: (Float) -> Unit,
+    onVolumeChanged: (Float) -> Unit,
     onOpenVoicePicker: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -479,20 +485,20 @@ private fun SpeechTuningCard(
                 Spacer(modifier = Modifier.width(10.dp))
                 Column {
                     Text(
-                        text = stringResource(R.string.voice_speech_tuning_title),
+                        text = "Speech Tuning",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                     Text(
-                        text = "Customize rate, pitch and voice",
+                        text = "Speed, pitch, volume and voice engine",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
 
-            // Speed Slider
+            // Speed Slider & Segmented Buttons
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -540,31 +546,24 @@ private fun SpeechTuningCard(
                     .padding(vertical = 4.dp),
             )
 
-            // Speed Presets - Responsive FlowRow
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                val speedPresets = listOf(0.8f to "0.8×", 1.0f to "1.0× (Normal)", 1.2f to "1.2×", 1.5f to "1.5×")
-                for ((rate, label) in speedPresets) {
+            // Speed Presets - M3 Expressive Segmented Buttons
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                val speedPresets = listOf(0.8f to "0.8×", 1.0f to "1.0×", 1.2f to "1.2×", 1.5f to "1.5×")
+                speedPresets.forEachIndexed { index, (rate, label) ->
                     val isSelected = (state.speech.speechRate * 10).roundToInt() == (rate * 10).roundToInt()
-                    FilterChip(
+                    SegmentedButton(
                         selected = isSelected,
                         onClick = { onSpeechRateChanged(rate) },
-                        label = { Text(text = label, style = MaterialTheme.typography.labelSmall) },
-                        shape = RoundedCornerShape(8.dp),
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                        ),
-                    )
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = speedPresets.size),
+                    ) {
+                        Text(text = label, style = MaterialTheme.typography.labelSmall)
+                    }
                 }
             }
 
             Spacer(modifier = Modifier.height(18.dp))
 
-            // Pitch Slider
+            // Pitch Slider & Segmented Buttons
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -612,25 +611,82 @@ private fun SpeechTuningCard(
                     .padding(vertical = 4.dp),
             )
 
-            // Pitch Presets - Responsive FlowRow
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                val pitchPresets = listOf(0.8f to "0.8× (Deep)", 1.0f to "1.0× (Normal)", 1.2f to "1.2× (High)")
-                for ((pitch, label) in pitchPresets) {
+            // Pitch Presets - M3 Expressive Segmented Buttons
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                val pitchPresets = listOf(0.8f to "0.8×", 1.0f to "1.0×", 1.2f to "1.2×", 1.5f to "1.5×")
+                pitchPresets.forEachIndexed { index, (pitch, label) ->
                     val isSelected = (state.speech.pitch * 10).roundToInt() == (pitch * 10).roundToInt()
-                    FilterChip(
+                    SegmentedButton(
                         selected = isSelected,
                         onClick = { onPitchChanged(pitch) },
-                        label = { Text(text = label, style = MaterialTheme.typography.labelSmall) },
-                        shape = RoundedCornerShape(8.dp),
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                        ),
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = pitchPresets.size),
+                    ) {
+                        Text(text = label, style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(18.dp))
+
+            // Volume Level Slider & Segmented Buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.VolumeUp,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp),
                     )
+                    Text(
+                        text = "Announcement Volume",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                ) {
+                    Text(
+                        text = "${(state.speech.volumeLevel * 100).roundToInt()}%",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    )
+                }
+            }
+
+            Slider(
+                value = state.speech.volumeLevel,
+                onValueChange = { onVolumeChanged(((it * 20).roundToInt()) / 20f) },
+                valueRange = 0.0f..1.0f,
+                steps = 19,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+            )
+
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                val volPresets = listOf(0.5f to "50%", 0.8f to "80%", 1.0f to "100%")
+                volPresets.forEachIndexed { index, (vol, label) ->
+                    val isSelected = (state.speech.volumeLevel * 100).roundToInt() == (vol * 100).roundToInt()
+                    SegmentedButton(
+                        selected = isSelected,
+                        onClick = { onVolumeChanged(vol) },
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = volPresets.size),
+                    ) {
+                        Text(text = label, style = MaterialTheme.typography.labelSmall)
+                    }
                 }
             }
 
@@ -806,42 +862,35 @@ private fun AnnouncementStructureCard(
 
             // Pause between sections
             Text(
-                text = stringResource(R.string.voice_speech_pause_label),
+                text = "Pause Between Sections",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
-                text = stringResource(R.string.voice_speech_pause_desc),
+                text = "Silence inserted between announcement parts",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
             )
 
-            // Pause Options - Responsive FlowRow
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
+            // Pause Options - M3 Expressive Segmented Buttons
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                 val pauseOptions = listOf(
-                    0L to stringResource(R.string.voice_speech_pause_none),
-                    250L to stringResource(R.string.voice_speech_pause_short),
-                    500L to stringResource(R.string.voice_speech_pause_medium),
-                    1000L to stringResource(R.string.voice_speech_pause_long),
+                    0L to "None",
+                    250L to "250ms",
+                    500L to "500ms",
+                    1000L to "1s",
                 )
-                for ((millis, label) in pauseOptions) {
+                pauseOptions.forEachIndexed { index, (millis, label) ->
                     val isSelected = state.format.pauseBetweenSectionsMillis == millis
-                    FilterChip(
+                    SegmentedButton(
                         selected = isSelected,
                         onClick = { onPauseDurationChanged(millis) },
-                        label = { Text(text = label, style = MaterialTheme.typography.labelSmall) },
-                        shape = RoundedCornerShape(8.dp),
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                        ),
-                    )
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = pauseOptions.size),
+                    ) {
+                        Text(text = label, style = MaterialTheme.typography.labelSmall)
+                    }
                 }
             }
         }

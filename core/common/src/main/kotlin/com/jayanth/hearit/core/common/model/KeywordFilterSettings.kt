@@ -12,6 +12,9 @@ enum class KeywordMatchMode {
 
     /** The keyword may appear anywhere inside the text, including inside other words. */
     PHRASE,
+
+    /** The notification text must match the keyword exactly. */
+    EXACT,
 }
 
 /**

@@ -2,8 +2,9 @@ package com.jayanth.hearit.history
 
 import android.text.format.DateUtils
 import androidx.annotation.StringRes
-import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,20 +19,25 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.rounded.Sort
+import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Stop
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -45,6 +51,9 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -59,13 +68,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -77,6 +83,8 @@ import com.jayanth.hearit.R
 import com.jayanth.hearit.core.common.model.HistoryStatus
 import com.jayanth.hearit.core.common.model.HistoryStorageMode
 import com.jayanth.hearit.core.common.model.HistoryUpdateHandling
+import com.jayanth.hearit.core.common.model.KeywordMatchMode
+import com.jayanth.hearit.core.common.model.SkipReason
 
 /**
  * Entry point of the History feature (master prompt §12, phase P18).
@@ -104,6 +112,10 @@ fun HistoryRoute(viewModel: HistoryViewModel, modifier: Modifier = Modifier) {
         onQueryChanged = viewModel::onQueryChanged,
         onStatusChanged = viewModel::onStatusChanged,
         onSortChanged = viewModel::onSortChanged,
+        onAppFilterChanged = viewModel::onAppFilterChanged,
+        onPlayEntry = viewModel::onPlayEntry,
+        onStopPlaying = viewModel::onStopPlaying,
+        onAddFilter = viewModel::onAddFilter,
         onLoadMore = viewModel::onLoadMore,
         onDeleteEntry = viewModel::onDeleteEntry,
         onClearAll = viewModel::onClearAll,
@@ -115,7 +127,7 @@ fun HistoryRoute(viewModel: HistoryViewModel, modifier: Modifier = Modifier) {
 }
 
 /**
- * Modern Material 3 Browsable History Screen.
+ * Modern Material 3 Browsable History Screen with high density and quick filtering.
  */
 @Composable
 fun HistoryScreen(
@@ -123,6 +135,10 @@ fun HistoryScreen(
     onQueryChanged: (String) -> Unit,
     onStatusChanged: (HistoryStatus?) -> Unit,
     onSortChanged: (HistorySortOrder) -> Unit,
+    onAppFilterChanged: (String?, String?) -> Unit,
+    onPlayEntry: (HistoryItem) -> Unit,
+    onStopPlaying: () -> Unit,
+    onAddFilter: (String, KeywordMatchMode, String?) -> Unit,
     onLoadMore: () -> Unit,
     onDeleteEntry: (Long) -> Unit,
     onClearAll: () -> Unit,
@@ -134,6 +150,8 @@ fun HistoryScreen(
     var openDialog by rememberSaveable { mutableStateOf(DIALOG_NONE) }
     var pendingDelete by remember { mutableStateOf<HistoryItem?>(null) }
     var confirmingClearAll by rememberSaveable { mutableStateOf(false) }
+    var detailItem by remember { mutableStateOf<HistoryItem?>(null) }
+    var filterItem by remember { mutableStateOf<HistoryItem?>(null) }
 
     LazyColumn(
         modifier = modifier
@@ -145,15 +163,15 @@ fun HistoryScreen(
             Spacer(modifier = Modifier.height(4.dp))
         }
 
-        // Search Bar & Filter Chips
+        // Compact Search Bar & Horizontal Filter Chips
         item(key = "search_and_filters") {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = state.filter.query,
                     onValueChange = onQueryChanged,
                     placeholder = {
                         Text(
-                            text = "Search notification history…",
+                            text = "Search history…",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                         )
@@ -163,7 +181,7 @@ fun HistoryScreen(
                             imageVector = Icons.Rounded.Search,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(22.dp),
+                            modifier = Modifier.size(20.dp),
                         )
                     },
                     trailingIcon = {
@@ -173,7 +191,7 @@ fun HistoryScreen(
                                     imageVector = Icons.Rounded.Close,
                                     contentDescription = "Clear search",
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(20.dp),
+                                    modifier = Modifier.size(18.dp),
                                 )
                             }
                         }
@@ -188,15 +206,37 @@ fun HistoryScreen(
                         unfocusedIndicatorColor = Color.Transparent,
                         disabledIndicatorColor = Color.Transparent,
                     ),
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
                 )
 
-                // Filter & Sort Pills Row
+                // Filter & Sort Horizontal Scroll Row
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    // App filter pill
+                    FilterChip(
+                        selected = state.filter.selectedPackageName != null,
+                        onClick = { openDialog = DIALOG_APP },
+                        label = {
+                            Text(
+                                text = state.filter.selectedAppName ?: "All Apps",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(Icons.Rounded.Apps, contentDescription = null, modifier = Modifier.size(15.dp))
+                        },
+                        shape = RoundedCornerShape(topStart = 12.dp, topEnd = 6.dp, bottomEnd = 12.dp, bottomStart = 6.dp),
+                    )
+
+                    // Status pill
                     FilterChip(
                         selected = state.filter.status != null,
                         onClick = { openDialog = DIALOG_STATUS },
@@ -208,11 +248,12 @@ fun HistoryScreen(
                             )
                         },
                         leadingIcon = {
-                            Icon(Icons.Rounded.FilterList, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Rounded.FilterList, contentDescription = null, modifier = Modifier.size(15.dp))
                         },
                         shape = RoundedCornerShape(topStart = 12.dp, topEnd = 6.dp, bottomEnd = 12.dp, bottomStart = 6.dp),
                     )
 
+                    // Sort pill
                     FilterChip(
                         selected = state.filter.sort != HistorySortOrder.RecentFirst,
                         onClick = { openDialog = DIALOG_SORT },
@@ -224,12 +265,10 @@ fun HistoryScreen(
                             )
                         },
                         leadingIcon = {
-                            Icon(Icons.AutoMirrored.Rounded.Sort, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Icon(Icons.AutoMirrored.Rounded.Sort, contentDescription = null, modifier = Modifier.size(15.dp))
                         },
                         shape = RoundedCornerShape(topStart = 12.dp, topEnd = 6.dp, bottomEnd = 12.dp, bottomStart = 6.dp),
                     )
-
-                    Spacer(modifier = Modifier.weight(1f))
 
                     if (state.items.isNotEmpty()) {
                         Surface(
@@ -238,13 +277,13 @@ fun HistoryScreen(
                         ) {
                             IconButton(
                                 onClick = { confirmingClearAll = true },
-                                modifier = Modifier.size(36.dp),
+                                modifier = Modifier.size(32.dp),
                             ) {
                                 Icon(
                                     imageVector = Icons.Rounded.DeleteOutline,
                                     contentDescription = stringResource(R.string.history_clear_all_button),
                                     tint = MaterialTheme.colorScheme.error,
-                                    modifier = Modifier.size(20.dp),
+                                    modifier = Modifier.size(18.dp),
                                 )
                             }
                         }
@@ -263,7 +302,7 @@ fun HistoryScreen(
             )
         }
 
-        // Section Title: History Timeline
+        // Section Title: Notification Feed
         item(key = "timeline_header") {
             Text(
                 text = "Notification Feed",
@@ -295,6 +334,9 @@ fun HistoryScreen(
             else -> items(items = state.items, key = { item -> item.id }) { item ->
                 ModernHistoryCard(
                     item = item,
+                    isPlaying = state.playingItemId == item.id,
+                    onPlay = { onPlayEntry(item) },
+                    onCardClick = { detailItem = item },
                     onDelete = { pendingDelete = item },
                 )
             }
@@ -326,6 +368,23 @@ fun HistoryScreen(
             }
             Spacer(modifier = Modifier.height(16.dp))
         }
+    }
+
+    // App Picker Dialog
+    if (openDialog == DIALOG_APP) {
+        val appOptions: List<Pair<String?, String>> = listOf<Pair<String?, String>>(null to "All Apps") + state.availableApps
+        val currentApp: Pair<String?, String> = state.filter.selectedPackageName to (state.filter.selectedAppName ?: "All Apps")
+        ChoiceDialog<Pair<String?, String>>(
+            title = "Filter by App",
+            options = appOptions,
+            selected = currentApp,
+            label = { pair -> pair.second },
+            onSelect = { selected ->
+                openDialog = DIALOG_NONE
+                onAppFilterChanged(selected.first, if (selected.first == null) null else selected.second)
+            },
+            onDismiss = { openDialog = DIALOG_NONE },
+        )
     }
 
     // Dialogs
@@ -360,10 +419,15 @@ fun HistoryScreen(
         )
 
         DIALOG_UPDATES -> ChoiceDialog(
-            title = stringResource(R.string.history_updates_label),
+            title = "Update Handling",
             options = HistoryUpdateHandling.entries,
             selected = state.settings.updateHandling,
-            label = { handling -> stringResource(updateHandlingLabelRes(handling)) },
+            label = { handling ->
+                when (handling) {
+                    HistoryUpdateHandling.UPDATE_ENTRY -> "Update existing entry"
+                    HistoryUpdateHandling.NEW_ENTRY -> "Update / Separate entries"
+                }
+            },
             onSelect = { handling -> openDialog = DIALOG_NONE; onUpdateHandlingChanged(handling) },
             onDismiss = { openDialog = DIALOG_NONE },
         )
@@ -378,6 +442,36 @@ fun HistoryScreen(
             },
             onSelect = { days -> openDialog = DIALOG_NONE; onRetentionChanged(days) },
             onDismiss = { openDialog = DIALOG_NONE },
+        )
+    }
+
+    // Details Dialog Popup
+    detailItem?.let { item ->
+        HistoryDetailDialog(
+            item = item,
+            isPlaying = state.playingItemId == item.id,
+            onPlay = { onPlayEntry(item) },
+            onFilterThis = {
+                detailItem = null
+                filterItem = item
+            },
+            onDelete = {
+                detailItem = null
+                pendingDelete = item
+            },
+            onDismiss = { detailItem = null },
+        )
+    }
+
+    // Filter This Dialog
+    filterItem?.let { item ->
+        FilterThisDialog(
+            item = item,
+            onAddFilter = { keyword, mode, targetPkg ->
+                onAddFilter(keyword, mode, targetPkg)
+                filterItem = null
+            },
+            onDismiss = { filterItem = null },
         )
     }
 
@@ -432,6 +526,9 @@ fun HistoryScreen(
 @Composable
 private fun ModernHistoryCard(
     item: HistoryItem,
+    isPlaying: Boolean,
+    onPlay: () -> Unit,
+    onCardClick: () -> Unit,
     onDelete: () -> Unit,
 ) {
     val relativeTime = remember(item.recordedAtMillis) {
@@ -443,13 +540,15 @@ private fun ModernHistoryCard(
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onCardClick),
         shape = RoundedCornerShape(topStart = 18.dp, topEnd = 8.dp, bottomEnd = 18.dp, bottomStart = 8.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
-            // App Name + Status + Delete Row
+            // App Name + Status + Play/Delete Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -484,8 +583,21 @@ private fun ModernHistoryCard(
                     )
                 }
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     HistoryStatusPill(status = item.status)
+
+                    IconButton(
+                        onClick = onPlay,
+                        modifier = Modifier.size(32.dp),
+                    ) {
+                        Icon(
+                            imageVector = if (isPlaying) Icons.Rounded.Stop else Icons.Rounded.PlayArrow,
+                            contentDescription = if (isPlaying) "Stop" else "Listen",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+
                     IconButton(
                         onClick = onDelete,
                         modifier = Modifier.size(32.dp),
@@ -528,7 +640,7 @@ private fun ModernHistoryCard(
                 )
             }
 
-            // Message text
+            // Message text (Truncated to 2 lines with ...)
             if (item.messageText != null) {
                 Spacer(modifier = Modifier.height(3.dp))
                 Text(
@@ -536,6 +648,8 @@ private fun ModernHistoryCard(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     lineHeight = 18.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
 
@@ -560,7 +674,7 @@ private fun ModernHistoryCard(
                         color = MaterialTheme.colorScheme.secondaryContainer,
                     ) {
                         Text(
-                            text = "Updated",
+                            text = "Update / Separate",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSecondaryContainer,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
@@ -571,6 +685,311 @@ private fun ModernHistoryCard(
             }
         }
     }
+}
+
+/**
+ * Full Notification Detail Popup on Card Click.
+ */
+@Composable
+private fun HistoryDetailDialog(
+    item: HistoryItem,
+    isPlaying: Boolean,
+    onPlay: () -> Unit,
+    onFilterThis: () -> Unit,
+    onDelete: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val relativeTime = remember(item.recordedAtMillis) {
+        DateUtils.getRelativeTimeSpanString(
+            item.recordedAtMillis,
+            System.currentTimeMillis(),
+            DateUtils.MINUTE_IN_MILLIS,
+        ).toString()
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = item.appName,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = relativeTime,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                HistoryStatusPill(status = item.status)
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (item.sender != null) {
+                    Column {
+                        Text(
+                            text = "Sender",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            text = item.sender,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
+
+                Column {
+                    Text(
+                        text = "Notification Content",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    SelectionContainer {
+                        Text(
+                            text = item.messageText ?: "(No content stored)",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+                }
+
+                if (item.reason != null) {
+                    Text(
+                        text = "Skip Reason: ${skipReasonLabel(item.reason)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+                // Actions: Play and Filter This
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    OutlinedButton(
+                        onClick = onPlay,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                    ) {
+                        Icon(
+                            imageVector = if (isPlaying) Icons.Rounded.Stop else Icons.Rounded.PlayArrow,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(if (isPlaying) "Stop" else "Listen", maxLines = 1)
+                    }
+
+                    Button(
+                        onClick = onFilterThis,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Tune,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Filter this", maxLines = 1)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDelete) {
+                Text("Delete", color = MaterialTheme.colorScheme.error)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close")
+            }
+        },
+    )
+}
+
+/**
+ * Interactive "Filter This" Dialog to generate custom filter rules from a notification.
+ */
+@Composable
+private fun FilterThisDialog(
+    item: HistoryItem,
+    onAddFilter: (keyword: String, mode: KeywordMatchMode, targetPackage: String?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var keywordText by remember { mutableStateOf(item.messageText ?: item.sender ?: "") }
+    var selectedScope by remember { mutableStateOf(0) } // 0 = This App, 1 = All Apps
+    var selectedMode by remember { mutableStateOf(KeywordMatchMode.PHRASE) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "Filter Notification",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = "Block notifications matching this keyword or pattern from being spoken.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
+                // Scope Picker
+                Text(
+                    text = "App Scope",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                    SegmentedButton(
+                        selected = selectedScope == 0,
+                        onClick = { selectedScope = 0 },
+                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                    ) {
+                        Text(item.appName, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    SegmentedButton(
+                        selected = selectedScope == 1,
+                        onClick = { selectedScope = 1 },
+                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                    ) {
+                        Text("All Apps", maxLines = 1)
+                    }
+                }
+
+                // Quick presets
+                Text(
+                    text = "Quick Presets",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    if (!item.messageText.isNullOrBlank()) {
+                        FilterChip(
+                            selected = keywordText == item.messageText,
+                            onClick = {
+                                keywordText = item.messageText
+                                selectedMode = KeywordMatchMode.EXACT
+                            },
+                            label = { Text("Exact Message", style = MaterialTheme.typography.labelSmall) },
+                            shape = RoundedCornerShape(8.dp),
+                        )
+                    }
+
+                    val firstWord = item.messageText?.split(" ")?.firstOrNull { it.length > 3 }
+                    if (firstWord != null) {
+                        FilterChip(
+                            selected = keywordText == firstWord,
+                            onClick = {
+                                keywordText = firstWord
+                                selectedMode = KeywordMatchMode.PHRASE
+                            },
+                            label = { Text("Word: $firstWord", style = MaterialTheme.typography.labelSmall) },
+                            shape = RoundedCornerShape(8.dp),
+                        )
+                    }
+
+                    // Numeric pattern wildcard: abc $1 mnc
+                    val digitsReplaced = item.messageText?.replace(Regex("\\d+"), "$1")
+                    if (digitsReplaced != null && digitsReplaced.contains("$1")) {
+                        FilterChip(
+                            selected = keywordText == digitsReplaced,
+                            onClick = {
+                                keywordText = digitsReplaced
+                                selectedMode = KeywordMatchMode.PHRASE
+                            },
+                            label = { Text("Pattern ($1)", style = MaterialTheme.typography.labelSmall) },
+                            shape = RoundedCornerShape(8.dp),
+                        )
+                    }
+                }
+
+                // Editable keyword text
+                OutlinedTextField(
+                    value = keywordText,
+                    onValueChange = { keywordText = it },
+                    label = { Text("Keyword or Template (use $1 or * for wildcards)") },
+                    singleLine = false,
+                    maxLines = 3,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                )
+
+                // Match Mode Segmented
+                Text(
+                    text = "Match Mode",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                    SegmentedButton(
+                        selected = selectedMode == KeywordMatchMode.PHRASE,
+                        onClick = { selectedMode = KeywordMatchMode.PHRASE },
+                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 3),
+                    ) {
+                        Text("Phrase", style = MaterialTheme.typography.labelSmall)
+                    }
+                    SegmentedButton(
+                        selected = selectedMode == KeywordMatchMode.EXACT,
+                        onClick = { selectedMode = KeywordMatchMode.EXACT },
+                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 3),
+                    ) {
+                        Text("Exact", style = MaterialTheme.typography.labelSmall)
+                    }
+                    SegmentedButton(
+                        selected = selectedMode == KeywordMatchMode.WHOLE_WORD,
+                        onClick = { selectedMode = KeywordMatchMode.WHOLE_WORD },
+                        shape = SegmentedButtonDefaults.itemShape(index = 2, count = 3),
+                    ) {
+                        Text("Word", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (keywordText.isNotBlank()) {
+                        val targetPkg = if (selectedScope == 0) item.packageName else null
+                        onAddFilter(keywordText.trim(), selectedMode, targetPkg)
+                    }
+                },
+                enabled = keywordText.isNotBlank(),
+                shape = RoundedCornerShape(10.dp),
+            ) {
+                Text("Add Filter")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        },
+    )
 }
 
 @Composable
@@ -601,12 +1020,14 @@ private fun HistoryStatusPill(status: HistoryStatus) {
 @Composable
 private fun HistoryNoticeBanner(message: String, isError: Boolean) {
     Card(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 16.dp),
         shape = RoundedCornerShape(topStart = 18.dp, topEnd = 8.dp, bottomEnd = 18.dp, bottomStart = 8.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isError) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f) else MaterialTheme.colorScheme.surfaceContainer,
         ),
-        border = androidx.compose.foundation.BorderStroke(
+        border = BorderStroke(
             1.dp,
             if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outlineVariant,
         ),
@@ -639,13 +1060,13 @@ private fun HistorySettingsCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(topStart = 22.dp, topEnd = 10.dp, bottomEnd = 22.dp, bottomStart = 10.dp),
+        shape = RoundedCornerShape(topStart = 20.dp, topEnd = 8.dp, bottomEnd = 20.dp, bottomStart = 8.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Text(
-                text = "History & Privacy Settings",
+                text = "History & Storage Rules",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
@@ -659,8 +1080,11 @@ private fun HistorySettingsCard(
             )
 
             HistorySettingRow(
-                label = stringResource(R.string.history_updates_label),
-                value = stringResource(updateHandlingLabelRes(settings.updateHandling)),
+                label = "Update Handling",
+                value = when (settings.updateHandling) {
+                    HistoryUpdateHandling.UPDATE_ENTRY -> "Update existing"
+                    HistoryUpdateHandling.NEW_ENTRY -> "Update / Separate"
+                },
                 onClick = onUpdatesClick,
             )
 
@@ -683,7 +1107,7 @@ private fun HistorySettingRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 44.dp)
+            .heightIn(min = 40.dp)
             .clickable(role = Role.Button, onClick = onClick)
             .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -782,17 +1206,12 @@ private fun storageLabelRes(mode: HistoryStorageMode): Int = when (mode) {
     HistoryStorageMode.DISABLED -> R.string.app_settings_storage_off
 }
 
-@StringRes
-private fun updateHandlingLabelRes(handling: HistoryUpdateHandling): Int = when (handling) {
-    HistoryUpdateHandling.UPDATE_ENTRY -> R.string.app_settings_update_entry
-    HistoryUpdateHandling.NEW_ENTRY -> R.string.app_settings_update_new
-}
-
 private const val DIALOG_NONE = 0
 private const val DIALOG_STATUS = 1
 private const val DIALOG_SORT = 2
 private const val DIALOG_STORAGE = 3
 private const val DIALOG_UPDATES = 4
 private const val DIALOG_RETENTION = 5
+private const val DIALOG_APP = 6
 
 private val RETENTION_OPTIONS: List<Int?> = listOf(null, 7, 30, 90)

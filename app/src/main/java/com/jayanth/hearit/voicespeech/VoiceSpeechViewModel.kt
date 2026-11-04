@@ -81,6 +81,11 @@ class VoiceSpeechViewModel @Inject constructor(
         updateSpeech { it.copy(pitch = clamped) }
     }
 
+    fun onVolumeChanged(volume: Float) {
+        val clamped = volume.coerceIn(0.0f, 1.0f)
+        updateSpeech { it.copy(volumeLevel = clamped) }
+    }
+
     fun onVoiceChanged(voiceId: String?) {
         updateSpeech { it.copy(voiceId = voiceId) }
     }

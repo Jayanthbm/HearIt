@@ -58,6 +58,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jayanth.hearit.R
@@ -160,15 +161,19 @@ fun BackupRestoreScreen(
                 }
                 Column {
                     Text(
-                        text = stringResource(R.string.backup_privacy_note),
+                        text = "Private On-Device Backup",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     Text(
-                        text = "Backup files only contain rules and preferences. Notification messages are never stored in backups.",
+                        text = "Rules and preferences only. Notification text is never backed up.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
@@ -229,7 +234,7 @@ fun BackupRestoreScreen(
         // Card 1: Export Settings
         BackupCard(
             title = stringResource(R.string.backup_export_title),
-            subtitle = stringResource(R.string.backup_export_desc),
+            subtitle = "Save rules and preferences to a JSON file",
             icon = Icons.Rounded.FileDownload,
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -276,7 +281,7 @@ fun BackupRestoreScreen(
         // Card 2: Restore Settings
         BackupCard(
             title = stringResource(R.string.backup_import_title),
-            subtitle = stringResource(R.string.backup_import_desc),
+            subtitle = "Restore configuration from a JSON backup file",
             icon = Icons.Rounded.FileUpload,
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -312,7 +317,7 @@ fun BackupRestoreScreen(
         // Card 3: Raw JSON Configuration Inspector & Editor
         BackupCard(
             title = stringResource(R.string.backup_manual_json_title),
-            subtitle = stringResource(R.string.backup_manual_json_desc),
+            subtitle = "Inspect, copy, or paste raw JSON configuration",
             icon = Icons.Rounded.ContentCopy,
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -464,12 +469,15 @@ private fun BackupCard(
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     Text(
                         text = subtitle,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        lineHeight = 16.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }

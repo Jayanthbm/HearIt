@@ -15,15 +15,18 @@ import java.util.Locale
  * @property pitch Pitch multiplier. Default 1.0 (engine default).
  * @property voiceId Engine-specific voice id from [TextToSpeechEngine.listVoices], or
  *   null for the engine's default voice.
+ * @property volumeLevel Speech volume multiplier between 0.0 and 1.0. Default 1.0 (full).
  */
 data class SpeechSettings(
     val speechRate: Float = 1.0f,
     val pitch: Float = 1.0f,
     val voiceId: String? = null,
+    val volumeLevel: Float = 1.0f,
 ) {
     init {
         require(speechRate > 0f) { "SpeechSettings.speechRate must be > 0" }
         require(pitch > 0f) { "SpeechSettings.pitch must be > 0" }
+        require(volumeLevel in 0f..1f) { "SpeechSettings.volumeLevel must be between 0 and 1" }
     }
 }
 

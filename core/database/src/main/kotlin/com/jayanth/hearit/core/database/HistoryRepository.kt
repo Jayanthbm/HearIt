@@ -46,6 +46,9 @@ interface HistoryRepository {
 
     /** Row count. */
     suspend fun count(): Long
+
+    /** Reactive stream of total history entries. */
+    fun observeCount(): kotlinx.coroutines.flow.Flow<Long>
 }
 
 /**
@@ -119,4 +122,6 @@ class RoomHistoryRepository(
     override suspend fun deleteAll() = dao.deleteAll()
 
     override suspend fun count(): Long = dao.count()
+
+    override fun observeCount(): kotlinx.coroutines.flow.Flow<Long> = dao.observeCount()
 }

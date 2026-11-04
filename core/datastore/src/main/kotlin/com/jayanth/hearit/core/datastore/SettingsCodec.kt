@@ -101,6 +101,7 @@ object SettingsCodec {
     private const val KEY_SPEECH_RATE = "speech.rate"
     private const val KEY_SPEECH_PITCH = "speech.pitch"
     private const val KEY_SPEECH_VOICE = "speech.voice"
+    private const val KEY_SPEECH_VOLUME = "speech.volume"
 
     private const val KEY_HISTORY_MODE = "history.storageMode"
     private const val KEY_HISTORY_UPDATES = "history.updateHandling"
@@ -193,6 +194,7 @@ object SettingsCodec {
         values[KEY_SPEECH_RATE] = speech.speechRate.toString()
         values[KEY_SPEECH_PITCH] = speech.pitch.toString()
         speech.voiceId?.let { values[KEY_SPEECH_VOICE] = it }
+        values[KEY_SPEECH_VOLUME] = speech.volumeLevel.toString()
 
         val history = settings.history
         values[KEY_HISTORY_MODE] = history.storageMode.name
@@ -360,10 +362,12 @@ object SettingsCodec {
 
     private fun decodeSpeech(values: Map<String, String>): SpeechSettings {
         val defaults = SpeechSettings()
+        val parsedVolume = values[KEY_SPEECH_VOLUME]?.toFloatOrNull()?.coerceIn(0f, 1f) ?: defaults.volumeLevel
         return SpeechSettings(
             speechRate = values.positiveFloat(KEY_SPEECH_RATE, defaults.speechRate),
             pitch = values.positiveFloat(KEY_SPEECH_PITCH, defaults.pitch),
             voiceId = values[KEY_SPEECH_VOICE]?.takeIf { it.isNotBlank() },
+            volumeLevel = parsedVolume,
         )
     }
 

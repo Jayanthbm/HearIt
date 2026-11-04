@@ -131,6 +131,9 @@ class AnnouncementQueue(
     val pendingCount: Int
         get() = pending.size
 
+    /** Checks whether an item with [key] is currently waiting in the pending queue. */
+    fun hasPending(key: String): Boolean = pending.any { it.snapshot.key == key }
+
     /** Number of items parked by an active call. */
     val heldCount: Int
         get() = held.size

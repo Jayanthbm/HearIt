@@ -1,6 +1,7 @@
 package com.jayanth.hearit.service
 
 import android.content.Context
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.speech.tts.TextToSpeech
@@ -47,6 +48,7 @@ class AndroidTextToSpeechEngine(context: Context) : TextToSpeechEngine {
         val announcement: BuiltAnnouncement,
         val listener: UtteranceListener,
         val token: Long,
+        val settings: SpeechSettings = SpeechSettings(),
         var sectionIndex: Int = 0,
         var startNotified: Boolean = false,
     )
@@ -115,7 +117,7 @@ class AndroidTextToSpeechEngine(context: Context) : TextToSpeechEngine {
         tts.setPitch(settings.pitch)
         applyVoice(tts, settings.voiceId)
 
-        val newRequest = Request(announcement, listener, token = ++sessionToken)
+        val newRequest = Request(announcement, listener, token = ++sessionToken, settings = settings)
         request = newRequest
         speakCurrentSection(tts, newRequest)
         return true
@@ -141,7 +143,10 @@ class AndroidTextToSpeechEngine(context: Context) : TextToSpeechEngine {
     private fun speakCurrentSection(tts: TextToSpeech, active: Request) {
         val section = active.announcement.sections[active.sectionIndex]
         val utteranceId = utteranceId(active, active.sectionIndex)
-        val result = tts.speak(section.text, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
+        val params = Bundle().apply {
+            putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, active.settings.volumeLevel)
+        }
+        val result = tts.speak(section.text, TextToSpeech.QUEUE_FLUSH, params, utteranceId)
         if (result != TextToSpeech.SUCCESS) {
             finishCurrent(TtsErrorCode.SYNTHESIS_FAILED, notify = true)
         }

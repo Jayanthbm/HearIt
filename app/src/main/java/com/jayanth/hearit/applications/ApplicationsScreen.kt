@@ -50,6 +50,9 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -132,18 +135,28 @@ private fun ApplicationsListScreen(
     onOpenApp: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var filterType by remember { mutableStateOf(0) } // 0 = All, 1 = Selected, 2 = Unselected
+
+    val displayedApps = remember(state.visibleApps, state.enabledApps, filterType) {
+        when (filterType) {
+            1 -> state.visibleApps.filter { it.packageName in state.enabledApps }
+            2 -> state.visibleApps.filter { it.packageName !in state.enabledApps }
+            else -> state.visibleApps
+        }
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
             .padding(horizontal = 20.dp, vertical = 8.dp),
     ) {
-        // Modern Search Bar
+        // Compact Search Bar (~48dp)
         OutlinedTextField(
             value = state.query,
             onValueChange = onQueryChange,
             placeholder = {
                 Text(
-                    text = "Search installed applications…",
+                    text = "Search installed apps…",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 )
@@ -153,7 +166,7 @@ private fun ApplicationsListScreen(
                     imageVector = Icons.Rounded.Search,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(22.dp),
+                    modifier = Modifier.size(20.dp),
                 )
             },
             trailingIcon = {
@@ -163,7 +176,7 @@ private fun ApplicationsListScreen(
                             imageVector = Icons.Rounded.Close,
                             contentDescription = "Clear search",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(20.dp),
+                            modifier = Modifier.size(18.dp),
                         )
                     }
                 }
@@ -178,88 +191,86 @@ private fun ApplicationsListScreen(
                 unfocusedIndicatorColor = Color.Transparent,
                 disabledIndicatorColor = Color.Transparent,
             ),
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp),
         )
 
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
-        // Status & Batch Controls Bar
+        // Filter & Batch Controls Bar
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Surface(
-                shape = RoundedCornerShape(topStart = 12.dp, topEnd = 6.dp, bottomEnd = 12.dp, bottomStart = 6.dp),
-                color = MaterialTheme.colorScheme.primaryContainer,
+            // Filter: All / Selected / Unselected
+            SingleChoiceSegmentedButtonRow(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = 8.dp),
             ) {
-                Text(
-                    text = stringResource(
-                        R.string.applications_enabled_count,
-                        state.enabledApps.size,
-                        state.apps.size,
-                    ),
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                val filters = listOf(
+                    0 to "All",
+                    1 to "Selected (${state.enabledApps.size})",
+                    2 to "Unselected",
                 )
+                filters.forEachIndexed { index, (type, label) ->
+                    val isSelected = filterType == type
+                    SegmentedButton(
+                        selected = isSelected,
+                        onClick = { filterType = type },
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = filters.size),
+                    ) {
+                        Text(text = label, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                    }
+                }
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                val canSelectAll = state.visibleApps.any { it.packageName !in state.enabledApps }
-                FilledTonalButton(
-                    onClick = onSelectAll,
-                    enabled = canSelectAll,
-                    shape = RoundedCornerShape(topStart = 12.dp, topEnd = 6.dp, bottomEnd = 12.dp, bottomStart = 6.dp),
-                    colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                    ),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                    modifier = Modifier.height(36.dp),
+            // Compact Select All / Deselect All Icon Buttons
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                val canSelectAll = displayedApps.any { it.packageName !in state.enabledApps }
+                val canDeselectAll = displayedApps.any { it.packageName in state.enabledApps }
+
+                Surface(
+                    shape = RoundedCornerShape(topStart = 10.dp, topEnd = 4.dp, bottomEnd = 10.dp, bottomStart = 4.dp),
+                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = if (canSelectAll) 1f else 0.4f),
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Check,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "Select All",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold,
-                    )
+                    IconButton(
+                        onClick = onSelectAll,
+                        enabled = canSelectAll,
+                        modifier = Modifier.size(36.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Check,
+                            contentDescription = "Select All",
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
                 }
 
-                val canDeselectAll = state.visibleApps.any { it.packageName in state.enabledApps }
-                FilledTonalButton(
-                    onClick = onDeselectAll,
-                    enabled = canDeselectAll,
-                    shape = RoundedCornerShape(topStart = 12.dp, topEnd = 6.dp, bottomEnd = 12.dp, bottomStart = 6.dp),
-                    colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    ),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                    modifier = Modifier.height(36.dp),
+                Surface(
+                    shape = RoundedCornerShape(topStart = 10.dp, topEnd = 4.dp, bottomEnd = 10.dp, bottomStart = 4.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (canDeselectAll) 1f else 0.4f),
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Close,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "Deselect All",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold,
-                    )
+                    IconButton(
+                        onClick = onDeselectAll,
+                        enabled = canDeselectAll,
+                        modifier = Modifier.size(36.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Close,
+                            contentDescription = "Deselect All",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             when {
@@ -281,13 +292,13 @@ private fun ApplicationsListScreen(
                     )
                 }
 
-                state.visibleApps.isEmpty() -> Box(
+                displayedApps.isEmpty() -> Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         text = if (state.query.isBlank()) {
-                            stringResource(R.string.applications_empty)
+                            if (filterType == 1) "No enabled apps found" else stringResource(R.string.applications_empty)
                         } else {
                             stringResource(R.string.applications_empty_search, state.query.trim())
                         },
@@ -300,7 +311,7 @@ private fun ApplicationsListScreen(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    items(items = state.visibleApps, key = { app -> app.packageName }) { app ->
+                    items(items = displayedApps, key = { app -> app.packageName }) { app ->
                         ApplicationRow(
                             app = app,
                             enabled = app.packageName in state.enabledApps,

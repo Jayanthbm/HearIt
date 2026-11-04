@@ -5,8 +5,15 @@ import androidx.lifecycle.viewModelScope
 import com.jayanth.hearit.core.common.model.HistoryStatus
 import com.jayanth.hearit.core.common.model.HistoryStorageMode
 import com.jayanth.hearit.core.common.model.HistoryUpdateHandling
+import com.jayanth.hearit.core.common.model.KeywordFilterSettings
+import com.jayanth.hearit.core.common.model.KeywordMatchMode
 import com.jayanth.hearit.core.database.HistoryRepository
 import com.jayanth.hearit.core.datastore.SettingsRepository
+import com.jayanth.hearit.core.tts.AnnouncementSection
+import com.jayanth.hearit.core.tts.BuiltAnnouncement
+import com.jayanth.hearit.core.tts.SectionKind
+import com.jayanth.hearit.core.tts.TextToSpeechEngine
+import com.jayanth.hearit.core.tts.UtteranceListener
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
@@ -14,6 +21,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -33,6 +41,7 @@ import kotlinx.coroutines.launch
 class HistoryViewModel @Inject constructor(
     private val historyRepository: HistoryRepository,
     private val settingsRepository: SettingsRepository,
+    private val engine: TextToSpeechEngine,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(HistoryUiState())
@@ -54,7 +63,11 @@ class HistoryViewModel @Inject constructor(
                 }
             }
         }
-        load(reset = true)
+        viewModelScope.launch {
+            historyRepository.observeCount().collect {
+                load(reset = true)
+            }
+        }
     }
 
     /** Re-reads the first page; called when the screen resumes (the service keeps writing). */
@@ -91,6 +104,93 @@ class HistoryViewModel @Inject constructor(
 
     fun onRetentionChanged(retentionDays: Int?) =
         updateSettings { it.copy(retentionDays = retentionDays) }
+
+    fun onPlayEntry(item: HistoryItem) {
+        if (_state.value.playingItemId == item.id) {
+            engine.stop()
+            _state.update { it.copy(playingItemId = null) }
+            return
+        }
+
+        viewModelScope.launch {
+            val settings = settingsRepository.settings.first()
+            val textToSpeak = item.messageText?.takeIf { it.isNotBlank() } ?: "Notification from ${item.appName}"
+            val sections = buildList {
+                add(AnnouncementSection(SectionKind.APP_NAME, item.appName))
+                item.sender?.takeIf { it.isNotBlank() }?.let {
+                    add(AnnouncementSection(SectionKind.SENDER, "$it says,"))
+                }
+                add(AnnouncementSection(SectionKind.MESSAGE, textToSpeak))
+            }
+            val announcement = BuiltAnnouncement(
+                sections = sections,
+                pauseBetweenSectionsMillis = settings.format.pauseBetweenSectionsMillis,
+            )
+
+            _state.update { it.copy(playingItemId = item.id) }
+            val accepted = engine.speak(
+                announcement = announcement,
+                settings = settings.speech,
+                listener = object : UtteranceListener {
+                    override fun onComplete(announcement: BuiltAnnouncement) {
+                        _state.update { if (it.playingItemId == item.id) it.copy(playingItemId = null) else it }
+                    }
+
+                    override fun onError(announcement: BuiltAnnouncement, error: com.jayanth.hearit.core.tts.TtsError) {
+                        _state.update { if (it.playingItemId == item.id) it.copy(playingItemId = null) else it }
+                    }
+                },
+            )
+            if (!accepted) {
+                _state.update { if (it.playingItemId == item.id) it.copy(playingItemId = null) else it }
+            }
+        }
+    }
+
+    fun onStopPlaying() {
+        engine.stop()
+        _state.update { it.copy(playingItemId = null) }
+    }
+
+    fun onAppFilterChanged(packageName: String?, appName: String?) {
+        updateFilter { it.copy(selectedPackageName = packageName, selectedAppName = appName) }
+    }
+
+    fun onAddFilter(keyword: String, matchMode: KeywordMatchMode, targetAppPackage: String?) {
+        viewModelScope.launch {
+            safely {
+                settingsRepository.update { current ->
+                    if (targetAppPackage == null) {
+                        val existing = current.eligibility.keywordFilter
+                        val newKeywords = if (keyword in existing.keywords) existing.keywords else existing.keywords + keyword
+                        current.copy(
+                            eligibility = current.eligibility.copy(
+                                keywordFilter = existing.copy(
+                                    enabled = true,
+                                    keywords = newKeywords,
+                                    mode = matchMode,
+                                )
+                            )
+                        )
+                    } else {
+                        val appOverride = current.appOverrides[targetAppPackage] ?: com.jayanth.hearit.core.datastore.AppOverride()
+                        val existing = appOverride.eligibility.keywordFilter ?: current.eligibility.keywordFilter
+                        val newKeywords = if (keyword in existing.keywords) existing.keywords else existing.keywords + keyword
+                        val updatedEligibility = appOverride.eligibility.copy(
+                            keywordFilter = existing.copy(
+                                enabled = true,
+                                keywords = newKeywords,
+                                mode = matchMode,
+                            )
+                        )
+                        current.copy(
+                            appOverrides = current.appOverrides + (targetAppPackage to appOverride.copy(eligibility = updatedEligibility))
+                        )
+                    }
+                }
+            }
+        }
+    }
 
     // ---- internals ---------------------------------------------------------------------
 
@@ -132,9 +232,12 @@ class HistoryViewModel @Inject constructor(
                 return@launch
             }
             val items = HistoryQueryMapper.toItems(page)
+            val distinctApps = items.map { it.packageName to it.appName }
             _state.update { current ->
+                val mergedApps = (current.availableApps + distinctApps).distinct()
                 current.copy(
                     items = if (reset) items else current.items + items,
+                    availableApps = mergedApps,
                     loaded = true,
                     loading = false,
                     endReached = page.size < HistoryQueryMapper.PAGE_SIZE,

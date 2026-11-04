@@ -44,9 +44,35 @@ class AnnouncementPipeline(
     private val queue: AnnouncementQueue,
     private val rules: EligibilityRules = EligibilityRules(),
     private val format: AnnouncementFormat = AnnouncementFormat(),
+    private val clock: () -> Long = { System.currentTimeMillis() },
     /** History sink; called inline, so implementations must not block (see ADR-007). */
     private val onRecord: (HistoryRecord) -> Unit = {},
 ) {
+
+    private data class ContentSignature(
+        val packageName: String,
+        val sender: String,
+        val messageText: String,
+    )
+
+    private val recentSignatures = mutableMapOf<ContentSignature, Long>()
+    private val dedupWindowMillis = 20_000L
+
+    private fun isContentDuplicate(snapshot: NotificationSnapshot, now: Long): Boolean {
+        val text = snapshot.messageText?.trim().orEmpty()
+        val sender = snapshot.sender?.trim().orEmpty()
+        if (text.isBlank() && sender.isBlank()) return false
+
+        recentSignatures.entries.removeAll { now - it.value >= dedupWindowMillis }
+
+        val signature = ContentSignature(snapshot.packageName, sender, text)
+        val lastSeen = recentSignatures[signature]
+        if (lastSeen != null && now - lastSeen < dedupWindowMillis) {
+            return true
+        }
+        recentSignatures[signature] = now
+        return false
+    }
 
     /** What the service should do next; the service owns the engine. */
     sealed interface Action {
@@ -128,6 +154,17 @@ class AnnouncementPipeline(
             LogCategory.RULES,
             "Eligibility evaluated for pkg=${snapshot.packageName}: decision=${decision.javaClass.simpleName}${if (decision is EligibilityDecision.Skip) " (reason=${decision.reason})" else ""}",
         )
+        val now = clock()
+        val isReplacingPending = queue.hasPending(snapshot.key)
+        if (!isReplacingPending && decision is EligibilityDecision.Announce && isContentDuplicate(snapshot, now)) {
+            HearItLogger.info(
+                LogCategory.RULES,
+                "Duplicate notification content suppressed within ${dedupWindowMillis / 1000}s for pkg=${snapshot.packageName}",
+            )
+            val skipDecision = EligibilityDecision.Skip(SkipReason.DUPLICATE_UPDATE)
+            onRecord(HistoryRecord(snapshot, HistoryStatus.SKIPPED, SkipReason.DUPLICATE_UPDATE, priority))
+            return Processed(skipDecision, emptyList())
+        }
         val events = when (decision) {
             EligibilityDecision.Announce -> queue.enqueue(snapshot, priority)
             is EligibilityDecision.Queue -> queue.hold(snapshot, priority, decision.reason)

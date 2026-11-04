@@ -83,4 +83,8 @@ interface HistoryDao {
     /** Total row count (diagnostics/tests). */
     @Query("SELECT COUNT(*) FROM history_entries")
     suspend fun count(): Long
+
+    /** Reactive stream of total history entries for real-time observation. */
+    @Query("SELECT COUNT(*) FROM history_entries")
+    fun observeCount(): kotlinx.coroutines.flow.Flow<Long>
 }

@@ -181,7 +181,7 @@ fun DashboardRoute(
         }
     }
 
-    BackHandler(enabled = !destination.isBottomBarDestination) {
+    BackHandler(enabled = destination != DashboardDestination.HOME) {
         destinationId = DashboardDestination.HOME.id
     }
 
@@ -455,6 +455,15 @@ private fun DashboardHome(
     ) {
         // ── Embedded Home Header (replaces TopAppBar for HOME) ──────────────
         Spacer(modifier = Modifier.height(16.dp))
+        val greeting = remember {
+            val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+            when (hour) {
+                in 5..11 -> "Good Morning"
+                in 12..16 -> "Good Afternoon"
+                in 17..20 -> "Good Evening"
+                else -> "Good Night"
+            }
+        }
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -462,7 +471,7 @@ private fun DashboardHome(
         ) {
             Column {
                 Text(
-                    text = "Good day",
+                    text = greeting,
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -702,93 +711,73 @@ private fun DashboardHome(
             }
         }
 
-        // Test Voice Announcement Bar — morphed CTA style
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 8.dp, bottomEnd = 20.dp, bottomStart = 8.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-            ),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
+        // Test Voice Announcement Bar — hidden once 10 announcements have occurred
+        if (state.totalAnnouncementsCount < 10) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(topStart = 20.dp, topEnd = 8.dp, bottomEnd = 20.dp, bottomStart = 8.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                ),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(
-                        modifier = Modifier.size(36.dp),
-                        shape = RoundedCornerShape(topStart = 12.dp, topEnd = 4.dp, bottomEnd = 12.dp, bottomStart = 4.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Rounded.PlayArrow,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.size(20.dp),
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            modifier = Modifier.size(36.dp),
+                            shape = RoundedCornerShape(topStart = 12.dp, topEnd = 4.dp, bottomEnd = 12.dp, bottomStart = 4.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Rounded.PlayArrow,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = "Test Speech",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Text(
+                                text = if (state.testAnnouncement == TestAnnouncementState.SPEAKING) "Speaking sample…" else "Play test phrase",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            text = "Test Speech",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        Text(
-                            text = if (state.testAnnouncement == TestAnnouncementState.SPEAKING) "Speaking sample…" else "Play test phrase",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
 
-                Button(
-                    onClick = { onTestAnnouncement(testAnnouncementText) },
-                    enabled = state.testAnnouncement != TestAnnouncementState.SPEAKING,
-                    shape = RoundedCornerShape(topStart = 16.dp, topEnd = 6.dp, bottomEnd = 16.dp, bottomStart = 6.dp),
-                    modifier = Modifier.height(40.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary,
-                    ),
-                ) {
-                    if (state.testAnnouncement == TestAnnouncementState.SPEAKING) {
-                        CircularProgressIndicator(modifier = Modifier.size(16.dp), color = MaterialTheme.colorScheme.onPrimary)
-                    } else {
-                        Text("Play", fontWeight = FontWeight.Bold)
+                    Button(
+                        onClick = { onTestAnnouncement(testAnnouncementText) },
+                        enabled = state.testAnnouncement != TestAnnouncementState.SPEAKING,
+                        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 6.dp, bottomEnd = 16.dp, bottomStart = 6.dp),
+                        modifier = Modifier.height(40.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                        ),
+                    ) {
+                        if (state.testAnnouncement == TestAnnouncementState.SPEAKING) {
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp), color = MaterialTheme.colorScheme.onPrimary)
+                        } else {
+                            Text("Play", fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
         }
-
-        // Recent Announcements Feed
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = "Recent Announcements",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground,
-            )
-            TextButton(onClick = { onSelectDestination(DashboardDestination.HISTORY) }) {
-                Text("View all", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
-            }
-        }
-
-        RecentHistorySection(
-            state = state,
-            onSelectDestination = onSelectDestination,
-        )
 
         // Settings and Tools
         Text(
@@ -1006,8 +995,8 @@ private fun HeroServiceCard(
                 )
                 MetricChip(
                     icon = Icons.Rounded.Apps,
-                    label = "Enabled Apps",
-                    value = "${state.enabledAppCount} apps",
+                    label = "Apps",
+                    value = "${state.enabledAppCount}",
                     modifier = Modifier.weight(1f),
                 )
             }

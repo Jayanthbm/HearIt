@@ -59,6 +59,28 @@ class KeywordFilterEligibilityTest {
     }
 
     @Test
+    fun evaluate_patternWildcardDollar_matchesNumberOrToken_skips() {
+        val filter = KeywordFilterSettings(enabled = true, keywords = listOf("abc $1 mnc"))
+        assertEquals(
+            EligibilityDecision.Skip(SkipReason.KEYWORD_FILTERED),
+            rules.evaluate(snapshot("Notice: abc 12345 mnc confirmed"), settings(filter), allowedState),
+        )
+    }
+
+    @Test
+    fun evaluate_exactMatchMode_matchesOnlyEntireText() {
+        val filter = KeywordFilterSettings(enabled = true, keywords = listOf("Hello World"), mode = KeywordMatchMode.EXACT)
+        assertEquals(
+            EligibilityDecision.Skip(SkipReason.KEYWORD_FILTERED),
+            rules.evaluate(snapshot("Hello World"), settings(filter), allowedState),
+        )
+        assertEquals(
+            EligibilityDecision.Announce,
+            rules.evaluate(snapshot("Hello World from Android"), settings(filter), allowedState),
+        )
+    }
+
+    @Test
     fun evaluate_filterEnabled_noKeywords_announces() {
         val filter = KeywordFilterSettings(enabled = true, keywords = emptyList())
         assertEquals(

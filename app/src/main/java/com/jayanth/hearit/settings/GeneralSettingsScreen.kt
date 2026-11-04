@@ -47,6 +47,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -66,6 +69,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
@@ -368,8 +372,8 @@ private fun AudioFocusCard(
     modifier: Modifier = Modifier,
 ) {
     SettingsCard(
-        title = stringResource(R.string.settings_audio_focus_title),
-        subtitle = stringResource(R.string.settings_audio_focus_desc),
+        title = "Audio Focus",
+        subtitle = "Ducking and pause behavior during media",
         icon = Icons.AutoMirrored.Rounded.VolumeUp,
         modifier = modifier,
     ) {
@@ -450,50 +454,35 @@ private fun GroupingCard(
     modifier: Modifier = Modifier,
 ) {
     SettingsCard(
-        title = stringResource(R.string.settings_grouping_title),
-        subtitle = stringResource(R.string.settings_grouping_desc),
+        title = "Message Grouping",
+        subtitle = "Batch rapid notifications from the same app",
         icon = Icons.Rounded.Layers,
         modifier = modifier,
     ) {
         Column {
-            // Grouping Window
             Text(
-                text = stringResource(R.string.settings_grouping_window_label),
+                text = "Grouping Window",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
             )
-            Text(
-                text = stringResource(R.string.settings_grouping_window_desc),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
-            )
-
-            @OptIn(ExperimentalLayoutApi::class)
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
+            Spacer(modifier = Modifier.height(6.dp))
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                 val windowOptions = listOf(
-                    0L to "0s (Off)",
+                    0L to "Off",
                     3_000L to "3s",
-                    5_000L to "5s (Default)",
+                    5_000L to "5s",
                     10_000L to "10s",
                 )
-                for ((millis, label) in windowOptions) {
+                windowOptions.forEachIndexed { index, (millis, label) ->
                     val isSelected = groupingWindowMillis == millis
-                    FilterChip(
+                    SegmentedButton(
                         selected = isSelected,
                         onClick = { onGroupingWindowChanged(millis) },
-                        label = { Text(text = label, style = MaterialTheme.typography.labelSmall) },
-                        shape = RoundedCornerShape(8.dp),
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                        ),
-                    )
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = windowOptions.size),
+                    ) {
+                        Text(text = label, style = MaterialTheme.typography.labelSmall)
+                    }
                 }
             }
 
@@ -502,45 +491,30 @@ private fun GroupingCard(
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
             )
 
-            // Max Messages
             Text(
-                text = stringResource(R.string.settings_max_messages_label),
+                text = "Max Grouped Messages",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
             )
-            Text(
-                text = stringResource(R.string.settings_max_messages_desc),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
-            )
-
-            @OptIn(ExperimentalLayoutApi::class)
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
+            Spacer(modifier = Modifier.height(6.dp))
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                 val messageOptions = listOf(
-                    1 to "1 (Single)",
+                    1 to "1",
                     2 to "2",
-                    3 to "3 (Default)",
+                    3 to "3",
                     5 to "5",
                     10 to "10",
                 )
-                for ((count, label) in messageOptions) {
+                messageOptions.forEachIndexed { index, (count, label) ->
                     val isSelected = maxMessagesPerAnnouncement == count
-                    FilterChip(
+                    SegmentedButton(
                         selected = isSelected,
                         onClick = { onMaxMessagesChanged(count) },
-                        label = { Text(text = label, style = MaterialTheme.typography.labelSmall) },
-                        shape = RoundedCornerShape(8.dp),
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                        ),
-                    )
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = messageOptions.size),
+                    ) {
+                        Text(text = label, style = MaterialTheme.typography.labelSmall)
+                    }
                 }
             }
         }
@@ -559,50 +533,35 @@ private fun PacingCard(
     modifier: Modifier = Modifier,
 ) {
     SettingsCard(
-        title = stringResource(R.string.settings_timing_title),
-        subtitle = stringResource(R.string.settings_timing_desc),
+        title = "Delivery Timing",
+        subtitle = "Delays and pauses between announcements",
         icon = Icons.Rounded.Timer,
         modifier = modifier,
     ) {
         Column {
-            // Delay Before Announcement
             Text(
-                text = stringResource(R.string.settings_delay_label),
+                text = "Pre-Speech Delay",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
             )
-            Text(
-                text = stringResource(R.string.settings_delay_desc),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
-            )
-
-            @OptIn(ExperimentalLayoutApi::class)
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
+            Spacer(modifier = Modifier.height(6.dp))
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                 val delayOptions = listOf(
-                    0L to "0s (Immediate)",
+                    0L to "0s",
                     1_000L to "1s",
                     2_000L to "2s",
                     3_000L to "3s",
                 )
-                for ((millis, label) in delayOptions) {
+                delayOptions.forEachIndexed { index, (millis, label) ->
                     val isSelected = delayMillis == millis
-                    FilterChip(
+                    SegmentedButton(
                         selected = isSelected,
                         onClick = { onDelayChanged(millis) },
-                        label = { Text(text = label, style = MaterialTheme.typography.labelSmall) },
-                        shape = RoundedCornerShape(8.dp),
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                        ),
-                    )
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = delayOptions.size),
+                    ) {
+                        Text(text = label, style = MaterialTheme.typography.labelSmall)
+                    }
                 }
             }
 
@@ -611,44 +570,29 @@ private fun PacingCard(
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
             )
 
-            // Minimum Gap
             Text(
-                text = stringResource(R.string.settings_min_gap_label),
+                text = "Minimum Gap Between Announcements",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
             )
-            Text(
-                text = stringResource(R.string.settings_min_gap_desc),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
-            )
-
-            @OptIn(ExperimentalLayoutApi::class)
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
+            Spacer(modifier = Modifier.height(6.dp))
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                 val gapOptions = listOf(
-                    0L to "0s (None)",
+                    0L to "0s",
                     500L to "500ms",
                     1_000L to "1s",
                     2_000L to "2s",
                 )
-                for ((millis, label) in gapOptions) {
+                gapOptions.forEachIndexed { index, (millis, label) ->
                     val isSelected = minGapMillis == millis
-                    FilterChip(
+                    SegmentedButton(
                         selected = isSelected,
                         onClick = { onMinGapChanged(millis) },
-                        label = { Text(text = label, style = MaterialTheme.typography.labelSmall) },
-                        shape = RoundedCornerShape(8.dp),
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                        ),
-                    )
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = gapOptions.size),
+                    ) {
+                        Text(text = label, style = MaterialTheme.typography.labelSmall)
+                    }
                 }
             }
         }
@@ -671,38 +615,30 @@ private fun QueueCapacityCard(
     modifier: Modifier = Modifier,
 ) {
     SettingsCard(
-        title = stringResource(R.string.settings_limits_title),
-        subtitle = stringResource(R.string.settings_limits_desc),
+        title = "Queue Capacity",
+        subtitle = "Buffer limits and eviction policies",
         icon = Icons.Rounded.Storage,
         modifier = modifier,
     ) {
         Column {
-            // Total Queue Capacity
             Text(
-                text = stringResource(R.string.settings_global_max_label),
+                text = "Total Queue Capacity",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
             )
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                val globalOptions = listOf(20 to "20", 50 to "50 (Default)", 100 to "100")
-                for ((size, label) in globalOptions) {
+            Spacer(modifier = Modifier.height(6.dp))
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                val globalOptions = listOf(20 to "20", 50 to "50", 100 to "100")
+                globalOptions.forEachIndexed { index, (size, label) ->
                     val isSelected = globalMaxSize == size
-                    FilterChip(
+                    SegmentedButton(
                         selected = isSelected,
                         onClick = { onGlobalMaxSizeChanged(size) },
-                        label = { Text(text = label, style = MaterialTheme.typography.labelSmall) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                        ),
-                    )
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = globalOptions.size),
+                    ) {
+                        Text(text = label, style = MaterialTheme.typography.labelSmall)
+                    }
                 }
             }
 
@@ -711,32 +647,24 @@ private fun QueueCapacityCard(
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
             )
 
-            // Per App Capacity
             Text(
-                text = stringResource(R.string.settings_per_app_max_label),
+                text = "Per-App Capacity",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
             )
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                val perAppOptions = listOf(5 to "5", 10 to "10 (Default)", 20 to "20")
-                for ((size, label) in perAppOptions) {
+            Spacer(modifier = Modifier.height(6.dp))
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                val perAppOptions = listOf(5 to "5", 10 to "10", 20 to "20")
+                perAppOptions.forEachIndexed { index, (size, label) ->
                     val isSelected = perAppMaxSize == size
-                    FilterChip(
+                    SegmentedButton(
                         selected = isSelected,
                         onClick = { onPerAppMaxSizeChanged(size) },
-                        label = { Text(text = label, style = MaterialTheme.typography.labelSmall) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                        ),
-                    )
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = perAppOptions.size),
+                    ) {
+                        Text(text = label, style = MaterialTheme.typography.labelSmall)
+                    }
                 }
             }
 
@@ -745,44 +673,29 @@ private fun QueueCapacityCard(
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
             )
 
-            // Expiry
             Text(
-                text = stringResource(R.string.settings_expiry_label),
+                text = "Announcement Expiry",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
             )
-            Text(
-                text = stringResource(R.string.settings_expiry_desc),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 2.dp, bottom = 6.dp),
-            )
-
-            @OptIn(ExperimentalLayoutApi::class)
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
+            Spacer(modifier = Modifier.height(6.dp))
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                 val expiryOptions = listOf(
                     5 * 60_000L to "5m",
                     15 * 60_000L to "15m",
-                    30 * 60_000L to "30m (Default)",
+                    30 * 60_000L to "30m",
                     60 * 60_000L to "1h",
                 )
-                for ((millis, label) in expiryOptions) {
+                expiryOptions.forEachIndexed { index, (millis, label) ->
                     val isSelected = expiryMillis == millis
-                    FilterChip(
+                    SegmentedButton(
                         selected = isSelected,
                         onClick = { onExpiryChanged(millis) },
-                        label = { Text(text = label, style = MaterialTheme.typography.labelSmall) },
-                        shape = RoundedCornerShape(8.dp),
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                        ),
-                    )
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = expiryOptions.size),
+                    ) {
+                        Text(text = label, style = MaterialTheme.typography.labelSmall)
+                    }
                 }
             }
 
@@ -791,60 +704,27 @@ private fun QueueCapacityCard(
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
             )
 
-            // Eviction Policy
             Text(
-                text = stringResource(R.string.settings_overflow_label),
+                text = "Overflow Policy",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
             )
-            Text(
-                text = stringResource(R.string.settings_overflow_desc),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
-            )
-
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Spacer(modifier = Modifier.height(6.dp))
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                 val overflowOptions = listOf(
-                    OverflowPolicy.DISCARD_OLDEST to stringResource(R.string.settings_overflow_discard_oldest),
-                    OverflowPolicy.DISCARD_NEWEST to stringResource(R.string.settings_overflow_discard_newest),
-                    OverflowPolicy.KEEP_HIGHEST_PRIORITY to stringResource(R.string.settings_overflow_keep_priority),
+                    OverflowPolicy.DISCARD_OLDEST to "Oldest",
+                    OverflowPolicy.DISCARD_NEWEST to "Newest",
+                    OverflowPolicy.KEEP_HIGHEST_PRIORITY to "Priority",
                 )
-
-                for ((policy, label) in overflowOptions) {
+                overflowOptions.forEachIndexed { index, (policy, label) ->
                     val isSelected = overflowPolicy == policy
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onOverflowPolicyChanged(policy) },
-                        shape = RoundedCornerShape(10.dp),
-                        color = if (isSelected) {
-                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
-                        } else {
-                            MaterialTheme.colorScheme.surfaceContainerHigh
-                        },
-                        border = BorderStroke(
-                            1.dp,
-                            if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
-                        ),
+                    SegmentedButton(
+                        selected = isSelected,
+                        onClick = { onOverflowPolicyChanged(policy) },
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = overflowOptions.size),
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            RadioButton(
-                                selected = isSelected,
-                                onClick = { onOverflowPolicyChanged(policy) },
-                            )
-                            Text(
-                                text = label,
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                        }
+                        Text(text = label, style = MaterialTheme.typography.labelSmall)
                     }
                 }
             }
@@ -862,8 +742,8 @@ private fun NotificationUpdatesCard(
     modifier: Modifier = Modifier,
 ) {
     SettingsCard(
-        title = stringResource(R.string.settings_updates_title),
-        subtitle = "Master prompt §10 notification update handling",
+        title = "Notification Updates",
+        subtitle = "Re-announce updated notifications",
         icon = Icons.Rounded.Sync,
         modifier = modifier,
     ) {
@@ -910,8 +790,8 @@ private fun ServiceNotificationCard(
     modifier: Modifier = Modifier,
 ) {
     SettingsCard(
-        title = stringResource(R.string.settings_service_notification_title),
-        subtitle = stringResource(R.string.settings_service_notification_desc),
+        title = "Notification Panel",
+        subtitle = "Hear It foreground service tile",
         icon = if (isVisible) Icons.Rounded.NotificationsActive else Icons.Rounded.NotificationsOff,
         modifier = modifier,
     ) {
@@ -1015,8 +895,8 @@ private fun ServiceNotificationCard(
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .defaultMinSize(minHeight = 44.dp),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
+                    .height(48.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
@@ -1025,9 +905,11 @@ private fun ServiceNotificationCard(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = stringResource(R.string.settings_service_notification_configure_button),
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold,
+                    text = "Configure in Android Settings",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
 
@@ -1051,8 +933,8 @@ private fun SecurityPrivacyCard(
     modifier: Modifier = Modifier,
 ) {
     SettingsCard(
-        title = stringResource(R.string.settings_security_title),
-        subtitle = stringResource(R.string.settings_security_subtitle),
+        title = "Security & Privacy",
+        subtitle = "Biometric lock and secure screen display",
         icon = Icons.Rounded.Security,
         modifier = modifier,
     ) {

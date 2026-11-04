@@ -93,6 +93,7 @@ data class DashboardUiState(
     val recentHistory: List<RecentAnnouncement> = emptyList(),
     val recentHistoryLoaded: Boolean = false,
     val historyUnavailable: Boolean = false,
+    val totalAnnouncementsCount: Long = 0L,
     val testAnnouncement: TestAnnouncementState = TestAnnouncementState.IDLE,
 ) {
 

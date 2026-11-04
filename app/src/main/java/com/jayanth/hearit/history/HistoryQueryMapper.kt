@@ -21,6 +21,7 @@ object HistoryQueryMapper {
      * never becomes a filter that matches nothing.
      */
     fun toQuery(filter: HistoryFilter, offset: Int = 0): HistoryQuery = HistoryQuery(
+        packageName = filter.selectedPackageName,
         status = filter.status,
         searchText = filter.query.trim().takeIf { it.isNotEmpty() },
         sortBy = when (filter.sort) {

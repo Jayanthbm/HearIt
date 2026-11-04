@@ -26,9 +26,41 @@ object KeywordMatcher {
         val needle = keyword.trim().lowercase(Locale.ROOT)
         if (needle.isEmpty()) return false
         val haystack = text.lowercase(Locale.ROOT)
+
+        if (needle.contains("$") || needle.contains("*")) {
+            return matchesPattern(haystack, needle)
+        }
+
         return when (mode) {
             KeywordMatchMode.PHRASE -> haystack.contains(needle)
             KeywordMatchMode.WHOLE_WORD -> containsWholeWord(haystack, needle)
+            KeywordMatchMode.EXACT -> haystack == needle
+        }
+    }
+
+    private fun matchesPattern(haystack: String, pattern: String): Boolean {
+        return try {
+            val parts = mutableListOf<String>()
+            val tokenRegex = Regex("""(\$\d+|\*|\$[a-zA-Z]+)""")
+            var lastIndex = 0
+            for (match in tokenRegex.findAll(pattern)) {
+                if (match.range.first > lastIndex) {
+                    parts.add(Regex.escape(pattern.substring(lastIndex, match.range.first)))
+                }
+                val token = match.value
+                when {
+                    token == "*" -> parts.add(".*?")
+                    token.startsWith("$") -> parts.add("""(?:\d+|\S+)""")
+                }
+                lastIndex = match.range.last + 1
+            }
+            if (lastIndex < pattern.length) {
+                parts.add(Regex.escape(pattern.substring(lastIndex)))
+            }
+            val compiled = Regex(parts.joinToString(""), RegexOption.IGNORE_CASE)
+            compiled.containsMatchIn(haystack)
+        } catch (_: Exception) {
+            haystack.contains(pattern)
         }
     }
 

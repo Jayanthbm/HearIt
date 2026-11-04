@@ -22,6 +22,8 @@ data class HistoryFilter(
     val query: String = "",
     val status: HistoryStatus? = null,
     val sort: HistorySortOrder = HistorySortOrder.RecentFirst,
+    val selectedPackageName: String? = null,
+    val selectedAppName: String? = null,
 )
 
 /**
@@ -63,6 +65,8 @@ data class HistoryUiState(
     val filter: HistoryFilter = HistoryFilter(),
     val settings: HistorySettingsState = HistorySettingsState(),
     val items: List<HistoryItem> = emptyList(),
+    val availableApps: List<Pair<String, String>> = emptyList(),
+    val playingItemId: Long? = null,
     val loaded: Boolean = false,
     val loading: Boolean = false,
     val endReached: Boolean = false,
@@ -71,5 +75,5 @@ data class HistoryUiState(
 
     /** True when the query is filtered or searched, so an empty list needs different copy. */
     val isFiltered: Boolean
-        get() = filter.query.isNotBlank() || filter.status != null
+        get() = filter.query.isNotBlank() || filter.status != null || filter.selectedPackageName != null
 }
