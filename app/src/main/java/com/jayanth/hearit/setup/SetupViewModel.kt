@@ -6,9 +6,11 @@ import com.jayanth.hearit.core.common.model.AudioOutputSettings
 import com.jayanth.hearit.core.datastore.HearItSettings
 import com.jayanth.hearit.core.datastore.SettingsRepository
 import com.jayanth.hearit.core.datastore.SetupStateRepository
+import com.jayanth.hearit.core.setup.SetupBlocker
 import com.jayanth.hearit.core.setup.SetupFlow
 import com.jayanth.hearit.core.setup.SetupPrerequisites
 import com.jayanth.hearit.core.setup.SetupState
+import com.jayanth.hearit.core.setup.SetupStep
 import com.jayanth.hearit.core.tts.AnnouncementSection
 import com.jayanth.hearit.core.tts.BuiltAnnouncement
 import com.jayanth.hearit.core.tts.SectionKind
@@ -229,6 +231,13 @@ class SetupViewModel @Inject constructor(
         val step = SetupFlow.resolveVisibleStep(setup.currentStep, prerequisites)
         val visibleSteps = SetupFlow.visibleSteps(prerequisites)
 
+        val baseStartBlockers = SetupFlow.startBlockers(prerequisites)
+        val startBlockers = if (SetupStep.APP_SELECTION in setup.skippedSteps || settings.enabledApps.isEmpty()) {
+            baseStartBlockers.filterNot { it is SetupBlocker.NoEnabledApps }
+        } else {
+            baseStartBlockers
+        }
+
         _state.update { current ->
             current.copy(
                 loaded = true,
@@ -242,8 +251,8 @@ class SetupViewModel @Inject constructor(
                 canAdvance = SetupFlow.canAdvanceFrom(step, prerequisites),
                 canOnlySkip = SetupFlow.canOnlySkip(step, prerequisites),
                 canGoBack = SetupFlow.previousStep(step, prerequisites) != null,
-                canStart = SetupFlow.canStart(prerequisites),
-                startBlockers = SetupFlow.startBlockers(prerequisites),
+                canStart = startBlockers.isEmpty(),
+                startBlockers = startBlockers,
                 skippedSteps = setup.skippedSteps,
                 enabledApps = settings.enabledApps,
                 audioOutputSettings = settings.eligibility.audioOutput,

@@ -1,25 +1,36 @@
 package com.jayanth.hearit.setup
 
 import android.Manifest
+import android.graphics.Bitmap
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -62,6 +73,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -74,6 +86,7 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -81,9 +94,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -91,6 +112,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.graphics.drawable.toBitmap
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.jayanth.hearit.R
 import com.jayanth.hearit.core.common.model.AudioOutputSettings
 import com.jayanth.hearit.core.setup.SetupBlocker
@@ -219,29 +243,25 @@ fun SetupScreen(
 
 @Composable
 private fun SetupHeader(state: SetupUiState) {
-    val animatedProgress by animateFloatAsState(
-        targetValue = state.stepIndex / state.stepCount.toFloat(),
-        animationSpec = tween(350),
-        label = "progress",
-    )
+    val progress = (state.stepIndex.toFloat() / state.stepCount.toFloat()).coerceIn(0f, 1f)
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 16.dp),
+            .padding(horizontal = 24.dp, vertical = 12.dp),
     ) {
-        // Step chip + Progress bar
+        // Step chip + Progress percentage
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(topStart = 14.dp, bottomStart = 6.dp, topEnd = 14.dp, bottomEnd = 14.dp),
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
                 border = androidx.compose.foundation.BorderStroke(
                     1.dp,
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
                 ),
             ) {
                 Row(
@@ -266,51 +286,136 @@ private fun SetupHeader(state: SetupUiState) {
             }
 
             Text(
-                text = "${(animatedProgress * 100).toInt()}%",
+                text = "${(progress * 100).toInt()}%",
                 style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
             )
         }
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // Expressive rounded progress indicator
-        LinearProgressIndicator(
-            progress = { animatedProgress },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(6.dp)
-                .clip(RoundedCornerShape(3.dp)),
-            color = MaterialTheme.colorScheme.primary,
-            trackColor = MaterialTheme.colorScheme.surfaceVariant,
-            strokeCap = StrokeCap.Round,
+        // Material 3 Expressive wavy progress indicator
+        ExpressiveWavyProgressIndicator(
+            progress = progress,
+            modifier = Modifier.fillMaxWidth(),
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
-        // Step Title
+        // Step Title (Sleek one-liner)
         Text(
             text = stringResource(titleFor(state.step)),
-            style = MaterialTheme.typography.headlineMedium,
+            style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onBackground,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
 
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(3.dp))
 
-        // Step Subtitle
+        // Step Subtitle (Gracefully wrapped)
         Text(
             text = stringResource(descriptionFor(state.step)),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 2,
             lineHeight = 20.sp,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
 
 // ============================================================================
-// Step 1: Welcome Step
+// Material 3 Expressive Wavy Progress Indicator
+// ============================================================================
+
+@Composable
+private fun ExpressiveWavyProgressIndicator(
+    progress: Float,
+    modifier: Modifier = Modifier,
+    color: Color = MaterialTheme.colorScheme.primary,
+    trackColor: Color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+    strokeWidth: androidx.compose.ui.unit.Dp = 5.dp,
+    waveAmplitude: androidx.compose.ui.unit.Dp = 2.5.dp,
+    wavelength: androidx.compose.ui.unit.Dp = 20.dp,
+) {
+    val animatedProgress by animateFloatAsState(
+        targetValue = progress.coerceIn(0f, 1f),
+        animationSpec = tween(durationMillis = 500, easing = FastOutSlowInEasing),
+        label = "wavyProgressAnim",
+    )
+
+    val infiniteTransition = rememberInfiniteTransition(label = "waveInfinite")
+    val phase by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = (2 * Math.PI).toFloat(),
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 2200, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart,
+        ),
+        label = "wavePhase",
+    )
+
+    Canvas(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(14.dp),
+    ) {
+        val width = size.width
+        val height = size.height
+        val midY = height / 2f
+        val strokePx = strokeWidth.toPx()
+        val ampPx = waveAmplitude.toPx()
+        val waveLenPx = wavelength.toPx().coerceAtLeast(10f)
+
+        val activeWidth = width * animatedProgress
+        val gapPx = 6.dp.toPx()
+
+        // 1. Inactive track: straight line with rounded cap
+        val trackStart = if (animatedProgress > 0f) (activeWidth + gapPx).coerceAtMost(width) else 0f
+        if (trackStart < width) {
+            drawLine(
+                color = trackColor,
+                start = Offset(trackStart, midY),
+                end = Offset(width, midY),
+                strokeWidth = strokePx * 0.75f,
+                cap = StrokeCap.Round,
+            )
+        }
+
+        // 2. Active wave path: sinusoidal curve
+        if (activeWidth > 2f) {
+            val wavePath = Path().apply {
+                moveTo(0f, midY)
+                var x = 0f
+                val step = 2f
+                while (x <= activeWidth) {
+                    val progressRatio = (x / activeWidth).coerceIn(0f, 1f)
+                    val envelope = Math.sin(progressRatio * Math.PI).toFloat()
+                    val currentAmp = ampPx * (0.35f + 0.65f * envelope)
+                    val angle = (2f * Math.PI.toFloat() * (x / waveLenPx)) - phase
+                    val y = midY + currentAmp * Math.sin(angle.toDouble()).toFloat()
+                    lineTo(x, y)
+                    x += step
+                }
+            }
+            drawPath(
+                path = wavePath,
+                color = color,
+                style = Stroke(
+                    width = strokePx,
+                    cap = StrokeCap.Round,
+                    join = StrokeJoin.Round,
+                ),
+            )
+        }
+    }
+}
+
+// ============================================================================
+// Step 1: Welcome Step (Material 3 Expressive Morphed & Compact)
 // ============================================================================
 
 @Composable
@@ -319,32 +424,32 @@ private fun WelcomeStep() {
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+            .padding(horizontal = 24.dp, vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        // Centered glowing brand mark emblem
+        // Compact expressive brand emblem
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 12.dp),
+                .padding(vertical = 4.dp),
             contentAlignment = Alignment.Center,
         ) {
             Surface(
-                modifier = Modifier.size(88.dp),
-                shape = RoundedCornerShape(24.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                modifier = Modifier.size(62.dp),
+                shape = RoundedCornerShape(topStart = 22.dp, topEnd = 8.dp, bottomEnd = 22.dp, bottomStart = 8.dp),
+                color = MaterialTheme.colorScheme.primaryContainer,
                 border = androidx.compose.foundation.BorderStroke(
                     1.5.dp,
                     MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
                 ),
-                shadowElevation = 8.dp,
+                shadowElevation = 4.dp,
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         painter = painterResource(id = R.drawable.ic_logo_audio_lines),
                         contentDescription = stringResource(R.string.app_name),
-                        modifier = Modifier.size(44.dp),
-                        tint = Color.Unspecified,
+                        modifier = Modifier.size(32.dp),
+                        tint = MaterialTheme.colorScheme.primary,
                     )
                 }
             }
@@ -356,6 +461,8 @@ private fun WelcomeStep() {
             iconContainerColor = MaterialTheme.colorScheme.primaryContainer,
             title = "Earphone-First Audio",
             description = stringResource(R.string.setup_welcome_point_1),
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 10.dp, bottomEnd = 24.dp, bottomStart = 10.dp),
+            iconShape = RoundedCornerShape(topStart = 16.dp, topEnd = 6.dp, bottomEnd = 16.dp, bottomStart = 6.dp),
         )
 
         FeatureCard(
@@ -364,6 +471,8 @@ private fun WelcomeStep() {
             iconContainerColor = MaterialTheme.colorScheme.secondaryContainer,
             title = "Smart Eligibility Rules",
             description = stringResource(R.string.setup_welcome_point_2),
+            shape = RoundedCornerShape(topStart = 10.dp, topEnd = 24.dp, bottomEnd = 10.dp, bottomStart = 24.dp),
+            iconShape = RoundedCornerShape(topStart = 6.dp, topEnd = 16.dp, bottomEnd = 6.dp, bottomStart = 16.dp),
         )
 
         FeatureCard(
@@ -372,9 +481,9 @@ private fun WelcomeStep() {
             iconContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
             title = "100% Private & Local",
             description = stringResource(R.string.setup_welcome_point_3),
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 10.dp, bottomEnd = 24.dp, bottomStart = 10.dp),
+            iconShape = RoundedCornerShape(topStart = 16.dp, topEnd = 6.dp, bottomEnd = 16.dp, bottomStart = 6.dp),
         )
-
-        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 
@@ -385,27 +494,29 @@ private fun FeatureCard(
     iconContainerColor: Color,
     title: String,
     description: String,
+    shape: Shape = RoundedCornerShape(18.dp),
+    iconShape: Shape = RoundedCornerShape(12.dp),
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
+        shape = shape,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer,
         ),
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
-            MaterialTheme.colorScheme.outlineVariant,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
         ),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Surface(
                 modifier = Modifier.size(44.dp),
-                shape = RoundedCornerShape(12.dp),
+                shape = iconShape,
                 color = iconContainerColor,
             ) {
                 Box(contentAlignment = Alignment.Center) {
@@ -413,26 +524,28 @@ private fun FeatureCard(
                         imageVector = icon,
                         contentDescription = null,
                         tint = iconTint,
-                        modifier = Modifier.size(24.dp),
+                        modifier = Modifier.size(22.dp),
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(14.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
-                Spacer(modifier = Modifier.height(3.dp))
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = description,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    lineHeight = 18.sp,
+                    lineHeight = 17.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }
@@ -552,7 +665,8 @@ private fun TextToSpeechStep(
 
         OutlinedButton(
             onClick = onRecheck,
-            modifier = Modifier.fillMaxWidth().height(48.dp),
+            modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 48.dp),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
             shape = RoundedCornerShape(14.dp),
         ) {
             Icon(Icons.Rounded.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -694,7 +808,8 @@ private fun BatteryGuidanceStep(
 
                 Button(
                     onClick = onOpenBatterySettings,
-                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 48.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.secondary,
@@ -853,6 +968,50 @@ private fun AppSelectionStep(
 }
 
 @Composable
+private fun SetupAppIcon(packageName: String, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    var iconBitmap by remember(packageName) { mutableStateOf<ImageBitmap?>(null) }
+
+    LaunchedEffect(packageName) {
+        withContext(Dispatchers.IO) {
+            runCatching {
+                context.packageManager.getApplicationIcon(packageName)
+                    .toBitmap(96, 96, Bitmap.Config.ARGB_8888)
+                    .asImageBitmap()
+            }.getOrNull()
+        }.also {
+            iconBitmap = it
+        }
+    }
+
+    val bitmap = iconBitmap
+    if (bitmap != null) {
+        Image(
+            bitmap = bitmap,
+            contentDescription = null,
+            modifier = modifier
+                .size(38.dp)
+                .clip(RoundedCornerShape(10.dp)),
+        )
+    } else {
+        Surface(
+            modifier = modifier.size(38.dp),
+            shape = RoundedCornerShape(10.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant,
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = Icons.Rounded.Notifications,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun AppRow(
     app: InstalledApp,
     enabled: Boolean,
@@ -862,13 +1021,13 @@ private fun AppRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onToggle() },
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (enabled) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surfaceContainer,
+            containerColor = if (enabled) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f) else MaterialTheme.colorScheme.surfaceContainer,
         ),
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
-            if (enabled) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant,
+            if (enabled) MaterialTheme.colorScheme.primary.copy(alpha = 0.45f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
         ),
     ) {
         Row(
@@ -877,28 +1036,15 @@ private fun AppRow(
                 .padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Surface(
-                modifier = Modifier.size(36.dp),
-                shape = RoundedCornerShape(10.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant,
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = Icons.Rounded.Notifications,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp),
-                        tint = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
+            SetupAppIcon(packageName = app.packageName)
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(14.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = app.label,
                     style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = if (enabled) FontWeight.SemiBold else FontWeight.Normal,
+                    fontWeight = if (enabled) FontWeight.Bold else FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -913,7 +1059,7 @@ private fun AppRow(
                 )
             }
 
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(10.dp))
 
             Switch(
                 checked = enabled,
@@ -1129,7 +1275,7 @@ private fun TestAnnouncementStep(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = stringResource(R.string.setup_test_body),
+                    text = stringResource(R.string.setup_test_card_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
@@ -1140,7 +1286,8 @@ private fun TestAnnouncementStep(
                 Button(
                     onClick = onPlay,
                     enabled = testState != TestAnnouncementState.SPEAKING,
-                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 52.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
@@ -1219,7 +1366,8 @@ private fun ReviewStep(
                 ReviewRow(
                     icon = Icons.Rounded.Notifications,
                     label = "Enabled Applications",
-                    value = "${state.enabledApps.size} apps selected",
+                    value = if (state.enabledApps.isEmpty()) "None (Set in Apps)" else "${state.enabledApps.size} apps selected",
+                    isWarning = state.enabledApps.isEmpty(),
                 )
 
                 Spacer(modifier = Modifier.height(10.dp))
@@ -1250,35 +1398,65 @@ private fun ReviewStep(
         if (state.notificationPermissionRequired && !state.notificationPermissionGranted) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(18.dp),
+                shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                 ),
                 border = androidx.compose.foundation.BorderStroke(
                     1.dp,
-                    MaterialTheme.colorScheme.secondary.copy(alpha = 0.4f),
+                    MaterialTheme.colorScheme.outlineVariant,
                 ),
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "Ongoing Service Notification",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = stringResource(R.string.setup_review_notification_permission_body),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(36.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Rounded.NotificationsActive,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Service Status Notification",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = stringResource(R.string.setup_review_notification_permission_body),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                lineHeight = 16.sp,
+                            )
+                        }
+                    }
                     Spacer(modifier = Modifier.height(12.dp))
-                    Button(
+                    FilledTonalButton(
                         onClick = onRequestNotificationPermission,
-                        modifier = Modifier.fillMaxWidth().height(44.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .defaultMinSize(minHeight = 42.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                         shape = RoundedCornerShape(12.dp),
                     ) {
-                        Text(stringResource(R.string.setup_review_notification_permission_button))
+                        Text(
+                            text = stringResource(R.string.setup_review_notification_permission_button),
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.sp,
+                        )
                     }
                 }
             }
@@ -1291,39 +1469,82 @@ private fun ReviewStep(
                 }
             }
         } else {
+            val successMessage = if (state.enabledApps.isEmpty()) {
+                "Hear It is ready! You can enable apps anytime from the Apps tab."
+            } else {
+                "All prerequisites satisfied! Press Start below to begin reading notifications."
+            }
             StatusBanner(
                 isSuccess = true,
-                message = "All prerequisites satisfied! Press Start below to begin reading notifications.",
+                message = successMessage,
             )
         }
     }
 }
 
 @Composable
-private fun ReviewRow(icon: ImageVector, label: String, value: String) {
+private fun ReviewRow(
+    icon: ImageVector,
+    label: String,
+    value: String,
+    isWarning: Boolean = false,
+) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(20.dp),
-        )
-        Spacer(modifier = Modifier.width(12.dp))
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        Row(
             modifier = Modifier.weight(1f),
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Surface(
+                modifier = Modifier.size(34.dp),
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Spacer(modifier = Modifier.width(8.dp))
+        Surface(
+            shape = RoundedCornerShape(8.dp),
+            color = if (isWarning) {
+                MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+            } else {
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
+            },
+        ) {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = if (isWarning) {
+                    MaterialTheme.colorScheme.onSecondaryContainer
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                },
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
 }
 
@@ -1400,16 +1621,26 @@ private fun PermissionCard(
                     onClick = onAction,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(50.dp),
+                        .defaultMinSize(minHeight = 48.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary,
                     ),
                 ) {
-                    Icon(Icons.Rounded.Settings, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = actionLabel, fontWeight = FontWeight.Bold)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                    ) {
+                        Icon(Icons.Rounded.Settings, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = actionLabel,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        )
+                    }
                 }
             }
         }
@@ -1472,6 +1703,7 @@ private fun StatusBanner(isSuccess: Boolean, message: String) {
             Spacer(modifier = Modifier.width(10.dp))
             Text(
                 text = message,
+                modifier = Modifier.weight(1f),
                 style = MaterialTheme.typography.bodySmall,
                 color = if (isSuccess) Color(0xFFD1FAE5) else Color(0xFFFEF3C7),
                 lineHeight = 18.sp,
@@ -1510,9 +1742,10 @@ private fun ModernBottomBar(
             if (state.canGoBack) {
                 OutlinedButton(
                     onClick = onBack,
-                    shape = RoundedCornerShape(14.dp),
-                    modifier = Modifier.height(48.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                    shape = RoundedCornerShape(topStart = 16.dp, topEnd = 6.dp, bottomEnd = 16.dp, bottomStart = 6.dp),
+                    modifier = Modifier.defaultMinSize(minHeight = 48.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
@@ -1530,28 +1763,41 @@ private fun ModernBottomBar(
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // Skip Button
-                if (state.canOnlySkip || (state.step.isSkippable && !state.canAdvance)) {
+                val isAppSelection = state.step == SetupStep.APP_SELECTION
+                val noAppsEnabled = isAppSelection && state.enabledApps.isEmpty()
+
+                // Skip Button for skippable steps (when not handled by primary action)
+                if ((state.canOnlySkip || (state.step.isSkippable && !state.canAdvance)) && !noAppsEnabled) {
                     TextButton(
                         onClick = onSkip,
-                        modifier = Modifier.height(48.dp),
+                        modifier = Modifier.defaultMinSize(minHeight = 48.dp),
+                        shape = RoundedCornerShape(14.dp),
                     ) {
                         Text(
                             text = stringResource(R.string.setup_skip),
                             fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = MaterialTheme.colorScheme.primary,
                         )
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                 }
 
-                // CTA Button (Continue or Start)
+                // Morphed Material 3 Expressive CTA Button Shape
+                val morphedCtaShape = RoundedCornerShape(
+                    topStart = 24.dp,
+                    topEnd = 10.dp,
+                    bottomEnd = 24.dp,
+                    bottomStart = 10.dp,
+                )
+
+                // CTA Button (Continue, Start, or Choose Later)
                 if (state.step == SetupStep.REVIEW) {
                     Button(
                         onClick = onStart,
                         enabled = state.canStart,
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.height(52.dp),
+                        shape = morphedCtaShape,
+                        modifier = Modifier.defaultMinSize(minHeight = 52.dp),
+                        contentPadding = PaddingValues(horizontal = 22.dp, vertical = 12.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary,
                             contentColor = MaterialTheme.colorScheme.onPrimary,
@@ -1569,19 +1815,44 @@ private fun ModernBottomBar(
                             fontSize = 15.sp,
                         )
                     }
-                } else {
+                } else if (noAppsEnabled) {
+                    // On App Selection with 0 apps, the primary CTA is "Choose Later"
                     Button(
-                        onClick = onNext,
-                        enabled = state.canAdvance,
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.height(52.dp),
+                        onClick = onSkip,
+                        shape = morphedCtaShape,
+                        modifier = Modifier.defaultMinSize(minHeight = 52.dp),
+                        contentPadding = PaddingValues(horizontal = 22.dp, vertical = 12.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary,
                             contentColor = MaterialTheme.colorScheme.onPrimary,
                         ),
                     ) {
                         Text(
-                            text = stringResource(R.string.setup_next),
+                            text = "Choose Later",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp,
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                } else {
+                    Button(
+                        onClick = onNext,
+                        enabled = state.canAdvance,
+                        shape = morphedCtaShape,
+                        modifier = Modifier.defaultMinSize(minHeight = 52.dp),
+                        contentPadding = PaddingValues(horizontal = 22.dp, vertical = 12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                        ),
+                    ) {
+                        Text(
+                            text = if (state.step == SetupStep.WELCOME) "Get Started" else stringResource(R.string.setup_next),
                             fontWeight = FontWeight.Bold,
                             fontSize = 15.sp,
                         )

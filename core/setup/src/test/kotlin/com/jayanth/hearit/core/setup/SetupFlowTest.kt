@@ -103,14 +103,15 @@ class SetupFlowTest {
     }
 
     @Test
-    fun appSelection_blocksWhileEveryAppIsDisabled() {
+    fun appSelection_blocksWhileEveryAppIsDisabled_butIsSkippable() {
         val prerequisites = ready.copy(enabledAppCount = 0)
 
         assertEquals(
             listOf(SetupBlocker.NoEnabledApps),
             SetupFlow.blockersFor(SetupStep.APP_SELECTION, prerequisites),
         )
-        assertFalse(SetupFlow.canAdvanceFrom(SetupStep.APP_SELECTION, prerequisites))
+        assertTrue(SetupFlow.canAdvanceFrom(SetupStep.APP_SELECTION, prerequisites))
+        assertTrue(SetupFlow.canOnlySkip(SetupStep.APP_SELECTION, prerequisites))
     }
 
     @Test
@@ -210,7 +211,7 @@ class SetupFlowTest {
     @Test
     fun stepClassification_matchesTheDocumentedSkipRules() {
         assertEquals(
-            setOf(SetupStep.BLUETOOTH_PERMISSION, SetupStep.BATTERY_GUIDANCE, SetupStep.AUDIO_DEVICES, SetupStep.TEST_ANNOUNCEMENT),
+            setOf(SetupStep.BLUETOOTH_PERMISSION, SetupStep.BATTERY_GUIDANCE, SetupStep.APP_SELECTION, SetupStep.AUDIO_DEVICES, SetupStep.TEST_ANNOUNCEMENT),
             SetupStep.ordered.filter { it.isSkippable }.toSet(),
         )
         assertTrue(SetupStep.ordered.filter { it.isRequired }.none { it.isSkippable })

@@ -48,6 +48,7 @@ enum class SetupStep {
     val isSkippable: Boolean
         get() = this == BLUETOOTH_PERMISSION ||
             this == BATTERY_GUIDANCE ||
+            this == APP_SELECTION ||
             this == AUDIO_DEVICES ||
             this == TEST_ANNOUNCEMENT
 
