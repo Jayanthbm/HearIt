@@ -48,6 +48,7 @@ import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
@@ -150,23 +151,43 @@ fun HistoryScreen(
                 OutlinedTextField(
                     value = state.filter.query,
                     onValueChange = onQueryChanged,
-                    placeholder = { Text("Search notification history…") },
+                    placeholder = {
+                        Text(
+                            text = "Search notification history…",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        )
+                    },
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Rounded.Search,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(22.dp),
                         )
                     },
                     trailingIcon = {
                         if (state.filter.query.isNotBlank()) {
                             IconButton(onClick = { onQueryChanged("") }) {
-                                Icon(Icons.Rounded.Close, contentDescription = "Clear search")
+                                Icon(
+                                    imageVector = Icons.Rounded.Close,
+                                    contentDescription = "Clear search",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp),
+                                )
                             }
                         }
                     },
                     singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent,
+                        disabledIndicatorColor = Color.Transparent,
+                    ),
                     modifier = Modifier.fillMaxWidth(),
                 )
 
@@ -189,7 +210,7 @@ fun HistoryScreen(
                         leadingIcon = {
                             Icon(Icons.Rounded.FilterList, contentDescription = null, modifier = Modifier.size(16.dp))
                         },
-                        shape = RoundedCornerShape(10.dp),
+                        shape = RoundedCornerShape(topStart = 12.dp, topEnd = 6.dp, bottomEnd = 12.dp, bottomStart = 6.dp),
                     )
 
                     FilterChip(
@@ -205,17 +226,27 @@ fun HistoryScreen(
                         leadingIcon = {
                             Icon(Icons.AutoMirrored.Rounded.Sort, contentDescription = null, modifier = Modifier.size(16.dp))
                         },
-                        shape = RoundedCornerShape(10.dp),
+                        shape = RoundedCornerShape(topStart = 12.dp, topEnd = 6.dp, bottomEnd = 12.dp, bottomStart = 6.dp),
                     )
 
                     Spacer(modifier = Modifier.weight(1f))
 
                     if (state.items.isNotEmpty()) {
-                        TextButton(
-                            onClick = { confirmingClearAll = true },
-                            modifier = Modifier.height(36.dp),
+                        Surface(
+                            shape = RoundedCornerShape(topStart = 10.dp, topEnd = 4.dp, bottomEnd = 10.dp, bottomStart = 4.dp),
+                            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f),
                         ) {
-                            Text("Clear", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
+                            IconButton(
+                                onClick = { confirmingClearAll = true },
+                                modifier = Modifier.size(36.dp),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.DeleteOutline,
+                                    contentDescription = stringResource(R.string.history_clear_all_button),
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
                         }
                     }
                 }
@@ -413,7 +444,7 @@ private fun ModernHistoryCard(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(topStart = 18.dp, topEnd = 8.dp, bottomEnd = 18.dp, bottomStart = 8.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
@@ -430,7 +461,7 @@ private fun ModernHistoryCard(
                 ) {
                     Surface(
                         modifier = Modifier.size(30.dp),
-                        shape = RoundedCornerShape(8.dp),
+                        shape = RoundedCornerShape(topStart = 10.dp, topEnd = 5.dp, bottomEnd = 10.dp, bottomStart = 5.dp),
                         color = MaterialTheme.colorScheme.surfaceVariant,
                     ) {
                         Box(contentAlignment = Alignment.Center) {
@@ -553,7 +584,7 @@ private fun HistoryStatusPill(status: HistoryStatus) {
     }
 
     Surface(
-        shape = RoundedCornerShape(8.dp),
+        shape = RoundedCornerShape(topStart = 8.dp, topEnd = 4.dp, bottomEnd = 8.dp, bottomStart = 4.dp),
         color = bgColor,
     ) {
         Text(
@@ -571,7 +602,7 @@ private fun HistoryStatusPill(status: HistoryStatus) {
 private fun HistoryNoticeBanner(message: String, isError: Boolean) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(topStart = 18.dp, topEnd = 8.dp, bottomEnd = 18.dp, bottomStart = 8.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isError) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f) else MaterialTheme.colorScheme.surfaceContainer,
         ),
@@ -608,7 +639,7 @@ private fun HistorySettingsCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(topStart = 22.dp, topEnd = 10.dp, bottomEnd = 22.dp, bottomStart = 10.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {

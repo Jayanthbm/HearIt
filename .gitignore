@@ -10,6 +10,7 @@ secrets.properties
 
 # Android Studio
 *.iml
+.idea/
 .idea/caches/
 .idea/libraries/
 .idea/modules.xml
@@ -30,6 +31,7 @@ captures/
 *.apk
 *.aab
 *.hprof
+app/release/
 
 # Signing files
 *.jks

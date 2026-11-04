@@ -261,7 +261,7 @@ fun GlobalSettingsScreen(
         // Reset to Defaults Button
         OutlinedButton(
             onClick = { showResetDialog = true },
-            shape = RoundedCornerShape(14.dp),
+            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 8.dp, bottomEnd = 16.dp, bottomStart = 8.dp),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp),
@@ -325,7 +325,7 @@ fun GlobalSettingsScreen(
 private fun GlobalRulesHeroCard(state: GlobalSettingsUiState) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(topStart = 26.dp, topEnd = 12.dp, bottomEnd = 26.dp, bottomStart = 12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
@@ -336,7 +336,7 @@ private fun GlobalRulesHeroCard(state: GlobalSettingsUiState) {
             ) {
                 Surface(
                     modifier = Modifier.size(44.dp),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(topStart = 14.dp, topEnd = 6.dp, bottomEnd = 14.dp, bottomStart = 6.dp),
                     color = MaterialTheme.colorScheme.primaryContainer,
                 ) {
                     Box(contentAlignment = Alignment.Center) {
@@ -426,8 +426,8 @@ private fun StatusPill(
 ) {
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(10.dp),
-        color = if (isPositive) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f) else MaterialTheme.colorScheme.surfaceVariant,
+        shape = RoundedCornerShape(topStart = 10.dp, topEnd = 4.dp, bottomEnd = 10.dp, bottomStart = 4.dp),
+        color = if (isPositive) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f) else MaterialTheme.colorScheme.surfaceVariant,
         border = BorderStroke(1.dp, if (isPositive) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f) else MaterialTheme.colorScheme.outlineVariant),
     ) {
         Row(
@@ -1095,7 +1095,7 @@ private fun SectionCard(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(topStart = 22.dp, topEnd = 10.dp, bottomEnd = 22.dp, bottomStart = 10.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
@@ -1106,7 +1106,7 @@ private fun SectionCard(
             ) {
                 Surface(
                     modifier = Modifier.size(36.dp),
-                    shape = RoundedCornerShape(10.dp),
+                    shape = RoundedCornerShape(topStart = 12.dp, topEnd = 6.dp, bottomEnd = 12.dp, bottomStart = 6.dp),
                     color = MaterialTheme.colorScheme.primaryContainer,
                 ) {
                     Box(contentAlignment = Alignment.Center) {
@@ -1147,11 +1147,12 @@ private fun SegmentOption(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val shape = RoundedCornerShape(topStart = 14.dp, topEnd = 6.dp, bottomEnd = 14.dp, bottomStart = 6.dp)
     Surface(
         modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
+            .clip(shape)
             .clickable(role = Role.RadioButton, onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
+        shape = shape,
         color = if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f) else MaterialTheme.colorScheme.surfaceContainerHigh,
         border = BorderStroke(
             1.dp,

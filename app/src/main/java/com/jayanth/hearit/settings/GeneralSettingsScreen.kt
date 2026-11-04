@@ -6,8 +6,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -32,8 +36,10 @@ import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -464,9 +470,11 @@ private fun GroupingCard(
                 modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
             )
 
-            Row(
+            @OptIn(ExperimentalLayoutApi::class)
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 val windowOptions = listOf(
                     0L to "0s (Off)",
@@ -480,6 +488,7 @@ private fun GroupingCard(
                         selected = isSelected,
                         onClick = { onGroupingWindowChanged(millis) },
                         label = { Text(text = label, style = MaterialTheme.typography.labelSmall) },
+                        shape = RoundedCornerShape(8.dp),
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                             selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -507,9 +516,11 @@ private fun GroupingCard(
                 modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
             )
 
-            Row(
+            @OptIn(ExperimentalLayoutApi::class)
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 val messageOptions = listOf(
                     1 to "1 (Single)",
@@ -524,6 +535,7 @@ private fun GroupingCard(
                         selected = isSelected,
                         onClick = { onMaxMessagesChanged(count) },
                         label = { Text(text = label, style = MaterialTheme.typography.labelSmall) },
+                        shape = RoundedCornerShape(8.dp),
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                             selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -567,9 +579,11 @@ private fun PacingCard(
                 modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
             )
 
-            Row(
+            @OptIn(ExperimentalLayoutApi::class)
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 val delayOptions = listOf(
                     0L to "0s (Immediate)",
@@ -583,6 +597,7 @@ private fun PacingCard(
                         selected = isSelected,
                         onClick = { onDelayChanged(millis) },
                         label = { Text(text = label, style = MaterialTheme.typography.labelSmall) },
+                        shape = RoundedCornerShape(8.dp),
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                             selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -610,9 +625,11 @@ private fun PacingCard(
                 modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
             )
 
-            Row(
+            @OptIn(ExperimentalLayoutApi::class)
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 val gapOptions = listOf(
                     0L to "0s (None)",
@@ -626,6 +643,7 @@ private fun PacingCard(
                         selected = isSelected,
                         onClick = { onMinGapChanged(millis) },
                         label = { Text(text = label, style = MaterialTheme.typography.labelSmall) },
+                        shape = RoundedCornerShape(8.dp),
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                             selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -741,9 +759,11 @@ private fun QueueCapacityCard(
                 modifier = Modifier.padding(top = 2.dp, bottom = 6.dp),
             )
 
-            Row(
+            @OptIn(ExperimentalLayoutApi::class)
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 val expiryOptions = listOf(
                     5 * 60_000L to "5m",
@@ -757,6 +777,7 @@ private fun QueueCapacityCard(
                         selected = isSelected,
                         onClick = { onExpiryChanged(millis) },
                         label = { Text(text = label, style = MaterialTheme.typography.labelSmall) },
+                        shape = RoundedCornerShape(8.dp),
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                             selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -989,12 +1010,13 @@ private fun ServiceNotificationCard(
             )
 
             // Direct button to open Android notification settings
-            OutlinedButton(
+            FilledTonalButton(
                 onClick = onConfigureClicked,
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(48.dp),
+                    .defaultMinSize(minHeight = 44.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
@@ -1004,6 +1026,7 @@ private fun ServiceNotificationCard(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = stringResource(R.string.settings_service_notification_configure_button),
+                    style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.SemiBold,
                 )
             }
@@ -1128,7 +1151,7 @@ private fun SettingsCard(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 10.dp, bottomEnd = 24.dp, bottomStart = 10.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
@@ -1138,8 +1161,8 @@ private fun SettingsCard(
                 modifier = Modifier.padding(bottom = 16.dp),
             ) {
                 Surface(
-                    modifier = Modifier.size(32.dp),
-                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.size(34.dp),
+                    shape = RoundedCornerShape(topStart = 12.dp, topEnd = 6.dp, bottomEnd = 12.dp, bottomStart = 6.dp),
                     color = MaterialTheme.colorScheme.primaryContainer,
                 ) {
                     Box(contentAlignment = Alignment.Center) {

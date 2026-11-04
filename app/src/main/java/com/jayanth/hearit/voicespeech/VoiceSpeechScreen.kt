@@ -1,10 +1,14 @@
 package com.jayanth.hearit.voicespeech
 
+import android.content.Intent
+import android.provider.Settings
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.FormatQuote
@@ -36,6 +41,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -59,6 +65,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -232,7 +239,7 @@ private fun LivePreviewCard(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 12.dp, bottomEnd = 24.dp, bottomStart = 12.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         ),
@@ -247,9 +254,9 @@ private fun LivePreviewCard(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Surface(
-                    shape = RoundedCornerShape(10.dp),
+                    shape = RoundedCornerShape(topStart = 12.dp, topEnd = 6.dp, bottomEnd = 12.dp, bottomStart = 6.dp),
                     color = MaterialTheme.colorScheme.primaryContainer,
-                    modifier = Modifier.size(34.dp),
+                    modifier = Modifier.size(36.dp),
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
@@ -323,7 +330,7 @@ private fun LivePreviewCard(
                 Button(
                     onClick = onTestVoice,
                     enabled = state.isTtsAvailable && state.previewText != "No sections enabled",
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(topStart = 16.dp, topEnd = 8.dp, bottomEnd = 16.dp, bottomStart = 8.dp),
                     colors = if (state.isSpeaking) {
                         ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.error,
@@ -335,7 +342,7 @@ private fun LivePreviewCard(
                             contentColor = MaterialTheme.colorScheme.onPrimary,
                         )
                     },
-                    modifier = Modifier.height(44.dp),
+                    modifier = Modifier.height(46.dp),
                 ) {
                     Icon(
                         imageVector = if (state.isSpeaking) Icons.Rounded.Stop else Icons.Rounded.PlayArrow,
@@ -357,27 +364,73 @@ private fun LivePreviewCard(
             }
 
             if (!state.isTtsAvailable) {
+                val context = LocalContext.current
                 Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = MaterialTheme.colorScheme.errorContainer,
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Row(
-                        modifier = Modifier.padding(10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Warning,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(18.dp),
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Warning,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(20.dp),
+                            )
+                            Text(
+                                text = stringResource(R.string.voice_speech_tts_unavailable),
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                            )
+                        }
                         Text(
-                            text = stringResource(R.string.voice_speech_tts_unavailable),
+                            text = "Hear It needs a text-to-speech engine to speak announcements. Enable Speech Services by Google or configure your preferred engine in Android Settings.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onErrorContainer,
+                            lineHeight = 16.sp,
                         )
+                        FilledTonalButton(
+                            onClick = {
+                                try {
+                                    context.startActivity(Intent("com.android.settings.TTS_SETTINGS").apply {
+                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    })
+                                } catch (_: Exception) {
+                                    try {
+                                        context.startActivity(Intent(Settings.ACTION_SETTINGS).apply {
+                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        })
+                                    } catch (_: Exception) {}
+                                }
+                            },
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.15f),
+                                contentColor = MaterialTheme.colorScheme.error,
+                            ),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Open Text-to-Speech Settings",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
                     }
                 }
             }
@@ -388,6 +441,7 @@ private fun LivePreviewCard(
 /**
  * Speech Tuning Card for Speed, Pitch, and Voice Engine.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SpeechTuningCard(
     state: VoiceSpeechUiState,
@@ -398,7 +452,7 @@ private fun SpeechTuningCard(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(topStart = 12.dp, topEnd = 24.dp, bottomEnd = 12.dp, bottomStart = 24.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
@@ -409,8 +463,8 @@ private fun SpeechTuningCard(
                 modifier = Modifier.padding(bottom = 16.dp),
             ) {
                 Surface(
-                    modifier = Modifier.size(32.dp),
-                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.size(34.dp),
+                    shape = RoundedCornerShape(topStart = 12.dp, topEnd = 6.dp, bottomEnd = 12.dp, bottomStart = 6.dp),
                     color = MaterialTheme.colorScheme.primaryContainer,
                 ) {
                     Box(contentAlignment = Alignment.Center) {
@@ -486,10 +540,11 @@ private fun SpeechTuningCard(
                     .padding(vertical = 4.dp),
             )
 
-            // Speed Presets
-            Row(
+            // Speed Presets - Responsive FlowRow
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 val speedPresets = listOf(0.8f to "0.8×", 1.0f to "1.0× (Normal)", 1.2f to "1.2×", 1.5f to "1.5×")
                 for ((rate, label) in speedPresets) {
@@ -498,6 +553,7 @@ private fun SpeechTuningCard(
                         selected = isSelected,
                         onClick = { onSpeechRateChanged(rate) },
                         label = { Text(text = label, style = MaterialTheme.typography.labelSmall) },
+                        shape = RoundedCornerShape(8.dp),
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                             selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -556,10 +612,11 @@ private fun SpeechTuningCard(
                     .padding(vertical = 4.dp),
             )
 
-            // Pitch Presets
-            Row(
+            // Pitch Presets - Responsive FlowRow
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 val pitchPresets = listOf(0.8f to "0.8× (Deep)", 1.0f to "1.0× (Normal)", 1.2f to "1.2× (High)")
                 for ((pitch, label) in pitchPresets) {
@@ -568,6 +625,7 @@ private fun SpeechTuningCard(
                         selected = isSelected,
                         onClick = { onPitchChanged(pitch) },
                         label = { Text(text = label, style = MaterialTheme.typography.labelSmall) },
+                        shape = RoundedCornerShape(8.dp),
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                             selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -621,6 +679,7 @@ private fun SpeechTuningCard(
 /**
  * Announcement Structure Card: App name, Sender, Message, Intro text, and Pause between sections.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AnnouncementStructureCard(
     state: VoiceSpeechUiState,
@@ -633,7 +692,7 @@ private fun AnnouncementStructureCard(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 12.dp, bottomEnd = 24.dp, bottomStart = 12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
@@ -644,8 +703,8 @@ private fun AnnouncementStructureCard(
                 modifier = Modifier.padding(bottom = 14.dp),
             ) {
                 Surface(
-                    modifier = Modifier.size(32.dp),
-                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.size(34.dp),
+                    shape = RoundedCornerShape(topStart = 12.dp, topEnd = 6.dp, bottomEnd = 12.dp, bottomStart = 6.dp),
                     color = MaterialTheme.colorScheme.primaryContainer,
                 ) {
                     Box(contentAlignment = Alignment.Center) {
@@ -759,9 +818,11 @@ private fun AnnouncementStructureCard(
                 modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
             )
 
-            Row(
+            // Pause Options - Responsive FlowRow
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 val pauseOptions = listOf(
                     0L to stringResource(R.string.voice_speech_pause_none),
@@ -775,6 +836,7 @@ private fun AnnouncementStructureCard(
                         selected = isSelected,
                         onClick = { onPauseDurationChanged(millis) },
                         label = { Text(text = label, style = MaterialTheme.typography.labelSmall) },
+                        shape = RoundedCornerShape(8.dp),
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                             selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,

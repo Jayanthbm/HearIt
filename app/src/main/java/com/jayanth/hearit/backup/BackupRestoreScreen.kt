@@ -135,7 +135,7 @@ fun BackupRestoreScreen(
         // Privacy Hero Badge
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(14.dp),
+            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 8.dp, bottomEnd = 20.dp, bottomStart = 8.dp),
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         ) {
@@ -144,12 +144,20 @@ fun BackupRestoreScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Icon(
-                    imageVector = Icons.Rounded.Security,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(22.dp),
-                )
+                Surface(
+                    shape = RoundedCornerShape(topStart = 10.dp, topEnd = 4.dp, bottomEnd = 10.dp, bottomStart = 4.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    modifier = Modifier.size(34.dp),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Rounded.Security,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                }
                 Column {
                     Text(
                         text = stringResource(R.string.backup_privacy_note),
@@ -228,7 +236,7 @@ fun BackupRestoreScreen(
                 Button(
                     onClick = onExportClicked,
                     enabled = !state.isExporting,
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(topStart = 16.dp, topEnd = 8.dp, bottomEnd = 16.dp, bottomStart = 8.dp),
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp),
@@ -275,7 +283,7 @@ fun BackupRestoreScreen(
                 OutlinedButton(
                     onClick = { showImportConfirmDialog = true },
                     enabled = !state.isImporting,
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(topStart = 16.dp, topEnd = 8.dp, bottomEnd = 16.dp, bottomStart = 8.dp),
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp),
@@ -426,7 +434,7 @@ private fun BackupCard(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 10.dp, bottomEnd = 24.dp, bottomStart = 10.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
@@ -436,8 +444,8 @@ private fun BackupCard(
                 modifier = Modifier.padding(bottom = 14.dp),
             ) {
                 Surface(
-                    modifier = Modifier.size(32.dp),
-                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.size(34.dp),
+                    shape = RoundedCornerShape(topStart = 12.dp, topEnd = 6.dp, bottomEnd = 12.dp, bottomStart = 6.dp),
                     color = MaterialTheme.colorScheme.primaryContainer,
                 ) {
                     Box(contentAlignment = Alignment.Center) {

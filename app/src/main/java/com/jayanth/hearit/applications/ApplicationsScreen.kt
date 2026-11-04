@@ -39,6 +39,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -54,6 +55,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -139,12 +141,19 @@ private fun ApplicationsListScreen(
         OutlinedTextField(
             value = state.query,
             onValueChange = onQueryChange,
-            placeholder = { Text("Search installed applications…") },
+            placeholder = {
+                Text(
+                    text = "Search installed applications…",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                )
+            },
             leadingIcon = {
                 Icon(
                     imageVector = Icons.Rounded.Search,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(22.dp),
                 )
             },
             trailingIcon = {
@@ -154,16 +163,25 @@ private fun ApplicationsListScreen(
                             imageVector = Icons.Rounded.Close,
                             contentDescription = "Clear search",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp),
                         )
                     }
                 }
             },
             singleLine = true,
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(24.dp),
+            colors = TextFieldDefaults.colors(
+                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                focusedIndicatorColor = Color.Transparent,
+                unfocusedIndicatorColor = Color.Transparent,
+                disabledIndicatorColor = Color.Transparent,
+            ),
             modifier = Modifier.fillMaxWidth(),
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
         // Status & Batch Controls Bar
         Row(
@@ -172,7 +190,7 @@ private fun ApplicationsListScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Surface(
-                shape = RoundedCornerShape(8.dp),
+                shape = RoundedCornerShape(topStart = 12.dp, topEnd = 6.dp, bottomEnd = 12.dp, bottomStart = 6.dp),
                 color = MaterialTheme.colorScheme.primaryContainer,
             ) {
                 Text(
@@ -184,42 +202,58 @@ private fun ApplicationsListScreen(
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                 )
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    modifier = Modifier.clickable(
-                        enabled = state.visibleApps.any { it.packageName !in state.enabledApps },
-                        onClick = onSelectAll,
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                val canSelectAll = state.visibleApps.any { it.packageName !in state.enabledApps }
+                FilledTonalButton(
+                    onClick = onSelectAll,
+                    enabled = canSelectAll,
+                    shape = RoundedCornerShape(topStart = 12.dp, topEnd = 6.dp, bottomEnd = 12.dp, bottomStart = 6.dp),
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                     ),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                    modifier = Modifier.height(36.dp),
                 ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Check,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "Select all",
-                        style = MaterialTheme.typography.labelSmall,
+                        text = "Select All",
+                        style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
                     )
                 }
 
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    modifier = Modifier.clickable(
-                        enabled = state.visibleApps.any { it.packageName in state.enabledApps },
-                        onClick = onDeselectAll,
+                val canDeselectAll = state.visibleApps.any { it.packageName in state.enabledApps }
+                FilledTonalButton(
+                    onClick = onDeselectAll,
+                    enabled = canDeselectAll,
+                    shape = RoundedCornerShape(topStart = 12.dp, topEnd = 6.dp, bottomEnd = 12.dp, bottomStart = 6.dp),
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     ),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                    modifier = Modifier.height(36.dp),
                 ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Close,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "Deselect all",
-                        style = MaterialTheme.typography.labelSmall,
+                        text = "Deselect All",
+                        style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
                     )
                 }
             }
@@ -292,7 +326,7 @@ private fun ApplicationRow(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(topStart = 20.dp, topEnd = 8.dp, bottomEnd = 20.dp, bottomStart = 8.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (enabled) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surfaceContainer,
         ),
@@ -310,7 +344,7 @@ private fun ApplicationRow(
             // App Icon
             Surface(
                 modifier = Modifier.size(42.dp),
-                shape = RoundedCornerShape(10.dp),
+                shape = RoundedCornerShape(topStart = 12.dp, topEnd = 6.dp, bottomEnd = 12.dp, bottomStart = 6.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant,
             ) {
                 Box(contentAlignment = Alignment.Center) {
@@ -452,7 +486,7 @@ private fun AppSettingsScreen(
         // General Card: Enabled Switch
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(18.dp),
+            shape = RoundedCornerShape(topStart = 22.dp, topEnd = 10.dp, bottomEnd = 22.dp, bottomStart = 10.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         ) {
@@ -622,7 +656,7 @@ private fun SettingsGroupCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(topStart = 22.dp, topEnd = 10.dp, bottomEnd = 22.dp, bottomStart = 10.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {

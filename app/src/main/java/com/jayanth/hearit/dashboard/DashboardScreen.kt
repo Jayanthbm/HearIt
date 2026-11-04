@@ -5,11 +5,15 @@ import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,9 +21,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -30,6 +36,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -97,7 +104,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -107,8 +116,10 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.sin
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
@@ -231,11 +242,13 @@ fun DashboardScreen(
         modifier = modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            ModernDashboardTopBar(
-                destination = destination,
-                isRunning = state.service.isRunning,
-                onBack = onBackToHome,
-            )
+            if (destination != DashboardDestination.HOME) {
+                ModernDashboardTopBar(
+                    destination = destination,
+                    isRunning = state.service.isRunning,
+                    onBack = onBackToHome,
+                )
+            }
         },
         bottomBar = {
             ModernBottomNav(selected = destination, onSelect = onSelectDestination)
@@ -294,40 +307,17 @@ private fun ModernDashboardTopBar(
     isRunning: Boolean,
     onBack: () -> Unit,
 ) {
+    // For HOME destination, the header is embedded in DashboardHome — show nothing here.
+    if (destination == DashboardDestination.HOME) return
+
     TopAppBar(
         title = {
-            if (destination == DashboardDestination.HOME) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(
-                        modifier = Modifier.size(36.dp),
-                        shape = RoundedCornerShape(10.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_logo_audio_lines),
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp),
-                                tint = Color.Unspecified,
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text(
-                        text = stringResource(R.string.app_name),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground,
-                    )
-                }
-            } else {
-                Text(
-                    text = stringResource(destination.labelRes),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground,
-                )
-            }
+            Text(
+                text = stringResource(destination.labelRes),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
         },
         navigationIcon = {
             if (!destination.isBottomBarDestination) {
@@ -337,40 +327,6 @@ private fun ModernDashboardTopBar(
                         contentDescription = stringResource(R.string.dashboard_back),
                         tint = MaterialTheme.colorScheme.onBackground,
                     )
-                }
-            }
-        },
-        actions = {
-            if (destination == DashboardDestination.HOME) {
-                // Live Service Pill in Top Bar
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = if (isRunning) Color(0xFF064E3B) else MaterialTheme.colorScheme.surfaceVariant,
-                    border = androidx.compose.foundation.BorderStroke(
-                        1.dp,
-                        if (isRunning) Color(0xFF10B981) else MaterialTheme.colorScheme.outlineVariant,
-                    ),
-                    modifier = Modifier.padding(end = 16.dp),
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(7.dp)
-                                .clip(CircleShape)
-                                .background(if (isRunning) Color(0xFF34D399) else MaterialTheme.colorScheme.onSurfaceVariant),
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = if (isRunning) "RUNNING" else "STOPPED",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isRunning) Color(0xFF34D399) else MaterialTheme.colorScheme.onSurfaceVariant,
-                            letterSpacing = 0.5.sp,
-                        )
-                    }
                 }
             }
         },
@@ -389,46 +345,83 @@ private fun ModernBottomNav(
     selected: DashboardDestination,
     onSelect: (DashboardDestination) -> Unit,
 ) {
-    NavigationBar(
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        tonalElevation = 8.dp,
-        modifier = Modifier.fillMaxWidth(),
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(horizontal = 16.dp)
+            .padding(bottom = 8.dp),
+        contentAlignment = Alignment.Center,
     ) {
-        for (destination in DashboardDestination.bottomBar) {
-            val isSelected = destination == selected
-            val icon = when (destination) {
-                DashboardDestination.HOME -> Icons.Rounded.Home
-                DashboardDestination.APPS -> Icons.Rounded.Apps
-                DashboardDestination.DEVICES -> Icons.Rounded.Headphones
-                DashboardDestination.HISTORY -> Icons.Rounded.History
-                else -> Icons.Rounded.Home
-            }
+        Surface(
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            shadowElevation = 8.dp,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+        ) {
+            Row(
+                modifier = Modifier
+                    .wrapContentWidth()
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                for (destination in DashboardDestination.bottomBar) {
+                    val isSelected = destination == selected
+                    val icon = when (destination) {
+                        DashboardDestination.HOME -> Icons.Rounded.Home
+                        DashboardDestination.APPS -> Icons.Rounded.Apps
+                        DashboardDestination.DEVICES -> Icons.Rounded.Headphones
+                        DashboardDestination.HISTORY -> Icons.Rounded.History
+                        else -> Icons.Rounded.Home
+                    }
+                    val iconColor by animateColorAsState(
+                        targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                        label = "navIconColor",
+                    )
+                    val textColor by animateColorAsState(
+                        targetValue = if (isSelected) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                        label = "navTextColor",
+                    )
 
-            NavigationBarItem(
-                selected = isSelected,
-                onClick = { onSelect(destination) },
-                icon = {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = stringResource(destination.labelRes),
-                        modifier = Modifier.size(24.dp),
-                    )
-                },
-                label = {
-                    Text(
-                        text = stringResource(destination.labelRes),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                    )
-                },
-                colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = MaterialTheme.colorScheme.onPrimary,
-                    selectedTextColor = MaterialTheme.colorScheme.primary,
-                    indicatorColor = MaterialTheme.colorScheme.primary,
-                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                ),
-            )
+                    Column(
+                        modifier = Modifier
+                            .clickable(role = Role.Tab) { onSelect(destination) }
+                            .padding(horizontal = 12.dp, vertical = 4.dp)
+                            .defaultMinSize(minWidth = 56.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        // Morphed indicator surface when selected
+                        Surface(
+                            shape = RoundedCornerShape(
+                                topStart = 16.dp, topEnd = 8.dp,
+                                bottomEnd = 16.dp, bottomStart = 8.dp,
+                            ),
+                            color = if (isSelected) MaterialTheme.colorScheme.primary
+                            else Color.Transparent,
+                            modifier = Modifier.defaultMinSize(minWidth = 48.dp, minHeight = 32.dp),
+                        ) {
+                            Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)) {
+                                Icon(
+                                    imageVector = icon,
+                                    contentDescription = stringResource(destination.labelRes),
+                                    modifier = Modifier.size(22.dp),
+                                    tint = iconColor,
+                                )
+                            }
+                        }
+                        Text(
+                            text = stringResource(destination.labelRes),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                            color = textColor,
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -457,9 +450,32 @@ private fun DashboardHome(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 8.dp),
+            .padding(horizontal = 20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        // ── Embedded Home Header (replaces TopAppBar for HOME) ──────────────
+        Spacer(modifier = Modifier.height(16.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Column {
+                Text(
+                    text = "Good day",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = stringResource(R.string.app_name),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground,
+                )
+            }
+            StatusPill(status = if (state.service.isRunning) HistoryStatus.ANNOUNCED else HistoryStatus.SKIPPED)
+        }
+
         // Hero Service Monitor Card
         HeroServiceCard(
             state = state,
@@ -485,13 +501,13 @@ private fun DashboardHome(
                 .height(IntrinsicSize.Max),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            // Priority Announce Card
+            // Priority Announce Card — morphed squircle (top-heavy)
             Card(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
                     .clickable(enabled = priorityEnabled) { onPriorityAnnounceToggled(!state.priorityAnnounceActive) },
-                shape = RoundedCornerShape(18.dp),
+                shape = RoundedCornerShape(topStart = 20.dp, topEnd = 8.dp, bottomEnd = 20.dp, bottomStart = 8.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = when {
                         !isRunning || muteActive -> MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.5f)
@@ -499,7 +515,7 @@ private fun DashboardHome(
                         else -> MaterialTheme.colorScheme.surfaceContainer
                     },
                 ),
-                border = androidx.compose.foundation.BorderStroke(
+                border = BorderStroke(
                     1.dp,
                     when {
                         !isRunning || muteActive -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
@@ -521,7 +537,7 @@ private fun DashboardHome(
                     ) {
                         Surface(
                             modifier = Modifier.size(34.dp),
-                            shape = RoundedCornerShape(10.dp),
+                            shape = RoundedCornerShape(topStart = 12.dp, topEnd = 4.dp, bottomEnd = 12.dp, bottomStart = 4.dp),
                             color = when {
                                 !isRunning || muteActive -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                                 state.priorityAnnounceActive -> MaterialTheme.colorScheme.primary
@@ -581,13 +597,13 @@ private fun DashboardHome(
                 }
             }
 
-            // Temporary Mute Card
+            // Temporary Mute Card — alternating morphed squircle
             Card(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
                     .clickable(enabled = isRunning) { showMuteDurationDialog = true },
-                shape = RoundedCornerShape(18.dp),
+                shape = RoundedCornerShape(topStart = 8.dp, topEnd = 20.dp, bottomEnd = 8.dp, bottomStart = 20.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = when {
                         !isRunning -> MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.5f)
@@ -595,7 +611,7 @@ private fun DashboardHome(
                         else -> MaterialTheme.colorScheme.surfaceContainer
                     },
                 ),
-                border = androidx.compose.foundation.BorderStroke(
+                border = BorderStroke(
                     1.dp,
                     when {
                         !isRunning -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
@@ -617,7 +633,7 @@ private fun DashboardHome(
                     ) {
                         Surface(
                             modifier = Modifier.size(34.dp),
-                            shape = RoundedCornerShape(10.dp),
+                            shape = RoundedCornerShape(topStart = 4.dp, topEnd = 12.dp, bottomEnd = 4.dp, bottomStart = 12.dp),
                             color = when {
                                 !isRunning -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                                 muteActive -> MaterialTheme.colorScheme.error
@@ -686,14 +702,14 @@ private fun DashboardHome(
             }
         }
 
-        // Test Voice Announcement Bar
+        // Test Voice Announcement Bar — morphed CTA style
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(18.dp),
+            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 8.dp, bottomEnd = 20.dp, bottomStart = 8.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainer,
             ),
-            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         ) {
             Row(
                 modifier = Modifier
@@ -703,12 +719,20 @@ private fun DashboardHome(
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Rounded.PlayArrow,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(24.dp),
-                    )
+                    Surface(
+                        modifier = Modifier.size(36.dp),
+                        shape = RoundedCornerShape(topStart = 12.dp, topEnd = 4.dp, bottomEnd = 12.dp, bottomStart = 4.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Rounded.PlayArrow,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                    }
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(
@@ -728,7 +752,7 @@ private fun DashboardHome(
                 Button(
                     onClick = { onTestAnnouncement(testAnnouncementText) },
                     enabled = state.testAnnouncement != TestAnnouncementState.SPEAKING,
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(topStart = 16.dp, topEnd = 6.dp, bottomEnd = 16.dp, bottomStart = 6.dp),
                     modifier = Modifier.height(40.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
@@ -850,7 +874,7 @@ private fun DashboardHome(
                     Text(stringResource(R.string.action_cancel))
                 }
             },
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(24.dp),
         )
     }
 }
@@ -868,43 +892,82 @@ private fun HeroServiceCard(
     val isRunning = state.service.isRunning
     val isSpeaking = state.service.isSpeaking
 
+    // Animated pulse for the running state dot
+    val infiniteTransition = rememberInfiniteTransition(label = "heroPulse")
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(900, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "pulseAlpha",
+    )
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 2.2f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(900, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "pulseScale",
+    )
+
+    val runningGreen = Color(0xFF10B981)
+    val runningGreenText = Color(0xFF34D399)
+
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 12.dp, bottomEnd = 28.dp, bottomStart = 12.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         ),
-        border = androidx.compose.foundation.BorderStroke(
+        border = BorderStroke(
             1.5.dp,
             if (isRunning) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant,
         ),
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
-            // Live Status Row
+            // Live Status Row with animated pulsing dot
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Pulsing dot container
                     Box(
-                        modifier = Modifier
-                            .size(10.dp)
-                            .clip(CircleShape)
-                            .background(if (isRunning) Color(0xFF10B981) else Color(0xFF94A3B8)),
-                    )
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier.size(20.dp),
+                    ) {
+                        if (isRunning) {
+                            // Glowing animated ring
+                            Box(
+                                modifier = Modifier
+                                    .size((10 * pulseScale).dp)
+                                    .clip(CircleShape)
+                                    .background(runningGreen.copy(alpha = pulseAlpha * 0.3f)),
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .size(10.dp)
+                                .clip(CircleShape)
+                                .background(if (isRunning) runningGreen else Color(0xFF94A3B8)),
+                        )
+                    }
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = if (isSpeaking) "Speaking Announcement…" else if (isRunning) "Active & Listening" else "Service Inactive",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
-                        color = if (isRunning) Color(0xFF34D399) else MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = if (isRunning) runningGreenText else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
 
                 if (state.service.pendingCount > 0) {
                     Surface(
-                        shape = RoundedCornerShape(10.dp),
+                        shape = RoundedCornerShape(topStart = 10.dp, topEnd = 4.dp, bottomEnd = 10.dp, bottomStart = 4.dp),
                         color = MaterialTheme.colorScheme.primaryContainer,
                     ) {
                         Text(
@@ -919,6 +982,16 @@ private fun HeroServiceCard(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
+
+            // Hero title
+            Text(
+                text = if (isRunning) "HearIt is running" else "HearIt is stopped",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
 
             // Main Metrics Grid
             Row(
@@ -941,13 +1014,13 @@ private fun HeroServiceCard(
 
             Spacer(modifier = Modifier.height(18.dp))
 
-            // Big CTA Button (Start or Stop)
+            // Big CTA Button — morphed squircle shape
             if (isRunning) {
                 OutlinedButton(
                     onClick = onStop,
                     modifier = Modifier.fillMaxWidth().height(52.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+                    shape = RoundedCornerShape(topStart = 24.dp, topEnd = 10.dp, bottomEnd = 24.dp, bottomStart = 10.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
                 ) {
                     Icon(Icons.Rounded.Stop, contentDescription = null, modifier = Modifier.size(20.dp))
@@ -958,7 +1031,7 @@ private fun HeroServiceCard(
                 Button(
                     onClick = onStart,
                     modifier = Modifier.fillMaxWidth().height(52.dp),
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(topStart = 24.dp, topEnd = 10.dp, bottomEnd = 24.dp, bottomStart = 10.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary,
@@ -982,20 +1055,28 @@ private fun MetricChip(
 ) {
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(topStart = 14.dp, topEnd = 6.dp, bottomEnd = 14.dp, bottomStart = 6.dp),
         color = MaterialTheme.colorScheme.surfaceContainer,
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(18.dp),
-            )
+            Surface(
+                modifier = Modifier.size(28.dp),
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.primaryContainer,
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
+            }
             Spacer(modifier = Modifier.width(8.dp))
             Column {
                 Text(
@@ -1028,9 +1109,9 @@ private fun RecentHistorySection(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomEnd = 8.dp, bottomStart = 8.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             when {
@@ -1108,14 +1189,14 @@ private fun RecentRowItem(entry: RecentAnnouncement) {
         ) {
             Surface(
                 modifier = Modifier.size(32.dp),
-                shape = RoundedCornerShape(8.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant,
+                shape = RoundedCornerShape(topStart = 12.dp, topEnd = 4.dp, bottomEnd = 12.dp, bottomStart = 4.dp),
+                color = MaterialTheme.colorScheme.primaryContainer,
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = Icons.Rounded.Notifications,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
                         modifier = Modifier.size(16.dp),
                     )
                 }
@@ -1145,24 +1226,23 @@ private fun RecentRowItem(entry: RecentAnnouncement) {
 @Composable
 private fun StatusPill(status: HistoryStatus) {
     val (bgColor, textColor, label) = when (status) {
-        HistoryStatus.ANNOUNCED -> Triple(Color(0xFF064E3B), Color(0xFF34D399), "Spoken")
-        HistoryStatus.SKIPPED -> Triple(Color(0xFF78350F), Color(0xFFFBBF24), "Skipped")
-        HistoryStatus.QUEUED -> Triple(Color(0xFF1E3A8A), Color(0xFF93C5FD), "Queued")
-        HistoryStatus.PENDING -> Triple(Color(0xFF1E3A8A), Color(0xFF93C5FD), "Pending")
-        HistoryStatus.INTERRUPTED -> Triple(Color(0xFF7F1D1D), Color(0xFFFCA5A5), "Interrupted")
+        HistoryStatus.ANNOUNCED -> Triple(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer, "Running")
+        HistoryStatus.SKIPPED -> Triple(MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer, "Stopped")
+        HistoryStatus.QUEUED -> Triple(MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer, "Queued")
+        HistoryStatus.PENDING -> Triple(MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer, "Pending")
+        HistoryStatus.INTERRUPTED -> Triple(MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer, "Interrupted")
     }
 
     Surface(
-        shape = RoundedCornerShape(8.dp),
+        shape = RoundedCornerShape(topStart = 12.dp, topEnd = 4.dp, bottomEnd = 12.dp, bottomStart = 4.dp),
         color = bgColor,
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.labelSmall,
+            style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.Bold,
             color = textColor,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-            fontSize = 11.sp,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
         )
     }
 }
@@ -1175,9 +1255,9 @@ private fun StatusPill(status: HistoryStatus) {
 private fun ToolsGroupCard(onSelectDestination: (DashboardDestination) -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(topStart = 20.dp, topEnd = 8.dp, bottomEnd = 20.dp, bottomStart = 8.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Column {
             for ((index, destination) in DashboardDestination.secondary.withIndex()) {
@@ -1219,17 +1299,26 @@ private fun ToolRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(role = Role.Button, onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(20.dp),
-            )
+            // Tinted icon container with morphed squircle
+            Surface(
+                modifier = Modifier.size(34.dp),
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.primaryContainer,
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            }
             Spacer(modifier = Modifier.width(14.dp))
             Text(
                 text = label,

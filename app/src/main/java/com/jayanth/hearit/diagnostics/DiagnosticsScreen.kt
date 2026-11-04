@@ -1,5 +1,8 @@
 package com.jayanth.hearit.diagnostics
 
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -20,6 +23,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.BatteryChargingFull
 import androidx.compose.material.icons.rounded.Bluetooth
@@ -40,6 +44,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -243,7 +248,7 @@ fun DiagnosticsScreen(
         OutlinedButton(
             onClick = onRefresh,
             enabled = !state.isRefreshing,
-            shape = RoundedCornerShape(12.dp),
+            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 8.dp, bottomEnd = 16.dp, bottomStart = 8.dp),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp),
@@ -313,7 +318,7 @@ fun DiagnosticsScreen(
 private fun SystemHealthHeroCard(healthy: Boolean) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 10.dp, bottomEnd = 24.dp, bottomStart = 10.dp),
         color = if (healthy) Color(0xFF064E3B) else MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
         border = BorderStroke(1.dp, if (healthy) Color(0xFF10B981) else MaterialTheme.colorScheme.error),
     ) {
@@ -406,6 +411,7 @@ private fun PermissionsDiagnosticsCard(
     onOpenNotificationAccess: () -> Unit,
     onOpenBatterySettings: () -> Unit,
 ) {
+    val context = LocalContext.current
     DiagnosticsSectionCard(
         title = stringResource(R.string.diagnostics_permissions_title),
         subtitle = "Hardware and framework permission health",
@@ -433,16 +439,22 @@ private fun PermissionsDiagnosticsCard(
                 if (state.isNotificationAccessGranted) {
                     StatusBadge(text = stringResource(R.string.diagnostics_status_granted), isOk = true)
                 } else {
-                    Button(
+                    FilledTonalButton(
                         onClick = onOpenNotificationAccess,
-                        shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.error,
-                            contentColor = MaterialTheme.colorScheme.onError,
-                        ),
+                        shape = RoundedCornerShape(topStart = 10.dp, topEnd = 4.dp, bottomEnd = 10.dp, bottomStart = 4.dp),
                         modifier = Modifier.height(34.dp),
                     ) {
-                        Text(text = stringResource(R.string.diagnostics_fix_action), style = MaterialTheme.typography.labelSmall)
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = stringResource(R.string.diagnostics_fix_action),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                        )
                     }
                 }
             }
@@ -450,30 +462,109 @@ private fun PermissionsDiagnosticsCard(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 
             // Post Notifications
-            DiagnosticRow(
-                label = stringResource(R.string.diagnostics_post_notifications),
-                subtitle = stringResource(R.string.diagnostics_post_notifications_desc),
-                statusText = if (state.isPostNotificationGranted) {
-                    stringResource(R.string.diagnostics_status_granted)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                    Text(
+                        text = stringResource(R.string.diagnostics_post_notifications),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = stringResource(R.string.diagnostics_post_notifications_desc),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                if (state.isPostNotificationGranted) {
+                    StatusBadge(text = stringResource(R.string.diagnostics_status_granted), isOk = true)
                 } else {
-                    stringResource(R.string.diagnostics_status_missing)
-                },
-                isOk = state.isPostNotificationGranted,
-            )
+                    FilledTonalButton(
+                        onClick = {
+                            try {
+                                val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                                    putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                context.startActivity(intent)
+                            } catch (_: Exception) {
+                                try {
+                                    context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}")).apply {
+                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    })
+                                } catch (_: Exception) {}
+                            }
+                        },
+                        shape = RoundedCornerShape(topStart = 10.dp, topEnd = 4.dp, bottomEnd = 10.dp, bottomStart = 4.dp),
+                        modifier = Modifier.height(34.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = stringResource(R.string.diagnostics_fix_action),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
+            }
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 
             // Bluetooth
-            DiagnosticRow(
-                label = stringResource(R.string.diagnostics_bluetooth_permission),
-                subtitle = stringResource(R.string.diagnostics_bluetooth_permission_desc),
-                statusText = if (!state.isBluetoothPermissionRequired || state.isBluetoothPermissionGranted) {
-                    stringResource(R.string.diagnostics_status_granted)
+            val btOk = !state.isBluetoothPermissionRequired || state.isBluetoothPermissionGranted
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                    Text(
+                        text = stringResource(R.string.diagnostics_bluetooth_permission),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = stringResource(R.string.diagnostics_bluetooth_permission_desc),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                if (btOk) {
+                    StatusBadge(text = stringResource(R.string.diagnostics_status_granted), isOk = true)
                 } else {
-                    stringResource(R.string.diagnostics_status_missing)
-                },
-                isOk = !state.isBluetoothPermissionRequired || state.isBluetoothPermissionGranted,
-            )
+                    FilledTonalButton(
+                        onClick = {
+                            try {
+                                context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}")).apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                })
+                            } catch (_: Exception) {}
+                        },
+                        shape = RoundedCornerShape(topStart = 10.dp, topEnd = 4.dp, bottomEnd = 10.dp, bottomStart = 4.dp),
+                        modifier = Modifier.height(34.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = stringResource(R.string.diagnostics_fix_action),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
+            }
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 
@@ -495,12 +586,18 @@ private fun PermissionsDiagnosticsCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                OutlinedButton(
+                FilledTonalButton(
                     onClick = onOpenBatterySettings,
-                    shape = RoundedCornerShape(8.dp),
+                    shape = RoundedCornerShape(topStart = 10.dp, topEnd = 4.dp, bottomEnd = 10.dp, bottomStart = 4.dp),
                     modifier = Modifier.height(34.dp),
                 ) {
-                    Text(text = "Settings", style = MaterialTheme.typography.labelSmall)
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(text = "Configure", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -509,6 +606,7 @@ private fun PermissionsDiagnosticsCard(
 
 @Composable
 private fun TtsDiagnosticsCard(state: DiagnosticsUiState) {
+    val context = LocalContext.current
     DiagnosticsSectionCard(
         title = stringResource(R.string.diagnostics_tts_title),
         subtitle = "Android native TextToSpeech engine",
@@ -519,7 +617,7 @@ private fun TtsDiagnosticsCard(state: DiagnosticsUiState) {
             DiagnosticRow(
                 label = "TTS Engine Status",
                 subtitle = if (state.isTtsAvailable) "Android TextToSpeech engine initialized" else "Synthesizer initializing or unavailable",
-                statusText = if (state.isTtsAvailable) "Available" else "Initializing",
+                statusText = if (state.isTtsAvailable) "Available" else "Unavailable",
                 isOk = state.isTtsAvailable,
             )
 
@@ -543,10 +641,81 @@ private fun TtsDiagnosticsCard(state: DiagnosticsUiState) {
                 isOk = state.installedVoiceCount > 0,
             )
 
-            if (state.isTtsAvailable && state.isTtsLocaleSupported) {
+            if (!state.isTtsAvailable || !state.isTtsLocaleSupported) {
                 Spacer(modifier = Modifier.height(2.dp))
                 Surface(
-                    shape = RoundedCornerShape(10.dp),
+                    shape = RoundedCornerShape(topStart = 14.dp, topEnd = 6.dp, bottomEnd = 14.dp, bottomStart = 6.dp),
+                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.45f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.6f)),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Warning,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Text(
+                                text = if (!state.isTtsAvailable) "TTS Engine Issue Detected" else "Voice Data Missing",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                            )
+                        }
+                        Text(
+                            text = if (!state.isTtsAvailable) {
+                                "Text-to-Speech engine is unavailable or uninitialized. Open Text-to-Speech settings to verify Google Speech Services or your preferred synthesizer is installed and selected."
+                            } else {
+                                "Speech voice data for your locale (${state.defaultLocaleLanguage.ifBlank { "system" }}) is missing. Open settings to download speech files."
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.9f),
+                        )
+                        FilledTonalButton(
+                            onClick = {
+                                try {
+                                    context.startActivity(Intent("com.android.settings.TTS_SETTINGS").apply {
+                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    })
+                                } catch (_: Exception) {
+                                    try {
+                                        context.startActivity(Intent(Settings.ACTION_SETTINGS).apply {
+                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        })
+                                    } catch (_: Exception) {}
+                                }
+                            },
+                            shape = RoundedCornerShape(topStart = 12.dp, topEnd = 6.dp, bottomEnd = 12.dp, bottomStart = 6.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(40.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Open Text-to-Speech Settings",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+                    }
+                }
+            } else {
+                Spacer(modifier = Modifier.height(2.dp))
+                Surface(
+                    shape = RoundedCornerShape(topStart = 12.dp, topEnd = 6.dp, bottomEnd = 12.dp, bottomStart = 6.dp),
                     color = MaterialTheme.colorScheme.surfaceContainerHigh,
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                     modifier = Modifier.fillMaxWidth(),
@@ -659,6 +828,34 @@ private fun StorageDiagnosticsCard(state: DiagnosticsUiState) {
                 statusText = "${state.totalHistoryCount} entries",
                 isOk = true,
             )
+
+            if (state.enabledAppsCount == 0) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Surface(
+                    shape = RoundedCornerShape(topStart = 12.dp, topEnd = 6.dp, bottomEnd = 12.dp, bottomStart = 6.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Warning,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Text(
+                            text = "No apps are currently enabled for reading announcements. Select apps in the Apps tab to start hearing notifications.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -822,7 +1019,7 @@ private fun DiagnosticLogsCard(
             ) {
                 Button(
                     onClick = onExportClicked,
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(topStart = 16.dp, topEnd = 8.dp, bottomEnd = 16.dp, bottomStart = 8.dp),
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp),
@@ -841,7 +1038,7 @@ private fun DiagnosticLogsCard(
 
                 OutlinedButton(
                     onClick = onClearClicked,
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(topStart = 16.dp, topEnd = 8.dp, bottomEnd = 16.dp, bottomStart = 8.dp),
                     enabled = fileCount > 0,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -885,7 +1082,7 @@ private fun DiagnosticsSectionCard(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(topStart = 22.dp, topEnd = 10.dp, bottomEnd = 22.dp, bottomStart = 10.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
@@ -895,8 +1092,8 @@ private fun DiagnosticsSectionCard(
                 modifier = Modifier.padding(bottom = 14.dp),
             ) {
                 Surface(
-                    modifier = Modifier.size(32.dp),
-                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.size(34.dp),
+                    shape = RoundedCornerShape(topStart = 12.dp, topEnd = 6.dp, bottomEnd = 12.dp, bottomStart = 6.dp),
                     color = MaterialTheme.colorScheme.primaryContainer,
                 ) {
                     Box(contentAlignment = Alignment.Center) {
