@@ -62,26 +62,32 @@ data class HistorySettings(
         if (override == null) {
             this
         } else {
+            val resolvedRetention = when (override.retentionDays) {
+                null -> retentionDays
+                0, -1 -> null // explicitly Never
+                else -> override.retentionDays
+            }
             copy(
                 storageMode = override.storageMode ?: storageMode,
                 updateHandling = override.updateHandling ?: updateHandling,
+                retentionDays = resolvedRetention,
                 requireAuth = override.requireAuth ?: requireAuth,
             )
         }
 }
 
 /**
- * Per-app history override (master prompt §12: per-app storage mode with inheritance).
- * A null field inherits the global value; [HistorySettings.retentionDays] is not
- * overridable per app.
+ * Per-app history override (master prompt §12: per-app storage mode and retention with inheritance).
+ * A null field inherits the global value.
  */
 data class AppHistoryOverride(
     val storageMode: HistoryStorageMode? = null,
     val updateHandling: HistoryUpdateHandling? = null,
+    val retentionDays: Int? = null,
     val requireAuth: Boolean? = null,
 ) {
 
     /** True when this app inherits every history value (UI "Inherits global"). */
     val inheritsEveryValue: Boolean
-        get() = storageMode == null && updateHandling == null && requireAuth == null
+        get() = storageMode == null && updateHandling == null && retentionDays == null && requireAuth == null
 }

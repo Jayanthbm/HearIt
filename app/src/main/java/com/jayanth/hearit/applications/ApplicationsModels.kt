@@ -4,6 +4,8 @@ import com.jayanth.hearit.core.common.model.AppPriority
 import com.jayanth.hearit.core.common.model.AudioFocusPolicy
 import com.jayanth.hearit.core.common.model.HistoryStorageMode
 import com.jayanth.hearit.core.common.model.HistoryUpdateHandling
+import com.jayanth.hearit.core.common.model.KeywordFilterSettings
+import com.jayanth.hearit.core.database.HistoryEntry
 
 /** One application the user can enable (master prompt §5, phase P13). */
 data class AppEntry(
@@ -73,9 +75,15 @@ data class AppSettingsUiState(
         Inherited(null, HistoryStorageMode.FULL_CONTENT),
     val historyUpdateHandling: Inherited<HistoryUpdateHandling> =
         Inherited(null, HistoryUpdateHandling.UPDATE_ENTRY),
+    val historyRetention: Inherited<Int?> = Inherited(null, null),
     val respectDnd: Inherited<Boolean> = Inherited(null, true),
     val queueDuringCall: Inherited<Boolean> = Inherited(null, false),
     val audioFocus: Inherited<AudioFocusPolicy> = Inherited(null, AudioFocusPolicy.DUCK),
+    val keywordFilter: Inherited<KeywordFilterSettings> =
+        Inherited(null, KeywordFilterSettings()),
+    val recentHistory: List<HistoryEntry> = emptyList(),
+    val historyLoading: Boolean = false,
+    val playingHistoryId: Long? = null,
     val enabledAppCount: Int = 0,
     val hasOverrides: Boolean = false,
 )

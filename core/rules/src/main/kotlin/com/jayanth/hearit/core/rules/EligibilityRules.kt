@@ -90,7 +90,12 @@ class EligibilityRules {
         //    shows when both would fail (ADR-006 refinement).
         val keywordFilter = settings.eligibility.keywordFilter
         if (keywordFilter.enabled &&
-            KeywordMatcher.matchesAny(snapshot.messageText, keywordFilter.keywords, keywordFilter.mode)
+            KeywordMatcher.matchesNotification(
+                messageText = snapshot.messageText,
+                sender = snapshot.sender,
+                keywords = keywordFilter.keywords,
+                mode = keywordFilter.mode,
+            )
         ) {
             return EligibilityDecision.Skip(SkipReason.KEYWORD_FILTERED)
         }

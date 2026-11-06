@@ -36,6 +36,7 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.CreditCard
 import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.material.icons.rounded.Headphones
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.LockOpen
@@ -241,19 +242,13 @@ fun GlobalSettingsScreen(
             onTextLengthChanged = onTextLengthChanged,
         )
 
-        // Section 3: Keyword Filtering (with keyboard bringIntoView)
-        KeywordFilterCard(
-            keywordFilter = state.keywordFilter,
-            onKeywordFilterChanged = onKeywordFilterChanged,
-        )
-
-        // Section 4: Privacy Protection & Content Shields (with keyboard bringIntoView)
+        // Section 3: Privacy Protection & Content Shields (with keyboard bringIntoView)
         PrivacyShieldCard(
             privacy = state.privacy,
             onPrivacyChanged = onPrivacyChanged,
         )
 
-        // Section 5: Allowed Output Channels
+        // Section 4: Allowed Output Channels
         AudioOutputsCard(
             allowBluetooth = state.audioOutput.allowBluetooth,
             allowWired = state.audioOutput.allowWired,
@@ -677,152 +672,7 @@ private fun TextLengthCard(
 }
 
 // ============================================================================
-// Section 3: Keyword Filtering (with keyboard bringIntoView)
-// ============================================================================
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun KeywordFilterCard(
-    keywordFilter: KeywordFilterSettings,
-    onKeywordFilterChanged: (KeywordFilterSettings) -> Unit,
-) {
-    var newKeywordInput by remember { mutableStateOf("") }
-    val coroutineScope = rememberCoroutineScope()
-    val bringIntoViewRequester = remember { BringIntoViewRequester() }
-
-    SectionCard(
-        title = "Filter keywords",
-        subtitle = "Silence notifications containing blocked terms",
-        icon = Icons.Rounded.FilterList,
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            ModernSwitchRow(
-                label = stringResource(R.string.global_keywords_enabled),
-                subtitle = "Skip notifications containing designated terms",
-                checked = keywordFilter.enabled,
-                onCheckedChange = { onKeywordFilterChanged(keywordFilter.copy(enabled = it)) },
-            )
-
-            if (keywordFilter.enabled) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-
-                // Match Mode
-                Text(
-                    text = stringResource(R.string.global_keywords_mode),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    SegmentOption(
-                        label = stringResource(R.string.global_keyword_mode_whole_word),
-                        subtitle = "Standalone word",
-                        icon = Icons.Rounded.Tune,
-                        selected = keywordFilter.mode == KeywordMatchMode.WHOLE_WORD,
-                        onClick = { onKeywordFilterChanged(keywordFilter.copy(mode = KeywordMatchMode.WHOLE_WORD)) },
-                        modifier = Modifier.weight(1f),
-                    )
-                    SegmentOption(
-                        label = stringResource(R.string.global_keyword_mode_phrase),
-                        subtitle = "Substring match",
-                        icon = Icons.Rounded.FilterList,
-                        selected = keywordFilter.mode == KeywordMatchMode.PHRASE,
-                        onClick = { onKeywordFilterChanged(keywordFilter.copy(mode = KeywordMatchMode.PHRASE)) },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                // Input Field for Adding Keywords with BringIntoView
-                OutlinedTextField(
-                    value = newKeywordInput,
-                    onValueChange = { newKeywordInput = it },
-                    label = { Text(text = "Add Keyword to Filter") },
-                    placeholder = { Text("e.g. promo, sale, digest…") },
-                    trailingIcon = {
-                        IconButton(
-                            onClick = {
-                                if (newKeywordInput.isNotBlank()) {
-                                    val added = splitList(newKeywordInput)
-                                    val updated = (keywordFilter.keywords + added).distinct()
-                                    onKeywordFilterChanged(keywordFilter.copy(keywords = updated))
-                                    newKeywordInput = ""
-                                }
-                            },
-                        ) {
-                            Icon(imageVector = Icons.Rounded.Add, contentDescription = "Add Keyword")
-                        }
-                    },
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(
-                        onDone = {
-                            if (newKeywordInput.isNotBlank()) {
-                                val added = splitList(newKeywordInput)
-                                val updated = (keywordFilter.keywords + added).distinct()
-                                onKeywordFilterChanged(keywordFilter.copy(keywords = updated))
-                                newKeywordInput = ""
-                            }
-                        },
-                    ),
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .bringIntoViewRequester(bringIntoViewRequester)
-                        .onFocusChanged { focusState ->
-                            if (focusState.isFocused) {
-                                coroutineScope.launch {
-                                    delay(250)
-                                    bringIntoViewRequester.bringIntoView()
-                                }
-                            }
-                        },
-                )
-
-                // Keyword Tag Cloud
-                if (keywordFilter.keywords.isNotEmpty()) {
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        for (keyword in keywordFilter.keywords) {
-                            InputChip(
-                                selected = true,
-                                onClick = {},
-                                label = { Text(keyword, style = MaterialTheme.typography.labelSmall) },
-                                trailingIcon = {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Close,
-                                        contentDescription = "Remove $keyword",
-                                        modifier = Modifier
-                                            .size(16.dp)
-                                            .clickable {
-                                                val filtered = keywordFilter.keywords.filter { it != keyword }
-                                                onKeywordFilterChanged(keywordFilter.copy(keywords = filtered))
-                                            },
-                                    )
-                                },
-                                shape = RoundedCornerShape(8.dp),
-                                colors = InputChipDefaults.inputChipColors(
-                                    selectedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                    selectedLabelColor = MaterialTheme.colorScheme.onSurface,
-                                ),
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-// ============================================================================
-// Section 4: Privacy Protection & Content Shields (with keyboard bringIntoView)
+// Section 3: Privacy Protection & Content Shields (with keyboard bringIntoView)
 // ============================================================================
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -832,6 +682,7 @@ private fun PrivacyShieldCard(
     onPrivacyChanged: (PrivacySettings) -> Unit,
 ) {
     var newSensitiveInput by remember { mutableStateOf("") }
+    var activeShieldInfo by remember { mutableStateOf<Pair<String, String>?>(null) }
     val coroutineScope = rememberCoroutineScope()
     val bringIntoViewRequester = remember { BringIntoViewRequester() }
 
@@ -848,6 +699,10 @@ private fun PrivacyShieldCard(
                 subtitle = stringResource(R.string.global_privacy_skip_otp_desc),
                 checked = privacy.skipOtp,
                 onCheckedChange = { onPrivacyChanged(privacy.copy(skipOtp = it)) },
+                onInfoClick = {
+                    activeShieldInfo = "OTP & Verification Codes Shield" to
+                        "Automatically detects 4-8 digit numeric codes, one-time passwords, and 2-step verification notifications (e.g. Google, WhatsApp, SMS, bank logins).\n\nWhen detected, Hear It silences the announcement completely to prevent anyone nearby from overhearing your private verification codes."
+                },
             )
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
@@ -859,6 +714,10 @@ private fun PrivacyShieldCard(
                 subtitle = stringResource(R.string.global_privacy_skip_password_desc),
                 checked = privacy.skipPassword,
                 onCheckedChange = { onPrivacyChanged(privacy.copy(skipPassword = it)) },
+                onInfoClick = {
+                    activeShieldInfo = "Password & Credentials Shield" to
+                        "Detects notifications referencing passwords, PINs, temporary access tokens, or account credentials.\n\nMutes the notification so sensitive access keys are never announced in public."
+                },
             )
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
@@ -870,6 +729,10 @@ private fun PrivacyShieldCard(
                 subtitle = stringResource(R.string.global_privacy_skip_banking_desc),
                 checked = privacy.skipBanking,
                 onCheckedChange = { onPrivacyChanged(privacy.copy(skipBanking = it)) },
+                onInfoClick = {
+                    activeShieldInfo = "Banking & Account Alerts Shield" to
+                        "Scans for financial statements, bank account numbers, credited/debited alerts, and ATM withdrawals.\n\nKeeps your bank balances and account numbers strictly confidential."
+                },
             )
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
@@ -881,6 +744,10 @@ private fun PrivacyShieldCard(
                 subtitle = stringResource(R.string.global_privacy_skip_payment_desc),
                 checked = privacy.skipPayment,
                 onCheckedChange = { onPrivacyChanged(privacy.copy(skipPayment = it)) },
+                onInfoClick = {
+                    activeShieldInfo = "Payment Receipts Shield" to
+                        "Silences purchase confirmations, digital wallet transactions, UPI payments (Google Pay, PhonePe, Paytm), and credit/debit receipts.\n\nMutes transaction amounts and merchant confirmations."
+                },
             )
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
@@ -892,6 +759,10 @@ private fun PrivacyShieldCard(
                 subtitle = stringResource(R.string.global_privacy_hide_content_desc),
                 checked = privacy.hideContent,
                 onCheckedChange = { onPrivacyChanged(privacy.copy(hideContent = it)) },
+                onInfoClick = {
+                    activeShieldInfo = "Hide Notification Message Body" to
+                        "Only speaks the App Name and Sender (e.g. 'WhatsApp message from Alice').\n\nThe message content is never read aloud, ensuring complete privacy in public or shared spaces."
+                },
             )
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
@@ -903,6 +774,10 @@ private fun PrivacyShieldCard(
                 subtitle = stringResource(R.string.global_privacy_exclude_app_desc),
                 checked = privacy.excludeApp,
                 onCheckedChange = { onPrivacyChanged(privacy.copy(excludeApp = it)) },
+                onInfoClick = {
+                    activeShieldInfo = "Exclude from History & Logs" to
+                        "Suppresses saving notification message text to the local history database. Spoken announcements can still occur, but message text is never recorded on disk."
+                },
             )
 
             Spacer(modifier = Modifier.height(4.dp))
@@ -988,6 +863,41 @@ private fun PrivacyShieldCard(
                 }
             }
         }
+    }
+
+    activeShieldInfo?.let { (infoTitle, infoBody) ->
+        AlertDialog(
+            onDismissRequest = { activeShieldInfo = null },
+            icon = {
+                Icon(
+                    imageVector = Icons.Rounded.Info,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(28.dp),
+                )
+            },
+            title = {
+                Text(
+                    text = infoTitle,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            },
+            text = {
+                Text(
+                    text = infoBody,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 20.sp,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { activeShieldInfo = null }) {
+                    Text("Got It", fontWeight = FontWeight.Bold)
+                }
+            },
+        )
     }
 }
 
@@ -1108,7 +1018,7 @@ private fun SectionCard(
                     }
                 }
                 Spacer(modifier = Modifier.width(12.dp))
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = title,
                         style = MaterialTheme.typography.titleMedium,
@@ -1119,6 +1029,8 @@ private fun SectionCard(
                         text = subtitle,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp,
                     )
                 }
             }
@@ -1185,6 +1097,7 @@ private fun ModernSwitchRow(
     onCheckedChange: (Boolean) -> Unit,
     icon: ImageVector? = null,
     subtitle: String? = null,
+    onInfoClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -1196,7 +1109,7 @@ private fun ModernSwitchRow(
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Row(
-            modifier = Modifier.weight(1f).padding(end = 12.dp),
+            modifier = Modifier.weight(1f).padding(end = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -1216,19 +1129,39 @@ private fun ModernSwitchRow(
                     }
                 }
             }
-            Column {
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    if (onInfoClick != null) {
+                        IconButton(
+                            onClick = onInfoClick,
+                            modifier = Modifier.size(20.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Info,
+                                contentDescription = "Explain $label",
+                                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
+                                modifier = Modifier.size(15.dp),
+                            )
+                        }
+                    }
+                }
                 if (!subtitle.isNullOrBlank()) {
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = subtitle,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp,
                         lineHeight = 15.sp,
                     )
                 }

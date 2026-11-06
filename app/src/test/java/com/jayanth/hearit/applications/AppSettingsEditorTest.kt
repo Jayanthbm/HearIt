@@ -4,6 +4,7 @@ import com.jayanth.hearit.core.common.model.AppPriority
 import com.jayanth.hearit.core.common.model.AudioFocusPolicy
 import com.jayanth.hearit.core.common.model.HistoryStorageMode
 import com.jayanth.hearit.core.common.model.HistoryUpdateHandling
+import com.jayanth.hearit.core.common.model.KeywordMatchMode
 import com.jayanth.hearit.core.datastore.AppOverride
 import com.jayanth.hearit.core.datastore.HearItSettings
 import org.junit.Assert.assertEquals
@@ -194,5 +195,34 @@ class AppSettingsEditorTest {
 
         assertTrue(state.priority.isInherited)
         assertFalse(state.hasOverrides)
+    }
+
+    @Test
+    fun addKeyword_appendsAndEnablesFilter() {
+        val updated = AppSettingsEditor.addKeyword(HearItSettings(), packageName, "OTP", KeywordMatchMode.EXACT)
+        val state = AppSettingsEditor.settingsFor(updated, packageName, "BankApp")
+
+        assertFalse(state.keywordFilter.isInherited)
+        assertTrue(state.keywordFilter.effective.enabled)
+        assertEquals(listOf("exact:OTP"), state.keywordFilter.effective.keywords)
+        assertEquals(KeywordMatchMode.EXACT, state.keywordFilter.effective.mode)
+    }
+
+    @Test
+    fun removeKeyword_removesAndInheritsWhenEmpty() {
+        val withKeyword = AppSettingsEditor.addKeyword(HearItSettings(), packageName, "OTP")
+        val removed = AppSettingsEditor.removeKeyword(withKeyword, packageName, "OTP")
+        val state = AppSettingsEditor.settingsFor(removed, packageName, "BankApp")
+
+        assertTrue(state.keywordFilter.isInherited)
+    }
+
+    @Test
+    fun setKeywordMatchMode_updatesMode() {
+        val withKeyword = AppSettingsEditor.addKeyword(HearItSettings(), packageName, "order")
+        val withMode = AppSettingsEditor.setKeywordMatchMode(withKeyword, packageName, KeywordMatchMode.PHRASE)
+        val state = AppSettingsEditor.settingsFor(withMode, packageName, "Shopping")
+
+        assertEquals(KeywordMatchMode.PHRASE, state.keywordFilter.effective.mode)
     }
 }

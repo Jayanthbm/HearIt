@@ -1164,7 +1164,7 @@ private fun DiagnosticsSectionCard(
                     }
                 }
                 Spacer(modifier = Modifier.width(10.dp))
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = title,
                         style = MaterialTheme.typography.titleMedium,
@@ -1177,7 +1177,9 @@ private fun DiagnosticsSectionCard(
                         text = subtitle,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }

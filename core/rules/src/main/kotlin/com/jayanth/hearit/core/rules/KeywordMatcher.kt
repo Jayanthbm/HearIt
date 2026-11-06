@@ -21,20 +21,62 @@ object KeywordMatcher {
     fun matchesAny(text: String, keywords: Collection<String>, mode: KeywordMatchMode): Boolean =
         keywords.any { matches(text, it, mode) }
 
+    /**
+     * Checks if a notification matches keyword or sender filter rules.
+     * Rules starting with `sender:` check [sender]; all other rules check [messageText].
+     */
+    fun matchesNotification(
+        messageText: String,
+        sender: String?,
+        keywords: Collection<String>,
+        mode: KeywordMatchMode,
+    ): Boolean {
+        return keywords.any { keyword ->
+            val trimmed = keyword.trim()
+            if (trimmed.startsWith("sender:", ignoreCase = true)) {
+                val senderNeedle = trimmed.substring(7).trim()
+                val haystackSender = sender.orEmpty()
+                if (senderNeedle.isEmpty()) false
+                else matches(haystackSender, senderNeedle, mode)
+            } else {
+                matches(messageText, keyword, mode)
+            }
+        }
+    }
+
     /** True when [keyword] matches [text] under [mode]. A blank keyword never matches. */
     fun matches(text: String, keyword: String, mode: KeywordMatchMode): Boolean {
-        val needle = keyword.trim().lowercase(Locale.ROOT)
-        if (needle.isEmpty()) return false
-        val haystack = text.lowercase(Locale.ROOT)
+        val trimmed = keyword.trim()
+        if (trimmed.isEmpty()) return false
 
-        if (needle.contains("$") || needle.contains("*")) {
-            return matchesPattern(haystack, needle)
+        val (effectiveNeedle, effectiveMode, isPattern) = when {
+            trimmed.startsWith("sender:", ignoreCase = true) ->
+                Triple(trimmed.substring(7).trim().lowercase(Locale.ROOT), mode, false)
+            trimmed.startsWith("word:", ignoreCase = true) ->
+                Triple(trimmed.substring(5).trim().lowercase(Locale.ROOT), KeywordMatchMode.WHOLE_WORD, false)
+            trimmed.startsWith("phrase:", ignoreCase = true) ->
+                Triple(trimmed.substring(7).trim().lowercase(Locale.ROOT), KeywordMatchMode.PHRASE, false)
+            trimmed.startsWith("exact:", ignoreCase = true) ->
+                Triple(trimmed.substring(6).trim().lowercase(Locale.ROOT), KeywordMatchMode.EXACT, false)
+            trimmed.startsWith("pattern:", ignoreCase = true) ->
+                Triple(trimmed.substring(8).trim().lowercase(Locale.ROOT), KeywordMatchMode.PHRASE, true)
+            trimmed.contains("$") || trimmed.contains("*") ->
+                Triple(trimmed.lowercase(Locale.ROOT), mode, true)
+            else ->
+                Triple(trimmed.lowercase(Locale.ROOT), mode, false)
         }
 
-        return when (mode) {
-            KeywordMatchMode.PHRASE -> haystack.contains(needle)
-            KeywordMatchMode.WHOLE_WORD -> containsWholeWord(haystack, needle)
-            KeywordMatchMode.EXACT -> haystack == needle
+        if (effectiveNeedle.isEmpty()) return false
+        val haystack = text.lowercase(Locale.ROOT)
+
+        if (isPattern) {
+            return matchesPattern(haystack, effectiveNeedle)
+        }
+
+        return when (effectiveMode) {
+            KeywordMatchMode.PHRASE -> haystack.contains(effectiveNeedle)
+            KeywordMatchMode.WHOLE_WORD -> containsWholeWord(haystack, effectiveNeedle)
+            KeywordMatchMode.EXACT -> haystack == effectiveNeedle
         }
     }
 

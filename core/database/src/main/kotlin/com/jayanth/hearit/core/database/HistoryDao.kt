@@ -87,4 +87,16 @@ interface HistoryDao {
     /** Reactive stream of total history entries for real-time observation. */
     @Query("SELECT COUNT(*) FROM history_entries")
     fun observeCount(): kotlinx.coroutines.flow.Flow<Long>
+
+    /** Reactive live stream of all history entries for [packageName], newest first. */
+    @Query("SELECT * FROM history_entries WHERE packageName = :packageName ORDER BY recordedAtMillis DESC")
+    fun observeByPackage(packageName: String): kotlinx.coroutines.flow.Flow<List<HistoryEntryEntity>>
+
+    /** Deletes rows for a specific package older than [cutoffMillis]. */
+    @Query("DELETE FROM history_entries WHERE packageName = :packageName AND recordedAtMillis < :cutoffMillis")
+    suspend fun deleteOlderThanForPackage(packageName: String, cutoffMillis: Long): Int
+
+    /** Deletes all rows for a specific package. */
+    @Query("DELETE FROM history_entries WHERE packageName = :packageName")
+    suspend fun deleteAllForPackage(packageName: String): Int
 }

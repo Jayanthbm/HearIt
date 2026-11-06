@@ -120,6 +120,7 @@ object SettingsCodec {
     private const val APP_QUEUE_WINDOW = "queue.groupingWindow"
     private const val APP_HISTORY_MODE = "history.storageMode"
     private const val APP_HISTORY_UPDATES = "history.updateHandling"
+    private const val APP_HISTORY_RETENTION = "history.retention"
     private const val APP_HISTORY_AUTH = "history.requireAuth"
     private const val APP_LENGTH_SCOPE = "elig.length.scope"
     private const val APP_LENGTH_MAX = "elig.length.max"
@@ -273,6 +274,7 @@ object SettingsCodec {
         override.queue.groupingWindowMillis?.let { values[prefix + APP_QUEUE_WINDOW] = it.toString() }
         override.history.storageMode?.let { values[prefix + APP_HISTORY_MODE] = it.name }
         override.history.updateHandling?.let { values[prefix + APP_HISTORY_UPDATES] = it.name }
+        override.history.retentionDays?.let { values[prefix + APP_HISTORY_RETENTION] = it.toString() }
         override.history.requireAuth?.let { values[prefix + APP_HISTORY_AUTH] = it.toString() }
         override.priority?.let { values[prefix + APP_PRIORITY] = it.name }
     }
@@ -470,6 +472,7 @@ object SettingsCodec {
             history = AppHistoryOverride(
                 storageMode = string(APP_HISTORY_MODE)?.enumOrNull<HistoryStorageMode>(),
                 updateHandling = string(APP_HISTORY_UPDATES)?.enumOrNull<HistoryUpdateHandling>(),
+                retentionDays = string(APP_HISTORY_RETENTION)?.toIntOrNull(),
                 requireAuth = string(APP_HISTORY_AUTH)?.toBooleanStrictOrNull(),
             ),
             priority = string(APP_PRIORITY)?.enumOrNull<AppPriority>(),

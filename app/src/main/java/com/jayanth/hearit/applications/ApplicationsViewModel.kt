@@ -6,12 +6,25 @@ import com.jayanth.hearit.core.common.model.AppPriority
 import com.jayanth.hearit.core.common.model.AudioFocusPolicy
 import com.jayanth.hearit.core.common.model.HistoryStorageMode
 import com.jayanth.hearit.core.common.model.HistoryUpdateHandling
+import com.jayanth.hearit.core.common.model.KeywordMatchMode
+import com.jayanth.hearit.core.database.HistoryQuery
+import com.jayanth.hearit.core.database.HistoryRepository
 import com.jayanth.hearit.core.datastore.HearItSettings
+import com.jayanth.hearit.core.tts.AnnouncementSection
+import com.jayanth.hearit.core.tts.BuiltAnnouncement
+import com.jayanth.hearit.core.tts.SectionKind
+import com.jayanth.hearit.core.tts.TextToSpeechEngine
+import com.jayanth.hearit.core.tts.UtteranceListener
+import com.jayanth.hearit.core.database.HistoryEntry
 import com.jayanth.hearit.core.datastore.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -34,10 +47,17 @@ class ApplicationsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val catalog: ApplicationCatalog,
     private val iconLoader: AppIconLoader,
+    private val historyRepository: HistoryRepository,
+    private val engine: TextToSpeechEngine,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ApplicationsUiState())
     val state: StateFlow<ApplicationsUiState> = _state.asStateFlow()
+
+    private val _userMessage = MutableSharedFlow<String>()
+    val userMessage: SharedFlow<String> = _userMessage.asSharedFlow()
+
+    private var historyObservationJob: Job? = null
 
     /** Icon source for the list rows; a data source, not a policy holder. */
     val icons: AppIconLoader get() = iconLoader
@@ -86,15 +106,174 @@ class ApplicationsViewModel @Inject constructor(
         update { settings -> AppSettingsEditor.disableAll(settings, visible) }
     }
 
-    /** Opens the per-app settings screen. */
+    /** Opens the per-app settings screen and starts live notification history observation. */
     fun onOpenApp(packageName: String) {
         _state.update { it.copy(openPackage = packageName) }
         publish()
+        observeAppHistory(packageName)
     }
 
     /** Returns to the list. */
     fun onCloseApp() {
+        historyObservationJob?.cancel()
+        historyObservationJob = null
+        onStopPlaying()
         _state.update { it.copy(openPackage = null, settings = null) }
+    }
+
+    private fun observeAppHistory(packageName: String) {
+        historyObservationJob?.cancel()
+        historyObservationJob = viewModelScope.launch {
+            _state.update { current ->
+                current.copy(settings = current.settings?.copy(historyLoading = true))
+            }
+            historyRepository.observeByPackage(packageName).collect { entries ->
+                _state.update { current ->
+                    if (current.openPackage == packageName) {
+                        current.copy(
+                            settings = current.settings?.copy(
+                                recentHistory = entries,
+                                historyLoading = false,
+                            )
+                        )
+                    } else current
+                }
+            }
+        }
+    }
+
+    fun onPlayHistoryEntry(entry: HistoryEntry) {
+        viewModelScope.launch {
+            val settings = settingsRepository.current()
+            val textToSpeak = entry.messageText ?: entry.sender ?: entry.appName
+            val sections = buildList {
+                entry.sender?.takeIf { it.isNotBlank() }?.let {
+                    add(AnnouncementSection(SectionKind.SENDER, "$it says,"))
+                }
+                add(AnnouncementSection(SectionKind.MESSAGE, textToSpeak))
+            }
+            val announcement = BuiltAnnouncement(
+                sections = sections,
+                pauseBetweenSectionsMillis = settings.format.pauseBetweenSectionsMillis,
+            )
+
+            _state.update { current ->
+                current.copy(settings = current.settings?.copy(playingHistoryId = entry.id))
+            }
+            val accepted = engine.speak(
+                announcement = announcement,
+                settings = settings.speech,
+                listener = object : UtteranceListener {
+                    override fun onComplete(announcement: BuiltAnnouncement) {
+                        _state.update { current ->
+                            if (current.settings?.playingHistoryId == entry.id) {
+                                current.copy(settings = current.settings?.copy(playingHistoryId = null))
+                            } else current
+                        }
+                    }
+
+                    override fun onError(announcement: BuiltAnnouncement, error: com.jayanth.hearit.core.tts.TtsError) {
+                        _state.update { current ->
+                            if (current.settings?.playingHistoryId == entry.id) {
+                                current.copy(settings = current.settings?.copy(playingHistoryId = null))
+                            } else current
+                        }
+                    }
+                },
+            )
+            if (!accepted) {
+                _state.update { current ->
+                    if (current.settings?.playingHistoryId == entry.id) {
+                        current.copy(settings = current.settings?.copy(playingHistoryId = null))
+                    } else current
+                }
+            }
+        }
+    }
+
+    fun onStopPlaying() {
+        engine.stop()
+        _state.update { current ->
+            current.copy(settings = current.settings?.copy(playingHistoryId = null))
+        }
+    }
+
+    fun onDeleteHistoryEntry(id: Long) {
+        viewModelScope.launch {
+            historyRepository.delete(id)
+            _userMessage.emit("Deleted notification record")
+        }
+    }
+
+    fun onClearAppHistory(olderThanDays: Int? = null) {
+        val packageName = _state.value.openPackage ?: return
+        viewModelScope.launch {
+            val deleted = historyRepository.clearPackageHistory(packageName, olderThanDays)
+            val msg = if (deleted == 0) {
+                "No records matched to delete"
+            } else if (olderThanDays == null) {
+                "Cleared all notification history ($deleted records)"
+            } else {
+                "Cleared $deleted records older than $olderThanDays day${if (olderThanDays > 1) "s" else ""}"
+            }
+            _userMessage.emit(msg)
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        historyObservationJob?.cancel()
+        engine.stop()
+    }
+
+    fun onAddFilter(keyword: String, mode: KeywordMatchMode, isSender: Boolean = false) {
+        val packageName = _state.value.openPackage ?: return
+        val currentFilter = _state.value.settings?.keywordFilter?.effective ?: com.jayanth.hearit.core.common.model.KeywordFilterSettings()
+
+        val formatted = AppSettingsEditor.formatKeyword(keyword, mode, isSender)
+        val parsedNew = AppSettingsEditor.parseFilterItem(formatted)
+
+        val alreadyExists = currentFilter.keywords.any { existing ->
+            val parsedExisting = AppSettingsEditor.parseFilterItem(existing)
+            parsedExisting.type.equals(parsedNew.type, ignoreCase = true) &&
+                parsedExisting.text.equals(parsedNew.text, ignoreCase = true)
+        }
+
+        if (alreadyExists) {
+            viewModelScope.launch {
+                _userMessage.emit("Filter '${parsedNew.text}' already exists")
+            }
+            return
+        }
+
+        updateSelected { settings, pkg ->
+            AppSettingsEditor.addKeyword(settings, pkg, keyword, mode, isSender)
+        }
+        viewModelScope.launch {
+            _userMessage.emit("Added ${parsedNew.type.lowercase()} filter for '${parsedNew.text}'")
+        }
+    }
+
+    fun onRemoveFilter(keyword: String) {
+        val parsed = AppSettingsEditor.parseFilterItem(keyword)
+        updateSelected { settings, packageName ->
+            AppSettingsEditor.removeKeyword(settings, packageName, keyword)
+        }
+        viewModelScope.launch {
+            _userMessage.emit("Removed filter '${parsed.text}'")
+        }
+    }
+
+    fun onFilterModeChanged(mode: KeywordMatchMode) {
+        updateSelected { settings, packageName ->
+            AppSettingsEditor.setKeywordMatchMode(settings, packageName, mode)
+        }
+    }
+
+    fun onToggleFilterEnabled(enabled: Boolean) {
+        updateSelected { settings, packageName ->
+            AppSettingsEditor.toggleKeywordFilterEnabled(settings, packageName, enabled)
+        }
     }
 
     fun onPriorityChanged(priority: AppPriority?) {
@@ -112,6 +291,12 @@ class ApplicationsViewModel @Inject constructor(
     fun onHistoryUpdateHandlingChanged(updateHandling: HistoryUpdateHandling?) {
         updateSelected { settings, packageName ->
             AppSettingsEditor.setHistoryUpdateHandling(settings, packageName, updateHandling)
+        }
+    }
+
+    fun onHistoryRetentionChanged(retentionDays: Int?) {
+        updateSelected { settings, packageName ->
+            AppSettingsEditor.setHistoryRetentionDays(settings, packageName, retentionDays)
         }
     }
 
@@ -170,10 +355,15 @@ class ApplicationsViewModel @Inject constructor(
                 visibleApps = AppFilter.filter(merged, current.query),
                 enabledApps = settings.enabledApps,
                 settings = openPackage?.let { packageName ->
+                    val previousHistory = current.settings?.recentHistory ?: emptyList()
+                    val previousLoading = current.settings?.historyLoading ?: false
                     AppSettingsEditor.settingsFor(
                         settings = settings,
                         packageName = packageName,
                         label = merged.firstOrNull { it.packageName == packageName }?.label ?: packageName,
+                    ).copy(
+                        recentHistory = previousHistory,
+                        historyLoading = previousLoading,
                     )
                 },
             )

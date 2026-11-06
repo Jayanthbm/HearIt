@@ -433,6 +433,8 @@ private fun AudioFocusCard(
                                 text = desc,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 11.sp,
+                                lineHeight = 15.sp,
                             )
                         }
                     }
@@ -571,7 +573,7 @@ private fun PacingCard(
             )
 
             Text(
-                text = "Minimum Gap Between Announcements",
+                text = "Pause Between Announcements",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
@@ -765,6 +767,8 @@ private fun NotificationUpdatesCard(
                     text = stringResource(R.string.settings_repeat_updates_desc),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp,
                 )
             }
             Switch(
@@ -870,6 +874,8 @@ private fun ServiceNotificationCard(
                         ),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp,
                     )
                 }
                 Switch(
@@ -887,6 +893,8 @@ private fun ServiceNotificationCard(
                 text = stringResource(R.string.settings_service_notification_explanation),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 11.sp,
+                lineHeight = 15.sp,
             )
 
             // Direct button to open Android notification settings
@@ -963,6 +971,8 @@ private fun SecurityPrivacyCard(
                             },
                         ),
                         style = MaterialTheme.typography.bodySmall,
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp,
                         color = if (isBiometricAvailable) {
                             MaterialTheme.colorScheme.onSurfaceVariant
                         } else {
@@ -1005,6 +1015,8 @@ private fun SecurityPrivacyCard(
                         text = stringResource(R.string.settings_security_secure_screen_desc),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp,
                     )
                 }
                 Switch(
@@ -1057,7 +1069,7 @@ private fun SettingsCard(
                     }
                 }
                 Spacer(modifier = Modifier.width(10.dp))
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = title,
                         style = MaterialTheme.typography.titleMedium,
@@ -1068,6 +1080,8 @@ private fun SettingsCard(
                         text = subtitle,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp,
                     )
                 }
             }

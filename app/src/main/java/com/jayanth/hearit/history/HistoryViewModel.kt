@@ -14,12 +14,16 @@ import com.jayanth.hearit.core.tts.BuiltAnnouncement
 import com.jayanth.hearit.core.tts.SectionKind
 import com.jayanth.hearit.core.tts.TextToSpeechEngine
 import com.jayanth.hearit.core.tts.UtteranceListener
+import com.jayanth.hearit.applications.AppSettingsEditor
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
@@ -46,6 +50,9 @@ class HistoryViewModel @Inject constructor(
 
     private val _state = MutableStateFlow(HistoryUiState())
     val state: StateFlow<HistoryUiState> = _state.asStateFlow()
+
+    private val _userMessage = MutableSharedFlow<String>()
+    val userMessage: SharedFlow<String> = _userMessage.asSharedFlow()
 
     private var loadJob: Job? = null
 
@@ -156,13 +163,34 @@ class HistoryViewModel @Inject constructor(
         updateFilter { it.copy(selectedPackageName = packageName, selectedAppName = appName) }
     }
 
-    fun onAddFilter(keyword: String, matchMode: KeywordMatchMode, targetAppPackage: String?) {
+    fun onAddFilter(keyword: String, matchMode: KeywordMatchMode, isSender: Boolean = false, targetAppPackage: String?) {
         viewModelScope.launch {
             safely {
+                val formatted = AppSettingsEditor.formatKeyword(keyword, matchMode, isSender)
+                val parsedNew = AppSettingsEditor.parseFilterItem(formatted)
+                val settings = settingsRepository.current()
+
+                val existingKeywords = if (targetAppPackage == null) {
+                    settings.eligibility.keywordFilter.keywords
+                } else {
+                    (settings.appOverrides[targetAppPackage]?.eligibility?.keywordFilter ?: settings.eligibility.keywordFilter).keywords
+                }
+
+                val alreadyExists = existingKeywords.any { existing ->
+                    val parsedExisting = AppSettingsEditor.parseFilterItem(existing)
+                    parsedExisting.type.equals(parsedNew.type, ignoreCase = true) &&
+                        parsedExisting.text.equals(parsedNew.text, ignoreCase = true)
+                }
+
+                if (alreadyExists) {
+                    _userMessage.emit("Filter '${parsedNew.text}' already exists")
+                    return@safely
+                }
+
                 settingsRepository.update { current ->
                     if (targetAppPackage == null) {
                         val existing = current.eligibility.keywordFilter
-                        val newKeywords = if (keyword in existing.keywords) existing.keywords else existing.keywords + keyword
+                        val newKeywords = if (formatted in existing.keywords) existing.keywords else existing.keywords + formatted
                         current.copy(
                             eligibility = current.eligibility.copy(
                                 keywordFilter = existing.copy(
@@ -173,21 +201,13 @@ class HistoryViewModel @Inject constructor(
                             )
                         )
                     } else {
-                        val appOverride = current.appOverrides[targetAppPackage] ?: com.jayanth.hearit.core.datastore.AppOverride()
-                        val existing = appOverride.eligibility.keywordFilter ?: current.eligibility.keywordFilter
-                        val newKeywords = if (keyword in existing.keywords) existing.keywords else existing.keywords + keyword
-                        val updatedEligibility = appOverride.eligibility.copy(
-                            keywordFilter = existing.copy(
-                                enabled = true,
-                                keywords = newKeywords,
-                                mode = matchMode,
-                            )
-                        )
-                        current.copy(
-                            appOverrides = current.appOverrides + (targetAppPackage to appOverride.copy(eligibility = updatedEligibility))
-                        )
+                        AppSettingsEditor.addKeyword(current, targetAppPackage, keyword, matchMode, isSender)
                     }
                 }
+                _userMessage.emit(
+                    if (targetAppPackage == null) "Added global ${parsedNew.type.lowercase()} filter for '${parsedNew.text}'"
+                    else "Added ${parsedNew.type.lowercase()} filter for '${parsedNew.text}'"
+                )
             }
         }
     }

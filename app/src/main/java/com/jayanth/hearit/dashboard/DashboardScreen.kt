@@ -9,7 +9,9 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -62,6 +64,7 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.rounded.VolumeOff
+import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Backup
 import androidx.compose.material.icons.rounded.BugReport
@@ -289,37 +292,61 @@ fun DashboardScreen(
                 .padding(top = innerPadding.calculateTopPadding())
                 .consumeWindowInsets(PaddingValues(top = innerPadding.calculateTopPadding())),
         ) {
-            when {
-                !state.loaded -> Box(
+            if (!state.loaded) {
+                Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) {
                     CircularProgressIndicator(modifier = Modifier.size(36.dp))
                 }
+            } else {
+                AnimatedContent(
+                    targetState = destination,
+                    transitionSpec = {
+                        val fromOrder = getDestinationOrder(initialState)
+                        val toOrder = getDestinationOrder(targetState)
+                        if (toOrder > fromOrder) {
+                            slideInHorizontally(animationSpec = tween(280, easing = FastOutSlowInEasing)) { it } +
+                                fadeIn(animationSpec = tween(280)) togetherWith
+                                slideOutHorizontally(animationSpec = tween(280, easing = FastOutSlowInEasing)) { -it } +
+                                fadeOut(animationSpec = tween(280))
+                        } else if (toOrder < fromOrder) {
+                            slideInHorizontally(animationSpec = tween(280, easing = FastOutSlowInEasing)) { -it } +
+                                fadeIn(animationSpec = tween(280)) togetherWith
+                                slideOutHorizontally(animationSpec = tween(280, easing = FastOutSlowInEasing)) { it } +
+                                fadeOut(animationSpec = tween(280))
+                        } else {
+                            fadeIn(animationSpec = tween(200)) togetherWith fadeOut(animationSpec = tween(200))
+                        }
+                    },
+                    label = "DashboardTabTransition",
+                    modifier = Modifier.fillMaxSize(),
+                ) { currentDest ->
+                    when (currentDest) {
+                        DashboardDestination.HOME -> DashboardHome(
+                            state = state,
+                            onStartService = onStartService,
+                            onStopService = onStopService,
+                            onTestAnnouncement = onTestAnnouncement,
+                            onTemporaryMuteClicked = onTemporaryMuteClicked,
+                            onTemporaryMuteCleared = onTemporaryMuteCleared,
+                            onPriorityAnnounceToggled = onPriorityAnnounceToggled,
+                            onHistorySearch = onHistorySearch,
+                            onHistoryClearAll = onHistoryClearAll,
+                            onSelectDestination = onSelectDestination,
+                        )
 
-                destination == DashboardDestination.HOME -> DashboardHome(
-                    state = state,
-                    onStartService = onStartService,
-                    onStopService = onStopService,
-                    onTestAnnouncement = onTestAnnouncement,
-                    onTemporaryMuteClicked = onTemporaryMuteClicked,
-                    onTemporaryMuteCleared = onTemporaryMuteCleared,
-                    onPriorityAnnounceToggled = onPriorityAnnounceToggled,
-                    onHistorySearch = onHistorySearch,
-                    onHistoryClearAll = onHistoryClearAll,
-                    onSelectDestination = onSelectDestination,
-                )
-
-                destination == DashboardDestination.DEVICES -> devicesContent()
-                destination == DashboardDestination.APPS -> appsContent()
-                destination == DashboardDestination.SETTINGS -> SettingsHubScreen(onSelectDestination = onSelectDestination)
-                destination == DashboardDestination.HISTORY -> historyContent()
-                destination == DashboardDestination.GLOBAL_RULES -> globalRulesContent()
-                destination == DashboardDestination.VOICE_SPEECH -> voiceSpeechContent()
-                destination == DashboardDestination.PREFERENCES -> settingsContent()
-                destination == DashboardDestination.BACKUP_RESTORE -> backupRestoreContent()
-                destination == DashboardDestination.DIAGNOSTICS -> diagnosticsContent()
-                else -> DestinationPlaceholder(destination = destination)
+                        DashboardDestination.DEVICES -> devicesContent()
+                        DashboardDestination.APPS -> appsContent()
+                        DashboardDestination.SETTINGS -> SettingsHubScreen(onSelectDestination = onSelectDestination)
+                        DashboardDestination.HISTORY -> historyContent()
+                        DashboardDestination.GLOBAL_RULES -> globalRulesContent()
+                        DashboardDestination.VOICE_SPEECH -> voiceSpeechContent()
+                        DashboardDestination.PREFERENCES -> settingsContent()
+                        DashboardDestination.BACKUP_RESTORE -> backupRestoreContent()
+                        DashboardDestination.DIAGNOSTICS -> diagnosticsContent()
+                    }
+                }
             }
 
             ModernBottomNav(
@@ -329,6 +356,19 @@ fun DashboardScreen(
             )
         }
     }
+}
+
+private fun getDestinationOrder(dest: DashboardDestination): Int = when (dest) {
+    DashboardDestination.HOME -> 0
+    DashboardDestination.APPS -> 1
+    DashboardDestination.SETTINGS -> 2
+    DashboardDestination.DEVICES -> 3
+    DashboardDestination.VOICE_SPEECH -> 4
+    DashboardDestination.PREFERENCES -> 5
+    DashboardDestination.GLOBAL_RULES -> 6
+    DashboardDestination.HISTORY -> 7
+    DashboardDestination.BACKUP_RESTORE -> 8
+    DashboardDestination.DIAGNOSTICS -> 9
 }
 
 // ============================================================================
@@ -1394,7 +1434,7 @@ private fun SettingsHubScreen(
                     )
                     SettingsHubDivider()
                     SettingsHubRow(
-                        icon = Icons.Rounded.VolumeUp,
+                        icon = Icons.AutoMirrored.Rounded.VolumeUp,
                         title = "Audio Focus & Media",
                         subtitle = "Ducking, media pausing, and message grouping",
                         onClick = { onSelectDestination(DashboardDestination.PREFERENCES) },
@@ -1542,7 +1582,8 @@ private fun SettingsHubRow(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 11.sp,
-                    maxLines = 1,
+                    lineHeight = 15.sp,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
             }

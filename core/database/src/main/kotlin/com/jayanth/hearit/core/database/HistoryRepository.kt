@@ -6,6 +6,8 @@ import com.jayanth.hearit.core.common.model.HistoryStatus
 import com.jayanth.hearit.core.common.model.NotificationSnapshot
 import com.jayanth.hearit.core.common.model.SkipReason
 import com.jayanth.hearit.core.common.time.Clock
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
 /**
  * History storage API consumed by the pipeline and the history feature (master prompt §12).
@@ -48,7 +50,16 @@ interface HistoryRepository {
     suspend fun count(): Long
 
     /** Reactive stream of total history entries. */
-    fun observeCount(): kotlinx.coroutines.flow.Flow<Long>
+    fun observeCount(): Flow<Long>
+
+    /** Reactive stream of history entries for one app package, newest first. */
+    fun observeByPackage(packageName: String): Flow<List<HistoryEntry>>
+
+    /** Deletes rows for a specific package older than [retentionDays]; returns count removed. */
+    suspend fun prunePackage(packageName: String, retentionDays: Int?, nowMillis: Long): Int
+
+    /** Deletes rows for a specific package older than [olderThanDays], or all if null; returns count removed. */
+    suspend fun clearPackageHistory(packageName: String, olderThanDays: Int? = null): Int
 }
 
 /**
@@ -123,5 +134,22 @@ class RoomHistoryRepository(
 
     override suspend fun count(): Long = dao.count()
 
-    override fun observeCount(): kotlinx.coroutines.flow.Flow<Long> = dao.observeCount()
+    override fun observeCount(): Flow<Long> = dao.observeCount()
+
+    override fun observeByPackage(packageName: String): Flow<List<HistoryEntry>> =
+        dao.observeByPackage(packageName).map { entities -> entities.map { it.toDomain() } }
+
+    override suspend fun prunePackage(packageName: String, retentionDays: Int?, nowMillis: Long): Int {
+        val cutoff = HistoryRetentionPolicy.cutoffMillis(nowMillis, retentionDays) ?: return 0
+        return dao.deleteOlderThanForPackage(packageName, cutoff)
+    }
+
+    override suspend fun clearPackageHistory(packageName: String, olderThanDays: Int?): Int {
+        return if (olderThanDays == null) {
+            dao.deleteAllForPackage(packageName)
+        } else {
+            val cutoff = clock.nowMillis() - (olderThanDays.toLong() * 24 * 60 * 60 * 1000L)
+            dao.deleteOlderThanForPackage(packageName, cutoff)
+        }
+    }
 }

@@ -273,7 +273,7 @@ private fun LivePreviewCard(
                         )
                     }
                 }
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = stringResource(R.string.voice_speech_preview_title),
                         style = MaterialTheme.typography.titleMedium,
@@ -284,6 +284,8 @@ private fun LivePreviewCard(
                         text = "Dynamic notification simulation",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp,
                     )
                 }
             }
@@ -483,7 +485,7 @@ private fun SpeechTuningCard(
                     }
                 }
                 Spacer(modifier = Modifier.width(10.dp))
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "Speech Tuning",
                         style = MaterialTheme.typography.titleMedium,
@@ -494,6 +496,8 @@ private fun SpeechTuningCard(
                         text = "Speed, pitch, volume and voice engine",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp,
                     )
                 }
             }
@@ -773,7 +777,7 @@ private fun AnnouncementStructureCard(
                     }
                 }
                 Spacer(modifier = Modifier.width(10.dp))
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = stringResource(R.string.voice_speech_format_title),
                         style = MaterialTheme.typography.titleMedium,
@@ -784,6 +788,8 @@ private fun AnnouncementStructureCard(
                         text = stringResource(R.string.voice_speech_format_subtitle),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp,
                     )
                 }
             }
