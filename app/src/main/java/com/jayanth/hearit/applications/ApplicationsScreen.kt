@@ -2,6 +2,7 @@ package com.jayanth.hearit.applications
 
 import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -24,17 +25,23 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material.icons.rounded.NotificationsOff
 import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.SearchOff
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -71,9 +78,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -99,8 +108,6 @@ fun ApplicationsRoute(viewModel: ApplicationsViewModel, modifier: Modifier = Mod
             icons = viewModel.icons,
             onQueryChange = viewModel::onQueryChange,
             onToggleApp = viewModel::onToggleApp,
-            onSelectAll = viewModel::onSelectAllVisible,
-            onDeselectAll = viewModel::onDeselectAllVisible,
             onOpenApp = viewModel::onOpenApp,
             modifier = modifier,
         )
@@ -130,8 +137,6 @@ private fun ApplicationsListScreen(
     icons: AppIconLoader,
     onQueryChange: (String) -> Unit,
     onToggleApp: (String) -> Unit,
-    onSelectAll: () -> Unit,
-    onDeselectAll: () -> Unit,
     onOpenApp: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -150,28 +155,58 @@ private fun ApplicationsListScreen(
             .fillMaxSize()
             .padding(horizontal = 20.dp, vertical = 8.dp),
     ) {
-        // Compact Search Bar (~48dp)
-        OutlinedTextField(
-            value = state.query,
-            onValueChange = onQueryChange,
-            placeholder = {
-                Text(
-                    text = "Search installed apps…",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                )
-            },
-            leadingIcon = {
+        // Morphe-style Capsule Search Bar (~50dp height, perfect vertical alignment, zero text cut-off)
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp),
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
                 Icon(
                     imageVector = Icons.Rounded.Search,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(20.dp),
                 )
-            },
-            trailingIcon = {
-                if (state.query.isNotBlank()) {
-                    IconButton(onClick = { onQueryChange("") }) {
+
+                Box(
+                    modifier = Modifier.weight(1f),
+                    contentAlignment = Alignment.CenterStart,
+                ) {
+                    if (state.query.isEmpty()) {
+                        Text(
+                            text = "Search installed apps…",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            maxLines = 1,
+                        )
+                    }
+                    BasicTextField(
+                        value = state.query,
+                        onValueChange = onQueryChange,
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(
+                            color = MaterialTheme.colorScheme.onSurface,
+                        ),
+                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                    )
+                }
+
+                if (state.query.isNotEmpty()) {
+                    IconButton(
+                        onClick = { onQueryChange("") },
+                        modifier = Modifier.size(32.dp),
+                    ) {
                         Icon(
                             imageVector = Icons.Rounded.Close,
                             contentDescription = "Clear search",
@@ -180,92 +215,42 @@ private fun ApplicationsListScreen(
                         )
                     }
                 }
-            },
-            singleLine = true,
-            shape = RoundedCornerShape(24.dp),
-            colors = TextFieldDefaults.colors(
-                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                focusedIndicatorColor = Color.Transparent,
-                unfocusedIndicatorColor = Color.Transparent,
-                disabledIndicatorColor = Color.Transparent,
-            ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(48.dp),
-        )
+            }
+        }
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // Filter & Batch Controls Bar
-        Row(
+        // Filter Tabs: All / Selected / Unselected (Full Width, Modern Segmented Control)
+        SingleChoiceSegmentedButtonRow(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            // Filter: All / Selected / Unselected
-            SingleChoiceSegmentedButtonRow(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(end = 8.dp),
-            ) {
-                val filters = listOf(
-                    0 to "All",
-                    1 to "Selected (${state.enabledApps.size})",
-                    2 to "Unselected",
-                )
-                filters.forEachIndexed { index, (type, label) ->
-                    val isSelected = filterType == type
-                    SegmentedButton(
-                        selected = isSelected,
-                        onClick = { filterType = type },
-                        shape = SegmentedButtonDefaults.itemShape(index = index, count = filters.size),
-                    ) {
-                        Text(text = label, style = MaterialTheme.typography.labelSmall, maxLines = 1)
-                    }
-                }
-            }
-
-            // Compact Select All / Deselect All Icon Buttons
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                val canSelectAll = displayedApps.any { it.packageName !in state.enabledApps }
-                val canDeselectAll = displayedApps.any { it.packageName in state.enabledApps }
-
-                Surface(
-                    shape = RoundedCornerShape(topStart = 10.dp, topEnd = 4.dp, bottomEnd = 10.dp, bottomStart = 4.dp),
-                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = if (canSelectAll) 1f else 0.4f),
+            val filters = listOf(
+                0 to "All",
+                1 to "Selected (${state.enabledApps.size})",
+                2 to "Unselected",
+            )
+            filters.forEachIndexed { index, (type, label) ->
+                val isSelected = filterType == type
+                SegmentedButton(
+                    selected = isSelected,
+                    onClick = { filterType = type },
+                    shape = SegmentedButtonDefaults.itemShape(index = index, count = filters.size),
+                    icon = {},
+                    colors = SegmentedButtonDefaults.colors(
+                        activeContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                        activeContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        inactiveContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                        inactiveContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        activeBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                        inactiveBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                    ),
                 ) {
-                    IconButton(
-                        onClick = onSelectAll,
-                        enabled = canSelectAll,
-                        modifier = Modifier.size(36.dp),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Check,
-                            contentDescription = "Select All",
-                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                            modifier = Modifier.size(18.dp),
-                        )
-                    }
-                }
-
-                Surface(
-                    shape = RoundedCornerShape(topStart = 10.dp, topEnd = 4.dp, bottomEnd = 10.dp, bottomStart = 4.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (canDeselectAll) 1f else 0.4f),
-                ) {
-                    IconButton(
-                        onClick = onDeselectAll,
-                        enabled = canDeselectAll,
-                        modifier = Modifier.size(36.dp),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Close,
-                            contentDescription = "Deselect All",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(18.dp),
-                        )
-                    }
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                        maxLines = 1,
+                    )
                 }
             }
         }
@@ -292,18 +277,12 @@ private fun ApplicationsListScreen(
                     )
                 }
 
-                displayedApps.isEmpty() -> Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = if (state.query.isBlank()) {
-                            if (filterType == 1) "No enabled apps found" else stringResource(R.string.applications_empty)
-                        } else {
-                            stringResource(R.string.applications_empty_search, state.query.trim())
-                        },
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                displayedApps.isEmpty() -> {
+                    ApplicationsEmptyCard(
+                        query = state.query,
+                        filterType = filterType,
+                        onClearQuery = { onQueryChange("") },
+                        onResetFilter = { filterType = 0 },
                     )
                 }
 
@@ -320,7 +299,120 @@ private fun ApplicationsListScreen(
                             onOpenSettings = { onOpenApp(app.packageName) },
                         )
                     }
-                    item { Spacer(modifier = Modifier.height(16.dp)) }
+                    item { Spacer(modifier = Modifier.height(100.dp)) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ApplicationsEmptyCard(
+    query: String,
+    filterType: Int,
+    onClearQuery: () -> Unit,
+    onResetFilter: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 36.dp, horizontal = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Surface(
+                modifier = Modifier.size(64.dp),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    val icon = when {
+                        query.isNotBlank() -> Icons.Rounded.SearchOff
+                        filterType == 1 -> Icons.Rounded.NotificationsOff
+                        filterType == 2 -> Icons.Rounded.CheckCircle
+                        else -> Icons.Rounded.Apps
+                    }
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(30.dp),
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            val title = when {
+                query.isNotBlank() -> "No matching apps found"
+                filterType == 1 -> "No enabled apps"
+                filterType == 2 -> "All apps enabled"
+                else -> "No applications available"
+            }
+
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center,
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            val description = when {
+                query.isNotBlank() -> "No installed apps match \"${query.trim()}\". Try another term or clear the search query."
+                filterType == 1 -> "You haven't enabled speech announcements for any apps yet. Switch to 'All' or 'Unselected' to turn them on."
+                filterType == 2 -> "Every installed application currently has announcement permissions enabled."
+                else -> "No installed apps were detected on this device."
+            }
+
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                lineHeight = 18.sp,
+            )
+
+            if (query.isNotBlank()) {
+                Spacer(modifier = Modifier.height(20.dp))
+                OutlinedButton(
+                    onClick = onClearQuery,
+                    shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Close,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Clear search", fontWeight = FontWeight.SemiBold)
+                }
+            } else if (filterType == 1) {
+                Spacer(modifier = Modifier.height(20.dp))
+                Button(
+                    onClick = onResetFilter,
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                    ),
+                ) {
+                    Text("Show All Apps", fontWeight = FontWeight.Bold)
                 }
             }
         }

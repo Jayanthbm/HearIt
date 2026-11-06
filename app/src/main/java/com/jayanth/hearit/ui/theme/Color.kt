@@ -45,8 +45,15 @@ val Slate500 = Color(0xFF64748B)
 val Slate600 = Color(0xFF475569)
 val Slate700 = Color(0xFF334155)
 val Slate800 = Color(0xFF1E293B)
-val Slate900 = Color(0xFF0F172A)
-val Slate950 = Color(0xFF070B14)
+val Slate900 = Color(0xFF191C26)
+val Slate950 = Color(0xFF11131A)
+
+// Morphe Palette Tokens
+val MorpheBackground = Color(0xFF11131A)
+val MorpheSurface = Color(0xFF191C26)
+val MorpheSurfaceHigh = Color(0xFF212534)
+val MorpheSurfaceHighest = Color(0xFF282C3C)
+val MorpheOutline = Color(0xFF282C3C)
 
 // Semantic Accents ----------------------------------------------------------
 val SuccessGreen = Color(0xFF10B981)

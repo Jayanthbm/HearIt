@@ -86,6 +86,7 @@ class DashboardViewModel @Inject constructor(
         _state.update {
             it.copy(
                 temporaryMuteActive = sessionStore.isTemporaryMuteActive,
+                temporaryMuteMinutes = if (sessionStore.isTemporaryMuteActive) it.temporaryMuteMinutes else null,
                 outputLabel = audioOutputs.connectedOutputs().firstOrNull()?.label,
             )
         }
@@ -98,16 +99,17 @@ class DashboardViewModel @Inject constructor(
             15 -> AnnouncementService.ACTION_TEMPORARY_MUTE_15MIN
             30 -> AnnouncementService.ACTION_TEMPORARY_MUTE_30MIN
             60 -> AnnouncementService.ACTION_TEMPORARY_MUTE_60MIN
+            -1 -> AnnouncementService.ACTION_TEMPORARY_MUTE_INDEFINITE
             else -> AnnouncementService.ACTION_TEMPORARY_MUTE_TOGGLE
         }
         sendServiceAction(action)
-        _state.update { it.copy(temporaryMuteActive = true) }
+        _state.update { it.copy(temporaryMuteActive = true, temporaryMuteMinutes = durationMinutes) }
     }
 
     /** Clears the temporary mute state. */
     fun onTemporaryMuteCleared() {
         sendServiceAction(AnnouncementService.ACTION_TEMPORARY_MUTE_TOGGLE)
-        _state.update { it.copy(temporaryMuteActive = false) }
+        _state.update { it.copy(temporaryMuteActive = false, temporaryMuteMinutes = null) }
     }
 
     /** Toggles Priority Announce on/off (P17). */

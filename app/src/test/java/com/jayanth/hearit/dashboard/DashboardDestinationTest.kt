@@ -16,25 +16,26 @@ import org.junit.Test
 class DashboardDestinationTest {
 
     @Test
-    fun bottomBar_hasTheFourMasterPromptTabs_inOrder() {
+    fun bottomBar_hasTheThreePillBarTabs_inOrder() {
         assertEquals(
             listOf(
                 DashboardDestination.HOME,
                 DashboardDestination.APPS,
-                DashboardDestination.DEVICES,
-                DashboardDestination.HISTORY,
+                DashboardDestination.SETTINGS,
             ),
             DashboardDestination.bottomBar,
         )
     }
 
     @Test
-    fun secondary_hasTheFiveMasterPromptEntries_inOrder() {
+    fun secondary_hasTheSevenSecondaryEntries_inOrder() {
         assertEquals(
             listOf(
+                DashboardDestination.DEVICES,
+                DashboardDestination.HISTORY,
                 DashboardDestination.GLOBAL_RULES,
                 DashboardDestination.VOICE_SPEECH,
-                DashboardDestination.SETTINGS,
+                DashboardDestination.PREFERENCES,
                 DashboardDestination.BACKUP_RESTORE,
                 DashboardDestination.DIAGNOSTICS,
             ),

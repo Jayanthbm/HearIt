@@ -43,10 +43,10 @@ fun HearItTheme(
  * Curated high-contrast dark theme with glowing neon accents and deep OLED-ready surfaces.
  */
 private val DarkColorScheme = darkColorScheme(
-    primary = Blue400,
+    primary = Color(0xFF38BDF8),
     onPrimary = Color(0xFF030712),
-    primaryContainer = Blue900,
-    onPrimaryContainer = Blue100,
+    primaryContainer = Color(0xFF0C4A6E),
+    onPrimaryContainer = Color(0xFFBAE6FD),
 
     secondary = Violet400,
     onSecondary = Color(0xFF030712),
@@ -58,22 +58,22 @@ private val DarkColorScheme = darkColorScheme(
     tertiaryContainer = Cyan950,
     onTertiaryContainer = Cyan300,
 
-    background = Slate950,
-    onBackground = Slate50,
+    background = MorpheBackground,
+    onBackground = Slate100,
 
-    surface = Slate900,
-    onSurface = Slate50,
-    surfaceVariant = Slate800,
-    onSurfaceVariant = Slate300,
+    surface = MorpheSurface,
+    onSurface = Slate100,
+    surfaceVariant = MorpheSurfaceHigh,
+    onSurfaceVariant = Slate400,
 
-    surfaceContainerLowest = Color(0xFF050810),
-    surfaceContainerLow = Slate950,
-    surfaceContainer = Slate900,
-    surfaceContainerHigh = Color(0xFF131D31),
-    surfaceContainerHighest = Slate800,
+    surfaceContainerLowest = Color(0xFF0D0E14),
+    surfaceContainerLow = Color(0xFF151720),
+    surfaceContainer = MorpheSurface,
+    surfaceContainerHigh = MorpheSurfaceHigh,
+    surfaceContainerHighest = MorpheSurfaceHighest,
 
-    outline = Slate700,
-    outlineVariant = Color(0xFF1E293B),
+    outline = Slate600,
+    outlineVariant = MorpheOutline,
 
     error = ErrorRed,
     onError = Color(0xFF450A0A),

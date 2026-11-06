@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Hear It</string>
+    <string name="app_name">HearIt</string>
 
     <string name="notification_channel_service">Announcements</string>
     <string name="notification_channel_service_description">Shows when Hear It is reading notifications aloud.</string>
@@ -95,6 +95,7 @@
     <string name="nav_global_rules">Global Rules</string>
     <string name="nav_voice_speech">Voice &amp; Speech</string>
     <string name="nav_settings">Settings</string>
+    <string name="nav_preferences">App Preferences</string>
     <string name="nav_backup_restore">Backup &amp; Restore</string>
     <string name="nav_diagnostics">Diagnostics</string>
 
@@ -111,8 +112,8 @@
         <item quantity="one">%1$d announcement waiting</item>
         <item quantity="other">%1$d announcements waiting</item>
     </plurals>
-    <string name="dashboard_start_service">Start Hear It</string>
-    <string name="dashboard_stop_service">Stop Hear It</string>
+    <string name="dashboard_start_service">Start HearIt</string>
+    <string name="dashboard_stop_service">Stop HearIt</string>
 
     <string name="dashboard_section_status">Status</string>
     <string name="dashboard_normal_announcements">Normal announcements</string>

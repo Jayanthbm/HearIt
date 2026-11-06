@@ -195,6 +195,12 @@ class AnnouncementService : Service(), NotificationSink {
             ACTION_TEMPORARY_MUTE_15MIN -> return muteFor(15 * 60 * 1000L)
             ACTION_TEMPORARY_MUTE_30MIN -> return muteFor(30 * 60 * 1000L)
             ACTION_TEMPORARY_MUTE_60MIN -> return muteFor(60 * 60 * 1000L)
+            ACTION_TEMPORARY_MUTE_INDEFINITE -> {
+                sessionStore.isTemporaryMuteActive = true
+                handler.removeCallbacks(muteUnlockRunnable)
+                publishStatus()
+                return START_STICKY
+            }
 
             ACTION_TEMPORARY_MUTE_TOGGLE -> {
                 sessionStore.isTemporaryMuteActive = !sessionStore.isTemporaryMuteActive
@@ -500,6 +506,7 @@ class AnnouncementService : Service(), NotificationSink {
         const val ACTION_TEMPORARY_MUTE_15MIN = "com.jayanth.hearit.action.TEMPORARY_MUTE_15MIN"
         const val ACTION_TEMPORARY_MUTE_30MIN = "com.jayanth.hearit.action.TEMPORARY_MUTE_30MIN"
         const val ACTION_TEMPORARY_MUTE_60MIN = "com.jayanth.hearit.action.TEMPORARY_MUTE_60MIN"
+        const val ACTION_TEMPORARY_MUTE_INDEFINITE = "com.jayanth.hearit.action.TEMPORARY_MUTE_INDEFINITE"
         const val ACTION_TEMPORARY_MUTE_TOGGLE = "com.jayanth.hearit.action.TEMPORARY_MUTE_TOGGLE"
 
         /** Priority Announce actions (P17, Quick Settings tile P19b). */

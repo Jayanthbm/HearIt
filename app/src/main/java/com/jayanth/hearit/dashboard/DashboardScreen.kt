@@ -1,29 +1,43 @@
 package com.jayanth.hearit.dashboard
 
-import android.text.format.DateUtils
 import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -32,10 +46,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -108,6 +124,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
@@ -164,8 +181,9 @@ fun DashboardRoute(
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.state.collectAsState()
-    var destinationId by rememberSaveable { mutableStateOf(DashboardDestination.HOME.id) }
-    val destination = DashboardDestination.fromId(destinationId)
+    var backStack by rememberSaveable { mutableStateOf(listOf(DashboardDestination.HOME.id)) }
+    val currentDestinationId = backStack.lastOrNull() ?: DashboardDestination.HOME.id
+    val destination = DashboardDestination.fromId(currentDestinationId)
     val context = LocalContext.current
     val lifecycleOwner = context as? LifecycleOwner
 
@@ -181,15 +199,29 @@ fun DashboardRoute(
         }
     }
 
-    BackHandler(enabled = destination != DashboardDestination.HOME) {
-        destinationId = DashboardDestination.HOME.id
+    val onNavigateBack = {
+        if (backStack.size > 1) {
+            backStack = backStack.dropLast(1)
+        } else if (destination != DashboardDestination.HOME) {
+            backStack = listOf(DashboardDestination.HOME.id)
+        }
+    }
+
+    BackHandler(enabled = backStack.size > 1 || destination != DashboardDestination.HOME) {
+        onNavigateBack()
     }
 
     DashboardScreen(
         state = state,
         destination = destination,
-        onSelectDestination = { selected -> destinationId = selected.id },
-        onBackToHome = { destinationId = DashboardDestination.HOME.id },
+        onSelectDestination = { selected ->
+            if (selected.isBottomBarDestination) {
+                backStack = listOf(selected.id)
+            } else {
+                backStack = backStack + selected.id
+            }
+        },
+        onBackToHome = onNavigateBack,
         onStartService = viewModel::onStartService,
         onStopService = viewModel::onStopService,
         onTestAnnouncement = viewModel::onTestAnnouncement,
@@ -250,16 +282,12 @@ fun DashboardScreen(
                 )
             }
         },
-        bottomBar = {
-            ModernBottomNav(selected = destination, onSelect = onSelectDestination)
-        },
     ) { innerPadding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-                .consumeWindowInsets(innerPadding)
-                .imePadding(),
+                .padding(top = innerPadding.calculateTopPadding())
+                .consumeWindowInsets(PaddingValues(top = innerPadding.calculateTopPadding())),
         ) {
             when {
                 !state.loaded -> Box(
@@ -284,14 +312,21 @@ fun DashboardScreen(
 
                 destination == DashboardDestination.DEVICES -> devicesContent()
                 destination == DashboardDestination.APPS -> appsContent()
+                destination == DashboardDestination.SETTINGS -> SettingsHubScreen(onSelectDestination = onSelectDestination)
                 destination == DashboardDestination.HISTORY -> historyContent()
                 destination == DashboardDestination.GLOBAL_RULES -> globalRulesContent()
                 destination == DashboardDestination.VOICE_SPEECH -> voiceSpeechContent()
-                destination == DashboardDestination.SETTINGS -> settingsContent()
+                destination == DashboardDestination.PREFERENCES -> settingsContent()
                 destination == DashboardDestination.BACKUP_RESTORE -> backupRestoreContent()
                 destination == DashboardDestination.DIAGNOSTICS -> diagnosticsContent()
                 else -> DestinationPlaceholder(destination = destination)
             }
+
+            ModernBottomNav(
+                selected = destination,
+                onSelect = onSelectDestination,
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
         }
     }
 }
@@ -321,12 +356,25 @@ private fun ModernDashboardTopBar(
         },
         navigationIcon = {
             if (!destination.isBottomBarDestination) {
-                IconButton(onClick = onBack) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                        contentDescription = stringResource(R.string.dashboard_back),
-                        tint = MaterialTheme.colorScheme.onBackground,
-                    )
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier.padding(start = 4.dp),
+                ) {
+                    Surface(
+                        modifier = Modifier.size(38.dp),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                                contentDescription = stringResource(R.string.dashboard_back),
+                                tint = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+                    }
                 }
             }
         },
@@ -337,91 +385,126 @@ private fun ModernDashboardTopBar(
 }
 
 // ============================================================================
-// Modern Bottom Navigation Bar
+// Modern Floating Pill Navigation Bar (Morphe Style)
 // ============================================================================
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ModernBottomNav(
     selected: DashboardDestination,
     onSelect: (DashboardDestination) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .navigationBarsPadding()
-            .padding(horizontal = 16.dp)
-            .padding(bottom = 8.dp),
-        contentAlignment = Alignment.Center,
+    val isImeVisible = WindowInsets.isImeVisible
+    AnimatedVisibility(
+        visible = !isImeVisible,
+        enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 }),
+        exit = fadeOut() + slideOutVertically(targetOffsetY = { it / 2 }),
+        modifier = modifier,
     ) {
-        Surface(
-            shape = RoundedCornerShape(28.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            shadowElevation = 8.dp,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(bottom = 12.dp),
+            contentAlignment = Alignment.Center,
         ) {
-            Row(
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.90f),
+                shadowElevation = 8.dp,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
                 modifier = Modifier
-                    .wrapContentWidth()
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically,
+                    .widthIn(max = 312.dp)
+                    .height(64.dp),
             ) {
-                for (destination in DashboardDestination.bottomBar) {
-                    val isSelected = destination == selected
-                    val icon = when (destination) {
-                        DashboardDestination.HOME -> Icons.Rounded.Home
-                        DashboardDestination.APPS -> Icons.Rounded.Apps
-                        DashboardDestination.DEVICES -> Icons.Rounded.Headphones
-                        DashboardDestination.HISTORY -> Icons.Rounded.History
-                        else -> Icons.Rounded.Home
-                    }
-                    val iconColor by animateColorAsState(
-                        targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary
-                        else MaterialTheme.colorScheme.onSurfaceVariant,
-                        label = "navIconColor",
-                    )
-                    val textColor by animateColorAsState(
-                        targetValue = if (isSelected) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurfaceVariant,
-                        label = "navTextColor",
-                    )
-
-                    Column(
-                        modifier = Modifier
-                            .clickable(role = Role.Tab) { onSelect(destination) }
-                            .padding(horizontal = 12.dp, vertical = 4.dp)
-                            .defaultMinSize(minWidth = 56.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(2.dp),
-                    ) {
-                        // Morphed indicator surface when selected
-                        Surface(
-                            shape = RoundedCornerShape(
-                                topStart = 16.dp, topEnd = 8.dp,
-                                bottomEnd = 16.dp, bottomStart = 8.dp,
-                            ),
-                            color = if (isSelected) MaterialTheme.colorScheme.primary
-                            else Color.Transparent,
-                            modifier = Modifier.defaultMinSize(minWidth = 48.dp, minHeight = 32.dp),
-                        ) {
-                            Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)) {
-                                Icon(
-                                    imageVector = icon,
-                                    contentDescription = stringResource(destination.labelRes),
-                                    modifier = Modifier.size(22.dp),
-                                    tint = iconColor,
-                                )
-                            }
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 6.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    for (destination in DashboardDestination.bottomBar) {
+                        val isSelected = destination == selected ||
+                            (destination == DashboardDestination.SETTINGS && !selected.isBottomBarDestination)
+                        val icon = when (destination) {
+                            DashboardDestination.HOME -> Icons.Rounded.Home
+                            DashboardDestination.APPS -> Icons.Rounded.Apps
+                            DashboardDestination.SETTINGS -> Icons.Rounded.Settings
+                            else -> Icons.Rounded.Home
                         }
-                        Text(
-                            text = stringResource(destination.labelRes),
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                            color = textColor,
+
+                        FloatingPillItem(
+                            selected = isSelected,
+                            icon = icon,
+                            label = stringResource(destination.labelRes),
+                            onClick = { onSelect(destination) },
+                            modifier = Modifier.weight(1f),
                         )
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun FloatingPillItem(
+    selected: Boolean,
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val pillBgColor by animateColorAsState(
+        targetValue = if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
+        else Color.Transparent,
+        label = "pillBg",
+    )
+    val pillBorderColor by animateColorAsState(
+        targetValue = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
+        else Color.Transparent,
+        label = "pillBorder",
+    )
+    val iconTint by animateColorAsState(
+        targetValue = if (selected) MaterialTheme.colorScheme.primary
+        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+        label = "pillIconTint",
+    )
+    val textColor by animateColorAsState(
+        targetValue = if (selected) MaterialTheme.colorScheme.onSurface
+        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+        label = "pillTextColor",
+    )
+
+    Surface(
+        onClick = onClick,
+        shape = CircleShape,
+        color = pillBgColor,
+        border = BorderStroke(1.dp, pillBorderColor),
+        modifier = modifier.fillMaxHeight(),
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = iconTint,
+                modifier = Modifier.size(20.dp),
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                color = textColor,
+                fontSize = 11.sp,
+                maxLines = 1,
+            )
         }
     }
 }
@@ -490,6 +573,7 @@ private fun DashboardHome(
             state = state,
             onStart = onStartService,
             onStop = onStopService,
+            onSelectDestination = onSelectDestination,
         )
 
         // Quick Controls & Status
@@ -510,28 +594,67 @@ private fun DashboardHome(
                 .height(IntrinsicSize.Max),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            // Priority Announce Card — morphed squircle (top-heavy)
+            // Priority Announce Card with Spring Animations
+            val priorityInteractionSource = remember { MutableInteractionSource() }
+            val priorityPressed by priorityInteractionSource.collectIsPressedAsState()
+            val priorityScale by animateFloatAsState(
+                targetValue = if (priorityPressed && priorityEnabled) 0.97f else 1f,
+                animationSpec = spring(stiffness = Spring.StiffnessMedium, dampingRatio = Spring.DampingRatioMediumBouncy),
+                label = "priorityScale",
+            )
+            val priorityCardBg by animateColorAsState(
+                targetValue = when {
+                    !isRunning || muteActive -> MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.5f)
+                    state.priorityAnnounceActive -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+                    else -> MaterialTheme.colorScheme.surfaceContainer
+                },
+                animationSpec = spring(stiffness = Spring.StiffnessLow),
+                label = "priorityCardBg",
+            )
+            val priorityCardBorder by animateColorAsState(
+                targetValue = when {
+                    !isRunning || muteActive -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                    state.priorityAnnounceActive -> MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                    else -> MaterialTheme.colorScheme.outlineVariant
+                },
+                animationSpec = spring(stiffness = Spring.StiffnessLow),
+                label = "priorityCardBorder",
+            )
+            val priorityIconBg by animateColorAsState(
+                targetValue = when {
+                    !isRunning || muteActive -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    state.priorityAnnounceActive -> MaterialTheme.colorScheme.primary
+                    else -> MaterialTheme.colorScheme.surfaceVariant
+                },
+                animationSpec = spring(stiffness = Spring.StiffnessMedium),
+                label = "priorityIconBg",
+            )
+            val priorityIconTint by animateColorAsState(
+                targetValue = when {
+                    !isRunning || muteActive -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                    state.priorityAnnounceActive -> MaterialTheme.colorScheme.onPrimary
+                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                animationSpec = spring(stiffness = Spring.StiffnessMedium),
+                label = "priorityIconTint",
+            )
+
             Card(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
-                    .clickable(enabled = priorityEnabled) { onPriorityAnnounceToggled(!state.priorityAnnounceActive) },
-                shape = RoundedCornerShape(topStart = 20.dp, topEnd = 8.dp, bottomEnd = 20.dp, bottomStart = 8.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = when {
-                        !isRunning || muteActive -> MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.5f)
-                        state.priorityAnnounceActive -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-                        else -> MaterialTheme.colorScheme.surfaceContainer
-                    },
-                ),
-                border = BorderStroke(
-                    1.dp,
-                    when {
-                        !isRunning || muteActive -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                        state.priorityAnnounceActive -> MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-                        else -> MaterialTheme.colorScheme.outlineVariant
-                    },
-                ),
+                    .graphicsLayer {
+                        scaleX = priorityScale
+                        scaleY = priorityScale
+                    }
+                    .clickable(
+                        enabled = priorityEnabled,
+                        interactionSource = priorityInteractionSource,
+                        indication = null,
+                    ) { onPriorityAnnounceToggled(!state.priorityAnnounceActive) },
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = priorityCardBg),
+                border = BorderStroke(1.dp, priorityCardBorder),
             ) {
                 Column(
                     modifier = Modifier
@@ -545,23 +668,15 @@ private fun DashboardHome(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Surface(
-                            modifier = Modifier.size(34.dp),
-                            shape = RoundedCornerShape(topStart = 12.dp, topEnd = 4.dp, bottomEnd = 12.dp, bottomStart = 4.dp),
-                            color = when {
-                                !isRunning || muteActive -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                                state.priorityAnnounceActive -> MaterialTheme.colorScheme.primary
-                                else -> MaterialTheme.colorScheme.surfaceVariant
-                            },
+                            modifier = Modifier.size(36.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            color = priorityIconBg,
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
                                     imageVector = Icons.Rounded.Star,
                                     contentDescription = null,
-                                    tint = when {
-                                        !isRunning || muteActive -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                                        state.priorityAnnounceActive -> MaterialTheme.colorScheme.onPrimary
-                                        else -> MaterialTheme.colorScheme.onSurfaceVariant
-                                    },
+                                    tint = priorityIconTint,
                                     modifier = Modifier.size(18.dp),
                                 )
                             }
@@ -581,10 +696,11 @@ private fun DashboardHome(
                         Text(
                             text = "Priority Announce",
                             style = MaterialTheme.typography.titleSmall,
-                            fontSize = 13.sp,
+                            fontSize = 12.5.sp,
                             fontWeight = FontWeight.SemiBold,
+                            lineHeight = 16.sp,
                             color = if (priorityEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                            maxLines = 1,
+                            maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                         )
                         Spacer(modifier = Modifier.height(2.dp))
@@ -599,35 +715,75 @@ private fun DashboardHome(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (priorityEnabled) 1f else 0.5f),
                             fontSize = 11.sp,
-                            maxLines = 1,
+                            lineHeight = 15.sp,
+                            maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
                 }
             }
 
-            // Temporary Mute Card — alternating morphed squircle
+            // Temporary Mute Card with Spring Animations & Dialog Opener
+            val muteInteractionSource = remember { MutableInteractionSource() }
+            val mutePressed by muteInteractionSource.collectIsPressedAsState()
+            val muteScale by animateFloatAsState(
+                targetValue = if (mutePressed && isRunning) 0.97f else 1f,
+                animationSpec = spring(stiffness = Spring.StiffnessMedium, dampingRatio = Spring.DampingRatioMediumBouncy),
+                label = "muteScale",
+            )
+            val muteCardBg by animateColorAsState(
+                targetValue = when {
+                    !isRunning -> MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.5f)
+                    muteActive -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f)
+                    else -> MaterialTheme.colorScheme.surfaceContainer
+                },
+                animationSpec = spring(stiffness = Spring.StiffnessLow),
+                label = "muteCardBg",
+            )
+            val muteCardBorder by animateColorAsState(
+                targetValue = when {
+                    !isRunning -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                    muteActive -> MaterialTheme.colorScheme.error.copy(alpha = 0.6f)
+                    else -> MaterialTheme.colorScheme.outlineVariant
+                },
+                animationSpec = spring(stiffness = Spring.StiffnessLow),
+                label = "muteCardBorder",
+            )
+            val muteIconBg by animateColorAsState(
+                targetValue = when {
+                    !isRunning -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    muteActive -> MaterialTheme.colorScheme.error
+                    else -> MaterialTheme.colorScheme.surfaceVariant
+                },
+                animationSpec = spring(stiffness = Spring.StiffnessMedium),
+                label = "muteIconBg",
+            )
+            val muteIconTint by animateColorAsState(
+                targetValue = when {
+                    !isRunning -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                    muteActive -> MaterialTheme.colorScheme.onError
+                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                animationSpec = spring(stiffness = Spring.StiffnessMedium),
+                label = "muteIconTint",
+            )
+
             Card(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
-                    .clickable(enabled = isRunning) { showMuteDurationDialog = true },
-                shape = RoundedCornerShape(topStart = 8.dp, topEnd = 20.dp, bottomEnd = 8.dp, bottomStart = 20.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = when {
-                        !isRunning -> MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.5f)
-                        muteActive -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f)
-                        else -> MaterialTheme.colorScheme.surfaceContainer
-                    },
-                ),
-                border = BorderStroke(
-                    1.dp,
-                    when {
-                        !isRunning -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                        muteActive -> MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
-                        else -> MaterialTheme.colorScheme.outlineVariant
-                    },
-                ),
+                    .graphicsLayer {
+                        scaleX = muteScale
+                        scaleY = muteScale
+                    }
+                    .clickable(
+                        enabled = isRunning,
+                        interactionSource = muteInteractionSource,
+                        indication = null,
+                    ) { showMuteDurationDialog = true },
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = muteCardBg),
+                border = BorderStroke(1.dp, muteCardBorder),
             ) {
                 Column(
                     modifier = Modifier
@@ -641,23 +797,15 @@ private fun DashboardHome(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Surface(
-                            modifier = Modifier.size(34.dp),
-                            shape = RoundedCornerShape(topStart = 4.dp, topEnd = 12.dp, bottomEnd = 4.dp, bottomStart = 12.dp),
-                            color = when {
-                                !isRunning -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                                muteActive -> MaterialTheme.colorScheme.error
-                                else -> MaterialTheme.colorScheme.surfaceVariant
-                            },
+                            modifier = Modifier.size(36.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            color = muteIconBg,
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Rounded.VolumeOff,
                                     contentDescription = null,
-                                    tint = when {
-                                        !isRunning -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                                        muteActive -> MaterialTheme.colorScheme.onError
-                                        else -> MaterialTheme.colorScheme.onSurfaceVariant
-                                    },
+                                    tint = muteIconTint,
                                     modifier = Modifier.size(18.dp),
                                 )
                             }
@@ -667,7 +815,7 @@ private fun DashboardHome(
                             enabled = isRunning,
                             onCheckedChange = { active ->
                                 if (active) {
-                                    onTemporaryMuteClicked(30)
+                                    showMuteDurationDialog = true
                                 } else {
                                     onTemporaryMuteCleared()
                                 }
@@ -683,19 +831,27 @@ private fun DashboardHome(
                         Text(
                             text = "Temporary Mute",
                             style = MaterialTheme.typography.titleSmall,
-                            fontSize = 13.sp,
+                            fontSize = 12.5.sp,
                             fontWeight = FontWeight.SemiBold,
+                            lineHeight = 16.sp,
                             color = if (isRunning) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                            maxLines = 1,
+                            maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                         )
                         Spacer(modifier = Modifier.height(2.dp))
+                        val muteSubtitle = when {
+                            !isRunning -> "Requires service"
+                            muteActive -> when (state.temporaryMuteMinutes) {
+                                15 -> "Muted · 15m timer"
+                                30 -> "Muted · 30m timer"
+                                60 -> "Muted · 1h timer"
+                                -1 -> "Muted until turned off"
+                                else -> "Muted until unmuted"
+                            }
+                            else -> "Normal audio active"
+                        }
                         Text(
-                            text = when {
-                                !isRunning -> "Requires service"
-                                muteActive -> "Announcements muted"
-                                else -> "Normal audio active"
-                            },
+                            text = muteSubtitle,
                             style = MaterialTheme.typography.bodySmall,
                             color = when {
                                 !isRunning -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
@@ -703,7 +859,8 @@ private fun DashboardHome(
                                 else -> MaterialTheme.colorScheme.onSurfaceVariant
                             },
                             fontSize = 11.sp,
-                            maxLines = 1,
+                            lineHeight = 15.sp,
+                            maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
@@ -715,7 +872,7 @@ private fun DashboardHome(
         if (state.totalAnnouncementsCount < 10) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(topStart = 20.dp, topEnd = 8.dp, bottomEnd = 20.dp, bottomStart = 8.dp),
+                shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainer,
                 ),
@@ -731,7 +888,7 @@ private fun DashboardHome(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Surface(
                             modifier = Modifier.size(36.dp),
-                            shape = RoundedCornerShape(topStart = 12.dp, topEnd = 4.dp, bottomEnd = 12.dp, bottomStart = 4.dp),
+                            shape = RoundedCornerShape(12.dp),
                             color = MaterialTheme.colorScheme.primaryContainer,
                         ) {
                             Box(contentAlignment = Alignment.Center) {
@@ -762,7 +919,7 @@ private fun DashboardHome(
                     Button(
                         onClick = { onTestAnnouncement(testAnnouncementText) },
                         enabled = state.testAnnouncement != TestAnnouncementState.SPEAKING,
-                        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 6.dp, bottomEnd = 16.dp, bottomStart = 6.dp),
+                        shape = RoundedCornerShape(14.dp),
                         modifier = Modifier.height(40.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary,
@@ -779,17 +936,7 @@ private fun DashboardHome(
             }
         }
 
-        // Settings and Tools
-        Text(
-            text = "Settings & Rules",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground,
-        )
-
-        ToolsGroupCard(onSelectDestination = onSelectDestination)
-
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(100.dp))
     }
 
     if (showMuteDurationDialog) {
@@ -810,7 +957,12 @@ private fun DashboardHome(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Spacer(modifier = Modifier.height(4.dp))
-                    val durations = listOf(15 to "15 minutes", 30 to "30 minutes", 60 to "1 hour")
+                    val durations = listOf(
+                        15 to "15 minutes",
+                        30 to "30 minutes",
+                        60 to "1 hour",
+                        -1 to "Until I turn off",
+                    )
                     durations.forEach { (mins, label) ->
                         Surface(
                             modifier = Modifier
@@ -877,6 +1029,7 @@ private fun HeroServiceCard(
     state: DashboardUiState,
     onStart: () -> Unit,
     onStop: () -> Unit,
+    onSelectDestination: (DashboardDestination) -> Unit,
 ) {
     val isRunning = state.service.isRunning
     val isSpeaking = state.service.isSpeaking
@@ -907,7 +1060,7 @@ private fun HeroServiceCard(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 12.dp, bottomEnd = 28.dp, bottomStart = 12.dp),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         ),
@@ -956,7 +1109,7 @@ private fun HeroServiceCard(
 
                 if (state.service.pendingCount > 0) {
                     Surface(
-                        shape = RoundedCornerShape(topStart = 10.dp, topEnd = 4.dp, bottomEnd = 10.dp, bottomStart = 4.dp),
+                        shape = RoundedCornerShape(8.dp),
                         color = MaterialTheme.colorScheme.primaryContainer,
                     ) {
                         Text(
@@ -980,235 +1133,196 @@ private fun HeroServiceCard(
                 color = MaterialTheme.colorScheme.onSurface,
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            // Main Metrics Grid
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            // Apps count shortcut badge
+            Surface(
+                modifier = Modifier.clickable { onSelectDestination(DashboardDestination.APPS) },
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
             ) {
-                MetricChip(
-                    icon = Icons.Rounded.Headphones,
-                    label = "Audio Output",
-                    value = state.outputLabel ?: "No Output",
-                    modifier = Modifier.weight(1f),
-                )
-                MetricChip(
-                    icon = Icons.Rounded.Apps,
-                    label = "Apps",
-                    value = "${state.enabledAppCount}",
-                    modifier = Modifier.weight(1f),
-                )
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Apps,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "${state.enabledAppCount} apps enabled for speech",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(14.dp),
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Dedicated Audio Output Tile (Full Width - ample room for earphone name without "...")
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onSelectDestination(DashboardDestination.DEVICES) },
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surfaceContainer,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    val isConnected = state.outputLabel != null
+                    Surface(
+                        modifier = Modifier.size(40.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (isConnected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = if (isConnected) Icons.Rounded.Headphones else Icons.AutoMirrored.Rounded.VolumeOff,
+                                contentDescription = null,
+                                tint = if (isConnected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Audio Output",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 11.sp,
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = state.outputLabel ?: "No Output Device",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (isConnected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (isConnected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = if (isConnected) "Connected" else "Route",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (isConnected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Spacer(modifier = Modifier.width(2.dp))
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                                contentDescription = null,
+                                tint = if (isConnected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(14.dp),
+                            )
+                        }
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(18.dp))
 
-            // Big CTA Button — morphed squircle shape
-            if (isRunning) {
-                OutlinedButton(
-                    onClick = onStop,
-                    modifier = Modifier.fillMaxWidth().height(52.dp),
-                    shape = RoundedCornerShape(topStart = 24.dp, topEnd = 10.dp, bottomEnd = 24.dp, bottomStart = 10.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                ) {
-                    Icon(Icons.Rounded.Stop, contentDescription = null, modifier = Modifier.size(20.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(stringResource(R.string.dashboard_stop_service), fontWeight = FontWeight.Bold)
-                }
-            } else {
-                Button(
-                    onClick = onStart,
-                    modifier = Modifier.fillMaxWidth().height(52.dp),
-                    shape = RoundedCornerShape(topStart = 24.dp, topEnd = 10.dp, bottomEnd = 24.dp, bottomStart = 10.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary,
-                    ),
-                ) {
-                    Icon(Icons.Rounded.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(stringResource(R.string.dashboard_start_service), fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-    }
-}
+            // Animated Big CTA Button — smooth morph between Start and Stop states with tactile press feedback
+            val ctaInteractionSource = remember { MutableInteractionSource() }
+            val ctaPressed by ctaInteractionSource.collectIsPressedAsState()
+            val ctaScale by animateFloatAsState(
+                targetValue = if (ctaPressed) 0.96f else 1f,
+                animationSpec = spring(stiffness = Spring.StiffnessMedium, dampingRatio = Spring.DampingRatioMediumBouncy),
+                label = "ctaScale",
+            )
+            val ctaBgColor by animateColorAsState(
+                targetValue = if (isRunning) MaterialTheme.colorScheme.surfaceContainerHighest else MaterialTheme.colorScheme.primary,
+                animationSpec = tween(350, easing = FastOutSlowInEasing),
+                label = "ctaBgColor",
+            )
+            val ctaContentColor by animateColorAsState(
+                targetValue = if (isRunning) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onPrimary,
+                animationSpec = tween(350, easing = FastOutSlowInEasing),
+                label = "ctaContentColor",
+            )
+            val ctaBorderColor by animateColorAsState(
+                targetValue = if (isRunning) MaterialTheme.colorScheme.error.copy(alpha = 0.8f) else Color.Transparent,
+                animationSpec = tween(350, easing = FastOutSlowInEasing),
+                label = "ctaBorderColor",
+            )
 
-@Composable
-private fun MetricChip(
-    icon: ImageVector,
-    label: String,
-    value: String,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(topStart = 14.dp, topEnd = 6.dp, bottomEnd = 14.dp, bottomStart = 6.dp),
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
             Surface(
-                modifier = Modifier.size(28.dp),
-                shape = RoundedCornerShape(10.dp),
-                color = MaterialTheme.colorScheme.primaryContainer,
+                onClick = { if (isRunning) onStop() else onStart() },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+                    .graphicsLayer {
+                        scaleX = ctaScale
+                        scaleY = ctaScale
+                    },
+                shape = RoundedCornerShape(16.dp),
+                color = ctaBgColor,
+                border = BorderStroke(1.2.dp, ctaBorderColor),
+                interactionSource = ctaInteractionSource,
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.size(16.dp),
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.width(8.dp))
-            Column {
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 10.sp,
-                )
-                Text(
-                    text = value,
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
-    }
-}
-
-// ============================================================================
-// Recent History Section
-// ============================================================================
-
-@Composable
-private fun RecentHistorySection(
-    state: DashboardUiState,
-    onSelectDestination: (DashboardDestination) -> Unit,
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomEnd = 8.dp, bottomStart = 8.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-    ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            when {
-                state.historyUnavailable -> {
-                    Text(
-                        text = stringResource(R.string.dashboard_recent_unavailable),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
-
-                !state.recentHistoryLoaded -> {
-                    Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                    }
-                }
-
-                state.recentHistory.isEmpty() -> {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.NotificationsNone,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(20.dp),
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = stringResource(R.string.dashboard_recent_empty),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-
-                else -> {
-                    state.recentHistory.forEachIndexed { index, entry ->
-                        RecentRowItem(entry = entry)
-                        if (index < state.recentHistory.size - 1) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(1.dp)
-                                    .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    AnimatedContent(
+                        targetState = isRunning,
+                        transitionSpec = {
+                            (fadeIn(tween(260)) + scaleIn(initialScale = 0.88f, animationSpec = tween(260))) togetherWith
+                                (fadeOut(tween(180)) + scaleOut(targetScale = 0.88f, animationSpec = tween(180)))
+                        },
+                        label = "ctaContent",
+                    ) { running ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center,
+                        ) {
+                            Icon(
+                                imageVector = if (running) Icons.Rounded.Stop else Icons.Rounded.PlayArrow,
+                                contentDescription = null,
+                                tint = ctaContentColor,
+                                modifier = Modifier.size(20.dp),
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = stringResource(if (running) R.string.dashboard_stop_service else R.string.dashboard_start_service),
+                                fontWeight = FontWeight.Bold,
+                                color = ctaContentColor,
+                                style = MaterialTheme.typography.labelLarge,
                             )
                         }
                     }
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun RecentRowItem(entry: RecentAnnouncement) {
-    val relativeTime = DateUtils.getRelativeTimeSpanString(
-        entry.recordedAtMillis,
-        System.currentTimeMillis(),
-        DateUtils.MINUTE_IN_MILLIS,
-    )
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Row(
-            modifier = Modifier.weight(1f),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Surface(
-                modifier = Modifier.size(32.dp),
-                shape = RoundedCornerShape(topStart = 12.dp, topEnd = 4.dp, bottomEnd = 12.dp, bottomStart = 4.dp),
-                color = MaterialTheme.colorScheme.primaryContainer,
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = Icons.Rounded.Notifications,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.size(16.dp),
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.width(10.dp))
-            Column {
-                Text(
-                    text = entry.appName,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    text = relativeTime.toString(),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 11.sp,
-                )
-            }
-        }
-
-        // Status Chip
-        StatusPill(status = entry.status)
     }
 }
 
@@ -1223,7 +1337,7 @@ private fun StatusPill(status: HistoryStatus) {
     }
 
     Surface(
-        shape = RoundedCornerShape(topStart = 12.dp, topEnd = 4.dp, bottomEnd = 12.dp, bottomStart = 4.dp),
+        shape = RoundedCornerShape(8.dp),
         color = bgColor,
     ) {
         Text(
@@ -1236,93 +1350,220 @@ private fun StatusPill(status: HistoryStatus) {
     }
 }
 
+
 // ============================================================================
-// Tools and Settings Group
+// Settings Hub Screen (Morphe Style Control Center)
 // ============================================================================
 
 @Composable
-private fun ToolsGroupCard(onSelectDestination: (DashboardDestination) -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(topStart = 20.dp, topEnd = 8.dp, bottomEnd = 20.dp, bottomStart = 8.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+private fun SettingsHubScreen(
+    onSelectDestination: (DashboardDestination) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Column {
-            for ((index, destination) in DashboardDestination.secondary.withIndex()) {
-                val icon = when (destination) {
-                    DashboardDestination.GLOBAL_RULES -> Icons.Rounded.Tune
-                    DashboardDestination.VOICE_SPEECH -> Icons.Rounded.RecordVoiceOver
-                    DashboardDestination.SETTINGS -> Icons.Rounded.Settings
-                    DashboardDestination.BACKUP_RESTORE -> Icons.Rounded.Backup
-                    DashboardDestination.DIAGNOSTICS -> Icons.Rounded.BugReport
-                    else -> Icons.Rounded.Settings
-                }
-
-                ToolRow(
-                    icon = icon,
-                    label = stringResource(destination.labelRes),
-                    onClick = { onSelectDestination(destination) },
-                )
-
-                if (index < DashboardDestination.secondary.size - 1) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(1.dp)
-                            .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+        // Section 1: Audio & Hardware
+        SettingsCategorySection(
+            categoryIcon = Icons.Rounded.Headphones,
+            categoryTitle = "Audio & Hardware",
+        ) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            ) {
+                Column {
+                    SettingsHubRow(
+                        icon = Icons.Rounded.Headphones,
+                        title = "Devices & Audio Routing",
+                        subtitle = "Bluetooth, wired, and speaker routing",
+                        onClick = { onSelectDestination(DashboardDestination.DEVICES) },
+                    )
+                    SettingsHubDivider()
+                    SettingsHubRow(
+                        icon = Icons.Rounded.RecordVoiceOver,
+                        title = "Voice & Speech Engine",
+                        subtitle = "Speed, pitch, voices, and spoken format",
+                        onClick = { onSelectDestination(DashboardDestination.VOICE_SPEECH) },
+                    )
+                    SettingsHubDivider()
+                    SettingsHubRow(
+                        icon = Icons.Rounded.VolumeUp,
+                        title = "Audio Focus & Media",
+                        subtitle = "Ducking, media pausing, and message grouping",
+                        onClick = { onSelectDestination(DashboardDestination.PREFERENCES) },
                     )
                 }
             }
         }
+
+        // Section 2: Rules & Activity
+        SettingsCategorySection(
+            categoryIcon = Icons.Rounded.Tune,
+            categoryTitle = "Rules & Activity",
+        ) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            ) {
+                Column {
+                    SettingsHubRow(
+                        icon = Icons.Rounded.Tune,
+                        title = "Global Eligibility Rules",
+                        subtitle = "Screen, lock, OTP shield, character limit",
+                        onClick = { onSelectDestination(DashboardDestination.GLOBAL_RULES) },
+                    )
+                    SettingsHubDivider()
+                    SettingsHubRow(
+                        icon = Icons.Rounded.History,
+                        title = "Notification Feed & History",
+                        subtitle = "Browse, filter, and replay announcements",
+                        onClick = { onSelectDestination(DashboardDestination.HISTORY) },
+                    )
+                }
+            }
+        }
+
+        // Section 3: System & Maintenance
+        SettingsCategorySection(
+            categoryIcon = Icons.Rounded.Settings,
+            categoryTitle = "System & Maintenance",
+        ) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            ) {
+                Column {
+                    SettingsHubRow(
+                        icon = Icons.Rounded.Backup,
+                        title = "Backup & Restore",
+                        subtitle = "Export and import configuration files",
+                        onClick = { onSelectDestination(DashboardDestination.BACKUP_RESTORE) },
+                    )
+                    SettingsHubDivider()
+                    SettingsHubRow(
+                        icon = Icons.Rounded.BugReport,
+                        title = "System Diagnostics & Health",
+                        subtitle = "Hardware probes, TTS engine, and error logs",
+                        onClick = { onSelectDestination(DashboardDestination.DIAGNOSTICS) },
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(100.dp))
     }
 }
 
 @Composable
-private fun ToolRow(
+private fun SettingsCategorySection(
+    categoryIcon: ImageVector,
+    categoryTitle: String,
+    content: @Composable () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(start = 4.dp),
+        ) {
+            Icon(
+                imageVector = categoryIcon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(16.dp),
+            )
+            Text(
+                text = categoryTitle,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        content()
+    }
+}
+
+@Composable
+private fun SettingsHubRow(
     icon: ImageVector,
-    label: String,
+    title: String,
+    subtitle: String,
     onClick: () -> Unit,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(role = Role.Button, onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            // Tinted icon container with morphed squircle
+        Row(
+            modifier = Modifier.weight(1f),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
             Surface(
-                modifier = Modifier.size(34.dp),
-                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.size(38.dp),
+                shape = RoundedCornerShape(12.dp),
                 color = MaterialTheme.colorScheme.primaryContainer,
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = icon,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp),
                     )
                 }
             }
-            Spacer(modifier = Modifier.width(14.dp))
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 11.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
         Icon(
             imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
             modifier = Modifier.size(18.dp),
         )
     }
+}
+
+@Composable
+private fun SettingsHubDivider() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(1.dp)
+            .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+    )
 }
 
 // ============================================================================

@@ -257,7 +257,7 @@ private fun SetupHeader(state: SetupUiState) {
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Surface(
-                shape = RoundedCornerShape(topStart = 14.dp, bottomStart = 6.dp, topEnd = 14.dp, bottomEnd = 14.dp),
+                shape = RoundedCornerShape(10.dp),
                 color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
                 border = androidx.compose.foundation.BorderStroke(
                     1.dp,
@@ -436,7 +436,7 @@ private fun WelcomeStep() {
         ) {
             Surface(
                 modifier = Modifier.size(62.dp),
-                shape = RoundedCornerShape(topStart = 22.dp, topEnd = 8.dp, bottomEnd = 22.dp, bottomStart = 8.dp),
+                shape = RoundedCornerShape(20.dp),
                 color = MaterialTheme.colorScheme.primaryContainer,
                 border = androidx.compose.foundation.BorderStroke(
                     1.5.dp,
@@ -461,8 +461,8 @@ private fun WelcomeStep() {
             iconContainerColor = MaterialTheme.colorScheme.primaryContainer,
             title = "Earphone-First Audio",
             description = stringResource(R.string.setup_welcome_point_1),
-            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 10.dp, bottomEnd = 24.dp, bottomStart = 10.dp),
-            iconShape = RoundedCornerShape(topStart = 16.dp, topEnd = 6.dp, bottomEnd = 16.dp, bottomStart = 6.dp),
+            shape = RoundedCornerShape(20.dp),
+            iconShape = RoundedCornerShape(12.dp),
         )
 
         FeatureCard(
@@ -471,8 +471,8 @@ private fun WelcomeStep() {
             iconContainerColor = MaterialTheme.colorScheme.secondaryContainer,
             title = "Smart Eligibility Rules",
             description = stringResource(R.string.setup_welcome_point_2),
-            shape = RoundedCornerShape(topStart = 10.dp, topEnd = 24.dp, bottomEnd = 10.dp, bottomStart = 24.dp),
-            iconShape = RoundedCornerShape(topStart = 6.dp, topEnd = 16.dp, bottomEnd = 6.dp, bottomStart = 16.dp),
+            shape = RoundedCornerShape(20.dp),
+            iconShape = RoundedCornerShape(12.dp),
         )
 
         FeatureCard(
@@ -481,8 +481,8 @@ private fun WelcomeStep() {
             iconContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
             title = "100% Private & Local",
             description = stringResource(R.string.setup_welcome_point_3),
-            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 10.dp, bottomEnd = 24.dp, bottomStart = 10.dp),
-            iconShape = RoundedCornerShape(topStart = 16.dp, topEnd = 6.dp, bottomEnd = 16.dp, bottomStart = 6.dp),
+            shape = RoundedCornerShape(20.dp),
+            iconShape = RoundedCornerShape(12.dp),
         )
     }
 }
@@ -1742,7 +1742,7 @@ private fun ModernBottomBar(
             if (state.canGoBack) {
                 OutlinedButton(
                     onClick = onBack,
-                    shape = RoundedCornerShape(topStart = 16.dp, topEnd = 6.dp, bottomEnd = 16.dp, bottomStart = 6.dp),
+                    shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.defaultMinSize(minHeight = 48.dp),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
                     border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
@@ -1782,13 +1782,7 @@ private fun ModernBottomBar(
                     Spacer(modifier = Modifier.width(8.dp))
                 }
 
-                // Morphed Material 3 Expressive CTA Button Shape
-                val morphedCtaShape = RoundedCornerShape(
-                    topStart = 24.dp,
-                    topEnd = 10.dp,
-                    bottomEnd = 24.dp,
-                    bottomStart = 10.dp,
-                )
+                val morphedCtaShape = RoundedCornerShape(16.dp)
 
                 // CTA Button (Continue, Start, or Choose Later)
                 if (state.step == SetupStep.REVIEW) {

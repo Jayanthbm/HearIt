@@ -26,11 +26,14 @@ enum class DashboardDestination(
     /** Applications feature (P13). */
     APPS(R.string.nav_apps, true),
 
+    /** Settings hub (Morphe 3-tab architecture). */
+    SETTINGS(R.string.nav_settings, true),
+
     /** Devices feature (P14). */
-    DEVICES(R.string.nav_devices, true),
+    DEVICES(R.string.nav_devices, false),
 
     /** History feature (P18). */
-    HISTORY(R.string.nav_history, true),
+    HISTORY(R.string.nav_history, false),
 
     /** Global rules settings (P15). */
     GLOBAL_RULES(R.string.nav_global_rules, false),
@@ -38,8 +41,8 @@ enum class DashboardDestination(
     /** Voice and speech settings (P15). */
     VOICE_SPEECH(R.string.nav_voice_speech, false),
 
-    /** General settings (P15). */
-    SETTINGS(R.string.nav_settings, false),
+    /** App preferences: Queue, Grouping, Audio Focus (P15). */
+    PREFERENCES(R.string.nav_preferences, false),
 
     /** Backup and restore (P19). */
     BACKUP_RESTORE(R.string.nav_backup_restore, false),

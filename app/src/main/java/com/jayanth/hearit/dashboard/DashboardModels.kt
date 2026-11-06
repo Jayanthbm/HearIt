@@ -90,6 +90,7 @@ data class DashboardUiState(
     val audioOutput: AudioOutputSettings = AudioOutputSettings(),
     val outputLabel: String? = null,
     val temporaryMuteActive: Boolean = false,
+    val temporaryMuteMinutes: Int? = null,
     val recentHistory: List<RecentAnnouncement> = emptyList(),
     val recentHistoryLoaded: Boolean = false,
     val historyUnavailable: Boolean = false,

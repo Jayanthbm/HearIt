@@ -233,7 +233,7 @@ fun HistoryScreen(
                         leadingIcon = {
                             Icon(Icons.Rounded.Apps, contentDescription = null, modifier = Modifier.size(15.dp))
                         },
-                        shape = RoundedCornerShape(topStart = 12.dp, topEnd = 6.dp, bottomEnd = 12.dp, bottomStart = 6.dp),
+                        shape = RoundedCornerShape(12.dp),
                     )
 
                     // Status pill
@@ -250,7 +250,7 @@ fun HistoryScreen(
                         leadingIcon = {
                             Icon(Icons.Rounded.FilterList, contentDescription = null, modifier = Modifier.size(15.dp))
                         },
-                        shape = RoundedCornerShape(topStart = 12.dp, topEnd = 6.dp, bottomEnd = 12.dp, bottomStart = 6.dp),
+                        shape = RoundedCornerShape(12.dp),
                     )
 
                     // Sort pill
@@ -267,12 +267,12 @@ fun HistoryScreen(
                         leadingIcon = {
                             Icon(Icons.AutoMirrored.Rounded.Sort, contentDescription = null, modifier = Modifier.size(15.dp))
                         },
-                        shape = RoundedCornerShape(topStart = 12.dp, topEnd = 6.dp, bottomEnd = 12.dp, bottomStart = 6.dp),
+                        shape = RoundedCornerShape(12.dp),
                     )
 
                     if (state.items.isNotEmpty()) {
                         Surface(
-                            shape = RoundedCornerShape(topStart = 10.dp, topEnd = 4.dp, bottomEnd = 10.dp, bottomStart = 4.dp),
+                            shape = RoundedCornerShape(10.dp),
                             color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f),
                         ) {
                             IconButton(
@@ -366,7 +366,7 @@ fun HistoryScreen(
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(100.dp))
         }
     }
 
@@ -543,7 +543,7 @@ private fun ModernHistoryCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onCardClick),
-        shape = RoundedCornerShape(topStart = 18.dp, topEnd = 8.dp, bottomEnd = 18.dp, bottomStart = 8.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
@@ -560,7 +560,7 @@ private fun ModernHistoryCard(
                 ) {
                     Surface(
                         modifier = Modifier.size(30.dp),
-                        shape = RoundedCornerShape(topStart = 10.dp, topEnd = 5.dp, bottomEnd = 10.dp, bottomStart = 5.dp),
+                        shape = RoundedCornerShape(10.dp),
                         color = MaterialTheme.colorScheme.surfaceVariant,
                     ) {
                         Box(contentAlignment = Alignment.Center) {
@@ -1003,7 +1003,7 @@ private fun HistoryStatusPill(status: HistoryStatus) {
     }
 
     Surface(
-        shape = RoundedCornerShape(topStart = 8.dp, topEnd = 4.dp, bottomEnd = 8.dp, bottomStart = 4.dp),
+        shape = RoundedCornerShape(8.dp),
         color = bgColor,
     ) {
         Text(
@@ -1023,7 +1023,7 @@ private fun HistoryNoticeBanner(message: String, isError: Boolean) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 16.dp),
-        shape = RoundedCornerShape(topStart = 18.dp, topEnd = 8.dp, bottomEnd = 18.dp, bottomStart = 8.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isError) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f) else MaterialTheme.colorScheme.surfaceContainer,
         ),
@@ -1060,7 +1060,7 @@ private fun HistorySettingsCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(topStart = 20.dp, topEnd = 8.dp, bottomEnd = 20.dp, bottomStart = 8.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {

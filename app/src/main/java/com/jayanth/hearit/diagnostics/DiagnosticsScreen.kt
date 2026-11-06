@@ -249,7 +249,7 @@ fun DiagnosticsScreen(
         OutlinedButton(
             onClick = onRefresh,
             enabled = !state.isRefreshing,
-            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 8.dp, bottomEnd = 16.dp, bottomStart = 8.dp),
+            shape = RoundedCornerShape(16.dp),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp),
@@ -273,7 +273,7 @@ fun DiagnosticsScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(100.dp))
     }
 
     if (showClearDialog) {
@@ -319,7 +319,7 @@ fun DiagnosticsScreen(
 private fun SystemHealthHeroCard(healthy: Boolean) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 10.dp, bottomEnd = 24.dp, bottomStart = 10.dp),
+        shape = RoundedCornerShape(20.dp),
         color = if (healthy) Color(0xFF064E3B) else MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
         border = BorderStroke(1.dp, if (healthy) Color(0xFF10B981) else MaterialTheme.colorScheme.error),
     ) {
@@ -409,7 +409,7 @@ private fun ServiceDiagnosticsCard(state: DiagnosticsUiState) {
             if (!service.isRunning) {
                 Spacer(modifier = Modifier.height(2.dp))
                 Surface(
-                    shape = RoundedCornerShape(topStart = 12.dp, topEnd = 6.dp, bottomEnd = 12.dp, bottomStart = 6.dp),
+                    shape = RoundedCornerShape(12.dp),
                     color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.45f),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.6f)),
                     modifier = Modifier.fillMaxWidth(),
@@ -479,7 +479,7 @@ private fun PermissionsDiagnosticsCard(
                 } else {
                     FilledTonalButton(
                         onClick = onOpenNotificationAccess,
-                        shape = RoundedCornerShape(topStart = 10.dp, topEnd = 4.dp, bottomEnd = 10.dp, bottomStart = 4.dp),
+                        shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.height(34.dp),
                     ) {
                         Icon(
@@ -540,7 +540,7 @@ private fun PermissionsDiagnosticsCard(
                                 } catch (_: Exception) {}
                             }
                         },
-                        shape = RoundedCornerShape(topStart = 10.dp, topEnd = 4.dp, bottomEnd = 10.dp, bottomStart = 4.dp),
+                        shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.height(34.dp),
                     ) {
                         Icon(
@@ -594,7 +594,7 @@ private fun PermissionsDiagnosticsCard(
                                 })
                             } catch (_: Exception) {}
                         },
-                        shape = RoundedCornerShape(topStart = 10.dp, topEnd = 4.dp, bottomEnd = 10.dp, bottomStart = 4.dp),
+                        shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.height(34.dp),
                     ) {
                         Icon(
@@ -638,7 +638,7 @@ private fun PermissionsDiagnosticsCard(
                 }
                 FilledTonalButton(
                     onClick = onOpenBatterySettings,
-                    shape = RoundedCornerShape(topStart = 10.dp, topEnd = 4.dp, bottomEnd = 10.dp, bottomStart = 4.dp),
+                    shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.height(34.dp),
                 ) {
                     Icon(
@@ -694,7 +694,7 @@ private fun TtsDiagnosticsCard(state: DiagnosticsUiState) {
             if (!state.isTtsAvailable || !state.isTtsLocaleSupported) {
                 Spacer(modifier = Modifier.height(2.dp))
                 Surface(
-                    shape = RoundedCornerShape(topStart = 14.dp, topEnd = 6.dp, bottomEnd = 14.dp, bottomStart = 6.dp),
+                    shape = RoundedCornerShape(14.dp),
                     color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.45f),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.6f)),
                     modifier = Modifier.fillMaxWidth(),
@@ -743,7 +743,7 @@ private fun TtsDiagnosticsCard(state: DiagnosticsUiState) {
                                     } catch (_: Exception) {}
                                 }
                             },
-                            shape = RoundedCornerShape(topStart = 12.dp, topEnd = 6.dp, bottomEnd = 12.dp, bottomStart = 6.dp),
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(40.dp),
@@ -765,7 +765,7 @@ private fun TtsDiagnosticsCard(state: DiagnosticsUiState) {
             } else {
                 Spacer(modifier = Modifier.height(2.dp))
                 Surface(
-                    shape = RoundedCornerShape(topStart = 12.dp, topEnd = 6.dp, bottomEnd = 12.dp, bottomStart = 6.dp),
+                    shape = RoundedCornerShape(12.dp),
                     color = MaterialTheme.colorScheme.surfaceContainerHigh,
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                     modifier = Modifier.fillMaxWidth(),
@@ -882,7 +882,7 @@ private fun StorageDiagnosticsCard(state: DiagnosticsUiState) {
             if (state.enabledAppsCount == 0) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Surface(
-                    shape = RoundedCornerShape(topStart = 12.dp, topEnd = 6.dp, bottomEnd = 12.dp, bottomStart = 6.dp),
+                    shape = RoundedCornerShape(12.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                     modifier = Modifier.fillMaxWidth(),
@@ -1077,7 +1077,7 @@ private fun DiagnosticLogsCard(
             ) {
                 Button(
                     onClick = onExportClicked,
-                    shape = RoundedCornerShape(topStart = 16.dp, topEnd = 8.dp, bottomEnd = 16.dp, bottomStart = 8.dp),
+                    shape = RoundedCornerShape(16.dp),
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp),
@@ -1096,7 +1096,7 @@ private fun DiagnosticLogsCard(
 
                 OutlinedButton(
                     onClick = onClearClicked,
-                    shape = RoundedCornerShape(topStart = 16.dp, topEnd = 8.dp, bottomEnd = 16.dp, bottomStart = 8.dp),
+                    shape = RoundedCornerShape(16.dp),
                     enabled = fileCount > 0,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1140,7 +1140,7 @@ private fun DiagnosticsSectionCard(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(topStart = 22.dp, topEnd = 10.dp, bottomEnd = 22.dp, bottomStart = 10.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
@@ -1151,7 +1151,7 @@ private fun DiagnosticsSectionCard(
             ) {
                 Surface(
                     modifier = Modifier.size(34.dp),
-                    shape = RoundedCornerShape(topStart = 12.dp, topEnd = 6.dp, bottomEnd = 12.dp, bottomStart = 6.dp),
+                    shape = RoundedCornerShape(12.dp),
                     color = MaterialTheme.colorScheme.primaryContainer,
                 ) {
                     Box(contentAlignment = Alignment.Center) {
