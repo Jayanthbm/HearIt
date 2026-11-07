@@ -511,11 +511,11 @@
     <string name="diagnostics_logs_dismiss">Dismiss</string>
 
     <!-- Security & Privacy Additions (Master Prompt §15) -->
-    <string name="settings_security_title">Security &amp; Device Privacy</string>
-    <string name="settings_security_subtitle">Biometric authentication and screen protection · Master Prompt §15</string>
-    <string name="settings_security_biometric_title">Biometric &amp; Device Credential Gate</string>
-    <string name="settings_security_biometric_desc">Require fingerprint, face unlock, or device PIN/pattern to access History and Settings.</string>
-    <string name="settings_security_biometric_unavailable">No device lock (PIN/pattern/biometric) configured in Android Settings</string>
+    <string name="settings_security_title">Security &amp; Privacy</string>
+    <string name="settings_security_subtitle">Biometric lock and secure screen display</string>
+    <string name="settings_security_biometric_title">Biometric App Lock</string>
+    <string name="settings_security_biometric_desc">Require biometric or device PIN to access History and Settings.</string>
+    <string name="settings_security_biometric_unavailable">No device lock or biometric configured in Android Settings</string>
     <string name="settings_security_secure_screen_title">Secure Screen Mode</string>
     <string name="settings_security_secure_screen_desc">Hide app content in Android task switcher (Recents) and prevent screenshots to shield notification privacy.</string>
     <string name="settings_security_unlock_title">Hear It is Locked</string>

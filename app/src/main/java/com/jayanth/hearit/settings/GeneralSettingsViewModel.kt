@@ -143,7 +143,7 @@ class GeneralSettingsViewModel @Inject constructor(
             }
             biometricAuthManager.authenticate(
                 activity = activity,
-                title = "Enable Biometric Gate",
+                title = "Enable Biometric Lock",
                 subtitle = "Authenticate to confirm device ownership",
             ) { result ->
                 when (result) {
@@ -170,7 +170,7 @@ class GeneralSettingsViewModel @Inject constructor(
         } else {
             biometricAuthManager.authenticate(
                 activity = activity,
-                title = "Disable Biometric Gate",
+                title = "Disable Biometric Lock",
                 subtitle = "Authenticate to turn off biometric protection",
             ) { result ->
                 when (result) {

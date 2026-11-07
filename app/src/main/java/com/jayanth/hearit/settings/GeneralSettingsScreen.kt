@@ -26,6 +26,7 @@ import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.NotificationsOff
@@ -44,9 +45,9 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -371,76 +372,138 @@ private fun AudioFocusCard(
     onPolicySelected: (AudioFocusPolicy) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var showInfoDialog by remember { mutableStateOf(false) }
+
     SettingsCard(
         title = "Audio Focus",
         subtitle = "Ducking and pause behavior during media",
         icon = Icons.AutoMirrored.Rounded.VolumeUp,
         modifier = modifier,
+        action = {
+            IconButton(
+                onClick = { showInfoDialog = true },
+                modifier = Modifier.size(36.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Info,
+                    contentDescription = "Audio Focus Details",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+        },
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            val options = listOf(
-                Triple(
-                    AudioFocusPolicy.DUCK,
-                    stringResource(R.string.settings_audio_focus_duck),
-                    stringResource(R.string.settings_audio_focus_duck_desc),
-                ),
-                Triple(
-                    AudioFocusPolicy.PAUSE,
-                    stringResource(R.string.settings_audio_focus_pause),
-                    stringResource(R.string.settings_audio_focus_pause_desc),
-                ),
-                Triple(
-                    AudioFocusPolicy.NONE,
-                    stringResource(R.string.settings_audio_focus_none),
-                    stringResource(R.string.settings_audio_focus_none_desc),
-                ),
+        Column {
+            Text(
+                text = "Media Playback Interaction",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+
+            val focusOptions = listOf(
+                AudioFocusPolicy.DUCK to "Duck",
+                AudioFocusPolicy.PAUSE to "Pause",
+                AudioFocusPolicy.NONE to "Ignore",
             )
 
-            for ((policy, label, desc) in options) {
-                val isSelected = selectedPolicy == policy
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onPolicySelected(policy) },
-                    shape = RoundedCornerShape(12.dp),
-                    color = if (isSelected) {
-                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
-                    } else {
-                        MaterialTheme.colorScheme.surfaceContainerHigh
-                    },
-                    border = BorderStroke(
-                        1.dp,
-                        if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
-                    ),
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                focusOptions.forEachIndexed { index, (policy, label) ->
+                    val isSelected = selectedPolicy == policy
+                    SegmentedButton(
+                        selected = isSelected,
+                        onClick = { onPolicySelected(policy) },
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = focusOptions.size),
                     ) {
-                        RadioButton(
-                            selected = isSelected,
-                            onClick = { onPolicySelected(policy) },
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                         )
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = label,
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                            Text(
-                                text = desc,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontSize = 11.sp,
-                                lineHeight = 15.sp,
-                            )
-                        }
                     }
                 }
             }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            val description = when (selectedPolicy) {
+                AudioFocusPolicy.DUCK -> stringResource(R.string.settings_audio_focus_duck_desc)
+                AudioFocusPolicy.PAUSE -> stringResource(R.string.settings_audio_focus_pause_desc)
+                AudioFocusPolicy.NONE -> stringResource(R.string.settings_audio_focus_none_desc)
+            }
+
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 11.sp,
+                lineHeight = 15.sp,
+            )
         }
+    }
+
+    if (showInfoDialog) {
+        AlertDialog(
+            onDismissRequest = { showInfoDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Rounded.Info,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            },
+            title = {
+                Text(
+                    text = "Audio Focus Policies",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    AudioFocusPolicyInfoItem(
+                        title = "Duck (Recommended)",
+                        description = "Temporarily lowers the volume of background music, podcasts, or videos while announcing notifications, then restores the original volume.",
+                    )
+                    AudioFocusPolicyInfoItem(
+                        title = "Pause",
+                        description = "Pauses background audio playback completely during speech, and automatically resumes playback once the announcement finishes.",
+                    )
+                    AudioFocusPolicyInfoItem(
+                        title = "Ignore",
+                        description = "Speaks over any currently playing media without requesting audio focus from the system or changing background volume levels.",
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showInfoDialog = false }) {
+                    Text(text = "Got it", fontWeight = FontWeight.Bold)
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun AudioFocusPolicyInfoItem(
+    title: String,
+    description: String,
+) {
+    Column {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+            text = description,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            lineHeight = 16.sp,
+        )
     }
 }
 
@@ -1041,6 +1104,7 @@ private fun SettingsCard(
     subtitle: String,
     icon: ImageVector,
     modifier: Modifier = Modifier,
+    action: (@Composable () -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     Card(
@@ -1083,6 +1147,9 @@ private fun SettingsCard(
                         fontSize = 11.sp,
                         lineHeight = 15.sp,
                     )
+                }
+                if (action != null) {
+                    action()
                 }
             }
             content()
