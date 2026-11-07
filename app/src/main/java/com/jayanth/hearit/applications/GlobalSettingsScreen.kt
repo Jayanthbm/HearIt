@@ -653,16 +653,12 @@ private fun TextLengthCard(
 // Section 3: Privacy Protection & Content Shields (with keyboard bringIntoView)
 // ============================================================================
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PrivacyShieldCard(
     privacy: PrivacySettings,
     onPrivacyChanged: (PrivacySettings) -> Unit,
 ) {
-    var newSensitiveInput by remember { mutableStateOf("") }
     var activeShieldInfo by remember { mutableStateOf<Pair<String, String>?>(null) }
-    val coroutineScope = rememberCoroutineScope()
-    val bringIntoViewRequester = remember { BringIntoViewRequester() }
 
     SectionCard(
         title = "Privacy Shields",
@@ -742,104 +738,6 @@ private fun PrivacyShieldCard(
                         "Only speaks the App Name and Sender (e.g. 'WhatsApp message from Alice').\n\nThe message content is never read aloud, ensuring complete privacy in public or shared spaces."
                 },
             )
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-
-            // Exclude App From Logs
-            ModernSwitchRow(
-                icon = Icons.Rounded.Lock,
-                label = stringResource(R.string.global_privacy_exclude_app),
-                subtitle = stringResource(R.string.global_privacy_exclude_app_desc),
-                checked = privacy.excludeApp,
-                onCheckedChange = { onPrivacyChanged(privacy.copy(excludeApp = it)) },
-                onInfoClick = {
-                    activeShieldInfo = "Exclude from History & Logs" to
-                        "Suppresses saving notification message text to the local history database. Spoken announcements can still occur, but message text is never recorded on disk."
-                },
-            )
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // Custom Sensitive Keywords with BringIntoView
-            OutlinedTextField(
-                value = newSensitiveInput,
-                onValueChange = { newSensitiveInput = it },
-                label = { Text(text = stringResource(R.string.global_privacy_sensitive_keywords)) },
-                placeholder = { Text("e.g. pin, passcode, secret…") },
-                trailingIcon = {
-                    IconButton(
-                        onClick = {
-                            if (newSensitiveInput.isNotBlank()) {
-                                val added = splitList(newSensitiveInput)
-                                val updated = (privacy.sensitiveKeywords + added).distinct()
-                                onPrivacyChanged(privacy.copy(sensitiveKeywords = updated))
-                                newSensitiveInput = ""
-                            }
-                        },
-                    ) {
-                        Icon(imageVector = Icons.Rounded.Add, contentDescription = "Add Sensitive Keyword")
-                    }
-                },
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(
-                    onDone = {
-                        if (newSensitiveInput.isNotBlank()) {
-                            val added = splitList(newSensitiveInput)
-                            val updated = (privacy.sensitiveKeywords + added).distinct()
-                            onPrivacyChanged(privacy.copy(sensitiveKeywords = updated))
-                            newSensitiveInput = ""
-                        }
-                    },
-                ),
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .bringIntoViewRequester(bringIntoViewRequester)
-                    .onFocusChanged { focusState ->
-                        if (focusState.isFocused) {
-                            coroutineScope.launch {
-                                delay(250)
-                                bringIntoViewRequester.bringIntoView()
-                            }
-                        }
-                    },
-            )
-
-            // Sensitive Keyword Tag Cloud
-            if (privacy.sensitiveKeywords.isNotEmpty()) {
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    for (keyword in privacy.sensitiveKeywords) {
-                        InputChip(
-                            selected = true,
-                            onClick = {},
-                            label = { Text(keyword, style = MaterialTheme.typography.labelSmall) },
-                            trailingIcon = {
-                                Icon(
-                                    imageVector = Icons.Rounded.Close,
-                                    contentDescription = "Remove $keyword",
-                                    modifier = Modifier
-                                        .size(16.dp)
-                                        .clickable {
-                                            val filtered = privacy.sensitiveKeywords.filter { it != keyword }
-                                            onPrivacyChanged(privacy.copy(sensitiveKeywords = filtered))
-                                        },
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            },
-                            shape = RoundedCornerShape(8.dp),
-                            colors = InputChipDefaults.inputChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                selectedLabelColor = MaterialTheme.colorScheme.onSurface,
-                            ),
-                        )
-                    }
-                }
-            }
         }
     }
 
