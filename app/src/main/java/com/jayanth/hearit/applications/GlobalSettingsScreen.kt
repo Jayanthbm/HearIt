@@ -228,10 +228,21 @@ fun GlobalSettingsScreen(
         // Hero Card with un-truncated FlowRow status pills
         GlobalRulesHeroCard(state = state)
 
+        val isDeviceStateModified = state.screenCondition != ScreenCondition.OFF || state.lockCondition != LockCondition.LOCKED
+        val isTextLengthModified = state.textLength != TextLengthSettings()
+        val activeShieldsCount = listOf(
+            state.privacy.skipOtp,
+            state.privacy.skipPassword,
+            state.privacy.skipBanking,
+            state.privacy.skipPayment,
+            state.privacy.hideContent,
+        ).count { it }
+
         // Section 1: Device State Conditions
         DeviceStateCard(
             screenCondition = state.screenCondition,
             lockCondition = state.lockCondition,
+            isModified = isDeviceStateModified,
             onScreenConditionChanged = onScreenConditionChanged,
             onLockConditionChanged = onLockConditionChanged,
         )
@@ -239,31 +250,38 @@ fun GlobalSettingsScreen(
         // Section 2: Text Length Limits (Scope selector FIRST, 3 options: No limit, 100, 250)
         TextLengthCard(
             textLength = state.textLength,
+            isModified = isTextLengthModified,
             onTextLengthChanged = onTextLengthChanged,
         )
 
         // Section 3: Privacy Protection & Content Shields (with keyboard bringIntoView)
         PrivacyShieldCard(
             privacy = state.privacy,
+            activeCount = activeShieldsCount,
             onPrivacyChanged = onPrivacyChanged,
         )
 
         // Reset to Defaults Button
         OutlinedButton(
             onClick = { showResetDialog = true },
+            enabled = state.hasOverrides,
             shape = RoundedCornerShape(16.dp),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp),
         ) {
             Icon(
-                imageVector = Icons.Rounded.RestartAlt,
+                imageVector = if (state.hasOverrides) Icons.Rounded.RestartAlt else Icons.Rounded.CheckCircle,
                 contentDescription = null,
                 modifier = Modifier.size(18.dp),
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = stringResource(R.string.global_rules_reset),
+                text = if (state.hasOverrides) {
+                    stringResource(R.string.global_rules_reset)
+                } else {
+                    "All Global Rules at Default"
+                },
                 fontWeight = FontWeight.SemiBold,
             )
         }
@@ -339,12 +357,32 @@ private fun GlobalRulesHeroCard(state: GlobalSettingsUiState) {
                     }
                 }
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.global_settings_title),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.global_settings_title),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        if (state.hasOverrides) {
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                            ) {
+                                Text(
+                                    text = "Modified",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                )
+                            }
+                        }
+                    }
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = stringResource(R.string.global_settings_description),
@@ -381,10 +419,25 @@ private fun GlobalRulesHeroCard(state: GlobalSettingsUiState) {
                 }
                 StatusPill(icon = lockIcon, text = lockText, isPositive = lockPositive)
 
+                // Length Limit Pill
+                val lengthText = state.textLength.maxLengthChars?.let { "Max $it Chars" } ?: "No Length Cap"
+                StatusPill(
+                    icon = Icons.Rounded.Straighten,
+                    text = lengthText,
+                    isPositive = state.textLength.maxLengthChars != null,
+                )
+
                 // Privacy Shields Status Pill
+                val activeShields = listOf(
+                    state.privacy.skipOtp,
+                    state.privacy.skipPassword,
+                    state.privacy.skipBanking,
+                    state.privacy.skipPayment,
+                    state.privacy.hideContent,
+                ).count { it }
                 val (shieldIcon, shieldText, shieldPositive) = when {
-                    state.privacy.skipOtp && state.privacy.skipPassword -> Triple(Icons.Rounded.Shield, "OTP Shield On", true)
-                    state.privacy.skipOtp || state.privacy.skipPassword -> Triple(Icons.Rounded.Key, "Shields Partial", true)
+                    activeShields == 5 -> Triple(Icons.Rounded.Shield, "All 5 Shields On", true)
+                    activeShields > 0 -> Triple(Icons.Rounded.Shield, "$activeShields Shields Active", true)
                     else -> Triple(Icons.Rounded.Shield, "Shields Off", false)
                 }
                 StatusPill(icon = shieldIcon, text = shieldText, isPositive = shieldPositive)
@@ -437,6 +490,7 @@ private fun StatusPill(
 private fun DeviceStateCard(
     screenCondition: ScreenCondition,
     lockCondition: LockCondition,
+    isModified: Boolean,
     onScreenConditionChanged: (ScreenCondition) -> Unit,
     onLockConditionChanged: (LockCondition) -> Unit,
 ) {
@@ -444,6 +498,8 @@ private fun DeviceStateCard(
         title = "Device State",
         subtitle = "Prerequisites for screen and lock states",
         icon = Icons.Rounded.PhoneAndroid,
+        badgeText = if (isModified) "Modified" else "Default",
+        isBadgeHighlighted = isModified,
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             // Screen Condition
@@ -538,6 +594,7 @@ private fun DeviceStateCard(
 @Composable
 private fun TextLengthCard(
     textLength: TextLengthSettings,
+    isModified: Boolean,
     onTextLengthChanged: (TextLengthSettings) -> Unit,
 ) {
     val coroutineScope = rememberCoroutineScope()
@@ -547,6 +604,8 @@ private fun TextLengthCard(
         title = "Character Limits",
         subtitle = "Skip messages exceeding character limit",
         icon = Icons.Rounded.Straighten,
+        badgeText = if (isModified) "Modified" else "Default",
+        isBadgeHighlighted = isModified,
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             // 1. Scope Selector FIRST (Apply limit to)
@@ -656,6 +715,7 @@ private fun TextLengthCard(
 @Composable
 private fun PrivacyShieldCard(
     privacy: PrivacySettings,
+    activeCount: Int,
     onPrivacyChanged: (PrivacySettings) -> Unit,
 ) {
     var activeShieldInfo by remember { mutableStateOf<Pair<String, String>?>(null) }
@@ -664,6 +724,8 @@ private fun PrivacyShieldCard(
         title = "Privacy Shields",
         subtitle = "Redact sensitive content like OTPs and balances",
         icon = Icons.Rounded.Security,
+        badgeText = "$activeCount Active",
+        isBadgeHighlighted = activeCount > 0,
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             // OTP Skip
@@ -672,6 +734,7 @@ private fun PrivacyShieldCard(
                 label = stringResource(R.string.global_privacy_skip_otp),
                 subtitle = stringResource(R.string.global_privacy_skip_otp_desc),
                 checked = privacy.skipOtp,
+                badgeText = if (privacy.skipOtp) "ACTIVE" else null,
                 onCheckedChange = { onPrivacyChanged(privacy.copy(skipOtp = it)) },
                 onInfoClick = {
                     activeShieldInfo = "OTP & Verification Codes Shield" to
@@ -687,6 +750,7 @@ private fun PrivacyShieldCard(
                 label = stringResource(R.string.global_privacy_skip_password),
                 subtitle = stringResource(R.string.global_privacy_skip_password_desc),
                 checked = privacy.skipPassword,
+                badgeText = if (privacy.skipPassword) "ACTIVE" else null,
                 onCheckedChange = { onPrivacyChanged(privacy.copy(skipPassword = it)) },
                 onInfoClick = {
                     activeShieldInfo = "Password & Credentials Shield" to
@@ -702,6 +766,7 @@ private fun PrivacyShieldCard(
                 label = stringResource(R.string.global_privacy_skip_banking),
                 subtitle = stringResource(R.string.global_privacy_skip_banking_desc),
                 checked = privacy.skipBanking,
+                badgeText = if (privacy.skipBanking) "ACTIVE" else null,
                 onCheckedChange = { onPrivacyChanged(privacy.copy(skipBanking = it)) },
                 onInfoClick = {
                     activeShieldInfo = "Banking & Account Alerts Shield" to
@@ -717,6 +782,7 @@ private fun PrivacyShieldCard(
                 label = stringResource(R.string.global_privacy_skip_payment),
                 subtitle = stringResource(R.string.global_privacy_skip_payment_desc),
                 checked = privacy.skipPayment,
+                badgeText = if (privacy.skipPayment) "ACTIVE" else null,
                 onCheckedChange = { onPrivacyChanged(privacy.copy(skipPayment = it)) },
                 onInfoClick = {
                     activeShieldInfo = "Payment Receipts Shield" to
@@ -732,6 +798,7 @@ private fun PrivacyShieldCard(
                 label = stringResource(R.string.global_privacy_hide_content),
                 subtitle = stringResource(R.string.global_privacy_hide_content_desc),
                 checked = privacy.hideContent,
+                badgeText = if (privacy.hideContent) "ACTIVE" else null,
                 onCheckedChange = { onPrivacyChanged(privacy.copy(hideContent = it)) },
                 onInfoClick = {
                     activeShieldInfo = "Hide Notification Message Body" to
@@ -787,6 +854,8 @@ private fun SectionCard(
     subtitle: String,
     icon: ImageVector,
     modifier: Modifier = Modifier,
+    badgeText: String? = null,
+    isBadgeHighlighted: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     Card(
@@ -829,6 +898,21 @@ private fun SectionCard(
                         fontSize = 11.sp,
                         lineHeight = 15.sp,
                     )
+                }
+                if (badgeText != null) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (isBadgeHighlighted) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                    ) {
+                        Text(
+                            text = badgeText,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isBadgeHighlighted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        )
+                    }
                 }
             }
             content()
@@ -894,6 +978,7 @@ private fun ModernSwitchRow(
     onCheckedChange: (Boolean) -> Unit,
     icon: ImageVector? = null,
     subtitle: String? = null,
+    badgeText: String? = null,
     onInfoClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
@@ -913,7 +998,8 @@ private fun ModernSwitchRow(
             if (icon != null) {
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = if (checked) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f) else MaterialTheme.colorScheme.surfaceVariant,
+                    color = if (checked) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                    border = if (checked) BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)) else null,
                     modifier = Modifier.size(32.dp),
                 ) {
                     Box(contentAlignment = Alignment.Center) {
@@ -929,7 +1015,7 @@ private fun ModernSwitchRow(
             Column(modifier = Modifier.weight(1f)) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     Text(
                         text = label,
@@ -938,6 +1024,33 @@ private fun ModernSwitchRow(
                         color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.weight(1f, fill = false),
                     )
+                    if (badgeText != null) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(3.dp),
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.CheckCircle,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(10.dp),
+                                )
+                                Text(
+                                    text = badgeText,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                            }
+                        }
+                    }
                     if (onInfoClick != null) {
                         IconButton(
                             onClick = onInfoClick,
