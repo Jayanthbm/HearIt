@@ -264,22 +264,30 @@ fun GeneralSettingsScreen(
             onToggleSecureScreen = onToggleSecureScreen,
         )
 
+        val hasQueueChanges = state.queue != com.jayanth.hearit.core.common.model.QueueSettings() ||
+            state.audioFocus != AudioFocusPolicy.DUCK
+
         // Reset to Defaults Button
         OutlinedButton(
             onClick = { showResetDialog = true },
-            shape = RoundedCornerShape(12.dp),
+            enabled = hasQueueChanges,
+            shape = RoundedCornerShape(14.dp),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp),
         ) {
             Icon(
-                imageVector = Icons.Rounded.RestartAlt,
+                imageVector = if (hasQueueChanges) Icons.Rounded.RestartAlt else Icons.Rounded.CheckCircle,
                 contentDescription = null,
                 modifier = Modifier.size(18.dp),
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = stringResource(R.string.settings_reset),
+                text = if (hasQueueChanges) {
+                    stringResource(R.string.settings_reset)
+                } else {
+                    "App Preferences at Default"
+                },
                 fontWeight = FontWeight.SemiBold,
             )
         }
@@ -1020,19 +1028,17 @@ private fun SecurityPrivacyCard(
             ) {
                 Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
                     Text(
-                        text = stringResource(R.string.settings_security_biometric_title),
+                        text = "App Lock (Biometric / PIN)",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                     Text(
-                        text = stringResource(
-                            if (isBiometricAvailable) {
-                                R.string.settings_security_biometric_desc
-                            } else {
-                                R.string.settings_security_biometric_unavailable
-                            },
-                        ),
+                        text = if (isBiometricAvailable) {
+                            "Require authentication to open Hear It"
+                        } else {
+                            "Set up device PIN or Biometrics in Settings"
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         fontSize = 11.sp,
                         lineHeight = 15.sp,
@@ -1069,13 +1075,13 @@ private fun SecurityPrivacyCard(
             ) {
                 Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
                     Text(
-                        text = stringResource(R.string.settings_security_secure_screen_title),
+                        text = "Secure Screen Display",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                     Text(
-                        text = stringResource(R.string.settings_security_secure_screen_desc),
+                        text = "Blocks screenshots and app switcher previews",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 11.sp,
