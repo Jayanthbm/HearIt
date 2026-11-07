@@ -6,7 +6,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jayanth.hearit.core.database.HistoryRepository
 import com.jayanth.hearit.core.datastore.SettingsRepository
+import com.jayanth.hearit.core.tts.AnnouncementSection
+import com.jayanth.hearit.core.tts.BuiltAnnouncement
+import com.jayanth.hearit.core.tts.SectionKind
+import com.jayanth.hearit.core.tts.SpeechSettings
 import com.jayanth.hearit.core.tts.TextToSpeechEngine
+import com.jayanth.hearit.core.tts.TtsError
+import com.jayanth.hearit.core.tts.UtteranceListener
 import com.jayanth.hearit.dashboard.ServiceStatusMonitor
 import com.jayanth.hearit.setup.AudioOutputProbe
 import com.jayanth.hearit.setup.BluetoothPermissionProbe
@@ -162,6 +168,22 @@ class DiagnosticsViewModel @Inject constructor(
 
     fun openBatteryOptimizationSettings() {
         setupLauncher.openBatteryOptimizationSettings()
+    }
+
+    fun speakTestAnnouncement() {
+        if (!engine.isAvailable()) return
+        val announcement = BuiltAnnouncement(
+            sections = listOf(AnnouncementSection(SectionKind.MESSAGE, "Hear It speech engine is operational.")),
+            pauseBetweenSectionsMillis = 0L,
+        )
+        engine.speak(
+            announcement = announcement,
+            settings = SpeechSettings(),
+            listener = object : UtteranceListener {
+                override fun onComplete(announcement: BuiltAnnouncement) {}
+                override fun onError(announcement: BuiltAnnouncement, error: TtsError) {}
+            },
+        )
     }
 
     private fun ensureTtsPolling() {

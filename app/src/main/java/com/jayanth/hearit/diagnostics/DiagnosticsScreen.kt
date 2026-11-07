@@ -99,6 +99,7 @@ fun DiagnosticsRoute(
         onRefresh = viewModel::refresh,
         onOpenNotificationAccess = viewModel::openNotificationAccessSettings,
         onOpenBatterySettings = viewModel::openBatteryOptimizationSettings,
+        onTestSpeak = viewModel::speakTestAnnouncement,
         onExportLogsClicked = {
             exportLauncher.launch(
                 "hearit_diagnostics_${SimpleDateFormat("yyyyMMdd_HHmm", Locale.US).format(Date())}.txt",
@@ -119,6 +120,7 @@ fun DiagnosticsScreen(
     onRefresh: () -> Unit,
     onOpenNotificationAccess: () -> Unit,
     onOpenBatterySettings: () -> Unit,
+    onTestSpeak: () -> Unit,
     onExportLogsClicked: () -> Unit,
     onClearLogsClicked: () -> Unit,
     onDismissStatusMessage: () -> Unit,
@@ -228,7 +230,10 @@ fun DiagnosticsScreen(
         )
 
         // Section 3: Speech Synthesis (TTS) Readiness
-        TtsDiagnosticsCard(state = state)
+        TtsDiagnosticsCard(
+            state = state,
+            onTestSpeak = onTestSpeak,
+        )
 
         // Section 4: Audio Output Hardware Routing
         AudioDiagnosticsCard(state = state)
@@ -665,7 +670,10 @@ private fun PermissionsDiagnosticsCard(
 }
 
 @Composable
-private fun TtsDiagnosticsCard(state: DiagnosticsUiState) {
+private fun TtsDiagnosticsCard(
+    state: DiagnosticsUiState,
+    onTestSpeak: () -> Unit,
+) {
     val context = LocalContext.current
     DiagnosticsSectionCard(
         title = stringResource(R.string.diagnostics_tts_title),
@@ -700,6 +708,28 @@ private fun TtsDiagnosticsCard(state: DiagnosticsUiState) {
                 statusText = "${state.installedVoiceCount} voices",
                 isOk = state.installedVoiceCount > 0,
             )
+
+            // Quick Test Speech Synthesis Button
+            FilledTonalButton(
+                onClick = onTestSpeak,
+                enabled = state.isTtsAvailable,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(42.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Rounded.VolumeUp,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Quick Test Speech",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
 
             if (!state.isTtsAvailable || !state.isTtsLocaleSupported) {
                 Spacer(modifier = Modifier.height(2.dp))
@@ -864,33 +894,44 @@ private fun StorageDiagnosticsCard(state: DiagnosticsUiState) {
         icon = Icons.Rounded.Storage,
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            DiagnosticRow(
-                label = "Enabled Apps for Reading",
-                subtitle = "Applications allowed to trigger speech",
-                statusText = "${state.enabledAppsCount} apps",
-                isOk = state.enabledAppsCount > 0,
-            )
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-
-            DiagnosticRow(
-                label = "Priority Announce Apps",
-                subtitle = "Configured apps that bypass lock rules",
-                statusText = "${state.priorityAppsCount} apps",
-                isOk = true,
-            )
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-
-            DiagnosticRow(
-                label = "Logged History Entries",
-                subtitle = "Persisted announcement records in database",
-                statusText = "${state.totalHistoryCount} entries",
-                isOk = true,
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                StorageStatTile(
+                    title = "Enabled Apps",
+                    value = "${state.enabledAppsCount}",
+                    subtitle = "Trigger speech",
+                    modifier = Modifier.weight(1f),
+                )
+                StorageStatTile(
+                    title = "Priority Apps",
+                    value = "${state.priorityAppsCount}",
+                    subtitle = "Bypass lock",
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                StorageStatTile(
+                    title = "History Records",
+                    value = "${state.totalHistoryCount}",
+                    subtitle = "Persisted entries",
+                    modifier = Modifier.weight(1f),
+                )
+                val logKb = (state.totalLogSizeBytes / 1024L).coerceAtLeast(0L)
+                StorageStatTile(
+                    title = "Event Logs",
+                    value = "${state.logFileCount} files",
+                    subtitle = "$logKb KB on-device",
+                    modifier = Modifier.weight(1f),
+                )
+            }
 
             if (state.enabledAppsCount == 0) {
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(2.dp))
                 Surface(
                     shape = RoundedCornerShape(12.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
@@ -912,13 +953,54 @@ private fun StorageDiagnosticsCard(state: DiagnosticsUiState) {
                             text = "No apps enabled. Select apps in the Apps tab to start hearing notifications.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 2,
                             lineHeight = 16.sp,
-                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun StorageStatTile(
+    title: String,
+    value: String,
+    subtitle: String,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.labelSmall,
+                fontSize = 10.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                maxLines = 1,
+            )
         }
     }
 }
