@@ -323,6 +323,51 @@ fun BackupRestoreScreen(
             icon = Icons.Rounded.ContentCopy,
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                // Monospace code block preview of current settings JSON
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text(
+                                text = "CURRENT SETTINGS JSON",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontSize = 10.sp,
+                            )
+                            Text(
+                                text = "${state.currentSettingsJson.length} bytes",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 10.sp,
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = if (state.currentSettingsJson.length > 250) {
+                                state.currentSettingsJson.take(250) + "…"
+                            } else {
+                                state.currentSettingsJson.ifBlank { "{}" }
+                            },
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 10.5.sp,
+                                lineHeight = 14.sp,
+                            ),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 5,
+                        )
+                    }
+                }
+
                 // Copy current JSON Button
                 OutlinedButton(
                     onClick = {
@@ -404,10 +449,24 @@ fun BackupRestoreScreen(
                 )
             },
             text = {
-                Text(
-                    text = stringResource(R.string.backup_import_confirm_body),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = stringResource(R.string.backup_import_confirm_body),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    ) {
+                        Text(
+                            text = "Restoring will replace enabled apps, queue pacing, audio focus, and speech settings with the backup file.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(8.dp),
+                        )
+                    }
+                }
             },
             confirmButton = {
                 Button(
