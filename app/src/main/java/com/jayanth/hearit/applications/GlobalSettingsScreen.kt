@@ -211,9 +211,9 @@ fun GlobalSettingsScreen(
     onTextLengthChanged: (TextLengthSettings) -> Unit,
     onKeywordFilterChanged: (KeywordFilterSettings) -> Unit,
     onPrivacyChanged: (PrivacySettings) -> Unit,
-    onAudioOutputChanged: (Boolean?, Boolean?, Boolean?) -> Unit,
     onResetToDefaults: () -> Unit,
     modifier: Modifier = Modifier,
+    onAudioOutputChanged: (Boolean?, Boolean?, Boolean?) -> Unit = { _, _, _ -> },
 ) {
     var showResetDialog by remember { mutableStateOf(false) }
 
@@ -246,14 +246,6 @@ fun GlobalSettingsScreen(
         PrivacyShieldCard(
             privacy = state.privacy,
             onPrivacyChanged = onPrivacyChanged,
-        )
-
-        // Section 4: Allowed Output Channels
-        AudioOutputsCard(
-            allowBluetooth = state.audioOutput.allowBluetooth,
-            allowWired = state.audioOutput.allowWired,
-            allowPhoneSpeaker = state.audioOutput.allowPhoneSpeaker,
-            onAudioOutputChanged = onAudioOutputChanged,
         )
 
         // Reset to Defaults Button
@@ -396,20 +388,6 @@ private fun GlobalRulesHeroCard(state: GlobalSettingsUiState) {
                     else -> Triple(Icons.Rounded.Shield, "Shields Off", false)
                 }
                 StatusPill(icon = shieldIcon, text = shieldText, isPositive = shieldPositive)
-
-                // Audio Output Status Pill
-                val audioText = when {
-                    state.audioOutput.allowPhoneSpeaker -> "Speaker Allowed"
-                    state.audioOutput.allowBluetooth && state.audioOutput.allowWired -> "Headphones Only"
-                    state.audioOutput.allowBluetooth -> "Bluetooth Only"
-                    state.audioOutput.allowWired -> "Wired Only"
-                    else -> "No Audio Allowed"
-                }
-                StatusPill(
-                    icon = if (state.audioOutput.allowPhoneSpeaker) Icons.AutoMirrored.Rounded.VolumeUp else Icons.Rounded.Headphones,
-                    text = audioText,
-                    isPositive = !state.audioOutput.allowPhoneSpeaker,
-                )
             }
         }
     }
@@ -898,85 +876,6 @@ private fun PrivacyShieldCard(
                 }
             },
         )
-    }
-}
-
-// ============================================================================
-// Section 5: Allowed Output Channels
-// ============================================================================
-
-@Composable
-private fun AudioOutputsCard(
-    allowBluetooth: Boolean,
-    allowWired: Boolean,
-    allowPhoneSpeaker: Boolean,
-    onAudioOutputChanged: (Boolean?, Boolean?, Boolean?) -> Unit,
-) {
-    SectionCard(
-        title = "Audio Outputs",
-        subtitle = "Allowed playback channels for announcements",
-        icon = Icons.Rounded.Cable,
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            // Bluetooth Audio
-            ModernSwitchRow(
-                icon = Icons.Rounded.Bluetooth,
-                label = stringResource(R.string.global_audio_allow_bluetooth),
-                subtitle = stringResource(R.string.global_audio_allow_bluetooth_desc),
-                checked = allowBluetooth,
-                onCheckedChange = { onAudioOutputChanged(null, it, null) },
-            )
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-
-            // Wired Audio
-            ModernSwitchRow(
-                icon = Icons.Rounded.Headphones,
-                label = stringResource(R.string.global_audio_allow_wired),
-                subtitle = stringResource(R.string.global_audio_allow_wired_desc),
-                checked = allowWired,
-                onCheckedChange = { onAudioOutputChanged(it, null, null) },
-            )
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-
-            // Phone Speaker
-            ModernSwitchRow(
-                icon = Icons.AutoMirrored.Rounded.VolumeUp,
-                label = stringResource(R.string.global_audio_allow_speaker),
-                subtitle = stringResource(R.string.global_audio_allow_speaker_desc),
-                checked = allowPhoneSpeaker,
-                onCheckedChange = { onAudioOutputChanged(null, null, it) },
-            )
-
-            if (allowPhoneSpeaker) {
-                Spacer(modifier = Modifier.height(2.dp))
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Row(
-                        modifier = Modifier.padding(10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Warning,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(18.dp),
-                        )
-                        Text(
-                            text = stringResource(R.string.global_audio_speaker_warning),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onErrorContainer,
-                        )
-                    }
-                }
-            }
-        }
     }
 }
 
