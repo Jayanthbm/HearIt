@@ -96,6 +96,16 @@ class HistoryViewModel @Inject constructor(
         }
     }
 
+    /** Deletes multiple selected entries. */
+    fun onDeleteMultiple(ids: Set<Long>) {
+        viewModelScope.launch {
+            ids.forEach { id ->
+                safely { historyRepository.delete(id) }
+            }
+            load(reset = true)
+        }
+    }
+
     /** Deletes every entry (the screen confirms first). */
     fun onClearAll() {
         viewModelScope.launch {

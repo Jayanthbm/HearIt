@@ -34,6 +34,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material.icons.rounded.Apps
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.FilterList
@@ -144,6 +146,7 @@ fun HistoryRoute(viewModel: HistoryViewModel, modifier: Modifier = Modifier) {
         onAddFilter = viewModel::onAddFilter,
         onLoadMore = viewModel::onLoadMore,
         onDeleteEntry = viewModel::onDeleteEntry,
+        onDeleteMultiple = viewModel::onDeleteMultiple,
         onClearAll = viewModel::onClearAll,
         onStorageModeChanged = viewModel::onStorageModeChanged,
         onUpdateHandlingChanged = viewModel::onUpdateHandlingChanged,
@@ -168,6 +171,7 @@ fun HistoryScreen(
     onAddFilter: (String, KeywordMatchMode, Boolean, String?) -> Unit,
     onLoadMore: () -> Unit,
     onDeleteEntry: (Long) -> Unit,
+    onDeleteMultiple: (Set<Long>) -> Unit = {},
     onClearAll: () -> Unit,
     onStorageModeChanged: (HistoryStorageMode) -> Unit,
     onUpdateHandlingChanged: (HistoryUpdateHandling) -> Unit,
@@ -177,8 +181,15 @@ fun HistoryScreen(
     var openDialog by rememberSaveable { mutableStateOf(DIALOG_NONE) }
     var pendingDelete by remember { mutableStateOf<HistoryItem?>(null) }
     var confirmingClearAll by rememberSaveable { mutableStateOf(false) }
+    var confirmingDeleteSelected by rememberSaveable { mutableStateOf(false) }
     var detailItem by remember { mutableStateOf<HistoryItem?>(null) }
     var filterItem by remember { mutableStateOf<HistoryItem?>(null) }
+    var selectedIds by rememberSaveable { mutableStateOf(emptySet<Long>()) }
+    var isSelectionMode by rememberSaveable { mutableStateOf(false) }
+
+    val groupedItems = remember(state.items) {
+        state.items.groupBy { getDateGroup(it.recordedAtMillis) }
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
@@ -199,7 +210,7 @@ fun HistoryScreen(
                     onValueChange = onQueryChanged,
                     placeholder = {
                         Text(
-                            text = "Search history…",
+                            text = "Search by app, sender, or message…",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                         )
@@ -306,6 +317,30 @@ fun HistoryScreen(
                     )
 
                     if (state.items.isNotEmpty()) {
+                        // Multi-select toggle chip
+                        FilterChip(
+                            selected = isSelectionMode,
+                            onClick = {
+                                isSelectionMode = !isSelectionMode
+                                if (!isSelectionMode) selectedIds = emptySet()
+                            },
+                            label = {
+                                Text(
+                                    text = if (isSelectionMode) "Done" else "Select",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = if (isSelectionMode) Icons.Rounded.Check else Icons.Rounded.CheckCircle,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(15.dp),
+                                )
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                        )
+
                         Surface(
                             shape = RoundedCornerShape(12.dp),
                             color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.45f),
@@ -326,6 +361,64 @@ fun HistoryScreen(
                     }
 
                     Spacer(modifier = Modifier.width(16.dp))
+                }
+
+                // Selection Mode Contextual Banner
+                if (isSelectionMode) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text(
+                                text = "${selectedIds.size} selected",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                TextButton(
+                                    onClick = {
+                                        selectedIds = if (selectedIds.size == state.items.size) {
+                                            emptySet()
+                                        } else {
+                                            state.items.map { it.id }.toSet()
+                                        }
+                                    },
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                ) {
+                                    Text(
+                                        text = if (selectedIds.size == state.items.size) "Deselect All" else "Select All",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary,
+                                    )
+                                }
+                                if (selectedIds.isNotEmpty()) {
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    IconButton(
+                                        onClick = { confirmingDeleteSelected = true },
+                                        modifier = Modifier.size(32.dp),
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.DeleteOutline,
+                                            contentDescription = "Delete selected",
+                                            tint = MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.size(18.dp),
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -374,14 +467,63 @@ fun HistoryScreen(
                 )
             }
 
-            else -> items(items = state.items, key = { item -> item.id }) { item ->
-                ModernHistoryCard(
-                    item = item,
-                    isPlaying = state.playingItemId == item.id,
-                    onPlay = { onPlayEntry(item) },
-                    onCardClick = { detailItem = item },
-                    onDelete = { pendingDelete = item },
-                )
+            else -> {
+                groupedItems.forEach { (dateGroup, itemsInGroup) ->
+                    item(key = "header_$dateGroup") {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 10.dp, bottom = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(
+                                text = dateGroup,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                            HorizontalDivider(
+                                modifier = Modifier.weight(1f),
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                            )
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                            ) {
+                                Text(
+                                    text = "${itemsInGroup.size}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+                                )
+                            }
+                        }
+                    }
+                    items(items = itemsInGroup, key = { item -> item.id }) { item ->
+                        val isSelected = item.id in selectedIds
+                        ModernHistoryCard(
+                            item = item,
+                            isPlaying = state.playingItemId == item.id,
+                            isSelectionMode = isSelectionMode,
+                            isSelected = isSelected,
+                            onToggleSelect = {
+                                selectedIds = if (isSelected) selectedIds - item.id else selectedIds + item.id
+                            },
+                            onPlay = { onPlayEntry(item) },
+                            onCardClick = {
+                                if (isSelectionMode) {
+                                    selectedIds = if (isSelected) selectedIds - item.id else selectedIds + item.id
+                                } else {
+                                    detailItem = item
+                                }
+                            },
+                            onDelete = { pendingDelete = item },
+                        )
+                    }
+                }
             }
         }
 
@@ -565,6 +707,31 @@ fun HistoryScreen(
         )
     }
 
+    if (confirmingDeleteSelected) {
+        AlertDialog(
+            onDismissRequest = { confirmingDeleteSelected = false },
+            title = { Text("Delete ${selectedIds.size} announcements?", fontWeight = FontWeight.Bold) },
+            text = { Text("The selected notification history entries will be permanently deleted.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmingDeleteSelected = false
+                        onDeleteMultiple(selectedIds)
+                        selectedIds = emptySet()
+                        isSelectionMode = false
+                    },
+                ) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmingDeleteSelected = false }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            },
+        )
+    }
+
         SnackbarHost(
             hostState = snackbarHostState,
             modifier = Modifier
@@ -576,10 +743,30 @@ fun HistoryScreen(
     }
 }
 
+private fun getDateGroup(recordedAtMillis: Long): String {
+    val now = java.util.Calendar.getInstance()
+    val itemCal = java.util.Calendar.getInstance().apply { timeInMillis = recordedAtMillis }
+
+    val nowDay = now.get(java.util.Calendar.DAY_OF_YEAR)
+    val nowYear = now.get(java.util.Calendar.YEAR)
+    val itemDay = itemCal.get(java.util.Calendar.DAY_OF_YEAR)
+    val itemYear = itemCal.get(java.util.Calendar.YEAR)
+
+    return when {
+        nowYear == itemYear && nowDay == itemDay -> "Today"
+        nowYear == itemYear && nowDay - itemDay == 1 -> "Yesterday"
+        nowYear == itemYear && nowDay - itemDay in 2..6 -> "Earlier this week"
+        else -> java.text.SimpleDateFormat("MMMM d, yyyy", java.util.Locale.getDefault()).format(java.util.Date(recordedAtMillis))
+    }
+}
+
 @Composable
 private fun ModernHistoryCard(
     item: HistoryItem,
     isPlaying: Boolean,
+    isSelectionMode: Boolean = false,
+    isSelected: Boolean = false,
+    onToggleSelect: () -> Unit = {},
     onPlay: () -> Unit,
     onCardClick: () -> Unit,
     onDelete: () -> Unit,
@@ -597,11 +784,16 @@ private fun ModernHistoryCard(
             .fillMaxWidth()
             .clickable(onClick = onCardClick),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f) else MaterialTheme.colorScheme.surfaceContainer,
+        ),
+        border = BorderStroke(
+            1.dp,
+            if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.6f) else MaterialTheme.colorScheme.outlineVariant,
+        ),
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
-            // Header Row: App Icon + App Name (full width!) + Status Pill
+            // Header Row: Selection Indicator + App Icon + App Name (full width!) + Status Pill
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -611,6 +803,29 @@ private fun ModernHistoryCard(
                     modifier = Modifier.weight(1f),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    if (isSelectionMode) {
+                        Surface(
+                            shape = CircleShape,
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                            border = BorderStroke(1.5.dp, if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),
+                            modifier = Modifier
+                                .size(22.dp)
+                                .clickable(onClick = onToggleSelect),
+                        ) {
+                            if (isSelected) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Check,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onPrimary,
+                                        modifier = Modifier.size(14.dp),
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                    }
+
                     Surface(
                         modifier = Modifier.size(32.dp),
                         shape = RoundedCornerShape(10.dp),
