@@ -78,15 +78,30 @@ fun DevicesRoute(viewModel: DevicesViewModel, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val lifecycleOwner = context as? LifecycleOwner
 
-    DisposableEffect(lifecycleOwner) {
-        if (lifecycleOwner == null) {
-            onDispose { }
-        } else {
-            val observer = LifecycleEventObserver { _, event ->
-                if (event == Lifecycle.Event.ON_RESUME) viewModel.onRefresh()
+    DisposableEffect(lifecycleOwner, context) {
+        val receiver = object : android.content.BroadcastReceiver() {
+            override fun onReceive(c: android.content.Context?, intent: android.content.Intent?) {
+                viewModel.onRefresh()
             }
-            lifecycleOwner.lifecycle.addObserver(observer)
-            onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+        }
+        val filter = android.content.IntentFilter().apply {
+            addAction(android.bluetooth.BluetoothDevice.ACTION_ACL_CONNECTED)
+            addAction(android.bluetooth.BluetoothDevice.ACTION_ACL_DISCONNECTED)
+            addAction(android.media.AudioManager.ACTION_AUDIO_BECOMING_NOISY)
+            addAction(android.media.AudioManager.ACTION_HEADSET_PLUG)
+        }
+        context.registerReceiver(receiver, filter)
+
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) viewModel.onRefresh()
+        }
+        lifecycleOwner?.lifecycle?.addObserver(observer)
+
+        onDispose {
+            try {
+                context.unregisterReceiver(receiver)
+            } catch (_: Exception) {}
+            lifecycleOwner?.lifecycle?.removeObserver(observer)
         }
     }
 
@@ -481,6 +496,15 @@ private fun OutputCategoryCard(
     }
 }
 
+private fun getAudioDeviceIcon(label: String, isBluetooth: Boolean): ImageVector {
+    if (!isBluetooth) return Icons.Rounded.Cable
+    val lower = label.lowercase()
+    return when {
+        lower.contains("speaker") || lower.contains("soundbar") || lower.contains("audio") || lower.contains("echo") || lower.contains("nest") -> Icons.AutoMirrored.Rounded.VolumeUp
+        else -> Icons.Rounded.Headphones
+    }
+}
+
 @Composable
 private fun ConnectedDeviceCard(
     row: DeviceRow,
@@ -506,7 +530,7 @@ private fun ConnectedDeviceCard(
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        imageVector = Icons.Rounded.BluetoothConnected,
+                        imageVector = getAudioDeviceIcon(row.label, row.isBluetooth),
                         contentDescription = null,
                         tint = Color(0xFF34D399),
                         modifier = Modifier.size(22.dp),
@@ -613,7 +637,7 @@ private fun RememberedDeviceCard(
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
-                            imageVector = Icons.Rounded.Bluetooth,
+                            imageVector = getAudioDeviceIcon(row.label, row.isBluetooth),
                             contentDescription = null,
                             tint = if (row.allowed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(20.dp),
