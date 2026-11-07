@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.jayanth.hearit.core.common.model.HistoryStatus
 import com.jayanth.hearit.core.database.HistoryQuery
 import com.jayanth.hearit.core.database.HistoryRepository
 import com.jayanth.hearit.core.datastore.SettingsRepository
@@ -75,7 +76,27 @@ class DashboardViewModel @Inject constructor(
                 _state.update { current -> current.copy(totalAnnouncementsCount = count) }
             }
         }
+        val startOfDay = getStartOfDayMillis()
+        viewModelScope.launch {
+            historyRepository.observeCountSinceAndStatus(startOfDay, HistoryStatus.ANNOUNCED).collect { count ->
+                _state.update { current -> current.copy(todayAnnouncedCount = count) }
+            }
+        }
+        viewModelScope.launch {
+            historyRepository.observeCountSinceAndStatus(startOfDay, HistoryStatus.SKIPPED).collect { count ->
+                _state.update { current -> current.copy(todaySkippedCount = count) }
+            }
+        }
         onRefresh()
+    }
+
+    private fun getStartOfDayMillis(): Long {
+        val calendar = java.util.Calendar.getInstance()
+        calendar.set(java.util.Calendar.HOUR_OF_DAY, 0)
+        calendar.set(java.util.Calendar.MINUTE, 0)
+        calendar.set(java.util.Calendar.SECOND, 0)
+        calendar.set(java.util.Calendar.MILLISECOND, 0)
+        return calendar.timeInMillis
     }
 
     /**
@@ -99,6 +120,7 @@ class DashboardViewModel @Inject constructor(
             15 -> AnnouncementService.ACTION_TEMPORARY_MUTE_15MIN
             30 -> AnnouncementService.ACTION_TEMPORARY_MUTE_30MIN
             60 -> AnnouncementService.ACTION_TEMPORARY_MUTE_60MIN
+            120 -> AnnouncementService.ACTION_TEMPORARY_MUTE_120MIN
             -1 -> AnnouncementService.ACTION_TEMPORARY_MUTE_INDEFINITE
             else -> AnnouncementService.ACTION_TEMPORARY_MUTE_TOGGLE
         }

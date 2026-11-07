@@ -88,6 +88,10 @@ interface HistoryDao {
     @Query("SELECT COUNT(*) FROM history_entries")
     fun observeCount(): kotlinx.coroutines.flow.Flow<Long>
 
+    /** Reactive stream of history count filtered by status recorded since [sinceMillis]. */
+    @Query("SELECT COUNT(*) FROM history_entries WHERE recordedAtMillis >= :sinceMillis AND status = :status")
+    fun observeCountSinceAndStatus(sinceMillis: Long, status: String): kotlinx.coroutines.flow.Flow<Long>
+
     /** Reactive live stream of all history entries for [packageName], newest first. */
     @Query("SELECT * FROM history_entries WHERE packageName = :packageName ORDER BY recordedAtMillis DESC")
     fun observeByPackage(packageName: String): kotlinx.coroutines.flow.Flow<List<HistoryEntryEntity>>

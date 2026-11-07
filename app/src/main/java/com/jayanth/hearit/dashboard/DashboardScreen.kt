@@ -210,6 +210,11 @@ fun DashboardRoute(
         }
     }
 
+    val onNavigateToHistoryWithFilter = { status: HistoryStatus? ->
+        historyViewModel.onStatusChanged(status)
+        backStack = backStack + DashboardDestination.HISTORY.id
+    }
+
     BackHandler(enabled = backStack.size > 1 || destination != DashboardDestination.HOME) {
         onNavigateBack()
     }
@@ -224,6 +229,7 @@ fun DashboardRoute(
                 backStack = backStack + selected.id
             }
         },
+        onNavigateToHistoryWithFilter = onNavigateToHistoryWithFilter,
         onBackToHome = onNavigateBack,
         onStartService = viewModel::onStartService,
         onStopService = viewModel::onStopService,
@@ -254,6 +260,7 @@ fun DashboardScreen(
     state: DashboardUiState,
     destination: DashboardDestination,
     onSelectDestination: (DashboardDestination) -> Unit,
+    onNavigateToHistoryWithFilter: (HistoryStatus?) -> Unit = {},
     onBackToHome: () -> Unit,
     onStartService: () -> Unit,
     onStopService: () -> Unit,
@@ -334,6 +341,7 @@ fun DashboardScreen(
                             onHistorySearch = onHistorySearch,
                             onHistoryClearAll = onHistoryClearAll,
                             onSelectDestination = onSelectDestination,
+                            onNavigateToHistoryWithFilter = onNavigateToHistoryWithFilter,
                         )
 
                         DashboardDestination.DEVICES -> devicesContent()
@@ -565,6 +573,7 @@ private fun DashboardHome(
     onHistorySearch: (DashboardFilterState) -> Unit,
     onHistoryClearAll: () -> Unit,
     onSelectDestination: (DashboardDestination) -> Unit,
+    onNavigateToHistoryWithFilter: (HistoryStatus?) -> Unit,
 ) {
     val testAnnouncementText = stringResource(R.string.dashboard_test_announcement_spoken)
     var showMuteDurationDialog by rememberSaveable { mutableStateOf(false) }
@@ -615,6 +624,75 @@ private fun DashboardHome(
             onStop = onStopService,
             onSelectDestination = onSelectDestination,
         )
+
+        // ── Today's Activity Section (Interactive Stats with History Deep Link) ──
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "Today's Activity",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            Surface(
+                onClick = { onNavigateToHistoryWithFilter(null) },
+                shape = RoundedCornerShape(8.dp),
+                color = Color.Transparent,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                ) {
+                    Text(
+                        text = "History",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Spacer(modifier = Modifier.width(2.dp))
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
+            }
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Max),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            // Spoken Today Stat Card
+            ActivityStatCard(
+                count = state.todayAnnouncedCount,
+                label = "Spoken",
+                caption = "Announcements read",
+                icon = Icons.AutoMirrored.Rounded.VolumeUp,
+                accentColor = Color(0xFF10B981),
+                containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                onClick = { onNavigateToHistoryWithFilter(HistoryStatus.ANNOUNCED) },
+                modifier = Modifier.weight(1f),
+            )
+
+            // Skipped Today Stat Card
+            ActivityStatCard(
+                count = state.todaySkippedCount,
+                label = "Skipped",
+                caption = "Rules or privacy filter",
+                icon = Icons.Rounded.NotificationsNone,
+                accentColor = MaterialTheme.colorScheme.secondary,
+                containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                onClick = { onNavigateToHistoryWithFilter(HistoryStatus.SKIPPED) },
+                modifier = Modifier.weight(1f),
+            )
+        }
 
         // Quick Controls & Status
         Text(
@@ -885,6 +963,7 @@ private fun DashboardHome(
                                 15 -> "Muted · 15m timer"
                                 30 -> "Muted · 30m timer"
                                 60 -> "Muted · 1h timer"
+                                120 -> "Muted · 2h timer"
                                 -1 -> "Muted until turned off"
                                 else -> "Muted until unmuted"
                             }
@@ -1001,6 +1080,7 @@ private fun DashboardHome(
                         15 to "15 minutes",
                         30 to "30 minutes",
                         60 to "1 hour",
+                        120 to "2 hours",
                         -1 to "Until I turn off",
                     )
                     durations.forEach { (mins, label) ->
@@ -1057,6 +1137,105 @@ private fun DashboardHome(
             },
             shape = RoundedCornerShape(24.dp),
         )
+    }
+}
+
+@Composable
+private fun ActivityStatCard(
+    count: Long,
+    label: String,
+    caption: String,
+    icon: ImageVector,
+    accentColor: Color,
+    containerColor: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.96f else 1f,
+        animationSpec = spring(stiffness = Spring.StiffnessMedium, dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "statCardScale",
+    )
+
+    Card(
+        modifier = modifier
+            .fillMaxHeight()
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick,
+            ),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = containerColor),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(14.dp),
+            verticalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = accentColor.copy(alpha = 0.15f),
+                    modifier = Modifier.size(34.dp),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = accentColor,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                }
+                Icon(
+                    imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    modifier = Modifier.size(16.dp),
+                )
+            }
+            Column {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = count.toString(),
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = caption,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 11.sp,
+                    lineHeight = 14.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
     }
 }
 
@@ -1271,8 +1450,17 @@ private fun HeroServiceCard(
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
+                            if (isConnected) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFF10B981)),
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                            }
                             Text(
-                                text = if (isConnected) "Connected" else "Route",
+                                text = if (isConnected) "Active" else "Route",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = if (isConnected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontWeight = FontWeight.Bold,

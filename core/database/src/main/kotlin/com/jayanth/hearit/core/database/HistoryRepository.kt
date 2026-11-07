@@ -52,6 +52,9 @@ interface HistoryRepository {
     /** Reactive stream of total history entries. */
     fun observeCount(): Flow<Long>
 
+    /** Reactive stream of history count filtered by status recorded since [sinceMillis]. */
+    fun observeCountSinceAndStatus(sinceMillis: Long, status: HistoryStatus): Flow<Long>
+
     /** Reactive stream of history entries for one app package, newest first. */
     fun observeByPackage(packageName: String): Flow<List<HistoryEntry>>
 
@@ -135,6 +138,9 @@ class RoomHistoryRepository(
     override suspend fun count(): Long = dao.count()
 
     override fun observeCount(): Flow<Long> = dao.observeCount()
+
+    override fun observeCountSinceAndStatus(sinceMillis: Long, status: HistoryStatus): Flow<Long> =
+        dao.observeCountSinceAndStatus(sinceMillis, status.name)
 
     override fun observeByPackage(packageName: String): Flow<List<HistoryEntry>> =
         dao.observeByPackage(packageName).map { entities -> entities.map { it.toDomain() } }

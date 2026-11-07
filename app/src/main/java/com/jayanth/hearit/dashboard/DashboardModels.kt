@@ -95,6 +95,8 @@ data class DashboardUiState(
     val recentHistoryLoaded: Boolean = false,
     val historyUnavailable: Boolean = false,
     val totalAnnouncementsCount: Long = 0L,
+    val todayAnnouncedCount: Long = 0L,
+    val todaySkippedCount: Long = 0L,
     val testAnnouncement: TestAnnouncementState = TestAnnouncementState.IDLE,
 ) {
 
