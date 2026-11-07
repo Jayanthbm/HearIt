@@ -351,7 +351,8 @@ private fun SystemHealthHeroCard(healthy: Boolean) {
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = if (healthy) Color(0xFFA7F3D0) else MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f),
-                    maxLines = 1,
+                    maxLines = 2,
+                    lineHeight = 16.sp,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
@@ -429,7 +430,8 @@ private fun ServiceDiagnosticsCard(state: DiagnosticsUiState) {
                             text = "Service is stopped. Enable Master Switch on Home screen to activate.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onErrorContainer,
-                            maxLines = 1,
+                            maxLines = 2,
+                            lineHeight = 16.sp,
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
@@ -463,14 +465,16 @@ private fun PermissionsDiagnosticsCard(
                         text = stringResource(R.string.diagnostics_notification_access),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
+                        maxLines = 2,
+                        lineHeight = 18.sp,
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
                         text = stringResource(R.string.diagnostics_notification_access_desc),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
+                        maxLines = 2,
+                        lineHeight = 15.sp,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
@@ -510,14 +514,16 @@ private fun PermissionsDiagnosticsCard(
                         text = stringResource(R.string.diagnostics_post_notifications),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
+                        maxLines = 2,
+                        lineHeight = 18.sp,
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
                         text = stringResource(R.string.diagnostics_post_notifications_desc),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
+                        maxLines = 2,
+                        lineHeight = 15.sp,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
@@ -572,14 +578,16 @@ private fun PermissionsDiagnosticsCard(
                         text = stringResource(R.string.diagnostics_bluetooth_permission),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
+                        maxLines = 2,
+                        lineHeight = 18.sp,
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
                         text = stringResource(R.string.diagnostics_bluetooth_permission_desc),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
+                        maxLines = 2,
+                        lineHeight = 15.sp,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
@@ -625,14 +633,16 @@ private fun PermissionsDiagnosticsCard(
                         text = stringResource(R.string.diagnostics_battery_optimization),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
+                        maxLines = 2,
+                        lineHeight = 18.sp,
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
                         text = stringResource(R.string.diagnostics_battery_desc),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
+                        maxLines = 2,
+                        lineHeight = 15.sp,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
@@ -902,7 +912,8 @@ private fun StorageDiagnosticsCard(state: DiagnosticsUiState) {
                             text = "No apps enabled. Select apps in the Apps tab to start hearing notifications.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
+                            maxLines = 2,
+                            lineHeight = 16.sp,
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
@@ -935,7 +946,8 @@ private fun DiagnosticRow(
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
+                maxLines = 2,
+                lineHeight = 18.sp,
                 overflow = TextOverflow.Ellipsis,
             )
             if (!subtitle.isNullOrBlank()) {
@@ -944,7 +956,8 @@ private fun DiagnosticRow(
                     text = subtitle,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
+                    maxLines = 2,
+                    lineHeight = 15.sp,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
@@ -1066,7 +1079,8 @@ private fun DiagnosticLogsCard(
                 text = "On-device technical logs for troubleshooting. Message content is never recorded.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
+                maxLines = 2,
+                lineHeight = 16.sp,
                 overflow = TextOverflow.Ellipsis,
             )
 
@@ -1170,7 +1184,8 @@ private fun DiagnosticsSectionCard(
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
+                        maxLines = 2,
+                        lineHeight = 20.sp,
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(

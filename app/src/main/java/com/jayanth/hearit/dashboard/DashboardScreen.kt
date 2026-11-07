@@ -1464,7 +1464,7 @@ private fun SettingsHubScreen(
                     SettingsHubDivider()
                     SettingsHubRow(
                         icon = Icons.Rounded.History,
-                        title = "Notification Feed & History",
+                        title = "Notification History",
                         subtitle = "Browse, filter, and replay announcements",
                         onClick = { onSelectDestination(DashboardDestination.HISTORY) },
                     )
@@ -1493,7 +1493,7 @@ private fun SettingsHubScreen(
                     SettingsHubDivider()
                     SettingsHubRow(
                         icon = Icons.Rounded.BugReport,
-                        title = "System Diagnostics & Health",
+                        title = "System Diagnostics",
                         subtitle = "Hardware probes, TTS engine, and error logs",
                         onClick = { onSelectDestination(DashboardDestination.DIAGNOSTICS) },
                     )
