@@ -354,6 +354,7 @@ class ApplicationsViewModel @Inject constructor(
                 apps = merged,
                 visibleApps = AppFilter.filter(merged, current.query),
                 enabledApps = settings.enabledApps,
+                customizedApps = settings.appOverrides.filterValues { !it.inheritsEveryValue }.keys,
                 settings = openPackage?.let { packageName ->
                     val previousHistory = current.settings?.recentHistory ?: emptyList()
                     val previousLoading = current.settings?.historyLoading ?: false

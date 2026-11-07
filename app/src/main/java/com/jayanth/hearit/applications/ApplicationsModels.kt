@@ -52,6 +52,7 @@ data class ApplicationsUiState(
     val apps: List<AppEntry> = emptyList(),
     val visibleApps: List<AppEntry> = emptyList(),
     val enabledApps: Set<String> = emptySet(),
+    val customizedApps: Set<String> = emptySet(),
     val openPackage: String? = null,
     val settings: AppSettingsUiState? = null,
 )

@@ -127,6 +127,7 @@ import com.jayanth.hearit.core.common.model.HistoryStorageMode
 import com.jayanth.hearit.core.common.model.HistoryUpdateHandling
 import com.jayanth.hearit.core.common.model.KeywordMatchMode
 import com.jayanth.hearit.core.database.HistoryEntry
+import com.jayanth.hearit.core.rules.KeywordMatcher
 import com.jayanth.hearit.history.skipReasonLabel
 
 /**
@@ -175,6 +176,8 @@ fun ApplicationsRoute(viewModel: ApplicationsViewModel, modifier: Modifier = Mod
                     onQueryChange = viewModel::onQueryChange,
                     onToggleApp = viewModel::onToggleApp,
                     onOpenApp = viewModel::onOpenApp,
+                    onSelectAllVisible = viewModel::onSelectAllVisible,
+                    onDeselectAllVisible = viewModel::onDeselectAllVisible,
                     modifier = Modifier.fillMaxSize(),
                 )
             } else {
@@ -227,6 +230,8 @@ private fun ApplicationsListScreen(
     onQueryChange: (String) -> Unit,
     onToggleApp: (String) -> Unit,
     onOpenApp: (String) -> Unit,
+    onSelectAllVisible: () -> Unit,
+    onDeselectAllVisible: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val displayedApps = remember(state.visibleApps, state.enabledApps, filterType) {
@@ -370,6 +375,52 @@ private fun ApplicationsListScreen(
 
         Spacer(modifier = Modifier.height(10.dp))
 
+        if (!state.loading && !state.catalogUnavailable && displayedApps.isNotEmpty()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "${displayedApps.size} ${if (displayedApps.size == 1) "app" else "apps"}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.SemiBold,
+                )
+
+                val anyUnselected = displayedApps.any { it.packageName !in state.enabledApps }
+                Surface(
+                    onClick = {
+                        if (anyUnselected) onSelectAllVisible() else onDeselectAllVisible()
+                    },
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color.Transparent,
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                    ) {
+                        Icon(
+                            imageVector = if (anyUnselected) Icons.Rounded.CheckCircle else Icons.Rounded.Close,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(15.dp),
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = if (anyUnselected) "Enable all visible" else "Disable all visible",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+        }
+
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             when {
                 state.loading -> Box(
@@ -407,6 +458,7 @@ private fun ApplicationsListScreen(
                         ApplicationRow(
                             app = app,
                             enabled = app.packageName in state.enabledApps,
+                            hasCustomRules = app.packageName in state.customizedApps,
                             icons = icons,
                             onToggle = { onToggleApp(app.packageName) },
                             onOpenSettings = { onOpenApp(app.packageName) },
@@ -536,6 +588,7 @@ private fun ApplicationsEmptyCard(
 private fun ApplicationRow(
     app: AppEntry,
     enabled: Boolean,
+    hasCustomRules: Boolean = false,
     icons: AppIconLoader,
     onToggle: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -575,14 +628,35 @@ private fun ApplicationRow(
             Column(
                 modifier = Modifier.weight(1f),
             ) {
-                Text(
-                    text = app.label,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = if (enabled) FontWeight.SemiBold else FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Text(
+                        text = app.label,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = if (enabled) FontWeight.SemiBold else FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    if (hasCustomRules) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                        ) {
+                            Text(
+                                text = "Custom",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontSize = 9.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp),
+                            )
+                        }
+                    }
+                }
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = app.packageName,
@@ -696,13 +770,14 @@ private fun AppSettingsScreen(
                 )
             }
             Spacer(modifier = Modifier.width(6.dp))
-            Column(modifier = Modifier.weight(1f)) {
+            Column(modifier = Modifier.weight(1f).padding(end = 6.dp)) {
                 Text(
                     text = state.label,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground,
-                    maxLines = 1,
+                    maxLines = 2,
+                    lineHeight = 24.sp,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
@@ -1006,6 +1081,86 @@ private fun AppSettingsScreen(
                                     Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text("Add Filter Word / Pattern", fontWeight = FontWeight.SemiBold)
+                                }
+
+                                if (filterSettings.keywords.isNotEmpty()) {
+                                    Spacer(modifier = Modifier.height(14.dp))
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                                    Spacer(modifier = Modifier.height(10.dp))
+
+                                    var testInput by rememberSaveable { mutableStateOf("") }
+                                    val isMatch = remember(testInput, filterSettings.keywords, filterSettings.mode) {
+                                        if (testInput.isBlank()) null
+                                        else KeywordMatcher.matchesNotification(
+                                            messageText = testInput,
+                                            sender = null,
+                                            keywords = filterSettings.keywords,
+                                            mode = filterSettings.mode,
+                                        )
+                                    }
+
+                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            Text(
+                                                text = "Test Your Filters",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.primary,
+                                            )
+                                            if (isMatch != null) {
+                                                Surface(
+                                                    shape = RoundedCornerShape(6.dp),
+                                                    color = if (isMatch) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer,
+                                                ) {
+                                                    Text(
+                                                        text = if (isMatch) "Filtered (Will Skip)" else "Passes (Will Speak)",
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = if (isMatch) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer,
+                                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                                    )
+                                                }
+                                            }
+                                        }
+
+                                        OutlinedTextField(
+                                            value = testInput,
+                                            onValueChange = { testInput = it },
+                                            placeholder = {
+                                                Text(
+                                                    "Type sample message to test filter matching…",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                                )
+                                            },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            singleLine = true,
+                                            shape = RoundedCornerShape(12.dp),
+                                            textStyle = MaterialTheme.typography.bodyMedium,
+                                            colors = TextFieldDefaults.colors(
+                                                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                                disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                                focusedIndicatorColor = Color.Transparent,
+                                                unfocusedIndicatorColor = Color.Transparent,
+                                            ),
+                                            trailingIcon = {
+                                                if (testInput.isNotEmpty()) {
+                                                    IconButton(onClick = { testInput = "" }) {
+                                                        Icon(
+                                                            imageVector = Icons.Rounded.Close,
+                                                            contentDescription = "Clear",
+                                                            modifier = Modifier.size(16.dp),
+                                                        )
+                                                    }
+                                                }
+                                            },
+                                        )
+                                    }
                                 }
                             }
                         }
