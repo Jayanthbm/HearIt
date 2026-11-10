@@ -124,6 +124,8 @@ class AnnouncementPipeline(
     )
 
     private var active: ActiveSpeech? = null
+    private var lastAnnouncedPackage: String? = null
+    private var lastAnnouncedAtMillis: Long = 0L
 
     /** True while a group is being spoken (the service owns the actual engine). */
     val isSpeaking: Boolean get() = active != null
@@ -217,7 +219,38 @@ class AnnouncementPipeline(
             val poll = queue.pollReady()
             poll.events.forEach { event -> onRecord(event.toHistoryRecord()) }
             val selection = poll.announcement ?: return null
-            val built = AnnouncementTemplate.build(selection.items, announcementFormat)
+            val now = clock()
+
+            // 1. Contextual time-stamp for held/delayed messages (>2 mins)
+            val processedItems = selection.items.map { item ->
+                val delayMillis = now - item.postTimeMillis
+                if (delayMillis > 120_000L && item.postTimeMillis > 0L) {
+                    val minutes = (delayMillis / 60_000L).coerceAtLeast(1)
+                    val timeTag = "Sent $minutes minutes ago"
+                    val updatedText = if (item.messageText.isNotBlank()) {
+                        "($timeTag). ${item.messageText}"
+                    } else {
+                        item.messageText
+                    }
+                    item.copy(messageText = updatedText)
+                } else {
+                    item
+                }
+            }
+
+            // 2. Intelligent App Name Deduplication (omit app name if rapid back-to-back within 45s from same app)
+            val isRapidSameApp = lastAnnouncedPackage == selection.packageName &&
+                (now - lastAnnouncedAtMillis < 45_000L)
+            lastAnnouncedPackage = selection.packageName
+            lastAnnouncedAtMillis = now
+
+            val effectiveFormat = if (isRapidSameApp) {
+                announcementFormat.copy(includeAppName = false)
+            } else {
+                announcementFormat
+            }
+
+            val built = AnnouncementTemplate.build(processedItems, effectiveFormat)
             queue.markStarted(selection.id)
                 .forEach { event -> onRecord(event.toHistoryRecord(selection.priority)) }
             if (built.isEmpty) {

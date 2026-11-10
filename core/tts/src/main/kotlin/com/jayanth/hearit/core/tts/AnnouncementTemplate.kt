@@ -96,7 +96,8 @@ object AnnouncementTemplate {
             sections += AnnouncementSection(SectionKind.INTRODUCTION, intro)
         }
 
-        val appName = snapshots.first().appName.trim()
+        val rawAppName = snapshots.first().appName.trim()
+        val appName = SmartContentCleaner.resolveAppName(packageName, rawAppName)
         if (format.includeAppName && appName.isNotEmpty()) {
             sections += AnnouncementSection(SectionKind.APP_NAME, "$appName.")
         }
@@ -107,11 +108,18 @@ object AnnouncementTemplate {
         }
 
         for (snapshot in snapshots) {
-            val sender = snapshot.sender?.trim().orEmpty()
-            val message = snapshot.messageText.trim()
+            val rawSender = snapshot.sender?.trim().orEmpty()
+            val sender = SmartContentCleaner.cleanSender(rawSender) ?: rawSender
+            val message = SmartContentCleaner.cleanMessageText(snapshot.messageText)
+
             if (format.includeSender && sender.isNotEmpty()) {
-                // With a message: "Rahul says," — without one: "Rahul." (no dangling grammar).
-                val text = if (format.includeMessage && message.isNotEmpty()) {
+                val text = if (snapshot.isGroup && !snapshot.groupTitle.isNullOrBlank()) {
+                    if (format.includeMessage && message.isNotEmpty()) {
+                        "$sender in ${snapshot.groupTitle} says,"
+                    } else {
+                        "$sender in ${snapshot.groupTitle}."
+                    }
+                } else if (format.includeMessage && message.isNotEmpty()) {
                     "$sender says,"
                 } else {
                     "$sender."
