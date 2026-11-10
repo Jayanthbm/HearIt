@@ -17,8 +17,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -27,13 +25,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Backup
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.SettingsBackupRestore
-import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -69,7 +65,6 @@ import com.jayanth.hearit.R
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import org.json.JSONObject
 
 /**
  * Entry point for Backup & Restore (master prompt §15, phase P19).
@@ -128,18 +123,8 @@ fun BackupRestoreScreen(
 ) {
     val context = LocalContext.current
     var showImportConfirmDialog by remember { mutableStateOf(false) }
-    var showJsonModal by remember { mutableStateOf(false) }
     var rawJsonInput by remember { mutableStateOf("") }
     var showRawEditor by remember { mutableStateOf(false) }
-
-    val formattedJson = remember(state.currentSettingsJson) {
-        try {
-            if (state.currentSettingsJson.isBlank()) "{}"
-            else JSONObject(state.currentSettingsJson).toString(2)
-        } catch (_: Exception) {
-            state.currentSettingsJson
-        }
-    }
 
     Column(
         modifier = modifier
@@ -334,102 +319,33 @@ fun BackupRestoreScreen(
         // Card 3: Raw JSON Configuration Inspector & Editor
         BackupCard(
             title = stringResource(R.string.backup_manual_json_title),
-            subtitle = "Inspect, copy, or paste raw JSON configuration",
+            subtitle = "Copy current settings or restore from pasted JSON",
             icon = Icons.Rounded.ContentCopy,
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                // Monospace code block preview of current settings JSON (Clickable to view modal)
-                Surface(
-                    onClick = { showJsonModal = true },
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerHighest,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            ) {
-                                Text(
-                                    text = "CURRENT SETTINGS JSON",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontSize = 10.sp,
-                                )
-                                Surface(
-                                    shape = RoundedCornerShape(4.dp),
-                                    color = MaterialTheme.colorScheme.surfaceVariant,
-                                ) {
-                                    Text(
-                                        text = "${state.currentSettingsJson.length} bytes",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        fontSize = 9.5.sp,
-                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
-                                    )
-                                }
-                            }
-                            IconButton(
-                                onClick = { showJsonModal = true },
-                                modifier = Modifier.size(28.dp),
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Visibility,
-                                    contentDescription = "View formatted JSON",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(18.dp),
-                                )
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(6.dp))
-                        val previewSnippet = remember(formattedJson) {
-                            val lines = formattedJson.lines()
-                            if (lines.size > 5) {
-                                lines.take(5).joinToString("\n") + "\n  ..."
-                            } else {
-                                formattedJson
-                            }
-                        }
-                        Text(
-                            text = previewSnippet,
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 10.5.sp,
-                                lineHeight = 14.sp,
-                            ),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 6,
-                        )
-                    }
-                }
-
-                // Copy current JSON Button
+                // Copy Backup JSON Button
                 OutlinedButton(
                     onClick = {
                         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        val clip = ClipData.newPlainText("HearIt Settings Backup", formattedJson)
+                        val clip = ClipData.newPlainText("HearIt Settings Backup", state.currentSettingsJson)
                         clipboard.setPrimaryClip(clip)
-                        Toast.makeText(context, "Formatted settings JSON copied to clipboard", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Backup JSON copied to clipboard", Toast.LENGTH_SHORT).show()
                     },
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp),
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.ContentCopy,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp),
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = stringResource(R.string.backup_copy_json),
                         style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
                     )
                 }
 
@@ -528,101 +444,6 @@ fun BackupRestoreScreen(
                     Text(text = stringResource(R.string.action_cancel))
                 }
             },
-        )
-    }
-
-    if (showJsonModal) {
-        AlertDialog(
-            onDismissRequest = { showJsonModal = false },
-            icon = {
-                Icon(
-                    imageVector = Icons.Rounded.Code,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-            },
-            title = {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = "Current Settings JSON",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    IconButton(
-                        onClick = { showJsonModal = false },
-                        modifier = Modifier.size(28.dp),
-                    ) {
-                        Icon(Icons.Rounded.Close, contentDescription = "Close", modifier = Modifier.size(20.dp))
-                    }
-                }
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = "Formatted configuration (${state.currentSettingsJson.length} bytes)",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.surfaceContainerHighest,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 380.dp),
-                    ) {
-                        val verticalScrollState = rememberScrollState()
-                        val horizontalScrollState = rememberScrollState()
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp),
-                        ) {
-                            Text(
-                                text = formattedJson,
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    fontFamily = FontFamily.Monospace,
-                                    fontSize = 11.5.sp,
-                                    lineHeight = 16.sp,
-                                ),
-                                color = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier
-                                    .verticalScroll(verticalScrollState)
-                                    .horizontalScroll(horizontalScrollState),
-                            )
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        val clip = ClipData.newPlainText("HearIt Settings Backup", formattedJson)
-                        clipboard.setPrimaryClip(clip)
-                        Toast.makeText(context, "Formatted JSON copied to clipboard", Toast.LENGTH_SHORT).show()
-                    },
-                    shape = RoundedCornerShape(12.dp),
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.ContentCopy,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Copy JSON")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showJsonModal = false }) {
-                    Text("Close")
-                }
-            },
-            shape = RoundedCornerShape(24.dp),
         )
     }
 }
