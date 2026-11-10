@@ -1,6 +1,7 @@
 package com.jayanth.hearit.settings
 
 import android.app.Activity
+import android.os.Build
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -289,6 +290,36 @@ fun GeneralSettingsScreen(
                     "App Preferences at Default"
                 },
                 fontWeight = FontWeight.SemiBold,
+            )
+        }
+
+        // App Version Info
+        val context = LocalContext.current
+        val packageInfo = remember(context) {
+            try {
+                context.packageManager.getPackageInfo(context.packageName, 0)
+            } catch (_: Exception) {
+                null
+            }
+        }
+        val appVersionName = packageInfo?.versionName ?: "2.0.0"
+        val appVersionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            packageInfo?.longVersionCode?.toString() ?: "5"
+        } else {
+            @Suppress("DEPRECATION")
+            packageInfo?.versionCode?.toString() ?: "5"
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = "Hear It v$appVersionName ($appVersionCode)",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
             )
         }
 
