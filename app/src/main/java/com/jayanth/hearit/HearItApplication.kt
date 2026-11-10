@@ -26,9 +26,9 @@ class HearItApplication : Application() {
         super.onCreate()
         HearItLogger.registerSink(fileDiagnosticLogger)
         val appVersion = try {
-            packageManager.getPackageInfo(packageName, 0).versionName ?: "1.0.2"
+            packageManager.getPackageInfo(packageName, 0).versionName ?: "2.0.0"
         } catch (e: Exception) {
-            "1.0.2"
+            "2.0.0"
         }
         HearItLogger.info(
             LogCategory.SERVICE,
