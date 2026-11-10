@@ -837,16 +837,20 @@ private fun AppSettingsScreen(
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = if (state.enabled) "Announcements Enabled" else "Announcements Silenced",
+                        text = if (state.enabled) "Enabled" else "Silenced",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = if (state.enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     Text(
-                        text = if (state.enabled) "HearIt announces eligible alerts" else "Notifications from this app are silenced",
+                        text = if (state.enabled) "Announces eligible alerts" else "Notifications silenced",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 11.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
 

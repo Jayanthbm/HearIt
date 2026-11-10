@@ -27,10 +27,7 @@ data class GlobalSettingsUiState(
     val hasOverrides: Boolean
         get() = screenCondition != ScreenCondition.OFF ||
             lockCondition != LockCondition.LOCKED ||
-            textLength != TextLengthSettings() ||
-            keywordFilter != KeywordFilterSettings() ||
-            privacy != PrivacySettings() ||
-            audioOutput != AudioOutputSettings()
+            privacy != PrivacySettings()
 
     companion object {
 

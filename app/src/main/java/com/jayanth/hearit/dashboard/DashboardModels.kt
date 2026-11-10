@@ -2,6 +2,8 @@ package com.jayanth.hearit.dashboard
 
 import com.jayanth.hearit.core.common.model.AudioOutputSettings
 import com.jayanth.hearit.core.common.model.HistoryStatus
+import com.jayanth.hearit.core.common.model.LockCondition
+import com.jayanth.hearit.core.common.model.ScreenCondition
 import com.jayanth.hearit.setup.TestAnnouncementState
 
 /**
@@ -97,6 +99,8 @@ data class DashboardUiState(
     val totalAnnouncementsCount: Long = 0L,
     val todayAnnouncedCount: Long = 0L,
     val todaySkippedCount: Long = 0L,
+    val screenCondition: ScreenCondition = ScreenCondition.OFF,
+    val lockCondition: LockCondition = LockCondition.LOCKED,
     val testAnnouncement: TestAnnouncementState = TestAnnouncementState.IDLE,
 ) {
 

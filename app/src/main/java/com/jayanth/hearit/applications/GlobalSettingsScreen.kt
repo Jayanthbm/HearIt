@@ -208,7 +208,7 @@ fun GlobalSettingsScreen(
     state: GlobalSettingsUiState,
     onScreenConditionChanged: (ScreenCondition) -> Unit,
     onLockConditionChanged: (LockCondition) -> Unit,
-    onTextLengthChanged: (TextLengthSettings) -> Unit,
+    onTextLengthChanged: (TextLengthSettings) -> Unit = {},
     onKeywordFilterChanged: (KeywordFilterSettings) -> Unit,
     onPrivacyChanged: (PrivacySettings) -> Unit,
     onResetToDefaults: () -> Unit,
@@ -229,7 +229,6 @@ fun GlobalSettingsScreen(
         GlobalRulesHeroCard(state = state)
 
         val isDeviceStateModified = state.screenCondition != ScreenCondition.OFF || state.lockCondition != LockCondition.LOCKED
-        val isTextLengthModified = state.textLength != TextLengthSettings()
         val activeShieldsCount = listOf(
             state.privacy.skipOtp,
             state.privacy.skipPassword,
@@ -247,14 +246,7 @@ fun GlobalSettingsScreen(
             onLockConditionChanged = onLockConditionChanged,
         )
 
-        // Section 2: Text Length Limits (Scope selector FIRST, 3 options: No limit, 100, 250)
-        TextLengthCard(
-            textLength = state.textLength,
-            isModified = isTextLengthModified,
-            onTextLengthChanged = onTextLengthChanged,
-        )
-
-        // Section 3: Privacy Protection & Content Shields (with keyboard bringIntoView)
+        // Section 2: Privacy Protection & Content Shields (with keyboard bringIntoView)
         PrivacyShieldCard(
             privacy = state.privacy,
             activeCount = activeShieldsCount,
@@ -419,14 +411,6 @@ private fun GlobalRulesHeroCard(state: GlobalSettingsUiState) {
                 }
                 StatusPill(icon = lockIcon, text = lockText, isPositive = lockPositive)
 
-                // Length Limit Pill
-                val lengthText = state.textLength.maxLengthChars?.let { "Max $it Chars" } ?: "No Length Cap"
-                StatusPill(
-                    icon = Icons.Rounded.Straighten,
-                    text = lengthText,
-                    isPositive = state.textLength.maxLengthChars != null,
-                )
-
                 // Privacy Shields Status Pill
                 val activeShields = listOf(
                     state.privacy.skipOtp,
@@ -588,128 +572,7 @@ private fun DeviceStateCard(
 }
 
 // ============================================================================
-// Section 2: Text Length Limits (Reordered: Scope FIRST, 3 options: No limit, 100, 250)
-// ============================================================================
-
-@Composable
-private fun TextLengthCard(
-    textLength: TextLengthSettings,
-    isModified: Boolean,
-    onTextLengthChanged: (TextLengthSettings) -> Unit,
-) {
-    val coroutineScope = rememberCoroutineScope()
-    val bringIntoViewRequester = remember { BringIntoViewRequester() }
-
-    SectionCard(
-        title = "Character Limits",
-        subtitle = "Skip messages exceeding character limit",
-        icon = Icons.Rounded.Straighten,
-        badgeText = if (isModified) "Modified" else "Default",
-        isBadgeHighlighted = isModified,
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            // 1. Scope Selector FIRST (Apply limit to)
-            Column {
-                Text(
-                    text = "Apply limit to",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    SegmentOption(
-                        label = stringResource(R.string.global_scope_message),
-                        subtitle = "Per line item",
-                        icon = Icons.Rounded.Tune,
-                        selected = textLength.scope == LengthScope.MESSAGE,
-                        onClick = { onTextLengthChanged(textLength.copy(scope = LengthScope.MESSAGE)) },
-                        modifier = Modifier.weight(1f),
-                    )
-                    SegmentOption(
-                        label = stringResource(R.string.global_scope_whole_notification),
-                        subtitle = "Total payload",
-                        icon = Icons.Rounded.Straighten,
-                        selected = textLength.scope == LengthScope.WHOLE_NOTIFICATION,
-                        onClick = { onTextLengthChanged(textLength.copy(scope = LengthScope.WHOLE_NOTIFICATION)) },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-            }
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-
-            // 2. Character Length Threshold Segmented Buttons (No limit, 100, 250)
-            Column {
-                Text(
-                    text = "Maximum character limit",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                    val presets = listOf(
-                        null to "No limit",
-                        100 to "100",
-                        250 to "250",
-                    )
-                    presets.forEachIndexed { index, (value, label) ->
-                        val isSelected = textLength.maxLengthChars == value
-                        SegmentedButton(
-                            selected = isSelected,
-                            onClick = { onTextLengthChanged(textLength.copy(maxLengthChars = value)) },
-                            shape = SegmentedButtonDefaults.itemShape(index = index, count = 3),
-                        ) {
-                            Text(label, style = MaterialTheme.typography.labelSmall)
-                        }
-                    }
-                }
-            }
-
-            // 3. Custom Number Field with BringIntoView
-            OutlinedTextField(
-                value = textLength.maxLengthChars?.toString() ?: "",
-                onValueChange = { raw ->
-                    onTextLengthChanged(
-                        textLength.copy(maxLengthChars = raw.toIntOrNull()?.takeIf { it > 0 }),
-                    )
-                },
-                label = { Text(text = stringResource(R.string.global_max_length)) },
-                placeholder = { Text("No limit") },
-                suffix = { Text(text = stringResource(R.string.global_chars), style = MaterialTheme.typography.labelSmall) },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Rounded.Straighten,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .bringIntoViewRequester(bringIntoViewRequester)
-                    .onFocusChanged { focusState ->
-                        if (focusState.isFocused) {
-                            coroutineScope.launch {
-                                delay(250)
-                                bringIntoViewRequester.bringIntoView()
-                            }
-                        }
-                    },
-            )
-        }
-    }
-}
-
-// ============================================================================
-// Section 3: Privacy Protection & Content Shields (with keyboard bringIntoView)
+// Section 2: Privacy Protection & Content Shields (with keyboard bringIntoView)
 // ============================================================================
 
 @Composable

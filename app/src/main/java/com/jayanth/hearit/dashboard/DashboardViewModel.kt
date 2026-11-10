@@ -5,6 +5,8 @@ import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jayanth.hearit.core.common.model.HistoryStatus
+import com.jayanth.hearit.core.common.model.LockCondition
+import com.jayanth.hearit.core.common.model.ScreenCondition
 import com.jayanth.hearit.core.database.HistoryQuery
 import com.jayanth.hearit.core.database.HistoryRepository
 import com.jayanth.hearit.core.datastore.SettingsRepository
@@ -62,6 +64,8 @@ class DashboardViewModel @Inject constructor(
                         loaded = true,
                         enabledAppCount = settings.enabledApps.size,
                         audioOutput = settings.eligibility.audioOutput,
+                        screenCondition = settings.eligibility.screenCondition,
+                        lockCondition = settings.eligibility.lockCondition,
                     )
                 }
             }
@@ -143,6 +147,24 @@ class DashboardViewModel @Inject constructor(
                 AnnouncementService.ACTION_PRIORITY_ANNOUNCE_OFF
             },
         )
+    }
+
+    /** Updates the global screen condition requirement. */
+    fun onScreenConditionChanged(condition: ScreenCondition) {
+        viewModelScope.launch {
+            settingsRepository.update { current ->
+                current.copy(eligibility = current.eligibility.copy(screenCondition = condition))
+            }
+        }
+    }
+
+    /** Updates the global lock condition requirement. */
+    fun onLockConditionChanged(condition: LockCondition) {
+        viewModelScope.launch {
+            settingsRepository.update { current ->
+                current.copy(eligibility = current.eligibility.copy(lockCondition = condition))
+            }
+        }
     }
 
     /** Explicit Start (master prompt §4): the service reports back through the monitor. */

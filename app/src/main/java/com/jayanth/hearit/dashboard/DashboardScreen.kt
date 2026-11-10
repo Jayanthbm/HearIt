@@ -75,6 +75,8 @@ import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.LockOpen
+import androidx.compose.material.icons.rounded.Nightlight
 import androidx.compose.material.icons.rounded.NotificationImportant
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.NotificationsActive
@@ -88,6 +90,7 @@ import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Warning
+import androidx.compose.material.icons.rounded.WbSunny
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -151,6 +154,8 @@ import com.jayanth.hearit.applications.GlobalSettingsRoute
 import com.jayanth.hearit.applications.GlobalSettingsViewModel
 import com.jayanth.hearit.core.common.model.AudioOutputSettings
 import com.jayanth.hearit.core.common.model.HistoryStatus
+import com.jayanth.hearit.core.common.model.LockCondition
+import com.jayanth.hearit.core.common.model.ScreenCondition
 import com.jayanth.hearit.devices.DevicesRoute
 import com.jayanth.hearit.devices.DevicesViewModel
 import com.jayanth.hearit.diagnostics.DiagnosticsRoute
@@ -238,6 +243,8 @@ fun DashboardRoute(
         onTemporaryMuteClicked = viewModel::onTemporaryMuteClicked,
         onTemporaryMuteCleared = viewModel::onTemporaryMuteCleared,
         onPriorityAnnounceToggled = viewModel::onPriorityAnnounceToggled,
+        onScreenConditionChanged = viewModel::onScreenConditionChanged,
+        onLockConditionChanged = viewModel::onLockConditionChanged,
         onHistorySearch = viewModel::onHistorySearch,
         onHistoryClearAll = viewModel::onHistoryClearAll,
         appsContent = { ApplicationsRoute(viewModel = applicationsViewModel) },
@@ -269,6 +276,8 @@ fun DashboardScreen(
     onTemporaryMuteClicked: (Int) -> Unit,
     onTemporaryMuteCleared: () -> Unit,
     onPriorityAnnounceToggled: (Boolean) -> Unit,
+    onScreenConditionChanged: (ScreenCondition) -> Unit = {},
+    onLockConditionChanged: (LockCondition) -> Unit = {},
     onHistorySearch: (DashboardFilterState) -> Unit,
     onHistoryClearAll: () -> Unit,
     appsContent: @Composable () -> Unit,
@@ -339,6 +348,8 @@ fun DashboardScreen(
                             onTemporaryMuteClicked = onTemporaryMuteClicked,
                             onTemporaryMuteCleared = onTemporaryMuteCleared,
                             onPriorityAnnounceToggled = onPriorityAnnounceToggled,
+                            onScreenConditionChanged = onScreenConditionChanged,
+                            onLockConditionChanged = onLockConditionChanged,
                             onHistorySearch = onHistorySearch,
                             onHistoryClearAll = onHistoryClearAll,
                             onSelectDestination = onSelectDestination,
@@ -571,6 +582,8 @@ private fun DashboardHome(
     onTemporaryMuteClicked: (Int) -> Unit,
     onTemporaryMuteCleared: () -> Unit,
     onPriorityAnnounceToggled: (Boolean) -> Unit,
+    onScreenConditionChanged: (ScreenCondition) -> Unit = {},
+    onLockConditionChanged: (LockCondition) -> Unit = {},
     onHistorySearch: (DashboardFilterState) -> Unit,
     onHistoryClearAll: () -> Unit,
     onSelectDestination: (DashboardDestination) -> Unit,
@@ -761,7 +774,6 @@ private fun DashboardHome(
             Card(
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxHeight()
                     .graphicsLayer {
                         scaleX = priorityScale
                         scaleY = priorityScale
@@ -771,15 +783,14 @@ private fun DashboardHome(
                         interactionSource = priorityInteractionSource,
                         indication = null,
                     ) { onPriorityAnnounceToggled(!state.priorityAnnounceActive) },
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = priorityCardBg),
                 border = BorderStroke(1.dp, priorityCardBorder),
             ) {
                 Column(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 12.dp, vertical = 14.dp),
-                    verticalArrangement = Arrangement.SpaceBetween,
+                        .fillMaxWidth()
+                        .padding(horizontal = 10.dp, vertical = 10.dp),
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -787,8 +798,8 @@ private fun DashboardHome(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Surface(
-                            modifier = Modifier.size(36.dp),
-                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.size(28.dp),
+                            shape = RoundedCornerShape(8.dp),
                             color = priorityIconBg,
                         ) {
                             Box(contentAlignment = Alignment.Center) {
@@ -796,7 +807,7 @@ private fun DashboardHome(
                                     imageVector = Icons.Rounded.Star,
                                     contentDescription = null,
                                     tint = priorityIconTint,
-                                    modifier = Modifier.size(18.dp),
+                                    modifier = Modifier.size(16.dp),
                                 )
                             }
                         }
@@ -810,35 +821,32 @@ private fun DashboardHome(
                             ),
                         )
                     }
-                    Column {
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Text(
-                            text = "Priority Announce",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontSize = 12.5.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            lineHeight = 16.sp,
-                            color = if (priorityEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = when {
-                                !isRunning -> "Requires service"
-                                muteActive && state.priorityAnnounceActive -> "Muted · Resumes on unmute"
-                                muteActive -> "Muted by timer"
-                                state.priorityAnnounceActive -> "Bypassing lock rules"
-                                else -> "Normal rules active"
-                            },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (priorityEnabled) 1f else 0.5f),
-                            fontSize = 11.sp,
-                            lineHeight = 15.sp,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Priority Announce",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (priorityEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Spacer(modifier = Modifier.height(1.dp))
+                    Text(
+                        text = when {
+                            !isRunning -> "Requires service"
+                            muteActive && state.priorityAnnounceActive -> "Muted · Resumes on unmute"
+                            muteActive -> "Muted by timer"
+                            state.priorityAnnounceActive -> "Bypassing lock rules"
+                            else -> "Normal rules active"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (priorityEnabled) 1f else 0.5f),
+                        fontSize = 10.5.sp,
+                        lineHeight = 13.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
             }
 
@@ -890,7 +898,6 @@ private fun DashboardHome(
             Card(
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxHeight()
                     .graphicsLayer {
                         scaleX = muteScale
                         scaleY = muteScale
@@ -900,15 +907,14 @@ private fun DashboardHome(
                         interactionSource = muteInteractionSource,
                         indication = null,
                     ) { showMuteDurationDialog = true },
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = muteCardBg),
                 border = BorderStroke(1.dp, muteCardBorder),
             ) {
                 Column(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 12.dp, vertical = 14.dp),
-                    verticalArrangement = Arrangement.SpaceBetween,
+                        .fillMaxWidth()
+                        .padding(horizontal = 10.dp, vertical = 10.dp),
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -916,8 +922,8 @@ private fun DashboardHome(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Surface(
-                            modifier = Modifier.size(36.dp),
-                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.size(28.dp),
+                            shape = RoundedCornerShape(8.dp),
                             color = muteIconBg,
                         ) {
                             Box(contentAlignment = Alignment.Center) {
@@ -925,7 +931,7 @@ private fun DashboardHome(
                                     imageVector = Icons.AutoMirrored.Rounded.VolumeOff,
                                     contentDescription = null,
                                     tint = muteIconTint,
-                                    modifier = Modifier.size(18.dp),
+                                    modifier = Modifier.size(16.dp),
                                 )
                             }
                         }
@@ -945,46 +951,134 @@ private fun DashboardHome(
                             ),
                         )
                     }
-                    Column {
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Text(
-                            text = "Temporary Mute",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontSize = 12.5.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            lineHeight = 16.sp,
-                            color = if (isRunning) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        val muteSubtitle = when {
-                            !isRunning -> "Requires service"
-                            muteActive -> when (state.temporaryMuteMinutes) {
-                                15 -> "Muted · 15m timer"
-                                30 -> "Muted · 30m timer"
-                                60 -> "Muted · 1h timer"
-                                120 -> "Muted · 2h timer"
-                                -1 -> "Muted until turned off"
-                                else -> "Muted until unmuted"
-                            }
-                            else -> "Normal audio active"
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Temporary Mute",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (isRunning) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Spacer(modifier = Modifier.height(1.dp))
+                    val muteSubtitle = when {
+                        !isRunning -> "Requires service"
+                        muteActive -> when (state.temporaryMuteMinutes) {
+                            15 -> "Muted · 15m timer"
+                            30 -> "Muted · 30m timer"
+                            60 -> "Muted · 1h timer"
+                            120 -> "Muted · 2h timer"
+                            -1 -> "Muted until turned off"
+                            else -> "Muted until unmuted"
                         }
-                        Text(
-                            text = muteSubtitle,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = when {
-                                !isRunning -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                                muteActive -> MaterialTheme.colorScheme.error
-                                else -> MaterialTheme.colorScheme.onSurfaceVariant
-                            },
-                            fontSize = 11.sp,
-                            lineHeight = 15.sp,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                        )
+                        else -> "Normal audio active"
                     }
+                    Text(
+                        text = muteSubtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = when {
+                            !isRunning -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                            muteActive -> MaterialTheme.colorScheme.error
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        fontSize = 10.5.sp,
+                        lineHeight = 13.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
+            }
+        }
+
+        // Quick Action Section
+        Text(
+            text = "Quick Action",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onBackground,
+        )
+
+        val quickActionsEnabled = !state.priorityAnnounceActive
+        val isScreenOffActive = state.screenCondition == ScreenCondition.OFF || state.screenCondition == ScreenCondition.BOTH
+        val isScreenOnActive = state.screenCondition == ScreenCondition.ON || state.screenCondition == ScreenCondition.BOTH
+        val isLockedActive = state.lockCondition == LockCondition.LOCKED || state.lockCondition == LockCondition.BOTH
+        val isUnlockedActive = state.lockCondition == LockCondition.UNLOCKED || state.lockCondition == LockCondition.BOTH
+
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                QuickActionCard(
+                    title = "Screen Off",
+                    icon = Icons.Rounded.Nightlight,
+                    isActive = isScreenOffActive,
+                    enabled = quickActionsEnabled,
+                    onClick = {
+                        val nextCondition = when (state.screenCondition) {
+                            ScreenCondition.OFF -> ScreenCondition.BOTH
+                            ScreenCondition.ON -> ScreenCondition.OFF
+                            ScreenCondition.BOTH -> ScreenCondition.ON
+                        }
+                        onScreenConditionChanged(nextCondition)
+                    },
+                    modifier = Modifier.weight(1f),
+                )
+                QuickActionCard(
+                    title = "Screen On",
+                    icon = Icons.Rounded.WbSunny,
+                    isActive = isScreenOnActive,
+                    enabled = quickActionsEnabled,
+                    onClick = {
+                        val nextCondition = when (state.screenCondition) {
+                            ScreenCondition.ON -> ScreenCondition.BOTH
+                            ScreenCondition.OFF -> ScreenCondition.ON
+                            ScreenCondition.BOTH -> ScreenCondition.OFF
+                        }
+                        onScreenConditionChanged(nextCondition)
+                    },
+                    modifier = Modifier.weight(1f),
+                )
+                QuickActionCard(
+                    title = "Locked",
+                    icon = Icons.Rounded.Lock,
+                    isActive = isLockedActive,
+                    enabled = quickActionsEnabled,
+                    onClick = {
+                        val nextCondition = when (state.lockCondition) {
+                            LockCondition.LOCKED -> LockCondition.BOTH
+                            LockCondition.UNLOCKED -> LockCondition.LOCKED
+                            LockCondition.BOTH -> LockCondition.UNLOCKED
+                        }
+                        onLockConditionChanged(nextCondition)
+                    },
+                    modifier = Modifier.weight(1f),
+                )
+                QuickActionCard(
+                    title = "Unlocked",
+                    icon = Icons.Rounded.LockOpen,
+                    isActive = isUnlockedActive,
+                    enabled = quickActionsEnabled,
+                    onClick = {
+                        val nextCondition = when (state.lockCondition) {
+                            LockCondition.UNLOCKED -> LockCondition.BOTH
+                            LockCondition.LOCKED -> LockCondition.UNLOCKED
+                            LockCondition.BOTH -> LockCondition.LOCKED
+                        }
+                        onLockConditionChanged(nextCondition)
+                    },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            if (!quickActionsEnabled) {
+                Text(
+                    text = "Bypassed while Priority Announce is active",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    modifier = Modifier.padding(start = 4.dp),
+                )
             }
         }
 
@@ -1172,14 +1266,14 @@ private fun ActivityStatCard(
                 indication = null,
                 onClick = onClick,
             ),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = containerColor),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(14.dp),
+                .padding(horizontal = 10.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.SpaceBetween,
         ) {
             Row(
@@ -1188,16 +1282,16 @@ private fun ActivityStatCard(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Surface(
-                    shape = RoundedCornerShape(10.dp),
+                    shape = RoundedCornerShape(8.dp),
                     color = accentColor.copy(alpha = 0.15f),
-                    modifier = Modifier.size(34.dp),
+                    modifier = Modifier.size(28.dp),
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = icon,
                             contentDescription = null,
                             tint = accentColor,
-                            modifier = Modifier.size(18.dp),
+                            modifier = Modifier.size(16.dp),
                         )
                     }
                 }
@@ -1205,22 +1299,23 @@ private fun ActivityStatCard(
                     imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                    modifier = Modifier.size(16.dp),
+                    modifier = Modifier.size(14.dp),
                 )
             }
             Column {
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = count.toString(),
-                    style = MaterialTheme.typography.headlineMedium,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
-                Spacer(modifier = Modifier.height(2.dp))
+                Spacer(modifier = Modifier.height(1.dp))
                 Text(
                     text = label,
                     style = MaterialTheme.typography.titleSmall,
-                    fontSize = 13.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
@@ -1230,12 +1325,115 @@ private fun ActivityStatCard(
                     text = caption,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 11.sp,
-                    lineHeight = 14.sp,
-                    maxLines = 2,
+                    fontSize = 10.sp,
+                    lineHeight = 13.sp,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun QuickActionCard(
+    title: String,
+    icon: ImageVector,
+    isActive: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed && enabled) 0.95f else 1f,
+        animationSpec = spring(stiffness = Spring.StiffnessMedium, dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "quickActionScale",
+    )
+
+    val containerBg by animateColorAsState(
+        targetValue = when {
+            !enabled -> MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.4f)
+            isActive -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+            else -> MaterialTheme.colorScheme.surfaceContainer
+        },
+        animationSpec = spring(stiffness = Spring.StiffnessLow),
+        label = "quickActionBg",
+    )
+
+    val borderColor by animateColorAsState(
+        targetValue = when {
+            !enabled -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)
+            isActive -> MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+            else -> MaterialTheme.colorScheme.outlineVariant
+        },
+        animationSpec = spring(stiffness = Spring.StiffnessLow),
+        label = "quickActionBorder",
+    )
+
+    val contentColor by animateColorAsState(
+        targetValue = when {
+            !enabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+            isActive -> MaterialTheme.colorScheme.primary
+            else -> MaterialTheme.colorScheme.onSurfaceVariant
+        },
+        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        label = "quickActionContentColor",
+    )
+
+    Card(
+        modifier = modifier
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .clickable(
+                enabled = enabled,
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick,
+            ),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = containerBg),
+        border = BorderStroke(1.dp, borderColor),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 10.dp, horizontal = 4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Surface(
+                modifier = Modifier.size(30.dp),
+                shape = RoundedCornerShape(8.dp),
+                color = when {
+                    !enabled -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                    isActive -> MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                    else -> MaterialTheme.colorScheme.surfaceVariant
+                },
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = contentColor,
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = if (isActive && enabled) FontWeight.Bold else FontWeight.Medium,
+                fontSize = 11.sp,
+                color = contentColor,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }
