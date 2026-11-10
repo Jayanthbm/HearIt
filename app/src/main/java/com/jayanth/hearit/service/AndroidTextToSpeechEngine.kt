@@ -1,6 +1,8 @@
 package com.jayanth.hearit.service
 
 import android.content.Context
+import android.media.AudioManager
+import android.media.ToneGenerator
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -113,13 +115,33 @@ class AndroidTextToSpeechEngine(context: Context) : TextToSpeechEngine {
             return true
         }
 
-        tts.setSpeechRate(settings.speechRate)
+        val totalWords = announcement.sections.sumOf {
+            it.text.split(Regex("\\s+")).count { word -> word.isNotBlank() }
+        }
+        val effectiveRate = if (totalWords > 30) {
+            (settings.speechRate * 1.25f).coerceAtMost(2.5f)
+        } else {
+            settings.speechRate
+        }
+        tts.setSpeechRate(effectiveRate)
         tts.setPitch(settings.pitch)
         applyVoice(tts, settings.voiceId)
 
+        // Soft Pre-Speech Earcon Chime (Idea 1)
+        try {
+            ToneGenerator(AudioManager.STREAM_NOTIFICATION, 45)
+                .startTone(ToneGenerator.TONE_PROP_BEEP2, 120)
+        } catch (_: Throwable) {}
+
         val newRequest = Request(announcement, listener, token = ++sessionToken, settings = settings)
         request = newRequest
-        speakCurrentSection(tts, newRequest)
+
+        // Post-chime audio delay (300ms anti-collision with system notification tone, Idea 38)
+        mainHandler.postDelayed({
+            if (request === newRequest) {
+                speakCurrentSection(tts, newRequest)
+            }
+        }, 300L)
         return true
     }
 
@@ -145,6 +167,7 @@ class AndroidTextToSpeechEngine(context: Context) : TextToSpeechEngine {
         val utteranceId = utteranceId(active, active.sectionIndex)
         val params = Bundle().apply {
             putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, active.settings.volumeLevel)
+            putFloat(TextToSpeech.Engine.KEY_PARAM_PAN, 0.0f) // Mono fold-down for single-earbud users (Idea 49)
         }
         val result = tts.speak(section.text, TextToSpeech.QUEUE_FLUSH, params, utteranceId)
         if (result != TextToSpeech.SUCCESS) {

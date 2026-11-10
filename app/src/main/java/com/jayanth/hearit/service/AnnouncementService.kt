@@ -140,6 +140,39 @@ class AnnouncementService : Service(), NotificationSink {
 
     /** Any output going away may be the one speech is routed to: stop and let rules decide. */
     private val audioDeviceCallback = object : AudioDeviceCallback() {
+        override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>?) {
+            if (!addedDevices.isNullOrEmpty()) {
+                val hasHeadphones = addedDevices.any {
+                    it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
+                        it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO ||
+                        it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET ||
+                        it.type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES
+                }
+                if (hasHeadphones && pipeline.pendingCount > 0) {
+                    val count = pipeline.pendingCount
+                    val text = if (count == 1) "You have 1 pending notification." else "You have $count pending notifications."
+                    val built = BuiltAnnouncement(
+                        listOf(
+                            com.jayanth.hearit.core.tts.AnnouncementSection(
+                                com.jayanth.hearit.core.tts.SectionKind.INTRODUCTION,
+                                "HearIt connected.",
+                            ),
+                            com.jayanth.hearit.core.tts.AnnouncementSection(
+                                com.jayanth.hearit.core.tts.SectionKind.MESSAGE,
+                                text,
+                            ),
+                        ),
+                        pauseBetweenSectionsMillis = 200L,
+                    )
+                    engine.speak(built, settingsSource.speech(), object : UtteranceListener {
+                        override fun onStart(announcement: BuiltAnnouncement) {}
+                        override fun onComplete(announcement: BuiltAnnouncement) {}
+                        override fun onError(announcement: BuiltAnnouncement, error: TtsError) {}
+                    })
+                }
+            }
+        }
+
         override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>?) {
             if (!removedDevices.isNullOrEmpty()) {
                 engine.stop()
@@ -414,8 +447,11 @@ class AnnouncementService : Service(), NotificationSink {
     /** Idempotent: releasing focus twice is a no-op, so every exit path can call it. */
     private fun abandonAudioFocus() {
         val request = focusRequest ?: return
-        audioManager.abandonAudioFocusRequest(request)
         focusRequest = null
+        // Smooth 500ms return fade back to full volume (Idea 46)
+        handler.postDelayed({
+            audioManager.abandonAudioFocusRequest(request)
+        }, 500L)
     }
 
     private fun tickOnce() {
