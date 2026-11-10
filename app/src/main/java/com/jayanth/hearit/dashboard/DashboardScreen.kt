@@ -1087,8 +1087,10 @@ private fun DashboardHome(
             }
         }
 
+        val isTestSpeechVisible = !state.testSpeechDismissed && state.totalAnnouncementsCount < 5
+
         // Test Voice Announcement Bar — hidden once 5 announcements have occurred or manually dismissed
-        if (!state.testSpeechDismissed && state.totalAnnouncementsCount < 5) {
+        if (isTestSpeechVisible) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
@@ -1177,7 +1179,8 @@ private fun DashboardHome(
             }
         }
 
-        Spacer(modifier = Modifier.height(100.dp))
+        // Generous bottom spacer so content can always be scrolled comfortably past the bottom navigation bar
+        Spacer(modifier = Modifier.height(if (isTestSpeechVisible) 110.dp else 180.dp))
     }
 
     if (showMuteDurationDialog) {
