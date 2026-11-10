@@ -71,6 +71,7 @@ import androidx.compose.material.icons.rounded.Backup
 import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.Cable
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Home
@@ -240,6 +241,7 @@ fun DashboardRoute(
         onStartService = viewModel::onStartService,
         onStopService = viewModel::onStopService,
         onTestAnnouncement = viewModel::onTestAnnouncement,
+        onDismissTestSpeech = viewModel::onDismissTestSpeech,
         onTemporaryMuteClicked = viewModel::onTemporaryMuteClicked,
         onTemporaryMuteCleared = viewModel::onTemporaryMuteCleared,
         onPriorityAnnounceToggled = viewModel::onPriorityAnnounceToggled,
@@ -273,6 +275,7 @@ fun DashboardScreen(
     onStartService: () -> Unit,
     onStopService: () -> Unit,
     onTestAnnouncement: (String) -> Unit,
+    onDismissTestSpeech: () -> Unit = {},
     onTemporaryMuteClicked: (Int) -> Unit,
     onTemporaryMuteCleared: () -> Unit,
     onPriorityAnnounceToggled: (Boolean) -> Unit,
@@ -345,6 +348,7 @@ fun DashboardScreen(
                             onStartService = onStartService,
                             onStopService = onStopService,
                             onTestAnnouncement = onTestAnnouncement,
+                            onDismissTestSpeech = onDismissTestSpeech,
                             onTemporaryMuteClicked = onTemporaryMuteClicked,
                             onTemporaryMuteCleared = onTemporaryMuteCleared,
                             onPriorityAnnounceToggled = onPriorityAnnounceToggled,
@@ -579,6 +583,7 @@ private fun DashboardHome(
     onStartService: () -> Unit,
     onStopService: () -> Unit,
     onTestAnnouncement: (String) -> Unit,
+    onDismissTestSpeech: () -> Unit = {},
     onTemporaryMuteClicked: (Int) -> Unit,
     onTemporaryMuteCleared: () -> Unit,
     onPriorityAnnounceToggled: (Boolean) -> Unit,
@@ -1082,8 +1087,8 @@ private fun DashboardHome(
             }
         }
 
-        // Test Voice Announcement Bar — hidden once 10 announcements have occurred
-        if (state.totalAnnouncementsCount < 10) {
+        // Test Voice Announcement Bar — hidden once 5 announcements have occurred or manually dismissed
+        if (!state.testSpeechDismissed && state.totalAnnouncementsCount < 5) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
@@ -1092,59 +1097,81 @@ private fun DashboardHome(
                 ),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Surface(
-                            modifier = Modifier.size(36.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.primaryContainer,
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 16.dp, end = 42.dp, top = 12.dp, bottom = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f),
                         ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Rounded.PlayArrow,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    modifier = Modifier.size(20.dp),
+                            Surface(
+                                modifier = Modifier.size(36.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.PlayArrow,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier.size(20.dp),
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Test Speech",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                Text(
+                                    text = if (state.testAnnouncement == TestAnnouncementState.SPEAKING) "Speaking sample…" else "Play test phrase",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
                         }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text(
-                                text = "Test Speech",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                            Text(
-                                text = if (state.testAnnouncement == TestAnnouncementState.SPEAKING) "Speaking sample…" else "Play test phrase",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        Button(
+                            onClick = { onTestAnnouncement(testAnnouncementText) },
+                            enabled = state.testAnnouncement != TestAnnouncementState.SPEAKING,
+                            shape = RoundedCornerShape(14.dp),
+                            modifier = Modifier.height(38.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary,
+                            ),
+                        ) {
+                            if (state.testAnnouncement == TestAnnouncementState.SPEAKING) {
+                                CircularProgressIndicator(modifier = Modifier.size(16.dp), color = MaterialTheme.colorScheme.onPrimary)
+                            } else {
+                                Text("Play", fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
 
-                    Button(
-                        onClick = { onTestAnnouncement(testAnnouncementText) },
-                        enabled = state.testAnnouncement != TestAnnouncementState.SPEAKING,
-                        shape = RoundedCornerShape(14.dp),
-                        modifier = Modifier.height(40.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary,
-                        ),
+                    IconButton(
+                        onClick = onDismissTestSpeech,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(4.dp)
+                            .size(32.dp),
                     ) {
-                        if (state.testAnnouncement == TestAnnouncementState.SPEAKING) {
-                            CircularProgressIndicator(modifier = Modifier.size(16.dp), color = MaterialTheme.colorScheme.onPrimary)
-                        } else {
-                            Text("Play", fontWeight = FontWeight.Bold)
-                        }
+                        Icon(
+                            imageVector = Icons.Rounded.Close,
+                            contentDescription = "Dismiss test announcement",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            modifier = Modifier.size(16.dp),
+                        )
                     }
                 }
             }
@@ -1273,60 +1300,67 @@ private fun ActivityStatCard(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 10.dp, vertical = 10.dp),
+                .padding(12.dp),
             verticalArrangement = Arrangement.SpaceBetween,
         ) {
+            // Top Row: Icon vertically centered on left, Number centered in middle, small subtle arrow
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Surface(
-                    shape = RoundedCornerShape(8.dp),
+                    shape = RoundedCornerShape(10.dp),
                     color = accentColor.copy(alpha = 0.15f),
-                    modifier = Modifier.size(28.dp),
+                    modifier = Modifier.size(36.dp),
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = icon,
                             contentDescription = null,
                             tint = accentColor,
-                            modifier = Modifier.size(16.dp),
+                            modifier = Modifier.size(20.dp),
                         )
                     }
+                }
+                Box(
+                    modifier = Modifier.weight(1f),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = count.toString(),
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
                 }
                 Icon(
                     imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                    modifier = Modifier.size(14.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                    modifier = Modifier.size(16.dp),
                 )
             }
-            Column {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = count.toString(),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Spacer(modifier = Modifier.height(1.dp))
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Subtitle spanning from left to right
+            Column(modifier = Modifier.fillMaxWidth()) {
                 Text(
                     text = label,
                     style = MaterialTheme.typography.titleSmall,
-                    fontSize = 12.sp,
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                Spacer(modifier = Modifier.height(1.dp))
                 Text(
                     text = caption,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 10.sp,
-                    lineHeight = 13.sp,
+                    fontSize = 11.sp,
+                    lineHeight = 14.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -1472,7 +1506,8 @@ private fun HeroServiceCard(
                 Surface(
                     modifier = Modifier.clickable { onSelectDestination(DashboardDestination.APPS) },
                     shape = RoundedCornerShape(10.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),

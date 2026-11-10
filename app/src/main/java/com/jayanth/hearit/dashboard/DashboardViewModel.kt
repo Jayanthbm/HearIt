@@ -113,6 +113,7 @@ class DashboardViewModel @Inject constructor(
                 temporaryMuteActive = sessionStore.isTemporaryMuteActive,
                 temporaryMuteMinutes = if (sessionStore.isTemporaryMuteActive) it.temporaryMuteMinutes else null,
                 outputLabel = audioOutputs.connectedOutputs().firstOrNull()?.label,
+                testSpeechDismissed = sessionStore.isTestSpeechDismissed,
             )
         }
         loadRecentHistory()
@@ -221,6 +222,12 @@ class DashboardViewModel @Inject constructor(
         if (!accepted) {
             _state.update { it.copy(testAnnouncement = TestAnnouncementState.FAILED) }
         }
+    }
+
+    /** Permanently dismisses the home test speech prompt. */
+    fun onDismissTestSpeech() {
+        sessionStore.isTestSpeechDismissed = true
+        _state.update { it.copy(testSpeechDismissed = true) }
     }
 
     /**

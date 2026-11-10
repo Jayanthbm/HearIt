@@ -102,6 +102,7 @@ data class DashboardUiState(
     val screenCondition: ScreenCondition = ScreenCondition.OFF,
     val lockCondition: LockCondition = LockCondition.LOCKED,
     val testAnnouncement: TestAnnouncementState = TestAnnouncementState.IDLE,
+    val testSpeechDismissed: Boolean = false,
 ) {
 
     /** Master prompt §13 "Normal announcements ON/OFF": on exactly while the service runs. */

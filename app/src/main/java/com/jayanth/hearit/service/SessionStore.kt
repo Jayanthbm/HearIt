@@ -36,9 +36,17 @@ class SessionStore(context: Context) {
             prefs.edit().putBoolean(KEY_TEMPORARY_MUTE, value).apply()
         }
 
+    /** True if user manually dismissed the home test speech prompt. */
+    var isTestSpeechDismissed: Boolean
+        get() = prefs.getBoolean(KEY_TEST_SPEECH_DISMISSED, false)
+        set(value) {
+            prefs.edit().putBoolean(KEY_TEST_SPEECH_DISMISSED, value).apply()
+        }
+
     private companion object {
         const val FILE_NAME = "hearit_session"
         const val KEY_STARTED = "started"
         const val KEY_TEMPORARY_MUTE = "temporary_mute"
+        const val KEY_TEST_SPEECH_DISMISSED = "test_speech_dismissed"
     }
 }
