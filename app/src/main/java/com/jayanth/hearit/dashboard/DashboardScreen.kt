@@ -1478,7 +1478,7 @@ private fun HeroServiceCard(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         ),
@@ -1487,7 +1487,7 @@ private fun HeroServiceCard(
             if (isRunning) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant,
         ),
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
             // Live Status Row with animated pulsing dot
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1519,7 +1519,7 @@ private fun HeroServiceCard(
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = if (isSpeaking) "Speaking Announcement…" else if (isRunning) "Active & Listening" else "Service Inactive",
-                        style = MaterialTheme.typography.labelMedium,
+                        style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = if (isRunning) runningGreenText else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -1541,17 +1541,7 @@ private fun HeroServiceCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Hero title
-            Text(
-                text = if (isRunning) "HearIt is running" else "HearIt is stopped",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             // Apps count shortcut badge
             Surface(
