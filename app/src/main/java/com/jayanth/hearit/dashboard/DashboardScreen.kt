@@ -1017,8 +1017,8 @@ private fun DashboardHome(
                     enabled = quickActionsEnabled,
                     onClick = {
                         val nextCondition = when (state.screenCondition) {
-                            ScreenCondition.OFF -> ScreenCondition.BOTH
-                            ScreenCondition.ON -> ScreenCondition.OFF
+                            ScreenCondition.OFF -> ScreenCondition.ON
+                            ScreenCondition.ON -> ScreenCondition.BOTH
                             ScreenCondition.BOTH -> ScreenCondition.ON
                         }
                         onScreenConditionChanged(nextCondition)
@@ -1032,8 +1032,8 @@ private fun DashboardHome(
                     enabled = quickActionsEnabled,
                     onClick = {
                         val nextCondition = when (state.screenCondition) {
-                            ScreenCondition.ON -> ScreenCondition.BOTH
-                            ScreenCondition.OFF -> ScreenCondition.ON
+                            ScreenCondition.ON -> ScreenCondition.OFF
+                            ScreenCondition.OFF -> ScreenCondition.BOTH
                             ScreenCondition.BOTH -> ScreenCondition.OFF
                         }
                         onScreenConditionChanged(nextCondition)
@@ -1047,8 +1047,8 @@ private fun DashboardHome(
                     enabled = quickActionsEnabled,
                     onClick = {
                         val nextCondition = when (state.lockCondition) {
-                            LockCondition.LOCKED -> LockCondition.BOTH
-                            LockCondition.UNLOCKED -> LockCondition.LOCKED
+                            LockCondition.LOCKED -> LockCondition.UNLOCKED
+                            LockCondition.UNLOCKED -> LockCondition.BOTH
                             LockCondition.BOTH -> LockCondition.UNLOCKED
                         }
                         onLockConditionChanged(nextCondition)
@@ -1062,8 +1062,8 @@ private fun DashboardHome(
                     enabled = quickActionsEnabled,
                     onClick = {
                         val nextCondition = when (state.lockCondition) {
-                            LockCondition.UNLOCKED -> LockCondition.BOTH
-                            LockCondition.LOCKED -> LockCondition.UNLOCKED
+                            LockCondition.UNLOCKED -> LockCondition.LOCKED
+                            LockCondition.LOCKED -> LockCondition.BOTH
                             LockCondition.BOTH -> LockCondition.LOCKED
                         }
                         onLockConditionChanged(nextCondition)
