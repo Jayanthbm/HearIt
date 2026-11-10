@@ -52,6 +52,7 @@ import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material.icons.rounded.WbSunny
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
@@ -251,6 +252,12 @@ fun GlobalSettingsScreen(
             privacy = state.privacy,
             activeCount = activeShieldsCount,
             onPrivacyChanged = onPrivacyChanged,
+        )
+
+        // Section 3: Global Keyword Filtering UI
+        GlobalKeywordFilterCard(
+            keywordFilter = state.keywordFilter,
+            onKeywordFilterChanged = onKeywordFilterChanged,
         )
 
         // Reset to Defaults Button
@@ -954,3 +961,158 @@ private fun ModernSwitchRow(
 /** Splits comma-separated strings cleanly. */
 private fun splitList(raw: String): List<String> =
     raw.split(',').map { it.trim() }.filter { it.isNotEmpty() }
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun GlobalKeywordFilterCard(
+    keywordFilter: KeywordFilterSettings,
+    onKeywordFilterChanged: (KeywordFilterSettings) -> Unit,
+) {
+    var newKeywordText by remember { mutableStateOf("") }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            // Header with Switch
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Surface(
+                        modifier = Modifier.size(40.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Rounded.FilterList,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                    }
+                    Column {
+                        Text(
+                            text = "Global Keyword Filters",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            text = "Silence alerts containing these words",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                Switch(
+                    checked = keywordFilter.enabled,
+                    onCheckedChange = { isChecked ->
+                        onKeywordFilterChanged(keywordFilter.copy(enabled = isChecked))
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                        checkedTrackColor = MaterialTheme.colorScheme.primary,
+                    ),
+                )
+            }
+
+            if (keywordFilter.enabled) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                // Mode Selector
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                    listOf(
+                        KeywordMatchMode.WHOLE_WORD to "Word",
+                        KeywordMatchMode.EXACT to "Exact",
+                        KeywordMatchMode.PHRASE to "Phrase",
+                    ).forEachIndexed { index, (mode, label) ->
+                        SegmentedButton(
+                            selected = keywordFilter.mode == mode,
+                            onClick = { onKeywordFilterChanged(keywordFilter.copy(mode = mode)) },
+                            shape = SegmentedButtonDefaults.itemShape(index = index, count = 3),
+                        ) {
+                            Text(label, style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
+
+                // Add Keyword Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    OutlinedTextField(
+                        value = newKeywordText,
+                        onValueChange = { newKeywordText = it },
+                        modifier = Modifier.weight(1f),
+                        placeholder = { Text("e.g. promo, sale, otp", fontSize = 13.sp) },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                    )
+                    Button(
+                        onClick = {
+                            val trimmed = newKeywordText.trim()
+                            if (trimmed.isNotEmpty() && trimmed !in keywordFilter.keywords) {
+                                onKeywordFilterChanged(
+                                    keywordFilter.copy(keywords = keywordFilter.keywords + trimmed),
+                                )
+                                newKeywordText = ""
+                            }
+                        },
+                        enabled = newKeywordText.isNotBlank(),
+                        shape = RoundedCornerShape(12.dp),
+                    ) {
+                        Text("Add")
+                    }
+                }
+
+                // Keyword chips
+                if (keywordFilter.keywords.isNotEmpty()) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        keywordFilter.keywords.forEach { kw ->
+                            InputChip(
+                                selected = true,
+                                onClick = {},
+                                label = { Text(kw) },
+                                trailingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Close,
+                                        contentDescription = "Remove",
+                                        modifier = Modifier
+                                            .size(16.dp)
+                                            .clickable {
+                                                onKeywordFilterChanged(
+                                                    keywordFilter.copy(keywords = keywordFilter.keywords - kw),
+                                                )
+                                            },
+                                    )
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

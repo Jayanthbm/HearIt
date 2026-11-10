@@ -39,18 +39,26 @@ class RuntimeStateReader(
     private val powerManager = context.getSystemService(PowerManager::class.java)
     private val keyguardManager = context.getSystemService(KeyguardManager::class.java)
     private val notificationManager = context.getSystemService(NotificationManager::class.java)
+    private val batteryManager = context.getSystemService(android.os.BatteryManager::class.java)
 
     /** Snapshot of the current device state for one rules evaluation. */
-    fun read(priorityAnnounceActive: Boolean = false): RuntimeState = RuntimeState(
-        screenOn = powerManager?.isInteractive ?: true,
-        isLocked = keyguardManager?.isKeyguardLocked ?: false,
-        temporaryMuteActive = sessionStore.isTemporaryMuteActive,
-        priorityAnnounceActive = priorityAnnounceActive,
-        isCallActive = audioManager.mode == AudioManager.MODE_IN_CALL ||
-            audioManager.mode == AudioManager.MODE_IN_COMMUNICATION,
-        isDndActive = (notificationManager?.currentInterruptionFilter ?: DND_OFF) != DND_OFF,
-        activeOutput = readActiveOutput(),
-    )
+    fun read(priorityAnnounceActive: Boolean = false): RuntimeState {
+        val capacity = batteryManager?.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: 100
+        val isPowerSave = powerManager?.isPowerSaveMode ?: false
+        val isLowBattery = (capacity in 1..15) || isPowerSave
+
+        return RuntimeState(
+            screenOn = powerManager?.isInteractive ?: true,
+            isLocked = keyguardManager?.isKeyguardLocked ?: false,
+            temporaryMuteActive = sessionStore.isTemporaryMuteActive,
+            priorityAnnounceActive = priorityAnnounceActive,
+            isCallActive = audioManager.mode == AudioManager.MODE_IN_CALL ||
+                audioManager.mode == AudioManager.MODE_IN_COMMUNICATION,
+            isDndActive = (notificationManager?.currentInterruptionFilter ?: DND_OFF) != DND_OFF,
+            activeOutput = readActiveOutput(),
+            isBatteryLowOrSaver = isLowBattery,
+        )
+    }
 
     /** Best connected output, in preference order; null when nothing is observed. */
     private fun readActiveOutput(): AudioOutput? {

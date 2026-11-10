@@ -37,4 +37,6 @@ data class RuntimeState(
     val isCallActive: Boolean,
     val isDndActive: Boolean,
     val activeOutput: AudioOutput?,
+    val isBatteryLowOrSaver: Boolean = false,
+    val isProximityCovered: Boolean = true,
 )

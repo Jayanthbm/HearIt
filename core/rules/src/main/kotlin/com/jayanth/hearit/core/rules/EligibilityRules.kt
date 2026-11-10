@@ -59,9 +59,17 @@ class EligibilityRules {
             return EligibilityDecision.Skip(SkipReason.APP_DISABLED)
         }
 
+        // Critical Breakthrough Check (Idea 21): Emergency words break through temporary mute & DND
+        val isCriticalBreakthrough = isEmergencyBreakthrough(snapshot.messageText)
+
+        // Low Battery Auto-Mute (Idea 19)
+        if (state.isBatteryLowOrSaver && !state.priorityAnnounceActive && !isCriticalBreakthrough) {
+            return EligibilityDecision.Skip(SkipReason.MUTED)
+        }
+
         // 2. Temporary mute is a global override and also applies in Priority Announce mode
         //    (master prompt §11, ADR-006).
-        if (state.temporaryMuteActive) {
+        if (state.temporaryMuteActive && !isCriticalBreakthrough) {
             return EligibilityDecision.Skip(SkipReason.MUTED)
         }
 
@@ -77,7 +85,7 @@ class EligibilityRules {
 
         // 4. DND — respected by default, per-app override may lift it (master prompt §6).
         //    Reads only the device state; channel silence never reaches this rule (ADR-017).
-        if (state.isDndActive && settings.eligibility.respectDnd) {
+        if (state.isDndActive && settings.eligibility.respectDnd && !isCriticalBreakthrough) {
             return EligibilityDecision.Skip(SkipReason.DND)
         }
 
@@ -201,5 +209,11 @@ class EligibilityRules {
         }
 
         return null
+    }
+
+    private fun isEmergencyBreakthrough(text: String?): Boolean {
+        if (text.isNullOrBlank()) return false
+        val lower = text.lowercase()
+        return lower.contains("emergency") || lower.contains("urgent") || lower.contains("icu") || lower.contains("hospital")
     }
 }

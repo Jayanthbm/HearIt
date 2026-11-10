@@ -593,7 +593,24 @@ private fun ConnectedDeviceCard(
             }
 
             if (row.isBluetooth && row.canToggle) {
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                IconButton(
+                    onClick = {
+                        try {
+                            android.media.ToneGenerator(android.media.AudioManager.STREAM_MUSIC, 70)
+                                .startTone(android.media.ToneGenerator.TONE_PROP_BEEP2, 250)
+                        } catch (_: Throwable) {}
+                    },
+                    modifier = Modifier.size(36.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.VolumeUp,
+                        contentDescription = "Test Audio on this device",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+                Spacer(modifier = Modifier.width(4.dp))
                 Switch(
                     checked = row.allowed,
                     enabled = bluetoothEnabled,
