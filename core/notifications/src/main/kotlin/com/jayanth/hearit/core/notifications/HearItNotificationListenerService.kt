@@ -1,6 +1,7 @@
 package com.jayanth.hearit.core.notifications
 
 import android.content.ComponentName
+import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Handler
 import android.os.Looper
@@ -44,18 +45,21 @@ class HearItNotificationListenerService : NotificationListenerService() {
 
     override fun onListenerConnected() {
         super.onListenerConnected()
+        activeInstance = this
         handler.removeCallbacks(rebindAttempt)
         HearItLogger.info(LogCategory.NOTIFICATION, "NotificationListener connected")
     }
 
     override fun onListenerDisconnected() {
         super.onListenerDisconnected()
+        if (activeInstance === this) activeInstance = null
         handler.removeCallbacks(rebindAttempt)
         handler.postDelayed(rebindAttempt, REBIND_DELAY_MILLIS)
         HearItLogger.warn(LogCategory.NOTIFICATION, "NotificationListener disconnected; rebind scheduled")
     }
 
     override fun onDestroy() {
+        if (activeInstance === this) activeInstance = null
         handler.removeCallbacks(rebindAttempt)
         super.onDestroy()
         HearItLogger.info(LogCategory.NOTIFICATION, "NotificationListener destroyed")
@@ -102,7 +106,47 @@ class HearItNotificationListenerService : NotificationListenerService() {
             null
         }
 
-    private companion object {
+    companion object {
+        private var activeInstance: HearItNotificationListenerService? = null
+
+        val isConnected: Boolean get() = activeInstance != null
+
+        fun dismissNotification(key: String, packageName: String? = null, tag: String? = null, id: Int? = null) {
+            val service = activeInstance ?: return
+            try {
+                service.cancelNotification(key)
+            } catch (_: Throwable) {
+                if (packageName != null && id != null) {
+                    try {
+                        service.cancelNotification(packageName, tag, id)
+                    } catch (_: Throwable) {}
+                }
+            }
+        }
+
+        fun requestRebindIfDisconnected(context: Context) {
+            if (activeInstance != null) return
+            val componentName = ComponentName(context, HearItNotificationListenerService::class.java)
+            try {
+                requestRebind(componentName)
+            } catch (_: SecurityException) {
+            } catch (_: Throwable) {
+                try {
+                    val pm = context.packageManager
+                    pm.setComponentEnabledSetting(
+                        componentName,
+                        PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                        PackageManager.DONT_KILL_APP,
+                    )
+                    pm.setComponentEnabledSetting(
+                        componentName,
+                        PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                        PackageManager.DONT_KILL_APP,
+                    )
+                } catch (_: Throwable) {}
+            }
+        }
+
         /** Single delayed retry after a disconnect: enough for transient unbinds, no storm. */
         const val REBIND_DELAY_MILLIS = 5_000L
     }

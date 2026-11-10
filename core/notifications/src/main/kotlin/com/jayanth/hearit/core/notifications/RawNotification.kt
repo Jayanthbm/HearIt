@@ -40,6 +40,10 @@ data class RawNotification(
     val channelIsSilent: Boolean = false,
     val category: String? = null,
     val postTimeMillis: Long = 0L,
+    val isGroupConversation: Boolean = false,
+    val conversationTitle: String? = null,
+    val messagingSender: String? = null,
+    val messagingText: String? = null,
 ) {
     init {
         require(packageName.isNotBlank()) { "RawNotification.packageName must not be blank" }

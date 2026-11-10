@@ -27,6 +27,36 @@ internal object StatusBarNotificationMapper {
         val notification: Notification? = sbn.notification
         val extras = notification?.extras
 
+        var isGroup = false
+        var conversationTitle: String? = null
+        var messagingSender: String? = null
+        var messagingText: String? = null
+
+        if (extras != null) {
+            isGroup = extras.getBoolean(Notification.EXTRA_IS_GROUP_CONVERSATION, false)
+            conversationTitle = extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE).asTextOrNull()
+
+            // 1. Check Notification.EXTRA_MESSAGES (MessagingStyle)
+            val messagesArray = extras.getParcelableArray(Notification.EXTRA_MESSAGES)
+            if (!messagesArray.isNullOrEmpty()) {
+                val lastMsg = messagesArray.lastOrNull()
+                if (lastMsg is android.os.Bundle) {
+                    messagingText = lastMsg.getCharSequence("text").asTextOrNull()
+                    val personBundle = lastMsg.getBundle("sender_person")
+                    messagingSender = personBundle?.getCharSequence("name").asTextOrNull()
+                        ?: lastMsg.getCharSequence("sender").asTextOrNull()
+                }
+            }
+
+            // 2. Fallback: Check Notification.EXTRA_TEXT_LINES (InboxStyle)
+            if (messagingText == null) {
+                val lines = extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)
+                if (!lines.isNullOrEmpty()) {
+                    messagingText = lines.lastOrNull { !it.isNullOrBlank() }.asTextOrNull()
+                }
+            }
+        }
+
         return RawNotification(
             packageName = sbn.packageName,
             appLabel = appLabel,
@@ -40,6 +70,10 @@ internal object StatusBarNotificationMapper {
             channelIsSilent = false, // see class KDoc: not readable cross-package on API 29+
             category = notification?.category,
             postTimeMillis = sbn.postTime,
+            isGroupConversation = isGroup,
+            conversationTitle = conversationTitle,
+            messagingSender = messagingSender,
+            messagingText = messagingText,
         )
     }
 

@@ -233,4 +233,22 @@ class NotificationExtractorTest {
         assertEquals("com.app|tag|42", NotificationExtractor.keyOf("com.app", "tag", 42))
         assertEquals("com.app||42", NotificationExtractor.keyOf("com.app", null, 42))
     }
+
+    @Test
+    fun extract_prefersMessagingStyleSenderAndText() {
+        val raw = raw().copy(
+            title = "Group Name",
+            text = "2 new messages",
+            messagingSender = "Deepak",
+            messagingText = "I will reach in 5 minutes",
+            isGroupConversation = true,
+            conversationTitle = "College Friends",
+        )
+        val snapshot = extractor().extract(raw, nowMillis)
+
+        assertEquals("Deepak", snapshot.sender)
+        assertEquals("I will reach in 5 minutes", snapshot.messageText)
+        assertTrue(snapshot.isGroup)
+        assertEquals("College Friends", snapshot.groupTitle)
+    }
 }

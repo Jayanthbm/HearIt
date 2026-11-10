@@ -1,8 +1,16 @@
 package com.jayanth.hearit.service
 
+import android.app.NotificationManager
 import android.app.Service
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.ServiceInfo
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.media.AudioAttributes
 import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
@@ -18,6 +26,7 @@ import com.jayanth.hearit.core.common.model.NotificationSnapshot
 import com.jayanth.hearit.core.common.time.Clock
 import com.jayanth.hearit.core.database.HistoryRepository
 import com.jayanth.hearit.core.datastore.HearItSettings
+import com.jayanth.hearit.core.notifications.HearItNotificationListenerService
 import com.jayanth.hearit.core.notifications.NotificationRelay
 import com.jayanth.hearit.core.notifications.NotificationSink
 import com.jayanth.hearit.core.queue.AnnouncementQueue
@@ -138,6 +147,53 @@ class AnnouncementService : Service(), NotificationSink {
         }
     }
 
+    private var lastShakeTime = 0L
+    private var lastSpeechEndTimeMillis = 0L
+    private var wasMusicActive = false
+    private var musicPausedAtMillis = 0L
+    private var tickCount = 0L
+
+    private val sensorEventListener = object : SensorEventListener {
+        override fun onSensorChanged(event: SensorEvent?) {
+            if (event == null || event.sensor.type != Sensor.TYPE_ACCELEROMETER) return
+            val x = event.values[0]
+            val y = event.values[1]
+            val z = event.values[2]
+
+            // 1. Flip check: phone lying flat face down (z < -8.5 m/s^2)
+            if (z < -8.5f && currentAction != null && sessionStore.isShakeToStopEnabled) {
+                HearItLogger.info(LogCategory.SERVICE, "Flip gesture detected: stopping speech")
+                engine.stop()
+                return
+            }
+
+            // 2. Shake check: sudden acceleration spike > 15.5 m/s^2
+            val acceleration = kotlin.math.sqrt((x * x + y * y + z * z).toDouble()).toFloat()
+            val now = SystemClock.elapsedRealtime()
+            if (acceleration > 15.5f && now - lastShakeTime > 1_000L) {
+                lastShakeTime = now
+                if (currentAction != null && sessionStore.isShakeToStopEnabled) {
+                    HearItLogger.info(LogCategory.SERVICE, "Shake gesture detected: stopping speech")
+                    engine.stop()
+                } else if (currentAction == null && now - lastSpeechEndTimeMillis <= 10_000L && sessionStore.isShakeToStopEnabled) {
+                    HearItLogger.info(LogCategory.SERVICE, "Shake gesture detected within 10s: repeating announcement")
+                    lastAction?.let { speak(it) }
+                }
+            }
+        }
+
+        override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+    }
+
+    private val volumeReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == "android.media.VOLUME_CHANGED_ACTION" && currentAction != null && sessionStore.isVolumeKeyToStopEnabled) {
+                HearItLogger.info(LogCategory.SERVICE, "Volume key pressed while speaking: stopping speech")
+                engine.stop()
+            }
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         sessionStore = SessionStore(this)
@@ -178,12 +234,25 @@ class AnnouncementService : Service(), NotificationSink {
         AnnouncementNotification.ensureChannel(this)
         audioManager.registerAudioDeviceCallback(audioDeviceCallback, handler)
         NotificationRelay.sink = this
+
+        val sensorManager = getSystemService(Context.SENSOR_SERVICE) as? SensorManager
+        val accel = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+        if (accel != null) {
+            sensorManager.registerListener(sensorEventListener, accel, SensorManager.SENSOR_DELAY_UI)
+        }
+        val filter = IntentFilter("android.media.VOLUME_CHANGED_ACTION")
+        try {
+            registerReceiver(volumeReceiver, filter)
+        } catch (_: Throwable) {}
+        HearItNotificationListenerService.requestRebindIfDisconnected(this)
+
         HearItLogger.info(LogCategory.SERVICE, "AnnouncementService created")
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val action = intent?.action
         HearItLogger.info(LogCategory.SERVICE, "AnnouncementService onStartCommand action=$action")
+        HearItNotificationListenerService.requestRebindIfDisconnected(this)
         when (action) {
             ACTION_STOP -> {
                 sessionStore.isStarted = false
@@ -299,6 +368,10 @@ class AnnouncementService : Service(), NotificationSink {
         serviceScope.cancel()
         handler.removeCallbacksAndMessages(null)
         audioManager.unregisterAudioDeviceCallback(audioDeviceCallback)
+        try {
+            unregisterReceiver(volumeReceiver)
+        } catch (_: Throwable) {}
+        (getSystemService(Context.SENSOR_SERVICE) as? SensorManager)?.unregisterListener(sensorEventListener)
         NotificationRelay.sink = null
         abandonAudioFocus()
         engine.shutdown()
@@ -348,6 +421,24 @@ class AnnouncementService : Service(), NotificationSink {
     private fun tickOnce() {
         applyQueueSettings()
         val state = currentState()
+
+        if (tickCount++ % 30L == 0L) {
+            HearItNotificationListenerService.requestRebindIfDisconnected(this)
+        }
+
+        val isMusicActiveNow = audioManager.isMusicActive
+        if (wasMusicActive && !isMusicActiveNow) {
+            musicPausedAtMillis = SystemClock.elapsedRealtime()
+        }
+        wasMusicActive = isMusicActiveNow
+
+        val isMusicHoldActive = sessionStore.isMusicPauseHoldEnabled &&
+            (SystemClock.elapsedRealtime() - musicPausedAtMillis < 60_000L)
+        if (isMusicHoldActive && currentAction == null) {
+            publishStatus()
+            return
+        }
+
         // A call that has ended hands its held notifications back for full re-evaluation
         // (ADR-004/ADR-006): nothing is announced on the strength of its held decision.
         if (!state.isCallActive && pipeline.heldCount > 0) {
@@ -428,12 +519,21 @@ class AnnouncementService : Service(), NotificationSink {
     private fun finishSpeech(action: AnnouncementPipeline.Action.Speak, spoken: Boolean = true) {
         if (currentAction !== action) return
         currentAction = null
+        lastSpeechEndTimeMillis = SystemClock.elapsedRealtime()
         abandonAudioFocus()
         pipeline.onSpeechFinished(spoken)
         HearItLogger.info(
             LogCategory.TTS,
             "Finished speech announcement: pkg=${action.selection.packageName}, spoken=$spoken",
         )
+        if (spoken && sessionStore.isAutoDismissEnabled) {
+            action.selection.items.forEach { snapshot ->
+                HearItNotificationListenerService.dismissNotification(
+                    key = snapshot.key,
+                    packageName = snapshot.packageName,
+                )
+            }
+        }
         startInForeground()
         publishStatus()
     }
@@ -473,15 +573,32 @@ class AnnouncementService : Service(), NotificationSink {
             isSpeaking = pipeline.isSpeaking,
             pendingCount = pipeline.pendingCount,
         )
+        updateNotification()
     }
 
     private fun startInForeground() {
-        val notification = AnnouncementNotification.build(this, speaking = currentAction != null)
+        val notification = AnnouncementNotification.build(
+            this,
+            speaking = currentAction != null,
+            isPriorityAnnounce = serviceStatus.state.value.isPriorityAnnounceActive,
+            isMuted = sessionStore.isTemporaryMuteActive,
+        )
         startForeground(
             AnnouncementNotification.NOTIFICATION_ID,
             notification,
             ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK,
         )
+    }
+
+    private fun updateNotification() {
+        val notification = AnnouncementNotification.build(
+            this,
+            speaking = currentAction != null,
+            isPriorityAnnounce = serviceStatus.state.value.isPriorityAnnounceActive,
+            isMuted = sessionStore.isTemporaryMuteActive,
+        )
+        val manager = getSystemService(NotificationManager::class.java)
+        manager?.notify(AnnouncementNotification.NOTIFICATION_ID, notification)
     }
 
     /** Temporary mute timer callbacks (P16). */
@@ -497,6 +614,12 @@ class AnnouncementService : Service(), NotificationSink {
     }
 
     companion object {
+        fun createStartIntent(context: Context): Intent =
+            Intent(context, AnnouncementService::class.java).setAction(ACTION_START)
+
+        fun createStopIntent(context: Context): Intent =
+            Intent(context, AnnouncementService::class.java).setAction(ACTION_STOP)
+
         /** Explicit start (setup flow / dashboard, P11/P12). */
         const val ACTION_START = "com.jayanth.hearit.action.START_ANNOUNCEMENTS"
 

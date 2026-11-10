@@ -36,8 +36,10 @@ class NotificationExtractor(
      */
     fun extract(raw: RawNotification, nowMillis: Long): NotificationSnapshot {
         val appName = raw.appLabel?.trim()?.takeIf { it.isNotEmpty() } ?: raw.packageName
-        val title = raw.title.trimmedOrNull()
-        val messageText = raw.bigText.trimmedOrNull() ?: raw.text.trimmedOrNull().orEmpty()
+        val title = raw.messagingSender.trimmedOrNull() ?: raw.title.trimmedOrNull()
+        val messageText = raw.messagingText.trimmedOrNull()
+            ?: raw.bigText.trimmedOrNull()
+            ?: raw.text.trimmedOrNull().orEmpty()
         val key = keyOf(raw)
 
         return NotificationSnapshot(
@@ -51,6 +53,8 @@ class NotificationExtractor(
             category = raw.category,
             postTimeMillis = raw.postTimeMillis.takeIf { it > 0L } ?: nowMillis,
             isUpdate = tracker.markSeen(key),
+            isGroup = raw.isGroupConversation,
+            groupTitle = raw.conversationTitle?.takeUnless { it.equals(appName, ignoreCase = true) },
         )
     }
 

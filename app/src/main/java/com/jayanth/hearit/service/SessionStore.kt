@@ -43,10 +43,50 @@ class SessionStore(context: Context) {
             prefs.edit().putBoolean(KEY_TEST_SPEECH_DISMISSED, value).apply()
         }
 
+    /** True if notifications should be cleared from status bar after speaking (Idea 39, default true). */
+    var isAutoDismissEnabled: Boolean
+        get() = prefs.getBoolean(KEY_AUTO_DISMISS, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_AUTO_DISMISS, value).apply()
+        }
+
+    /** True if service should auto-start on Bluetooth earphones connect and stop on disconnect (Idea 15, default true). */
+    var isBluetoothAutoStartEnabled: Boolean
+        get() = prefs.getBoolean(KEY_BT_AUTO_START, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_BT_AUTO_START, value).apply()
+        }
+
+    /** True if shake or flip phone should silence current speech (Feature A, default true). */
+    var isShakeToStopEnabled: Boolean
+        get() = prefs.getBoolean(KEY_SHAKE_TO_STOP, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_SHAKE_TO_STOP, value).apply()
+        }
+
+    /** True if physical volume key press should silence current speech (Idea 29, default true). */
+    var isVolumeKeyToStopEnabled: Boolean
+        get() = prefs.getBoolean(KEY_VOLUME_KEY_TO_STOP, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_VOLUME_KEY_TO_STOP, value).apply()
+        }
+
+    /** True if speech should hold for 60s when music is manually paused (Idea 35, default true). */
+    var isMusicPauseHoldEnabled: Boolean
+        get() = prefs.getBoolean(KEY_MUSIC_PAUSE_HOLD, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_MUSIC_PAUSE_HOLD, value).apply()
+        }
+
     private companion object {
         const val FILE_NAME = "hearit_session"
         const val KEY_STARTED = "started"
         const val KEY_TEMPORARY_MUTE = "temporary_mute"
         const val KEY_TEST_SPEECH_DISMISSED = "test_speech_dismissed"
+        const val KEY_AUTO_DISMISS = "auto_dismiss"
+        const val KEY_BT_AUTO_START = "bt_auto_start"
+        const val KEY_SHAKE_TO_STOP = "shake_to_stop"
+        const val KEY_VOLUME_KEY_TO_STOP = "volume_key_to_stop"
+        const val KEY_MUSIC_PAUSE_HOLD = "music_pause_hold"
     }
 }

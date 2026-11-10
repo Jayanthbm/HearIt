@@ -84,8 +84,13 @@ internal object AnnouncementNotification {
         }
     }
 
-    /** Builds the ongoing notification; [speaking] only changes the title line. */
-    fun build(context: Context, speaking: Boolean): Notification {
+    /** Builds the ongoing notification; [speaking] and state changes dynamically configure actions. */
+    fun build(
+        context: Context,
+        speaking: Boolean,
+        isPriorityAnnounce: Boolean = false,
+        isMuted: Boolean = false,
+    ): Notification {
         val openApp = PendingIntent.getActivity(
             context,
             0,
@@ -94,12 +99,12 @@ internal object AnnouncementNotification {
         )
         val stop = PendingIntent.getService(
             context,
-            0,
+            1,
             Intent(context, AnnouncementService::class.java).setAction(AnnouncementService.ACTION_STOP),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
 
-        return NotificationCompat.Builder(context, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(
                 context.getString(
@@ -110,12 +115,64 @@ internal object AnnouncementNotification {
                     },
                 ),
             )
-            .setContentText(context.getString(R.string.notification_text_service))
+            .setContentText(
+                if (isMuted) {
+                    "Announcements temporarily muted"
+                } else if (isPriorityAnnounce) {
+                    "Priority Announce active"
+                } else {
+                    context.getString(R.string.notification_text_service)
+                },
+            )
             .setContentIntent(openApp)
             .setOngoing(true)
             .setSilent(true)
             .setShowWhen(false)
-            .addAction(0, context.getString(R.string.notification_action_stop), stop)
-            .build()
+
+        if (speaking) {
+            val pause = PendingIntent.getService(
+                context,
+                2,
+                Intent(context, AnnouncementService::class.java).setAction(AnnouncementService.ACTION_PAUSE),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+            val skip = PendingIntent.getService(
+                context,
+                3,
+                Intent(context, AnnouncementService::class.java).setAction(AnnouncementService.ACTION_SKIP),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+            builder.addAction(0, context.getString(R.string.notification_action_pause), pause)
+            builder.addAction(0, context.getString(R.string.notification_action_skip), skip)
+        } else {
+            val priorityToggle = PendingIntent.getService(
+                context,
+                4,
+                Intent(context, AnnouncementService::class.java).setAction(AnnouncementService.ACTION_PRIORITY_ANNOUNCE_TOGGLE),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+            val muteToggle = PendingIntent.getService(
+                context,
+                5,
+                Intent(context, AnnouncementService::class.java).setAction(AnnouncementService.ACTION_TEMPORARY_MUTE_TOGGLE),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+            val priorityLabel = if (isPriorityAnnounce) {
+                context.getString(R.string.notification_action_priority_off)
+            } else {
+                context.getString(R.string.notification_action_priority_on)
+            }
+            val muteLabel = if (isMuted) {
+                context.getString(R.string.notification_action_unmute)
+            } else {
+                context.getString(R.string.notification_action_mute)
+            }
+            builder.addAction(0, priorityLabel, priorityToggle)
+            builder.addAction(0, muteLabel, muteToggle)
+        }
+
+        builder.addAction(0, context.getString(R.string.notification_action_stop), stop)
+
+        return builder.build()
     }
 }
