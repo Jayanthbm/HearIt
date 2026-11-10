@@ -628,7 +628,7 @@ private fun DashboardHome(
                     color = MaterialTheme.colorScheme.onBackground,
                 )
             }
-            StatusPill(status = if (state.service.isRunning) HistoryStatus.ANNOUNCED else HistoryStatus.SKIPPED)
+            ServiceStatusPill(isRunning = state.service.isRunning, isSpeaking = state.service.isSpeaking)
         }
 
         // Hero Service Monitor Card
@@ -1450,31 +1450,6 @@ private fun HeroServiceCard(
     onSelectDestination: (DashboardDestination) -> Unit,
 ) {
     val isRunning = state.service.isRunning
-    val isSpeaking = state.service.isSpeaking
-
-    // Animated pulse for the running state dot
-    val infiniteTransition = rememberInfiniteTransition(label = "heroPulse")
-    val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.3f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(900, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "pulseAlpha",
-    )
-    val pulseScale by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = 2.2f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(900, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "pulseScale",
-    )
-
-    val runningGreen = Color(0xFF10B981)
-    val runningGreenText = Color(0xFF34D399)
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -1488,41 +1463,42 @@ private fun HeroServiceCard(
         ),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // Live Status Row with animated pulsing dot
+            // Apps count shortcut badge & Queued pill row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    // Pulsing dot container
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier.size(20.dp),
+                Surface(
+                    modifier = Modifier.clickable { onSelectDestination(DashboardDestination.APPS) },
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        if (isRunning) {
-                            // Glowing animated ring
-                            Box(
-                                modifier = Modifier
-                                    .size((10 * pulseScale).dp)
-                                    .clip(CircleShape)
-                                    .background(runningGreen.copy(alpha = pulseAlpha * 0.3f)),
-                            )
-                        }
-                        Box(
-                            modifier = Modifier
-                                .size(10.dp)
-                                .clip(CircleShape)
-                                .background(if (isRunning) runningGreen else Color(0xFF94A3B8)),
+                        Icon(
+                            imageVector = Icons.Rounded.Apps,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "${state.enabledAppCount} apps enabled for speech",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(14.dp),
                         )
                     }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = if (isSpeaking) "Speaking Announcement…" else if (isRunning) "Active & Listening" else "Service Inactive",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = if (isRunning) runningGreenText else MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
                 }
 
                 if (state.service.pendingCount > 0) {
@@ -1538,41 +1514,6 @@ private fun HeroServiceCard(
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                         )
                     }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Apps count shortcut badge
-            Surface(
-                modifier = Modifier.clickable { onSelectDestination(DashboardDestination.APPS) },
-                shape = RoundedCornerShape(10.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Apps,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(16.dp),
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "${state.enabledAppCount} apps enabled for speech",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(14.dp),
-                    )
                 }
             }
 
@@ -1744,26 +1685,44 @@ private fun HeroServiceCard(
 }
 
 @Composable
-private fun StatusPill(status: HistoryStatus) {
-    val (bgColor, textColor, label) = when (status) {
-        HistoryStatus.ANNOUNCED -> Triple(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer, "Running")
-        HistoryStatus.SKIPPED -> Triple(MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer, "Stopped")
-        HistoryStatus.QUEUED -> Triple(MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer, "Queued")
-        HistoryStatus.PENDING -> Triple(MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer, "Pending")
-        HistoryStatus.INTERRUPTED -> Triple(MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer, "Interrupted")
+private fun ServiceStatusPill(
+    isRunning: Boolean,
+    isSpeaking: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val greenColor = Color(0xFF10B981)
+    val stoppedColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val label = when {
+        isSpeaking -> "Speaking…"
+        isRunning -> "Running"
+        else -> "Stopped"
     }
 
     Surface(
-        shape = RoundedCornerShape(8.dp),
-        color = bgColor,
+        shape = RoundedCornerShape(10.dp),
+        color = if (isRunning) greenColor.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+        border = BorderStroke(1.dp, if (isRunning) greenColor.copy(alpha = 0.35f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+        modifier = modifier,
     ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold,
-            color = textColor,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-        )
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(7.dp)
+                    .clip(CircleShape)
+                    .background(if (isRunning) greenColor else stoppedColor.copy(alpha = 0.5f)),
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = if (isRunning) greenColor else stoppedColor,
+                fontSize = 12.sp,
+            )
+        }
     }
 }
 
