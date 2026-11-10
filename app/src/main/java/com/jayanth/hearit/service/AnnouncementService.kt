@@ -389,6 +389,7 @@ class AnnouncementService : Service(), NotificationSink {
             state = currentState(),
             priority = settingsSource.priorityFor(snapshot.packageName),
         )
+        com.jayanth.hearit.wear.WearDataLayerSync.syncNotification(this, snapshot)
     }
 
     override fun onRemoved(key: String) {
