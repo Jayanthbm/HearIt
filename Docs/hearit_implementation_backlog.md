@@ -7,7 +7,7 @@ Once the review is completed, these items will be batched and implemented system
 ---
 
 ## 📋 Status Overview
-- Total Identified Backlog Items: 34
+- Total Identified Backlog Items: 38
 - In Discussion / Under Review
 - **Mandatory Requirement (All Features)**: Every capability—including automatic intelligence rules and playback behaviors—MUST have a dedicated UI **Enable / Disable switch** and **configuration controls** (thresholds, patterns, presets, or timing options) persisted across restarts.
 
@@ -502,6 +502,51 @@ Once the review is completed, these items will be batched and implemented system
   - Request runtime `Manifest.permission.RECORD_AUDIO` gracefully when user enables the feature (never required by default; clear privacy disclosure: *on-device instantaneous 150ms amplitude check only, nothing ever recorded or saved*).
   - Sample short RMS amplitude before speaking, compute approximate dB SPL, and when `dB >= configuredThreshold` (e.g. `65 dB` / `70 dB` / `75 dB`), boost TTS volume/gain cleanly (`volumeLevel` + boost gain).
   - **UI Enable/Disable & Config**: Add *"Ambient Noise Auto-Boost"* switch (prompts `RECORD_AUDIO` permission if needed) + noise threshold (`65 / 70 / 75 dB`) & boost amount (`+15% / +20% / +30%`) inside **Voice & Speech** / **Active Intelligence**.
+
+---
+
+## ⌚ Wear OS Companion Backlog (Confirmed Design)
+
+### 35. Wear OS Phone-Side UI: Watch Forwarding Toggle & Max-4 Watch Apps Selector — ❌ NOT IMPLEMENTED
+- **Priority / Effort**: High Value / Medium Effort
+- **Current State**:
+  - `WearOsCompanionCard` (`DevicesScreen.kt` & `IntelligenceControlsScreen.kt`) only displays connection status, last sync time, enabled apps count, and *"Sync Enabled Apps to Watch"* — it mirrors all `enabledApps` with no separate watch toggle or max-4 selector.
+- **Planned Implementation**:
+  - Add persisted settings (`watchForwardingEnabled: Boolean = true`, `watchFilterApps: List<String>` max 4 ordered packages, `watchHapticsEnabled: Boolean = false`).
+  - Inside `WearOsCompanionCard` (or a dedicated sheet/dialog opened from *"Configure Watch Apps"*):
+    - **Master Switch**: Enable/Disable Watch Companion Notification Forwarding.
+    - **App Picker (Max 4)**: Choose up to **4 apps** whose notifications go to the watch (searchable app list showing `"Selected: X / 4"` counter, auto-disabling extra choices at 4, and triggering instant sync on save).
+    - Toggle for **Watch Haptic Pulse** when a mirrored alert arrives.
+
+### 36. Wear OS Option A (Independent Forwarding) & Persistent `DataClient` Config Sync with Real App Icons — ❌ NOT IMPLEMENTED
+- **Priority / Effort**: High Value / Medium Effort
+- **Confirmed Decision (Option A)**: Notifications for the selected 4 Watch Apps MUST forward to the Watch **even when the Phone TTS speech service (`AnnouncementService`) is stopped** (not dependent on earphones).
+- **Current State**:
+  - `AnnouncementService.onPosted()` calls `WearDataLayerSync.syncNotification(this, snapshot)` — so if HearIt service isn't started, notifications never reach the watch.
+  - `/config/sync` currently uses transient `MessageClient`, which drops if the watch is unreachable when edited, and does not send app icon bitmaps.
+- **Planned Implementation**:
+  - Forward notifications directly via listener/application-level hook in `HearItNotificationListenerService` (when `watchForwardingEnabled == true` and `snapshot.packageName in watchFilterApps`, guarded cleanly against duplicates when `AnnouncementService` is also running).
+  - Switch `/config/sync` to **`DataClient.putDataItem()`** (with timestamp & `DataClient` `Asset` / compressed `48×48` PNG icon bytes per selected package, ordered `1..4`, plus `watchForwardingEnabled` & `watchHapticsEnabled`) so config + icons automatically persist and sync upon watch reconnect.
+
+### 37. Wear OS App UI Overhaul: Connection Green Dot, Real App Icon Filters (Max 4 + ALL, No Categories) & Empty State — ❌ NOT IMPLEMENTED
+- **Priority / Effort**: High Value / Medium Effort
+- **Current State**:
+  - `wear/.../MainActivity.kt` has hardcoded `FilterCategory` (`All / Chat / SMS / Finance`), no phone connection dot indicator, and shows notifications filtered only against `enabledApps` (`phoneEnabledNotifications`).
+- **Planned Implementation**:
+  - **Connection Status Indicator**: Show a live status badge right in the top `HearIt` header (`● HearIt` with a **Green dot** when connected to paired phone, **Red/Grey dot** when disconnected + live `NodeClient` check on resume/refresh).
+  - **Remove Categories Completely**: Delete `FilterCategory` (`CHAT`, `SMS`, `BANKING`).
+  - **Dynamic Real App Icon Filter Bar**: Top filter row renders **All** icon + **up to 4 real app icon buttons** decoded from the synced phone app icon bitmaps (`ImageBitmap`, only rendering as many slots as the user configured, up to 4). Clicking an icon filters the list to that `packageName` cleanly.
+  - **"No apps enabled" Empty State**: Show `"No apps enabled"` + helper text `"Enable up to 4 apps for Watch in HearIt on your phone"` whenever synced watch apps are empty (`watchApps.isEmpty()`), and handle `"Not synced / Phone offline"` clearly if no sync has ever arrived yet.
+  - Subscribe to `/config/sync` on both `DataClient.OnDataChangedListener` (`WearNotificationListenerService.onDataChanged`) and `MessageClient`.
+
+### 38. Wear OS Manifest & Play Store Companion Compliance — ⚠️ FIXES NEEDED
+- **Priority / Effort**: High Value (Play Store Blocker) / Very Low Effort
+- **Current State**:
+  - `wear/src/main/AndroidManifest.xml` has `com.google.android.wearable.standalone = "true"` (wrong for a phone-dependent companion app!) and `android:icon="@android:drawable/sym_def_app_icon"`.
+- **Planned Implementation**:
+  - Set `<meta-data android:name="com.google.android.wearable.standalone" android:value="false" />`.
+  - Replace system default icon with HearIt's adaptive/branded launcher icons in `wear/src/main/res/`.
+  - Keep arriving Watch notification updates silent by default (respecting synced `watchHapticsEnabled` toggle if enabled) and verify round-screen padding (`TimeText` + `PositionIndicator` + rotary `RSB` scroll).
 
 ---
 
