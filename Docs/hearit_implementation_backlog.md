@@ -7,7 +7,7 @@ Once the review is completed, these items will be batched and implemented system
 ---
 
 ## 📋 Status Overview
-- Total Identified Backlog Items: 4
+- Total Identified Backlog Items: 5
 - In Discussion / Under Review
 
 ---
@@ -87,6 +87,21 @@ Once the review is completed, these items will be batched and implemented system
   - `app/src/main/java/com/jayanth/hearit/dashboard/DashboardUiState.kt` / `DashboardViewModel.kt`
   - `app/src/main/java/com/jayanth/hearit/dashboard/DashboardScreen.kt`
   - `app/src/main/res/values/strings.xml`
+
+### 5. Roadmap Item 4.2: Priority Announce Quick-Access List — ❌ NOT IMPLEMENTED
+- **Priority / Effort**: Medium Value / Low Effort
+- **Current State**:
+  - **Engine & Persistence Already Built**: `HearItSettings.priorityAnnounceApps` (`core/datastore`), `SettingsCodec`, `EligibilityRules` (`settings.priorityAnnounceListed`), and `SettingsSource.setPriorityApp()` all exist.
+  - **Missing UI & Editor**: Neither `ApplicationsUiState`, `AppSettingsUiState`, `AppSettingsEditor`, `ApplicationsViewModel`, nor `ApplicationsScreen` exposes `priorityAnnounceApps` at all (neither a quick-access list/tab nor a per-app toggle — only queue `AppPriority` Low/Normal/High/Critical is exposed in per-app details).
+  - `ApplicationsListScreen` currently only filters by **All / Enabled / Disabled** (plus System Apps toggle).
+- **What Needs to Be Implemented**:
+  - Expose `priorityAnnounceApps: Set<String>` in `ApplicationsUiState` and `priorityAnnounceListed: Boolean` in `AppSettingsUiState` + `onTogglePriorityAnnounceApp(packageName: String)` in `ApplicationsViewModel` / `AppSettingsEditor`.
+  - Add a **"Priority"** filter tab/chip (e.g., **All / Enabled / Disabled / Priority** or dedicated Priority Announce quick-access view) in `ApplicationsScreen` showing all apps in `priorityAnnounceApps` with **1-tap Star/Toggle add/remove** right from the list (plus an option inside Per-App Details and/or a link from the Home Priority Announce card).
+- **Files Likely Touched**:
+  - `app/src/main/java/com/jayanth/hearit/applications/ApplicationsModels.kt`
+  - `app/src/main/java/com/jayanth/hearit/applications/AppSettingsEditor.kt`
+  - `app/src/main/java/com/jayanth/hearit/applications/ApplicationsViewModel.kt`
+  - `app/src/main/java/com/jayanth/hearit/applications/ApplicationsScreen.kt`
 
 ---
 
