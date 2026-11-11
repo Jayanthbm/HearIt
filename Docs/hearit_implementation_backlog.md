@@ -60,15 +60,17 @@ Once the review is completed, these items will be batched and implemented system
 - **What Needs to Be Implemented**:
   - Add user-configurable pronunciation dictionary storage (e.g., `Map<String, String>` / list of `PronunciationRule(match, spokenAs, matchCase, wholeWord)` in `HearItSettings` + `SettingsCodec` or `SessionStore`).
   - Apply dictionary replacements inside `SmartContentCleaner.cleanMessageText()` (and optionally `cleanSender()`), using whole-word / safe regex matching before text reaches the Android TTS engine, with optional starter presets (e.g., `OTP`, `ETA`, `ASAP`, `FYI`).
-  - Add a **Pronunciation Dictionary** management UI card/screen accessible from **Voice & Speech** (or **Active Intelligence**):
-    - List of configured word/acronym $\to$ spoken replacement rules.
+  - Add a **Pronunciation & Acronym Dictionary** card directly inside the **Active Intelligence** screen (`IntelligenceControlsScreen`), keeping it grouped with NLP controls (and ready for future Premium gating):
+    - Enable/disable switch + list of configured word/acronym $\to$ spoken replacement rules.
     - Add / edit / delete rule dialog + quick "Test Pronunciation" button via TTS engine.
   - Add unit tests in `SmartContentCleanerTest` and `SettingsCodecTest`.
 - **Files Likely Touched**:
   - `core/tts/src/main/kotlin/com/jayanth/hearit/core/tts/SmartContentCleaner.kt`
   - `core/tts/src/test/kotlin/com/jayanth/hearit/core/tts/SmartContentCleanerTest.kt`
   - `core/common/src/main/kotlin/com/jayanth/hearit/core/common/model/...` / `core/datastore/.../SettingsCodec.kt`
-  - `app/src/main/java/com/jayanth/hearit/voicespeech/VoiceSpeechScreen.kt` (or `VoiceSpeechViewModel.kt`)
+  - `app/src/main/java/com/jayanth/hearit/intelligence/IntelligenceControlsScreen.kt`
+  - `app/src/main/java/com/jayanth/hearit/settings/GeneralSettingsUiState.kt`
+  - `app/src/main/java/com/jayanth/hearit/settings/GeneralSettingsViewModel.kt`
 
 ---
 
