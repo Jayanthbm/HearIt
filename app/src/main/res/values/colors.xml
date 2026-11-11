@@ -1,10 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="purple_200">#FFBB86FC</color>
-    <color name="purple_500">#FF6200EE</color>
-    <color name="purple_700">#FF3700B3</color>
-    <color name="teal_200">#FF03DAC5</color>
-    <color name="teal_700">#FF018786</color>
-    <color name="black">#FF000000</color>
-    <color name="white">#FFFFFFFF</color>
+
+    <!-- Brand palette: deep navy primary, violet + cyan accent pairs. -->
+    <color name="colorPrimary">#0A1628</color>
+    <color name="colorPrimaryDark">#08111F</color>
+    <color name="colorAccent">#5B8DEF</color>
+    <color name="colorOnPrimary">#FFFFFF</color>
+    <color name="colorSurface">#0B1424</color>
+    <color name="colorOnSurface">#F5F7FA</color>
+    <color name="colorOnSurfaceVariant">#B9C6D6</color>
+    <color name="colorSurfaceVariant">#162840</color>
+    <color name="colorBackground">#0A1628</color>
+    <color name="colorOnBackground">#F5F7FA</color>
+    <color name="colorError">#FF7A5C</color>
+    <color name="colorErrorContainer">#FFCDD2</color>
+    <color name="colorOnError">#FFFFFF</color>
+
+    <!-- Material 3 Expressive accent pair: violet tint + cyan tint. -->
+    <color name="colorVioletDefault">#5B8DEF</color>
+    <color name="colorVioletTint">#8FADE3</color>
+    <color name="colorCyanDefault">#2DD4BF</color>
+    <color name="colorCyanTint">#5EEAD4</color>
+
+    <!-- Level colours (used as lightweight status chips). -->
+    <color name="levelOk">#2DD4BF</color>
+    <color name="levelWarn">#FBBF24</color>
+    <color name="levelError">#FF7A5C</color>
 </resources>

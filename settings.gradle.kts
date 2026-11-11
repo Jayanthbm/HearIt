@@ -24,3 +24,12 @@ dependencyResolutionManagement {
 
 rootProject.name = "Hear It"
 include(":app")
+include(":core:common")
+include(":core:database")
+include(":core:datastore")
+include(":core:notifications")
+include(":core:queue")
+include(":core:rules")
+include(":core:setup")
+include(":core:tts")
+include(":wear")

@@ -1,3 +1,538 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Hear It</string>
+    <string name="app_name">HearIt</string>
+
+    <string name="notification_channel_service">Announcements</string>
+    <string name="notification_channel_service_description">Shows when Hear It is reading notifications aloud.</string>
+    <string name="notification_title_running">Hear It is running</string>
+    <string name="notification_title_speaking">Reading a notification</string>
+    <string name="notification_text_service">Tap to open Hear It</string>
+    <string name="notification_action_stop">Stop</string>
+    <string name="notification_action_pause">Pause</string>
+    <string name="notification_action_resume">Resume</string>
+    <string name="notification_action_skip">Skip</string>
+    <string name="notification_action_repeat">Repeat</string>
+    <string name="notification_action_priority_on">Priority On</string>
+    <string name="notification_action_priority_off">Priority Off</string>
+    <string name="notification_action_unmute">Unmute</string>
+    <string name="notification_action_mute">Mute</string>
+
+    <string name="setup_loading">Loading\u2026</string>
+    <string name="setup_progress">Step %1$d of %2$d</string>
+    <string name="setup_back">Back</string>
+    <string name="setup_next">Continue</string>
+    <string name="setup_skip">Skip</string>
+    <string name="setup_start">Start Hear It</string>
+    <string name="setup_recheck">Check again</string>
+    <string name="setup_status_granted">Granted</string>
+    <string name="setup_status_not_granted">Not granted</string>
+    <string name="setup_status_ready">Ready</string>
+    <string name="setup_status_unavailable">Unavailable</string>
+
+    <string name="setup_title_welcome">Welcome to Hear It</string>
+    <string name="setup_title_notification_access">Notification access</string>
+    <string name="setup_title_bluetooth">Bluetooth access</string>
+    <string name="setup_title_tts">Text to speech</string>
+    <string name="setup_title_battery">Background and battery</string>
+    <string name="setup_title_apps">Choose apps</string>
+    <string name="setup_title_devices">Choose outputs</string>
+    <string name="setup_title_test">Test announcement</string>
+    <string name="setup_title_review">Review and start</string>
+
+    <string name="setup_welcome_body">Private audio alerts for headphones</string>
+    <string name="setup_welcome_point_1">Select which apps to announce aloud</string>
+    <string name="setup_welcome_point_2">Smart rules for screen, DND, calls, and headphones</string>
+    <string name="setup_welcome_point_3">100% on-device \u2014 no internet, no data collection</string>
+
+    <string name="setup_notification_access_body">Hear It needs notification access so it can see the notifications you allow it to read. It reads only the apps you enable, never stores content outside your chosen history mode, and never sends anything off the device.</string>
+    <string name="setup_notification_access_status">Notification access: %1$s</string>
+    <string name="setup_notification_access_open">Open Notification Access</string>
+
+    <string name="setup_bluetooth_body">Android 12 and later ask for nearby-device (Bluetooth) permission so Hear It can see connected headphones and stop speaking when they disconnect. Without it announcements still work, but device names may be unavailable.</string>
+    <string name="setup_bluetooth_status">Bluetooth permission: %1$s</string>
+    <string name="setup_bluetooth_request">Allow Bluetooth access</string>
+
+    <string name="setup_tts_body">Announcements use the text-to-speech engine installed on this device. Hear It does not translate text or download voices; if your language is missing, install its voice data in the system text-to-speech settings.</string>
+    <string name="setup_tts_engine_status">Speech engine: %1$s</string>
+    <string name="setup_tts_language_status">Device language: %1$s</string>
+
+    <string name="setup_battery_body">To keep HearIt reliably announcing when your screen is locked or headphones are connected, tap below to grant unrestricted background battery execution.</string>
+    <string name="setup_battery_open">Allow Background Execution (1-Tap)</string>
+    <string name="setup_battery_acknowledge">I understand that battery optimisation can interrupt announcements</string>
+
+    <string name="setup_apps_body">Select which apps Hear It can announce aloud</string>
+    <string name="setup_apps_enabled_count">%1$d enabled</string>
+    <string name="setup_apps_loading">Loading installed apps\u2026</string>
+    <string name="setup_apps_empty">No apps with a launcher icon were found.</string>
+
+    <string name="setup_devices_body">Choose which audio outputs can play announcements</string>
+    <string name="setup_devices_allow_bluetooth">Bluetooth headphones</string>
+    <string name="setup_devices_allow_wired">Wired headphones</string>
+    <string name="setup_devices_allow_speaker">Phone speaker</string>
+    <string name="setup_devices_detected_header">Connected now</string>
+    <string name="setup_devices_none_detected">No Bluetooth or wired output is connected right now.</string>
+    <string name="setup_device_unknown">Audio device</string>
+
+    <string name="setup_test_body">Play a sample announcement to verify your audio settings</string>
+    <string name="setup_test_card_hint">Tap below to test playback through your connected output.</string>
+    <string name="setup_test_play">Play test announcement</string>
+    <string name="setup_test_speaking">Speaking\u2026</string>
+    <string name="setup_test_completed">Test announcement finished.</string>
+    <string name="setup_test_failed">The test announcement could not be spoken. Check the speech engine and language data.</string>
+    <string name="setup_test_announcement_spoken">This is a test announcement from Hear It.</string>
+
+    <string name="setup_review_body">Review your setup and start the announcement service</string>
+    <string name="setup_review_apps">Apps enabled: %1$d</string>
+    <string name="setup_review_outputs">Allowed outputs: %1$s</string>
+    <string name="setup_review_nothing_skipped">No steps were skipped.</string>
+    <string name="setup_review_skipped">Skipped: %1$s</string>
+    <string name="setup_review_notification_permission_body">Shows Hear It\u2019s active status in the system tray while running.</string>
+    <string name="setup_review_notification_permission_button">Allow Notification</string>
+
+    <string name="setup_blocker_notification_access">Grant notification access to continue.</string>
+    <string name="setup_blocker_bluetooth">Allow Bluetooth access, or skip this step.</string>
+    <string name="setup_blocker_tts_engine">No text-to-speech engine is available on this device.</string>
+    <string name="setup_blocker_tts_language">The speech engine has no voice data for your language.</string>
+    <string name="setup_blocker_no_apps">Enable at least one app before starting.</string>
+    <string name="setup_blocker_no_output">Allow at least one output type before starting.</string>
+
+    <string name="nav_home">Home</string>
+    <string name="nav_apps">Apps</string>
+    <string name="nav_devices">Devices</string>
+    <string name="nav_history">History</string>
+    <string name="nav_global_rules">Global Rules</string>
+    <string name="nav_voice_speech">Voice &amp; Speech</string>
+    <string name="nav_settings">Settings</string>
+    <string name="nav_preferences">Playback &amp; Gestures</string>
+    <string name="nav_backup_restore">Backup &amp; Restore</string>
+    <string name="nav_diagnostics">Diagnostics</string>
+    <string name="nav_active_intelligence">Active Intelligence</string>
+
+    <string name="dashboard_loading">Loading\u2026</string>
+    <string name="dashboard_back">Back</string>
+    <string name="dashboard_service_title">Announcement service</string>
+    <string name="dashboard_status_active">Active</string>
+    <string name="dashboard_status_inactive">Inactive</string>
+    <string name="dashboard_status_on">On</string>
+    <string name="dashboard_status_off">Off</string>
+    <string name="dashboard_speaking_now">Reading a notification now</string>
+    <string name="dashboard_idle">Nothing is being read</string>
+    <plurals name="dashboard_queue_waiting">
+        <item quantity="one">%1$d announcement waiting</item>
+        <item quantity="other">%1$d announcements waiting</item>
+    </plurals>
+    <string name="dashboard_start_service">Start HearIt</string>
+    <string name="dashboard_stop_service">Stop HearIt</string>
+
+    <string name="dashboard_section_status">Status</string>
+    <string name="dashboard_normal_announcements">Normal announcements</string>
+    <string name="dashboard_priority_announce">Priority Announce</string>
+    <string name="dashboard_priority_announce_note">Priority Announce has its own on/off control and timer; they arrive with its feature update.</string>
+    <string name="dashboard_temporary_mute">Temporary mute</string>
+    <string name="dashboard_temporary_mute_note">Mute controls arrive with the reading controls update.</string>
+    <string name="dashboard_search_history">Search history</string>
+    <string name="dashboard_search_placeholder">Search\u2026</string>
+    <string name="dashboard_view_all_history">View all history</string>
+    <string name="dashboard_recent_history">Recent history</string>
+    <string name="dashboard_recent_unavailable">Recent history unavailable</string>
+    <string name="dashboard_recent_empty">No history yet</string>
+    <string name="dashboard_clear_all">Clear all</string>
+    <string name="backup_restore">Backup &amp; Restore</string>
+    <string name="import_settings">Import</string>
+    <string name="export_settings">Export</string>
+    <string name="import_json_placeholder">Paste JSON here\u2026</string>
+    <string name="no_export_yet">No export yet</string>
+    <string name="last_exported">Last exported: %s</string>
+    <string name="diagnostics">Diagnostics</string>
+    <string name="service_state">Service state</string>
+    <string name="service_running">Running</string>
+    <string name="service_idle">Idle</string>
+    <string name="service_unknown">Unknown</string>
+    <string name="connected_output">Connected output</string>
+    <string name="tts_available">TTS available</string>
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
+    <string name="biometric_lock">Biometric lock</string>
+    <string name="secure_screen_mode">Secure screen mode</string>
+    <string name="priority_announce_no_expiry">No expiry</string>
+    <string name="priority_announce_remaining">Expires in %1$d min</string>
+    <string name="priority_announce_toggle">Priority Announce</string>
+    <string name="priority_announce_on">On</string>
+    <string name="priority_announce_off">Off</string>
+    <string name="priority_announce_dashboard_toggle">Priority Announce</string>
+    <string name="priority_announce">Priority Announce</string>
+    <string name="priority_announce_active_description">Priority Announce is on. Tap to turn off.</string>
+    <string name="priority_announce_inactive_description">Priority Announce is off. Tap to turn on.</string>
+
+    <string name="mute_15min">15 min</string>
+    <string name="mute_30min">30 min</string>
+    <string name="mute_60min">60 min</string>
+    <string name="unmute">Unmute</string>
+
+    <string name="dashboard_output">Connected output</string>
+    <string name="dashboard_output_none">No routed output connected</string>
+    <string name="dashboard_allowed_outputs">Allowed output types</string>
+    <string name="dashboard_allowed_outputs_none">None allowed \u2014 nothing will be read</string>
+    <string name="dashboard_apps_enabled">Apps enabled</string>
+    <string name="dashboard_apps_count">%1$d</string>
+
+    <string name="dashboard_section_recent">Recent announcements</string>
+    <string name="dashboard_recent_row">%1$s \u00b7 %2$s \u00b7 %3$s</string>
+    <string name="dashboard_history_announced">Announced</string>
+    <string name="dashboard_history_skipped">Skipped</string>
+    <string name="dashboard_history_queued">Queued</string>
+    <string name="dashboard_history_pending">Waiting</string>
+    <string name="dashboard_history_interrupted">Interrupted</string>
+
+    <string name="dashboard_section_actions">Actions</string>
+    <string name="dashboard_action_test">Test announcement</string>
+    <string name="dashboard_action_apps">Applications</string>
+    <string name="dashboard_action_devices">Audio devices</string>
+    <string name="dashboard_action_diagnostics">Diagnostics</string>
+    <string name="dashboard_test_announcement_spoken">This is a test announcement from Hear It.</string>
+
+    <string name="dashboard_section_tools">Settings and tools</string>
+    <string name="dashboard_placeholder_body">This screen arrives with its feature update. Its navigation entry already exists so the shell does not change when the screen is filled in.</string>
+
+    <string name="applications_search_label">Search apps</string>
+    <string name="applications_enabled_count">%1$d of %2$d apps enabled</string>
+    <string name="applications_select_all">Select all</string>
+    <string name="applications_deselect_all">Deselect all</string>
+    <string name="applications_loading">Loading installed apps\u2026</string>
+    <string name="applications_empty">No apps found.</string>
+    <string name="applications_empty_search">No app matches \u201c%1$s\u201d.</string>
+    <string name="applications_catalog_unavailable">The installed apps could not be read. Close and reopen this screen to try again.</string>
+    <string name="applications_visibility_note">Android only lets Hear It list apps it can see: apps with a launcher icon, plus any app you have already enabled.</string>
+    <string name="applications_open_settings">Settings</string>
+
+    <string name="app_settings_general">General</string>
+    <string name="app_settings_enabled">Announce this app</string>
+    <string name="app_settings_enabled_note">All apps start disabled. Nothing is read from an app until you enable it here.</string>
+    <string name="app_settings_inherit_value">Inherit global (%1$s)</string>
+
+    <string name="app_settings_priority_section">Announcement priority</string>
+    <string name="app_settings_priority_normal">Normal</string>
+    <string name="app_settings_priority_high">High</string>
+    <string name="app_settings_priority_critical">Critical</string>
+    <string name="app_settings_priority_low">Low</string>
+
+    <string name="app_settings_history_section">History for this app</string>
+    <string name="app_settings_storage_full">Full content</string>
+    <string name="app_settings_storage_metadata">Metadata only</string>
+    <string name="app_settings_storage_off">No history</string>
+    <string name="app_settings_update_entry">Update the existing entry</string>
+    <string name="app_settings_update_new">Save every update separately</string>
+
+    <string name="app_settings_when_section">When to announce</string>
+    <string name="app_settings_call_queue">Announce after a call ends</string>
+    <string name="app_settings_audio_focus">Other apps audio</string>
+    <string name="app_settings_audio_focus_duck">Lower it</string>
+    <string name="app_settings_audio_focus_pause">Pause it</string>
+    <string name="app_settings_audio_focus_none">Do not change it</string>
+    <string name="app_settings_on">On</string>
+    <string name="app_settings_off">Off</string>
+
+    <string name="app_settings_reset">Reset to global values</string>
+    <string name="app_settings_reset_note">Only the overrides for this app are cleared. The announcement switch is unchanged.</string>
+    <string name="app_settings_note_later">Grouping window and the remaining rule groups are configured globally; their per-app controls arrive with the settings screens.</string>
+
+    <!-- Devices feature (P14) -->
+    <string name="devices_intro">Choose which output types Hear It may speak through. Android decides where audio actually goes; Hear It only decides whether to speak on the output that is active.</string>
+    <string name="devices_allowed_types">Allowed output types</string>
+    <string name="devices_allow_bluetooth">Bluetooth outputs</string>
+    <string name="devices_allow_wired">Wired outputs</string>
+    <string name="devices_allow_speaker">Phone speaker</string>
+    <string name="devices_allow_unidentified">Unrecognised outputs</string>
+    <string name="devices_categories_note">Turning a type off suppresses announcements while that output is active. The phone speaker is off by default.</string>
+    <string name="devices_no_bt_allowed">No Bluetooth device is allowed right now, so Bluetooth announcements will be skipped.</string>
+    <string name="devices_connected_now">Connected now</string>
+    <string name="devices_loading">Checking connected outputs\u2026</string>
+    <string name="devices_empty">No Bluetooth or wired output is connected right now.</string>
+    <string name="devices_remembered">Previously connected</string>
+    <string name="devices_remembered_empty">Devices appear here after they have been connected once.</string>
+    <string name="devices_status_connected">Connected</string>
+    <string name="devices_status_not_connected">Not connected</string>
+    <string name="devices_allowed">Allowed</string>
+    <string name="devices_not_allowed">Not allowed</string>
+    <string name="devices_allow_device">Allow announcements on %1$s</string>
+    <string name="devices_forget">Forget</string>
+    <string name="devices_refresh">Check connected devices</string>
+    <string name="devices_unavailable">Connected outputs could not be read. Try again.</string>
+    <string name="devices_note_routing">Android routes audio to the active output, so Hear It cannot force a particular device. Device names need Bluetooth permission on Android 12 and later.</string>
+    <string name="global_settings_title">Global Eligibility Rules</string>
+    <string name="global_settings_description">Baseline filters applied to all incoming notifications before speaking out loud</string>
+    <string name="global_device_state_title">Device Screen &amp; Lock</string>
+    <string name="global_device_state_desc">Physical device conditions required for speech</string>
+    <string name="global_screen_condition">Screen condition</string>
+    <string name="global_screen_on">Screen On</string>
+    <string name="global_screen_off">Screen Off</string>
+    <string name="global_screen_both">Either State</string>
+    <string name="global_lock_condition">Lock condition</string>
+    <string name="global_lock_locked">Locked</string>
+    <string name="global_lock_unlocked">Unlocked</string>
+    <string name="global_lock_both">Either State</string>
+    <string name="global_text_length_title">Text Length Limits</string>
+    <string name="global_text_length_desc">Skip notifications that exceed character thresholds (never truncated)</string>
+    <string name="global_max_length">Maximum length (chars)</string>
+    <string name="global_chars">chars</string>
+    <string name="global_scope_message">Per message</string>
+    <string name="global_scope_whole_notification">Whole notification</string>
+    <string name="global_keywords_title">Keyword Filtering</string>
+    <string name="global_keywords_desc">Skip notifications matching configured trigger words</string>
+    <string name="global_keywords_enabled">Filter notifications by keywords</string>
+    <string name="global_keywords_mode">Match mode</string>
+    <string name="global_keyword_mode_whole_word">Whole word</string>
+    <string name="global_keyword_mode_phrase">Phrase</string>
+    <string name="global_keywords_keywords">Keywords (comma-separated)</string>
+    <string name="global_privacy_title">Privacy &amp; Content Shields</string>
+    <string name="global_privacy_desc">Automatic shields for credentials, verification codes, and financial alerts</string>
+    <string name="global_privacy_exclude_app">Exclude app from history</string>
+    <string name="global_privacy_exclude_app_desc">Suppresses recording notification message content to database</string>
+    <string name="global_privacy_skip_otp">Skip OTP &amp; verification codes</string>
+    <string name="global_privacy_skip_otp_desc">Prevents speaking 2FA and one-time verification codes out loud</string>
+    <string name="global_privacy_skip_password">Skip password notifications</string>
+    <string name="global_privacy_skip_password_desc">Silences notifications containing credentials and security keys</string>
+    <string name="global_privacy_skip_banking">Skip banking &amp; account alerts</string>
+    <string name="global_privacy_skip_banking_desc">Suppresses spoken bank balances, deposits, and account alerts</string>
+    <string name="global_privacy_skip_payment">Skip payment confirmations</string>
+    <string name="global_privacy_skip_payment_desc">Silences purchase transactions, UPI, and debit card receipts</string>
+    <string name="global_privacy_hide_content">Hide notification message body</string>
+    <string name="global_privacy_hide_content_desc">Speaks only App Name and Sender Name; suppresses message text</string>
+    <string name="global_privacy_sensitive_keywords">Custom sensitive keywords</string>
+    <string name="global_audio_title">Allowed Output Channels</string>
+    <string name="global_audio_desc">Hardware channels permitted to play speech announcements</string>
+    <string name="global_audio_allow_wired">Wired headphones &amp; headsets</string>
+    <string name="global_audio_allow_wired_desc">3.5mm wired headphones and USB-C audio devices</string>
+    <string name="global_audio_allow_bluetooth">Bluetooth audio devices</string>
+    <string name="global_audio_allow_bluetooth_desc">Wireless headphones, earbuds, and car audio systems</string>
+    <string name="global_audio_allow_speaker">Internal phone speaker</string>
+    <string name="global_audio_allow_speaker_desc">Allows announcements to play aloud through phone speaker</string>
+    <string name="global_audio_speaker_warning">Warning: Announcements will play out loud to everyone nearby.</string>
+    <string name="global_settings_apply">Apply</string>
+    <string name="global_settings_apply_note">Changes take effect immediately for future announcements</string>
+    <string name="global_rules_reset">Reset Rules to Defaults</string>
+    <string name="global_rules_reset_confirm_title">Reset Global Rules?</string>
+    <string name="global_rules_reset_confirm_body">All global screen, lock, length, keyword, and privacy rules will be reset to recommended defaults.</string>
+
+    <string name="action_cancel">Cancel</string>
+    <string name="history_clear_all_confirm_title">Clear all history?</string>
+    <string name="history_clear_all_confirm_body">Every recorded announcement entry will be deleted from this device. This cannot be undone.</string>
+
+    <!-- History feature (P18) -->
+    <string name="history_search_label">Search history</string>
+    <string name="history_search_note">Searches the app name, the sender and any message text your history settings stored.</string>
+    <string name="history_status_all">All statuses</string>
+    <string name="history_status_filter">Status: %1$s</string>
+    <string name="history_status_title">Show which status?</string>
+    <string name="history_sort_label">Sort: %1$s</string>
+    <string name="history_sort_title">Sort history by</string>
+    <string name="history_sort_recent">Newest first</string>
+    <string name="history_sort_oldest">Oldest first</string>
+    <string name="history_sort_by_app">By app</string>
+    <string name="history_settings_title">History settings</string>
+    <string name="history_storage_label">Storage</string>
+    <string name="history_updates_label">Updates</string>
+    <string name="history_retention_label">Keep for</string>
+    <string name="history_retention_never">Until you delete it</string>
+    <string name="history_retention_days">%1$d days</string>
+    <string name="history_settings_note">These apply to new notifications. Entries already stored keep the content that was kept at the time.</string>
+    <string name="history_empty">No history yet. Once an enabled app posts a notification while Hear It is running, it is recorded here.</string>
+    <string name="history_empty_filtered">No entries match this search or filter.</string>
+    <string name="history_unavailable">History could not be read from this device. Try again in a moment.</string>
+    <string name="history_loading">Loading history\u2026</string>
+    <string name="history_load_more">Load more</string>
+    <string name="history_end">End of history</string>
+    <string name="history_row_title">%1$s \u00b7 %2$s</string>
+    <string name="history_row_reason">Reason: %1$s</string>
+    <string name="history_row_sender">From %1$s</string>
+    <string name="history_row_updated">Updated notification</string>
+    <string name="history_delete">Delete</string>
+    <string name="history_delete_entry">Delete the %1$s entry</string>
+    <string name="history_delete_confirm_title">Delete this entry?</string>
+    <string name="history_delete_confirm_body">The %1$s entry is removed from this device. This cannot be undone.</string>
+    <string name="history_clear_all_button">Clear all history</string>
+    <string name="history_reason_app_disabled">app disabled</string>
+    <string name="history_reason_muted">temporarily muted</string>
+    <string name="history_reason_screen_on">screen on</string>
+    <string name="history_reason_screen_off">screen off</string>
+    <string name="history_reason_unlocked">device unlocked</string>
+    <string name="history_reason_locked">device locked</string>
+    <string name="history_reason_too_long">too long</string>
+    <string name="history_reason_keyword">keyword filter</string>
+    <string name="history_reason_privacy_app">excluded app</string>
+    <string name="history_reason_privacy_otp">verification code</string>
+    <string name="history_reason_privacy_password">password</string>
+    <string name="history_reason_privacy_payment">payment</string>
+    <string name="history_reason_privacy_banking">banking</string>
+    <string name="history_reason_privacy_sensitive">sensitive keyword</string>
+    <string name="history_reason_call">call in progress</string>
+    <string name="history_reason_dnd">do not disturb</string>
+    <string name="history_reason_output">output not allowed</string>
+    <string name="history_reason_expired">expired before speaking</string>
+    <string name="history_reason_overflow">queue limit</string>
+    <string name="history_reason_duplicate">already announced</string>
+    <string name="history_reason_suppressed_intelligence">filtered by active intelligence</string>
+    <string name="history_reason_low_battery">low battery or battery saver</string>
+    <string name="history_reason_proximity_uncovered">phone in hand (proximity uncovered)</string>
+    <string name="history_reason_spam_cooldown">sender spam cooldown</string>
+    <string name="history_reason_manually_cleared">queue cleared manually</string>
+
+    <!-- App icon / splash -->
+    <string name="splash_icon_description">Hear It app icon</string>
+    <string name="splash_subtitle">Your notifications, read aloud.</string>
+    <string name="splash_privacy_badge">100% On-Device · Private</string>
+
+    <!-- Voice & Speech Settings (Phase P15) -->
+    <string name="voice_speech_reset">Reset to defaults</string>
+    <string name="voice_speech_reset_confirm_title">Reset Voice &amp; Speech settings?</string>
+    <string name="voice_speech_reset_confirm_body">This will restore the speech speed, pitch, voice, and announcement format back to their initial default values.</string>
+    <string name="voice_speech_preview_title">Live Spoken Preview</string>
+    <string name="voice_speech_preview_play">Test Voice</string>
+    <string name="voice_speech_preview_stop">Stop Sample</string>
+    <string name="voice_speech_preview_subtext">Simulates how notifications sound with current settings. Does not affect history or queue.</string>
+    <string name="voice_speech_tts_unavailable">Text-to-speech engine is currently unavailable or initialising on this device.</string>
+    <string name="voice_speech_tuning_title">Speech Tuning</string>
+    <string name="voice_speech_rate_label">Speech Rate</string>
+    <string name="voice_speech_pitch_label">Pitch</string>
+    <string name="voice_speech_voice_label">Voice Selection</string>
+    <string name="voice_speech_voice_system_default">System default</string>
+    <string name="voice_speech_voice_dialog_title">Select TTS Voice</string>
+    <string name="voice_speech_voice_network_required">Requires network</string>
+    <string name="voice_speech_format_title">Announcement Structure</string>
+    <string name="voice_speech_format_subtitle">Configure which notification details are spoken aloud.</string>
+    <string name="voice_speech_include_app_name">App Name</string>
+    <string name="voice_speech_include_app_name_desc">Speak the posting app\'s name (e.g. \"WhatsApp\")</string>
+    <string name="voice_speech_include_sender">Sender Name</string>
+    <string name="voice_speech_include_sender_desc">Speak the sender or chat contact if available (e.g. \"Rahul says,\")</string>
+    <string name="voice_speech_include_message">Message Content</string>
+    <string name="voice_speech_include_message_desc">Speak the text body of the notification</string>
+    <string name="voice_speech_intro_label">Custom Introduction</string>
+    <string name="voice_speech_intro_placeholder">e.g. Attention, New message (optional)</string>
+    <string name="voice_speech_intro_helper">Spoken first before any notification content</string>
+    <string name="voice_speech_pause_label">Pause Between Sections</string>
+    <string name="voice_speech_pause_desc">Brief silence inserted between app, sender, and message</string>
+    <string name="voice_speech_pause_none">None (0ms)</string>
+    <string name="voice_speech_pause_short">250 ms</string>
+    <string name="voice_speech_pause_medium">500 ms</string>
+    <string name="voice_speech_pause_long">1.0 s</string>
+
+    <!-- General Settings: Queue, Grouping, Pacing & Audio Focus (Phase P15) -->
+    <string name="settings_screen_title">Settings</string>
+    <string name="settings_screen_subtitle">Queue batching, delivery timing, capacity, and audio focus.</string>
+    <string name="settings_grouping_title">Grouping &amp; Batching</string>
+    <string name="settings_grouping_desc">Combine rapid notifications from the same app into a single summary announcement.</string>
+    <string name="settings_grouping_window_label">Grouping Window</string>
+    <string name="settings_grouping_window_desc">Time window to gather incoming notifications before announcing</string>
+    <string name="settings_max_messages_label">Max Messages Per Announcement</string>
+    <string name="settings_max_messages_desc">Cap on the number of messages spoken together in one batch</string>
+    <string name="settings_timing_title">Delivery &amp; Pacing</string>
+    <string name="settings_timing_desc">Configure delays and silence between consecutive announcements.</string>
+    <string name="settings_delay_label">Announcement Delay</string>
+    <string name="settings_delay_desc">Buffer time before reading a newly posted notification</string>
+    <string name="settings_min_gap_label">Minimum Gap Between Reads</string>
+    <string name="settings_min_gap_desc">Cooldown silence between finished and upcoming announcements</string>
+    <string name="settings_limits_title">Queue Capacity &amp; Expiry</string>
+    <string name="settings_limits_desc">Manage backlog capacity and expiration to prevent stale announcements.</string>
+    <string name="settings_expiry_label">Pending Message Expiry</string>
+    <string name="settings_expiry_desc">Maximum wait time before a queued notification is dropped unread</string>
+    <string name="settings_global_max_label">Total Queue Capacity</string>
+    <string name="settings_per_app_max_label">Per-App Capacity</string>
+    <string name="settings_overflow_label">Eviction Policy When Full</string>
+    <string name="settings_overflow_desc">Which queued notification to drop when capacity limit is reached</string>
+    <string name="settings_overflow_discard_oldest">Discard Oldest (Default)</string>
+    <string name="settings_overflow_discard_newest">Discard Newest</string>
+    <string name="settings_overflow_keep_priority">Keep Highest Priority</string>
+    <string name="settings_updates_title">Notification Updates</string>
+    <string name="settings_repeat_updates_label">Re-announce Updated Notifications</string>
+    <string name="settings_repeat_updates_desc">Speak again when an app modifies an already announced notification</string>
+    <string name="settings_audio_focus_title">Audio Focus &amp; Media Behavior</string>
+    <string name="settings_audio_focus_desc">How background audio (music, podcasts) responds when Hear It speaks.</string>
+    <string name="settings_audio_focus_duck">Duck Other Audio (Default)</string>
+    <string name="settings_audio_focus_duck_desc">Temporarily lowers background music or podcast volume</string>
+    <string name="settings_audio_focus_pause">Pause Other Audio</string>
+    <string name="settings_audio_focus_pause_desc">Pauses background media during speech and resumes when finished</string>
+    <string name="settings_audio_focus_none">Do Not Interfere</string>
+    <string name="settings_audio_focus_none_desc">Speaks concurrently without requesting audio focus from other apps</string>
+
+    <!-- Persistent Service Notification (Notification Panel Control) -->
+    <string name="settings_service_notification_title">Service Notification</string>
+    <string name="settings_service_notification_desc">Controls the persistent \"Hear It is running\" notification in your device\'s notification shade.</string>
+    <string name="settings_service_notification_visible_label">Show in Notification Panel</string>
+    <string name="settings_service_notification_visible_on">Visible in notification panel</string>
+    <string name="settings_service_notification_visible_off">Hidden from notification panel</string>
+    <string name="settings_service_notification_status_visible">Visible in Panel</string>
+    <string name="settings_service_notification_status_hidden">Hidden from Panel (Service Active)</string>
+    <string name="settings_service_notification_explanation">Android requires background services to register a status notification. You can safely hide or minimize \"Hear It is running\" in system settings without stopping speech announcements.</string>
+    <string name="settings_service_notification_configure_button">Configure in Android Settings</string>
+    <string name="settings_service_notification_dialog_title">Configure Service Notification</string>
+    <string name="settings_service_notification_dialog_body">Android manages foreground service notifications through system settings.\n\nTap \"Open Settings\" and toggle \"Allow notifications\" to hide or show \"Hear It is running\" in your notification panel.</string>
+    <string name="settings_service_notification_dialog_confirm">Open Settings</string>
+    <string name="settings_service_notification_tip">💡 Tip: In the settings screen, turn \"Allow notifications\" OFF to hide it from your notification panel completely.</string>
+
+    <string name="settings_reset">Reset to defaults</string>
+    <string name="settings_reset_confirm_title">Reset settings to defaults?</string>
+    <string name="settings_reset_confirm_body">This will restore grouping window, pacing delays, queue capacity limits, and audio focus back to their default values.</string>
+
+    <!-- Backup & Restore Feature (Phase P19) -->
+    <string name="backup_export_title">Export Settings</string>
+    <string name="backup_export_desc">Save a portable, private JSON file with your rules, voice preferences, and app configurations. Notification content and history are never included.</string>
+    <string name="backup_export_button">Export to JSON File</string>
+    <string name="backup_import_title">Restore Settings</string>
+    <string name="backup_import_desc">Restore your configuration from a previously saved backup file. This will update your active rules and speech settings.</string>
+    <string name="backup_import_button">Select Backup File</string>
+    <string name="backup_import_confirm_title">Restore settings from backup?</string>
+    <string name="backup_import_confirm_body">This will overwrite your current rules, speech settings, and queue pacing with the configuration from the selected backup file.</string>
+    <string name="backup_manual_json_title">Raw JSON Configuration</string>
+    <string name="backup_manual_json_desc">Directly inspect, copy, or apply a JSON configuration string.</string>
+    <string name="backup_copy_json">Copy Backup JSON</string>
+    <string name="backup_apply_json">Apply Pasted JSON</string>
+    <string name="backup_privacy_note">100% On-Device · Zero Cloud · Settings Only</string>
+
+    <!-- Diagnostics Feature (Phase P19) -->
+    <string name="diagnostics_subtitle">Real-time health check of permissions, service, audio hardware, and speech synthesis.</string>
+    <string name="diagnostics_service_title">Announcement Service</string>
+    <string name="diagnostics_permissions_title">System Permissions &amp; Access</string>
+    <string name="diagnostics_tts_title">Text-to-Speech Readiness</string>
+    <string name="diagnostics_audio_title">Audio Output Routing</string>
+    <string name="diagnostics_app_state_title">Rules &amp; Storage Health</string>
+    <string name="diagnostics_notification_access">Notification Listener Access</string>
+    <string name="diagnostics_notification_access_desc">Required to detect notifications from enabled apps</string>
+    <string name="diagnostics_post_notifications">Post Notifications Permission</string>
+    <string name="diagnostics_post_notifications_desc">Required to run persistent foreground service notification</string>
+    <string name="diagnostics_bluetooth_permission">Nearby Devices (Bluetooth)</string>
+    <string name="diagnostics_bluetooth_permission_desc">Allows detecting connected Bluetooth headsets and earbuds</string>
+    <string name="diagnostics_battery_optimization">Background Execution</string>
+    <string name="diagnostics_battery_desc">Unrestricted battery optimization ensures reliable background announcements</string>
+    <string name="diagnostics_run_probes">Refresh Probes</string>
+    <string name="diagnostics_status_granted">Granted</string>
+    <string name="diagnostics_status_missing">Missing</string>
+    <string name="diagnostics_status_healthy">Ready</string>
+    <string name="diagnostics_fix_action">Fix</string>
+    <string name="diagnostics_voices_count">%1$d voices installed</string>
+
+    <!-- Diagnostic Logging & Export (Master prompt §17) -->
+    <string name="diagnostics_logs_title">Diagnostic Event Logs</string>
+    <string name="diagnostics_logs_subtitle">7-day rolling on-device logs · Guaranteed zero notification text</string>
+    <string name="diagnostics_logs_stat_retention">7-Day Retention</string>
+    <string name="diagnostics_logs_stat_files">%1$d files (%2$d KB)</string>
+    <string name="diagnostics_logs_stat_privacy">Privacy Verified · Metadata Only</string>
+    <string name="diagnostics_logs_explanation">Hear It records technical diagnostic events (service lifecycle, rules decisions, queue pacing, audio routing, and speech synthesis) on-device for troubleshooting. Notification message content, sender names, and OTPs are strictly excluded.</string>
+    <string name="diagnostics_logs_export_button">Export Diagnostic Logs</string>
+    <string name="diagnostics_logs_clear_button">Clear Diagnostic Logs</string>
+    <string name="diagnostics_logs_clear_dialog_title">Clear all diagnostic logs?</string>
+    <string name="diagnostics_logs_clear_dialog_body">This will permanently delete all stored diagnostic log files from your device. Ongoing service events will continue recording fresh logs.</string>
+    <string name="diagnostics_logs_clear_confirm">Clear All Logs</string>
+    <string name="diagnostics_logs_dismiss">Dismiss</string>
+
+    <!-- Security & Privacy Additions (Master Prompt §15) -->
+    <string name="settings_security_title">Security &amp; Privacy</string>
+    <string name="settings_security_subtitle">Biometric lock and secure screen display</string>
+    <string name="settings_security_biometric_title">Biometric App Lock</string>
+    <string name="settings_security_biometric_desc">Require biometric or device PIN to access History and Settings.</string>
+    <string name="settings_security_biometric_unavailable">No device lock or biometric configured in Android Settings</string>
+    <string name="settings_security_secure_screen_title">Secure Screen Mode</string>
+    <string name="settings_security_secure_screen_desc">Hide app content in Android task switcher (Recents) and prevent screenshots to shield notification privacy.</string>
+    <string name="settings_security_unlock_title">Hear It is Locked</string>
+    <string name="settings_security_unlock_desc">Authenticate with biometric or device PIN/pattern to access notification history and settings.</string>
+    <string name="settings_security_unlock_button">Unlock with Biometrics</string>
 </resources>

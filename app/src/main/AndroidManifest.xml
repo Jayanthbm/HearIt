@@ -1,8 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Foreground-service permissions for the announcement service's
+         foregroundServiceType="mediaPlayback" (ADR-010, targetSdk 34+).
+         Both are install-time NORMAL permissions: silently granted, never shown to
+         the user, so no setup-flow explanation is owed for them. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+    <!-- Runtime permissions, each requested only after the setup flow explains it
+         (P06 acceptance criterion, P11 implementation):
+         - POST_NOTIFICATIONS (API 33+): persistent service notification; explained on the
+           review step, requested there.
+         - BLUETOOTH_CONNECT (API 31+): Bluetooth device names/routing; explained on the
+           Bluetooth step, requested there.
+         Both are optional for speaking; neither is required for wired output. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <!-- Optional runtime permission requested ONLY if user enables Ambient Noise Auto-Boost -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- Biometric authentication (Master prompt §15, install-time normal permissions). -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+    <uses-permission android:name="android.permission.USE_FINGERPRINT" />
+
+    <!-- Package visibility (API 30+): the setup app-selection step and the P13 Applications
+         list both enumerate launcher apps. QUERY_ALL_PACKAGES is deliberately not requested
+         (it is Play-restricted and unnecessary for a notification reader), so apps without a
+         launcher entry become reachable once enabled — see ADR-025. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
 
     <application
+        android:name=".HearItApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -11,18 +47,105 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.HearIt">
+
+        <!-- Cold-start splash surface. It holds [SplashActivity] as the launcher activity so
+             the adaptive icon and a branded splash drawable are painted while the app boots;
+             [MainActivity] then performs the same route decision as before (setup flow for
+             first launch, dashboard shell afterwards). -->
         <activity
-            android:name=".MainActivity"
+            android:name=".SplashActivity"
             android:exported="true"
-            android:label="@string/app_name"
-            android:theme="@style/Theme.HearIt"
-            android:windowSoftInputMode="adjustResize">
+            android:theme="@style/Theme.Splash">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-    </application>
 
+        <activity
+            android:name=".MainActivity"
+            android:exported="false"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.HearIt"
+            android:windowSoftInputMode="adjustResize">
+            <!-- Used for deep-link / intent re-launch from the splash; not the launcher. -->
+        </activity>
+
+        <!-- Notification-listener slot: the class lives in :core:notifications (P07)
+             and is on :app's runtime classpath. exported=true with the signature-level
+             BIND_NOTIFICATION_LISTENER_SERVICE permission is the mandatory pattern on
+             every API 29–37: only the system can bind, and it does so only after the user
+             grants notification access in the setup flow (architecture: "enabled only
+             after the user grants notification access"). -->
+        <service
+            android:name="com.jayanth.hearit.core.notifications.HearItNotificationListenerService"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
+        <!-- Foreground announcement service (P08): one foreground service hosts the
+             queue + TTS loop and the persistent notification (ADR-010). exported=false:
+             only this app starts it, and only on explicit user action. The
+             foregroundServiceType attribute exists from API 29 (our minSdk floor) and is
+             enforced from targetSdk 34; mediaPlayback requires the normal
+             FOREGROUND_SERVICE_MEDIA_PLAYBACK permission declared above. -->
+        <service
+            android:name=".service.AnnouncementService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+
+        <!-- Quick Settings tile for Priority Announce (P19b): a toggleable tile that turns
+             Priority Announce on/off. exported=true with the signature-level
+             BIND_QUICK_SETTINGS_TILE permission is the platform's pattern: only the system
+             may bind the tile, and it does so after the user adds it to Quick Settings.
+             The documented TOGGLEABLE_TILE metadata makes the tile behave as a toggle
+             (tap to flip, long-press opens the app) instead of a one-shot action. -->
+        <service
+            android:name=".service.PriorityAnnounceTileService"
+            android:exported="true"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
+            android:label="@string/priority_announce">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.quicksettings.TOGGLEABLE_TILE"
+                android:value="true" />
+        </service>
+
+        <!-- Wear OS companion sync listener -->
+        <service
+            android:name=".wear.PhoneWearableListenerService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
+                <data
+                    android:host="*"
+                    android:pathPrefix="/request"
+                    android:scheme="wear" />
+            </intent-filter>
+        </service>
+
+        <receiver
+            android:name=".service.BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".service.BluetoothDeviceReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.bluetooth.device.action.ACL_CONNECTED" />
+                <action android:name="android.bluetooth.device.action.ACL_DISCONNECTED" />
+            </intent-filter>
+        </receiver>
+    </application>
 </manifest>
