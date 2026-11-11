@@ -7,8 +7,9 @@ Once the review is completed, these items will be batched and implemented system
 ---
 
 ## 📋 Status Overview
-- Total Identified Backlog Items: 18
+- Total Identified Backlog Items: 19
 - In Discussion / Under Review
+- **Mandatory Requirement (All Features)**: Every capability—including automatic intelligence rules and playback behaviors—MUST have a dedicated UI **Enable / Disable switch** and **configuration controls** (thresholds, patterns, presets, or timing options) persisted across restarts.
 
 ---
 
@@ -27,7 +28,7 @@ Once the review is completed, these items will be batched and implemented system
     - Single press (`KEYCODE_HEADSETHOOK` / `KEYCODE_MEDIA_PLAY_PAUSE` / `onPlay` / `onPause`): Toggle **Pause / Resume** (`ACTION_PAUSE` / `ACTION_RESUME`).
     - Double press (or `onSkipToNext` / `KEYCODE_MEDIA_NEXT`): **Skip** current notification (`ACTION_SKIP`).
     - Triple press / Long press / `onSkipToPrevious` (`KEYCODE_MEDIA_PREVIOUS`): **Repeat** last announcement (`ACTION_REPEAT`).
-  - Optional toggle in **Active Intelligence $\to$ Gestures & Playback Controls** (*"Bluetooth Headset Button Controls"*) so users can enable/disable it.
+  - **UI Enable/Disable & Configuration in Active Intelligence $\to$ Gestures & Playback Controls**: Add persisted *"Bluetooth Headset Button Controls"* switch + configurable single/double/triple-press action selector.
 - **Files Likely Touched**:
   - `app/src/main/java/com/jayanth/hearit/service/AnnouncementService.kt`
   - `app/src/main/java/com/jayanth/hearit/service/SessionStore.kt`
@@ -199,7 +200,7 @@ Once the review is completed, these items will be batched and implemented system
 - **What Needs to Be Implemented**:
   - Add digit-by-digit formatting inside `SmartContentCleaner` (carefully avoiding currency amounts like `$50`, `₹1,499`, dates, or times like `10:30`):
     - Phone numbers (e.g., `+?\d[\d\s-]{8,}`) and standalone 4–8 digit OTP/verification codes/tracking IDs $\to$ space-separated digits with brief comma chunking (e.g., `"4 8 2, 9 1 0"`).
-  - Optionally expose a toggle in **Active Intelligence $\to$ Smart Content Cleaning & NLP** (*"Speak Codes & Phone Numbers Digit-by-Digit"*).
+  - **UI Enable/Disable & Configuration in Active Intelligence $\to$ Smart Content Cleaning & NLP**: Add persisted switch (*"Speak Codes & Phone Numbers Digit-by-Digit"*) + configuration toggles/options (OTP/verification codes vs Phone numbers, pause grouping style).
   - Add unit tests in `SmartContentCleanerTest`.
 - **Files Likely Touched**:
   - `core/tts/src/main/kotlin/com/jayanth/hearit/core/tts/SmartContentCleaner.kt`
@@ -321,12 +322,32 @@ Once the review is completed, these items will be batched and implemented system
   - **Engine (`AndroidTextToSpeechEngine.kt`)**: Already implements adaptive speed (`effectiveRate = (settings.speechRate * 1.25f).coerceAtMost(2.5f)` when `totalWords > 30`), earcon beep (`ToneGenerator`), and `300L` anti-collision delay — **all hardcoded**!
   - **Broken / Non-Persisted UI (`VoiceSpeechScreen.kt` $\to$ `SmartAudioPolishCard`)**: All 4 settings in `SmartAudioPolishCard` (`earconEnabled`, `antiCollisionMs` [0/300/500 ms], `adaptiveSpeedEnabled`, `monoFoldDownEnabled`) are **local `remember { mutableStateOf(...) }` state variables**! They do not persist across navigation/restarts and are never read by `AndroidTextToSpeechEngine`!
 - **What Needs to Be Implemented**:
-  - Move `isEarconEnabled`, `antiCollisionDelayMs`, `isAdaptiveSpeedEnabled`, and `isMonoFoldDownEnabled` into `SessionStore` (or `SpeechSettings` / `VoiceSpeechUiState`) and expose callbacks from `VoiceSpeechViewModel`.
-  - Wire `AndroidTextToSpeechEngine.speak()` to actually read those 4 settings (skip earcon if disabled, honor `0 ms` / `300 ms` / `500 ms` delay dynamically, only boost speed >30 words if `isAdaptiveSpeedEnabled == true`, and apply mono/balance preference if enabled).
-  - Remove hardcoded local `mutableStateOf` variables in `SmartAudioPolishCard`.
+  - Move `isEarconEnabled`, `antiCollisionDelayMs`, `isAdaptiveSpeedEnabled`, `adaptiveSpeedWordThreshold` (e.g. `20` / `30` / `50` words), `adaptiveSpeedMultiplier` (e.g. `1.25×` / `1.5×`), and `isMonoFoldDownEnabled` into `SessionStore` (or `SpeechSettings` / `VoiceSpeechUiState`) and expose callbacks from `VoiceSpeechViewModel`.
+  - Wire `AndroidTextToSpeechEngine.speak()` to actually read all of those settings dynamically (skip earcon if disabled, honor `0 ms` / `300 ms` / `500 ms` delay, apply configurable adaptive speed multiplier when above word threshold if enabled, and configure channel routing).
+  - Remove hardcoded local `mutableStateOf` variables in `SmartAudioPolishCard` and display the configuration selectors cleanly when enabled.
 - **Files Likely Touched**:
   - `app/src/main/java/com/jayanth/hearit/service/SessionStore.kt` & `AndroidTextToSpeechEngine.kt`
   - `app/src/main/java/com/jayanth/hearit/voicespeech/VoiceSpeechUiState.kt`, `VoiceSpeechViewModel.kt`, `VoiceSpeechScreen.kt`
+
+### 19. Configuration UI for Built-In Automatic Features (Zero-Config $\to$ User-Configurable) — ❌ UI MISSING
+- **Priority / Effort**: Medium Value / Low Effort
+- **Current State**:
+  - Several features currently execute unconditionally or under a single coarse flag without granular enable/disable switches or timing/behavior configs:
+    1. **App Name Deduplication** (`AnnouncementPipeline.kt`): Hardcoded to omit app name when consecutive alerts arrive from the same app within `45_000L` (45s) — no enable/disable switch or cooldown duration selector (`15s` / `30s` / `45s` / `60s`).
+    2. **Delayed Message Timestamp Tag** (`AnnouncementPipeline.kt`): Hardcoded `"Sent X minutes ago"` after `120_000L` (2 mins) — no enable/disable switch.
+    3. **Music Paused Hold Duration** (`AnnouncementService.kt`): `isMusicPauseHoldEnabled` toggle exists, but hold window is hardcoded to `60_000L` (60s) with no duration selector (`30s` / `60s` / `90s` / `120s`).
+    4. **Shake & Flip Gestures** (`AnnouncementService.kt`): One single toggle (`isShakeToStopEnabled`) controls Face-Down Flip Stop, Shake to Stop, AND Shake-within-10s to Repeat together — no separate switches/sensitivity config.
+    5. **Audio Focus Return Fade** (`AnnouncementService.kt`): Smooth 500ms delay before releasing focus is hardcoded.
+- **What Needs to Be Implemented**:
+  - Add persisted preferences in `SessionStore` and wire controls inside **Active Intelligence** (`IntelligenceControlsScreen` + `GeneralSettingsViewModel`) & **Audio Focus** so the user can toggle and configure every behavior:
+    - **App Name Deduplication**: Enable/disable switch + window chips (`30s` / `45s` / `60s`).
+    - **Delayed Time Context Tag**: Enable/disable switch (*"Prefix 'Sent X mins ago' for delayed alerts"*).
+    - **Music Paused Hold**: Duration chips (`30s` / `60s` / `90s`) when enabled.
+    - **Separate Gesture Controls**: Individual toggles/chips for **Flip Face-Down to Stop**, **Shake to Stop**, and **Shake to Repeat** (with `5s` / `10s` / `15s` window).
+- **Files Likely Touched**:
+  - `app/src/main/java/com/jayanth/hearit/service/SessionStore.kt`, `AnnouncementPipeline.kt`, `AnnouncementService.kt`
+  - `app/src/main/java/com/jayanth/hearit/settings/GeneralSettingsUiState.kt`, `GeneralSettingsViewModel.kt`, `GeneralSettingsScreen.kt`
+  - `app/src/main/java/com/jayanth/hearit/intelligence/IntelligenceControlsScreen.kt`
 
 ---
 
