@@ -8,6 +8,7 @@ import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
 import android.provider.Settings
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -169,6 +170,23 @@ class AndroidSetupLauncher(private val context: Context) : SetupLauncher {
     }
 
     override fun openBatteryOptimizationSettings() {
+        try {
+            val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+            val isAlreadyExempt = powerManager?.isIgnoringBatteryOptimizations(context.packageName) == true
+
+            if (!isAlreadyExempt) {
+                // Direct 1-tap system prompt: "Let HearIt always run in background? [Allow] [Deny]"
+                val directIntent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                    data = Uri.parse("package:${context.packageName}")
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(directIntent)
+                return
+            }
+        } catch (_: Exception) {
+            // Fall through to standard settings if direct intent fails or is restricted by OEM
+        }
+
         try {
             val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
                 data = Uri.fromParts("package", context.packageName, null)

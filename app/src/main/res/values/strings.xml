@@ -56,8 +56,8 @@
     <string name="setup_tts_engine_status">Speech engine: %1$s</string>
     <string name="setup_tts_language_status">Device language: %1$s</string>
 
-    <string name="setup_battery_body">To keep Hear It active when your screen is locked, tap below to open App Info and set Battery to \u201cUnrestricted\u201d.</string>
-    <string name="setup_battery_open">Open App Battery Settings</string>
+    <string name="setup_battery_body">To keep HearIt reliably announcing when your screen is locked or headphones are connected, tap below to grant unrestricted background battery execution.</string>
+    <string name="setup_battery_open">Allow Background Execution (1-Tap)</string>
     <string name="setup_battery_acknowledge">I understand that battery optimisation can interrupt announcements</string>
 
     <string name="setup_apps_body">Select which apps Hear It can announce aloud</string>

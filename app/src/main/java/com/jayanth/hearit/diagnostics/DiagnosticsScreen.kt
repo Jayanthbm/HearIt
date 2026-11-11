@@ -1,8 +1,10 @@
 package com.jayanth.hearit.diagnostics
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -659,6 +661,9 @@ private fun PermissionsDiagnosticsCard(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 
             // Battery Optimization
+            val powerManager = remember(context) { context.getSystemService(Context.POWER_SERVICE) as? PowerManager }
+            val isBatteryOptIgnored = powerManager?.isIgnoringBatteryOptimizations(context.packageName) == true
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -674,7 +679,8 @@ private fun PermissionsDiagnosticsCard(
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
-                        text = stringResource(R.string.diagnostics_battery_desc),
+                        text = if (isBatteryOptIgnored) "Battery optimization disabled (unrestricted background execution)"
+                               else stringResource(R.string.diagnostics_battery_desc),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 2,
@@ -682,18 +688,22 @@ private fun PermissionsDiagnosticsCard(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                FilledTonalButton(
-                    onClick = onOpenBatterySettings,
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.height(34.dp),
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(text = "Configure", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                if (isBatteryOptIgnored) {
+                    StatusBadge(text = stringResource(R.string.diagnostics_status_granted), isOk = true)
+                } else {
+                    FilledTonalButton(
+                        onClick = onOpenBatterySettings,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.height(34.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(text = "Unrestrict", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }
