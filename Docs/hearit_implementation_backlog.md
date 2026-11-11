@@ -7,7 +7,7 @@ Once the review is completed, these items will be batched and implemented system
 ---
 
 ## 📋 Status Overview
-- Total Identified Backlog Items: 19
+- Total Identified Backlog Items: 25
 - In Discussion / Under Review
 - **Mandatory Requirement (All Features)**: Every capability—including automatic intelligence rules and playback behaviors—MUST have a dedicated UI **Enable / Disable switch** and **configuration controls** (thresholds, patterns, presets, or timing options) persisted across restarts.
 
@@ -349,6 +349,55 @@ Once the review is completed, these items will be batched and implemented system
   - `app/src/main/java/com/jayanth/hearit/settings/GeneralSettingsUiState.kt`, `GeneralSettingsViewModel.kt`, `GeneralSettingsScreen.kt`
   - `app/src/main/java/com/jayanth/hearit/intelligence/IntelligenceControlsScreen.kt`
 
+### 20. Roadmap Item 11 (Idea 2): Chatty Group Flood Defense (Sender Burst Aggregator + UI) — ⚠️ PARTIAL
+- **Priority / Effort**: High Value / Low-Medium Effort
+- **Current State**:
+  - `AnnouncementQueue` groups same-**package** messages within `groupingWindowMillis` (`3000L`), and `AnnouncementTemplate.build()` announces `"N messages"` followed by repeating `"<Sender> says,"` for every single item even when all N messages came from the same sender in a burst.
+- **What Needs to Be Implemented**:
+  - Detect consecutive/grouped messages from the **same sender** within a configurable burst window (`3s` / `5s` / `10s`) inside `AnnouncementTemplate` / `AnnouncementPipeline` and merge them smoothly into one phrase: e.g., `"Rahul sent 4 quick messages: Hey, where are you, check Slack"` instead of repeating `"Rahul says"` 4 times.
+  - **UI Enable/Disable & Config**: Add *"Burst Aggregator (Chatty Group Defense)"* switch + burst threshold/window selector inside **Preferences $\to$ Grouping & Batching** / **Active Intelligence**.
+
+### 21. Roadmap Item 11 (Idea 3): Sender Contact Name Sanitizer — UI Toggle & Config — ⚠️ ENGINE ONLY
+- **Priority / Effort**: Medium Value / Very Low Effort
+- **Current State**:
+  - `SmartContentCleaner.cleanSender()` already strips emojis (`"Rahul 🏏🔥"` $\to$ `"Rahul"`) and bracketed notes (`"Rahul (Work)"` $\to$ `"Rahul"`) unconditionally with **no UI toggle**.
+- **What Needs to Be Implemented**:
+  - **UI Enable/Disable & Config**: Add persisted *"Sanitize Contact & Sender Names"* switch (with sub-toggles: *Strip Emojis from Senders*, *Strip Bracketed Notes `(Work)`/`(Gym)`*) inside **Active Intelligence $\to$ Smart Content Cleaning & NLP**, wired to `SmartContentCleaner.isContactSanitizerEnabled` etc.
+
+### 22. Roadmap Item 11 (Idea 4): "Catch-Up: What Did I Miss?" Summary on Connect — ⚠️ PARTIAL
+- **Priority / Effort**: High Value / Medium Effort
+- **Current State**:
+  - `AnnouncementService.audioDeviceCallback` currently speaks `"HearIt connected. You have X pending notifications."` ONLY if `pipeline.pendingCount > 0`.
+  - Missing: tracking how long headphones were disconnected (**absence duration** threshold e.g. `15+ mins`), querying missed/recent skipped-because-no-output notifications from Room history/session since disconnect, listing **app names** (`"You have 3 unread messages from WhatsApp and Gmail"`), and **no UI toggle or threshold selector**.
+- **What Needs to Be Implemented**:
+  - Track `lastHeadphoneDisconnectedAtMillis` in `SessionStore` / `AnnouncementService`.
+  - When headphones connect after the configured absence window (`5m` / `15m` / `30m`), read pending + recently missed (`NO_ALLOWED_OUTPUT` / `SCREEN_ON`) items grouped by app name into `"Connected. You have 3 unread messages from WhatsApp and Gmail."`
+  - **UI Enable/Disable & Config**: Add persisted *"Catch-Up Summary on Connect"* toggle + absence threshold chips (`Always` / `5m` / `15m` / `30m`) + *"Include App Breakdown"* toggle inside **Devices & Audio Routing** and/or **Active Intelligence**.
+
+### 23. Roadmap Item 11 (Idea 5): Low Battery Speech Safeguard Warning & Threshold UI — ⚠️ PARTIAL
+- **Priority / Effort**: Medium Value / Low Effort
+- **Current State**:
+  - `RuntimeStateReader` (`capacity in 1..15 || isPowerSave`) and `EligibilityRules` (`SkipReason.MUTED`) pause speech below 15% battery **hardcoded**, with **no gentle spoken warning**, **no UI enable/disable switch**, and **no threshold selector** (and uses `SkipReason.MUTED` rather than distinct low-battery feedback).
+- **What Needs to Be Implemented**:
+  - Trigger a one-time gentle spoken notice when battery drops across the threshold while service is running: `"Low battery, pausing voice announcements."`
+  - **UI Enable/Disable & Config**: Add *"Low Battery Speech Safeguard"* toggle + threshold selector (`10%` / `15%` / `20%` + *"Also pause on Battery Saver"* toggle + *"Speak Low Battery Warning"* toggle) in **Global Eligibility Rules** / **Active Intelligence**.
+
+### 24. Roadmap Item 11 (Idea 6): Speech Volume Boost & Media Balance Control — ⚠️ PARTIAL (Standard 0–100% Volume Exists)
+- **Priority / Effort**: Medium Value / Medium Effort
+- **Current State**:
+  - `VoiceSpeechScreen` has a persisted **Announcement Volume** slider (`0%–100%`, mapped to `KEY_PARAM_VOLUME`). `AudioAttributes` uses `USAGE_ASSISTANCE_ACCESSIBILITY` (uses system accessibility/media mixer, no active boost >100% or relative media balance control).
+- **What Needs to Be Implemented**:
+  - Add an **Audio Balance / Voice Boost** toggle & slider in **Voice & Speech** (paired with Feature D Ducking Level #17) so users can prioritize speech loudness relative to media volume (`LoudnessEnhancer` / audio gain boost when `>100%` boost is enabled + Enable/Disable switch).
+
+### 25. Roadmap Item 11 (Idea 7): Tap-to-Repeat Last Spoken Announcement (Home & Notification UI) — ⚠️ PARTIAL (Service Action Only)
+- **Priority / Effort**: High Value / Very Low Effort
+- **Current State**:
+  - `AnnouncementService` already implements `ACTION_REPEAT` (`lastAction?.let { speak(it) }`), shake-within-10s calls it, and `strings.xml` already has `notification_action_repeat` (`"Repeat"`), **but there is no Tap-to-Repeat button on the Home screen OR in the persistent notification**, and no toggle to configure it.
+- **What Needs to Be Implemented**:
+  - Add a **Tap-to-Repeat Last Announcement** quick action button on `DashboardScreen` (Home Quick Actions / Active card when a last announcement exists) + optional **"Repeat"** action in `AnnouncementNotification` when idle.
+  - Track `hasLastAnnouncement: Boolean` cleanly in `ServiceStatusMonitor` / `DashboardUiState` (content-free, preserving privacy).
+  - **UI Enable/Disable & Config**: Add toggle in **Active Intelligence** / Notification Controls to enable/disable the Repeat shortcut on Home & persistent notification.
+
 ---
 
 ## ✅ Already Verified / Implemented Features in this Audit
@@ -360,6 +409,7 @@ Once the review is completed, these items will be batched and implemented system
 5. **Item 6.1 System Apps vs User Apps Filter**: Implemented via `AppCatalog.kt` (`FLAG_SYSTEM` detection) and `FilterChip` (*"System Apps Hidden" / "System Apps Shown"*) in `ApplicationsScreen.kt`. *(Follow-up fix tracked in Item 6.2: ensure "Enable all visible" respects `showSystemApps` & filter tab).*
 6. **Item 7.1 Priority Ordering in Queue**: Fully implemented end-to-end — Per-app **Speech Priority** picker (`Low` / `Normal` / `High` / `Critical`) in `ApplicationsScreen.kt`, passed via `AnnouncementService` (`settingsSource.priorityFor`) to `AnnouncementQueue.pollReady()`, which orders by highest `priority.rank` then FIFO without interrupting active speech.
 7. **Item 9.2 A (Basic URL Summarization & Emoji Spam Reducer)**: Basic hardcoded `summarizeUrls` & `collapseEmojiSpam` implemented in `SmartContentCleaner.kt` with toggles in **Active Intelligence**. *(Upgrading URL rules to predefined/custom UI & adding Digit-by-Digit Number formatting are tracked in Backlog #12 & #13).*
-8. **Item 9.3 Intelligent App Name Deduplication (Back-to-Back Same App)**: Fully implemented in `AnnouncementPipeline.tick()` — automatically detects consecutive announcements from the same `packageName` within 45 seconds (`45_000L`) and omits repeating the app name (`includeAppName = false`) with zero configuration.
+8. **Item 9.3 Intelligent App Name Deduplication (Back-to-Back Same App)**: Fully implemented in `AnnouncementPipeline.tick()` — automatically detects consecutive announcements from the same `packageName` within 45 seconds (`45_000L`) and omits repeating the app name (`includeAppName = false`) with zero configuration. *(UI config tracked in Backlog #19).*
 9. **Item 9.5 Pipeline Hardening (Listener Watchdog, MessagingStyle/InboxStyle Parser & 1-Tap Battery Exemption)**: Implemented across `HearItNotificationListenerService.kt` + `AnnouncementService.kt` (periodic `requestRebindIfDisconnected()` watchdog every ~22.5s and `onListenerDisconnected()` rebind), `StatusBarNotificationMapper.kt` (`EXTRA_MESSAGES` & `EXTRA_TEXT_LINES` fallback parsing), and `SetupProbes.kt` (1-tap `ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`).
 10. **Item 10 Feature A (Shake or Flip Phone to Stop Speech)**: Fully implemented in `AnnouncementService.sensorEventListener` (`TYPE_ACCELEROMETER` shake > 15.5 m/s² or face-down `z < -8.5f`) calling `engine.stop()` without triggering temporary mute, with `SessionStore.isShakeToStopEnabled` toggle in **Active Intelligence**.
+11. **Item 11 Idea 1 & Idea 6 Engines**: Soft pre-speech earcon chime (`AndroidTextToSpeechEngine.kt` ToneGenerator `120ms`) and `Announcement Volume` slider (`0–100%` in `VoiceSpeechScreen.kt`) exist; wiring earcon/delay UI controls to persistence & engine (#18) and adding true boost >100% / balance (#24) are in the backlog.
