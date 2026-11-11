@@ -7,7 +7,7 @@ Once the review is completed, these items will be batched and implemented system
 ---
 
 ## 📋 Status Overview
-- Total Identified Backlog Items: 15
+- Total Identified Backlog Items: 16
 - In Discussion / Under Review
 
 ---
@@ -281,6 +281,26 @@ Once the review is completed, these items will be batched and implemented system
   - `app/src/main/java/com/jayanth/hearit/intelligence/IntelligenceControlsScreen.kt`
   - `app/src/main/java/com/jayanth/hearit/settings/GeneralSettingsUiState.kt` & `GeneralSettingsViewModel.kt`
   - `app/src/main/java/com/jayanth/hearit/service/SessionStore.kt` & `AnnouncementService.kt`
+
+### 16. Roadmap Item 9.4: App Categories & Email / Messaging Grouping UI — ❌ NOT IMPLEMENTED
+- **Priority / Effort**: Medium-High Value / Medium Effort
+- **Current State**:
+  - No `AppCategory` grouping (Email vs Messaging vs SMS/Financial) exists in `AppCatalog`, `HearItSettings`, `ApplicationsScreen`, or `SettingsHub`.
+  - `SmartContentCleaner` currently treats every app identically regardless of whether it is Gmail/Outlook vs WhatsApp vs SMS.
+- **Planned Implementation**:
+  - **1. Category Model & Smart Defaults (`AppCategory`: `EMAIL`, `MESSAGING`, `SMS`)**:
+    - Pre-seed recognized package defaults cleanly (e.g., **Email**: `com.google.android.gm` Gmail, `com.microsoft.office.outlook` Outlook, Yahoo Mail, Samsung Email, Spark; **Messaging**: WhatsApp, WhatsApp Business, Telegram, Signal, Slack, MS Teams, Discord; **SMS / Carrier**: Google Messages, Samsung Messages, OnePlus/stock SMS).
+    - Persist user-customized package sets (`emailCategoryApps`, `messagingCategoryApps`, `smsCategoryApps` — or `appCategories: Map<String, AppCategory>` overrides) in `HearItSettings` / `SettingsCodec` (so unchecking/adding any installed app persists seamlessly).
+  - **2. Pipeline & Category-Rule Scoping (Pairs directly with Backlog #14 / Item 9.2 B)**:
+    - Pass `packageName` / `AppCategory` into `AnnouncementTemplate.build()` $\to$ `SmartContentCleaner` so **Email-specific rules** (`Re:` $\to$ `"Reply:"`, `Fwd:` $\to$ `"Forward:"`, legal disclaimer & sign-off truncation) apply specifically to apps in the **Email Apps Group**, while Messaging / SMS rules target their assigned groups cleanly.
+  - **3. Dedicated Grouping UI (Accessible from Applications Tab & Active Intelligence / Category Rules)**:
+    - Add an **"App Categories"** button/entry (in `ApplicationsScreen` top bar or **Active Intelligence $\to$ Category Intelligence**) opening a clean Group Manager with tabs/sections for **Email Apps**, **Messaging Apps**, and **SMS Apps**:
+      - Shows installed apps matching defaults pre-checked, plus search/checkboxes so users can easily check or uncheck any installed app in each category.
+- **Files Likely Touched**:
+  - `core/common/src/main/kotlin/...` (`AppCategory` enum & defaults)
+  - `core/datastore/src/main/kotlin/com/jayanth/hearit/core/datastore/HearItSettings.kt` & `SettingsCodec.kt`
+  - `core/tts/src/main/kotlin/com/jayanth/hearit/core/tts/SmartContentCleaner.kt` & `AnnouncementTemplate.kt`
+  - `app/src/main/java/com/jayanth/hearit/applications/ApplicationsViewModel.kt` & `ApplicationsScreen.kt` (plus link from `IntelligenceControlsScreen.kt`)
 
 ---
 
