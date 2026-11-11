@@ -7,7 +7,7 @@ Once the review is completed, these items will be batched and implemented system
 ---
 
 ## 📋 Status Overview
-- Total Identified Backlog Items: 11
+- Total Identified Backlog Items: 12
 - In Discussion / Under Review
 
 ---
@@ -192,6 +192,20 @@ Once the review is completed, these items will be batched and implemented system
 - **Files Likely Touched**:
   - `app/src/main/java/com/jayanth/hearit/history/HistoryScreen.kt`
 
+### 12. Roadmap Item 9.2 A.3: OTP & Phone Number Digit-by-Digit Speech Formatting — ❌ NOT IMPLEMENTED
+- **Priority / Effort**: Medium Value / Low Effort
+- **Current State**:
+  - `SmartContentCleaner` (`core/tts`) already summarizes URLs and collapses repeated emoji spam, **but** does not format phone numbers (`+91 9876543210`, `555-123-4567`) or standalone multi-digit codes/PINs (`482910`) digit-by-digit — TTS currently speaks them as giant cardinal integers (hundreds of thousands / billions).
+- **What Needs to Be Implemented**:
+  - Add digit-by-digit formatting inside `SmartContentCleaner` (carefully avoiding currency amounts like `$50`, `₹1,499`, dates, or times like `10:30`):
+    - Phone numbers (e.g., `+?\d[\d\s-]{8,}`) and standalone 4–8 digit OTP/verification codes/tracking IDs $\to$ space-separated digits with brief comma chunking (e.g., `"4 8 2, 9 1 0"`).
+  - Optionally expose a toggle in **Active Intelligence $\to$ Smart Content Cleaning & NLP** (*"Speak Codes & Phone Numbers Digit-by-Digit"*).
+  - Add unit tests in `SmartContentCleanerTest`.
+- **Files Likely Touched**:
+  - `core/tts/src/main/kotlin/com/jayanth/hearit/core/tts/SmartContentCleaner.kt`
+  - `core/tts/src/test/kotlin/com/jayanth/hearit/core/tts/SmartContentCleanerTest.kt`
+  - `app/src/main/java/com/jayanth/hearit/service/SessionStore.kt`, `GeneralSettingsViewModel.kt`, `GeneralSettingsScreen.kt` (if toggle added)
+
 ---
 
 ## ✅ Already Verified / Implemented Features in this Audit
@@ -202,3 +216,4 @@ Once the review is completed, these items will be batched and implemented system
 4. **Item 5.1 System TTS Settings Direct Shortcut**: Fully implemented in `VoiceSpeechScreen.kt` (`SystemTtsSettingsCard` + Voice Picker shortcut) and `DiagnosticsScreen.kt` firing `Intent("com.android.settings.TTS_SETTINGS")`.
 5. **Item 6.1 System Apps vs User Apps Filter**: Implemented via `AppCatalog.kt` (`FLAG_SYSTEM` detection) and `FilterChip` (*"System Apps Hidden" / "System Apps Shown"*) in `ApplicationsScreen.kt`. *(Follow-up fix tracked in Item 6.2: ensure "Enable all visible" respects `showSystemApps` & filter tab).*
 6. **Item 7.1 Priority Ordering in Queue**: Fully implemented end-to-end — Per-app **Speech Priority** picker (`Low` / `Normal` / `High` / `Critical`) in `ApplicationsScreen.kt`, passed via `AnnouncementService` (`settingsSource.priorityFor`) to `AnnouncementQueue.pollReady()`, which orders by highest `priority.rank` then FIFO without interrupting active speech.
+7. **Item 9.2 A (URL Summarization & Emoji Spam Reducer)**: Implemented in `SmartContentCleaner.kt` (`summarizeUrls`, `collapseEmojiSpam`) with toggles in **Active Intelligence** (`isUrlSummarizerEnabled`, `isEmojiCollapsingEnabled`). *(Only Digit-by-Digit Number/OTP Formatting from 9.2 A remains in backlog #12).*
