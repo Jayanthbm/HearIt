@@ -7,7 +7,7 @@ Once the review is completed, these items will be batched and implemented system
 ---
 
 ## 📋 Status Overview
-- Total Identified Backlog Items: 5
+- Total Identified Backlog Items: 6
 - In Discussion / Under Review
 
 ---
@@ -103,6 +103,22 @@ Once the review is completed, these items will be batched and implemented system
   - `app/src/main/java/com/jayanth/hearit/applications/ApplicationsViewModel.kt`
   - `app/src/main/java/com/jayanth/hearit/applications/ApplicationsScreen.kt`
 
+### 6. Roadmap Item 5.2: Per-App Voice / Pitch / Speed Overrides — ❌ NOT IMPLEMENTED
+- **Priority / Effort**: Low Value / Medium Effort
+- **Current State**:
+  - `SpeechSettings` (`speechRate`, `pitch`, `volumeLevel`, `voiceId`) is purely global (`HearItSettings.speech`), and `AnnouncementService` always passes `settingsSource.speech()` to `engine.speak()`.
+  - `AppOverride` in `HearItSettings.kt` currently only supports `eligibility`, `queue`, `history`, `priority`, `priorityAnnounceOverride`, and `spokenName` (no speech/voice override fields).
+- **What Needs to Be Implemented**:
+  - Add optional per-app `AppSpeechOverride(speechRate: Float? = null, pitch: Float? = null, voiceId: String? = null)` (and optionally format override if desired) to `AppOverride` (`core/datastore`), `SettingsCodec`, and `SettingsSource.speechFor(packageName)`.
+  - Update `AnnouncementService` (and pipeline/template resolution if template override is included) to resolve per-app `SpeechSettings` instead of fixed global `settingsSource.speech()`.
+  - Add a **Voice & Speed Override** card inside Per-App Details (`ApplicationsScreen` when app is enabled, with "Inherit global" reset option matching `Inherited<T>` pattern).
+  - Add codec + resolution unit tests (`SettingsCodecTest`, `HearItSettingsTest`, `AppSettingsEditorTest`).
+- **Files Likely Touched**:
+  - `core/tts/src/main/kotlin/com/jayanth/hearit/core/tts/TextToSpeechEngine.kt` (or `core/common`)
+  - `core/datastore/src/main/kotlin/com/jayanth/hearit/core/datastore/HearItSettings.kt` & `SettingsCodec.kt`
+  - `app/src/main/java/com/jayanth/hearit/service/SettingsSource.kt` & `AnnouncementService.kt`
+  - `app/src/main/java/com/jayanth/hearit/applications/ApplicationsModels.kt`, `AppSettingsEditor.kt`, `ApplicationsViewModel.kt`, `ApplicationsScreen.kt`
+
 ---
 
 ## ✅ Already Verified / Implemented Features in this Audit
@@ -110,3 +126,4 @@ Once the review is completed, these items will be batched and implemented system
 1. **Item 1.1 Phone Reboot Auto-Recovery (`BOOT_COMPLETED`)**: Fully implemented with `BootReceiver` and `RECEIVE_BOOT_COMPLETED`.
 2. **Item 1.2 Direct Battery Optimization Exemption**: Fully implemented with `ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` (1-tap OS system prompt) in Setup and Diagnostics.
 3. **Item 2.1 Multi-Action Persistent Notification**: Fully implemented in `AnnouncementNotification.kt` (Dynamic actions: Pause/Skip/Stop when speaking, Priority Toggle/Mute/Stop when idle).
+4. **Item 5.1 System TTS Settings Direct Shortcut**: Fully implemented in `VoiceSpeechScreen.kt` (`SystemTtsSettingsCard` + Voice Picker shortcut) and `DiagnosticsScreen.kt` firing `Intent("com.android.settings.TTS_SETTINGS")`.
