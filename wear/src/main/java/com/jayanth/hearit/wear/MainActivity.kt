@@ -92,7 +92,7 @@ fun WearApp() {
     val wearVersionName = remember(context) {
         runCatching {
             context.packageManager.getPackageInfo(context.packageName, 0).versionName
-        }.getOrNull() ?: "1.0.0"
+        }.getOrNull() ?: "1.0.1"
     }
 
     var isPhoneConnected by remember { mutableStateOf(false) }

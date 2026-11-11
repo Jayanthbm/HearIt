@@ -3,7 +3,13 @@
 All notable changes to HearIt are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.0.1] - unreleased
+
+### Changed
+- Bumped semantic version to `1.0.1` (`versionCode = 10011` for Phone, `10012` for Wear OS).
+- Commencing 15-day real-world device testing, defect resolution, and iterative refinement cycle.
+
+## [1.0.0] - 2026-11-11
 
 ### Added
 - App Security & Privacy additions (Master prompt §15): Implemented optional Biometric & Device Credential authentication gate and Secure Screen mode (`FLAG_SECURE`). Added `SecuritySettings` domain model to `:core:common`, serialized via `SettingsCodec` (`security.biometricLock` and `security.secureScreen`). Created `BiometricAuthManager` using Android platform's `BiometricPrompt` supporting biometric and device credential (PIN/pattern/password) fallback. Added a dedicated "Security & Device Privacy" section to General Settings with interactive switches. Configured dynamic `FLAG_SECURE` in `MainActivity` to shield notification previews in the Android task switcher (Recents) and prevent screenshots. Created Material 3 Expressive `AppLockScreen` overlay auto-locking upon app backgrounding (`ON_STOP`) and prompting for biometric authentication upon resume, with the background announcement service continuing speech synthesis without interruption when the UI is locked.
