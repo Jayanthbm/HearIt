@@ -7,7 +7,7 @@ Once the review is completed, these items will be batched and implemented system
 ---
 
 ## 📋 Status Overview
-- Total Identified Backlog Items: 7
+- Total Identified Backlog Items: 8
 - In Discussion / Under Review
 
 ---
@@ -137,6 +137,21 @@ Once the review is completed, these items will be batched and implemented system
   - `app/src/main/java/com/jayanth/hearit/applications/ApplicationsViewModel.kt`
   - `app/src/main/java/com/jayanth/hearit/applications/ApplicationsScreen.kt`
 
+### 8. Roadmap Item 7.2: Manual "Clear Queue" Action — ❌ NOT IMPLEMENTED
+- **Priority / Effort**: Medium Value / Very Low Effort
+- **Current State**:
+  - `AnnouncementQueue` (`core/queue`), `AnnouncementPipeline`, `AnnouncementService`, `AnnouncementNotification`, and `DashboardScreen` have no method or action to clear/flush pending queued items on demand.
+  - Queued notifications must either finish speaking or wait for `expiryMillis`.
+- **What Needs to Be Implemented**:
+  - Add `clearPending(): List<QueueEvent>` (and optionally record cleared items as `QueueEvent.OverflowDiscarded` or skipped in history) in `AnnouncementQueue` + `AnnouncementPipeline.clearQueue()`.
+  - Add `ACTION_CLEAR_QUEUE` in `AnnouncementService` (stopping/skipping or letting current finish while flushing pending + held queue and updating `serviceStatus.updateSpeech(pendingCount = 0)` + notification).
+  - Add a **"Clear Queue"** pill/button on the Home Hero Card (`DashboardScreen`) when `state.pendingCount > 0` (and optionally in `AnnouncementNotification` when queue > 0 or via action).
+  - Add unit tests in `AnnouncementQueue` + `AnnouncementPipelineTest`.
+- **Files Likely Touched**:
+  - `core/queue/src/main/kotlin/com/jayanth/hearit/core/queue/AnnouncementQueue.kt`
+  - `app/src/main/java/com/jayanth/hearit/service/AnnouncementPipeline.kt` & `AnnouncementService.kt`
+  - `app/src/main/java/com/jayanth/hearit/dashboard/DashboardViewModel.kt` & `DashboardScreen.kt`
+
 ---
 
 ## ✅ Already Verified / Implemented Features in this Audit
@@ -146,3 +161,4 @@ Once the review is completed, these items will be batched and implemented system
 3. **Item 2.1 Multi-Action Persistent Notification**: Fully implemented in `AnnouncementNotification.kt` (Dynamic actions: Pause/Skip/Stop when speaking, Priority Toggle/Mute/Stop when idle).
 4. **Item 5.1 System TTS Settings Direct Shortcut**: Fully implemented in `VoiceSpeechScreen.kt` (`SystemTtsSettingsCard` + Voice Picker shortcut) and `DiagnosticsScreen.kt` firing `Intent("com.android.settings.TTS_SETTINGS")`.
 5. **Item 6.1 System Apps vs User Apps Filter**: Implemented via `AppCatalog.kt` (`FLAG_SYSTEM` detection) and `FilterChip` (*"System Apps Hidden" / "System Apps Shown"*) in `ApplicationsScreen.kt`. *(Follow-up fix tracked in Item 6.2: ensure "Enable all visible" respects `showSystemApps` & filter tab).*
+6. **Item 7.1 Priority Ordering in Queue**: Fully implemented end-to-end — Per-app **Speech Priority** picker (`Low` / `Normal` / `High` / `Critical`) in `ApplicationsScreen.kt`, passed via `AnnouncementService` (`settingsSource.priorityFor`) to `AnnouncementQueue.pollReady()`, which orders by highest `priority.rank` then FIFO without interrupting active speech.
