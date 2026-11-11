@@ -7,7 +7,7 @@ Once the review is completed, these items will be batched and implemented system
 ---
 
 ## 📋 Status Overview
-- Total Identified Backlog Items: 30
+- Total Identified Backlog Items: 34
 - In Discussion / Under Review
 - **Mandatory Requirement (All Features)**: Every capability—including automatic intelligence rules and playback behaviors—MUST have a dedicated UI **Enable / Disable switch** and **configuration controls** (thresholds, patterns, presets, or timing options) persisted across restarts.
 
@@ -341,9 +341,10 @@ Once the review is completed, these items will be batched and implemented system
 - **What Needs to Be Implemented**:
   - Add persisted preferences in `SessionStore` and wire controls inside **Active Intelligence** (`IntelligenceControlsScreen` + `GeneralSettingsViewModel`) & **Audio Focus** so the user can toggle and configure every behavior:
     - **App Name Deduplication**: Enable/disable switch + window chips (`30s` / `45s` / `60s`).
-    - **Delayed Time Context Tag**: Enable/disable switch (*"Prefix 'Sent X mins ago' for delayed alerts"*).
+    - **Delayed Time Context Tag (Idea 40)**: Enable/disable switch + age threshold (`1m` / `2m` / `5m`) + integrate phrasing seamlessly (`"Rahul sent 12 minutes ago:"` instead of `"Rahul says, (Sent 12 minutes ago)."`).
     - **Music Paused Hold**: Duration chips (`30s` / `60s` / `90s`) when enabled.
-    - **Separate Gesture Controls**: Individual toggles/chips for **Flip Face-Down to Stop**, **Shake to Stop**, and **Shake to Repeat** (with `5s` / `10s` / `15s` window).
+    - **Separate Gesture Controls (Idea 41)**: Individual toggles/chips for **Flip Face-Down to Stop**, **Shake to Stop**, and **Shake to Repeat** (with `5s` / `10s` / `15s` window).
+    - **Smooth Audio Return Delay (Idea 46)**: Enable/disable switch + smooth release delay (`0ms` / `300ms` / `500ms`) in `AudioFocusCard`.
 - **Files Likely Touched**:
   - `app/src/main/java/com/jayanth/hearit/service/SessionStore.kt`, `AnnouncementPipeline.kt`, `AnnouncementService.kt`
   - `app/src/main/java/com/jayanth/hearit/settings/GeneralSettingsUiState.kt`, `GeneralSettingsViewModel.kt`, `GeneralSettingsScreen.kt`
@@ -464,6 +465,44 @@ Once the review is completed, these items will be batched and implemented system
   - `app/src/main/java/com/jayanth/hearit/intelligence/IntelligenceControlsScreen.kt` / `GlobalSettingsScreen.kt`
   - Unit tests in `EligibilityRulesTest.kt`
 
+### 31. Roadmap Item 18 (Idea 39 Enhancement): Per-App Auto-Dismiss Override — ⚠️ GLOBAL ONLY
+- **Priority / Effort**: Medium Value / Low Effort
+- **Current State**:
+  - `AnnouncementService.finishSpeech()` only checks global `sessionStore.isAutoDismissEnabled` (toggle inside **Active Intelligence**). There is **no** per-app override (`AppOverride` / `AppSettingsUiState`) to keep or dismiss notifications specifically per app.
+- **What Needs to Be Implemented**:
+  - Add `autoDismiss: Boolean? = null` (inherits global default = ON) to `AppOverride` (`HearItSettings.kt`, `SettingsCodec.kt`) and `AppSettingsUiState` (`ApplicationsModels.kt`).
+  - Resolve per-app in `AnnouncementService.finishSpeech()` before calling `dismissNotification(...)`.
+  - Add an **"Auto-Dismiss After Speaking"** toggle with *"Inherit global"* option inside Per-App Details (`ApplicationsScreen.kt` when app is enabled).
+
+### 32. Roadmap Item 18 (Idea 43 Critical Fix): Wire Periodic Spoken Check-in Scheduler & Missing Checkboxes — ⚠️ UI ONLY / NOT RUNNING
+- **Priority / Effort**: High Value (Broken Feature) / Low-Medium Effort
+- **Current State**:
+  - `PeriodicCheckinCard` (`GeneralSettingsScreen.kt` & `IntelligenceControlsScreen.kt`) saves `isPeriodicCheckinEnabled`, `periodicCheckinIntervalMinutes` (`15m`/`30m`/`1h`/`2h`), `periodicCheckinAnnounceTime`, and `periodicCheckinAnnounceBattery` to `SessionStore`.
+  - **Critical Gap 1 — Never Executes**: `AnnouncementService` **never reads** `isPeriodicCheckinEnabled` and has **zero** scheduler/runnable to trigger check-ins!
+  - **Gap 2 — Missing Checkboxes**: Spec calls for selecting **Time**, **Phone Battery %**, **Earphones Battery %**, and **Unread / Summary Count**, whereas UI currently only has Time & Battery chips.
+- **What Needs to Be Implemented**:
+  - Add periodic check-in runnable/clock check inside `AnnouncementService` (honoring `periodicCheckinIntervalMinutes`, active audio output & call/DND/mute guards, never interrupting active notification speech).
+  - Read Phone Battery % (`BatteryManager`), Earphones Battery % (reflecting `BluetoothDevice.getBatteryLevel` via active Bluetooth A2DP/HFP metadata when supported), Time (`SimpleDateFormat`), and Summary Count (`history` / session announced+pending count).
+  - Add `periodicCheckinAnnounceEarphonesBattery` and `periodicCheckinAnnounceSummary` checkboxes/chips to `SessionStore`, `GeneralSettingsUiState`, `GeneralSettingsViewModel`, and `PeriodicCheckinCard`.
+
+### 33. Roadmap Item 20 (Idea 53): Multi-App Smart Notification Batching Digest (2–3s Burst Collector) — ❌ NOT IMPLEMENTED
+- **Priority / Effort**: High Value / Medium Effort
+- **Current State**:
+  - `AnnouncementQueue` groups notifications strictly within **one package** (`it.snapshot.packageName == first.snapshot.packageName`).
+  - `AnnouncementTemplate.build()` enforces `require(snapshots.all { it.packageName == packageName })`. Multi-app simultaneous bursts (e.g. WhatsApp + Messages within 2s) cannot be combined into a single `"You have 2 notifications: Rahul says Hey, and Mom says Call me back"` digest.
+- **What Needs to Be Implemented**:
+  - Add configurable **Multi-App Digest Mode** inside `AnnouncementQueue.pollReady()` + `AnnouncementTemplate.buildMultiAppDigest()` (collecting ready pending items across packages arriving within configurable window e.g. `2s` / `3s` / `5s` up to `maxMessagesPerAnnouncement`).
+  - **UI Enable/Disable & Config**: Add *"Multi-App Burst Digest"* toggle + burst window (`2s` / `3s` / `5s`) selector inside **Preferences $\to$ Grouping & Batching** / **Active Intelligence**.
+
+### 34. Roadmap Item 20 (Idea 54): Ambient Noise Level Auto-Volume Boost (`>70 dB`) — ❌ NOT IMPLEMENTED
+- **Priority / Effort**: Medium Value / Medium Effort
+- **Current State**:
+  - No `RECORD_AUDIO` permission in `AndroidManifest.xml`, no `AudioRecord` / `MediaRecorder` amplitude sampling, and no UI toggles/thresholds anywhere.
+- **What Needs to Be Implemented**:
+  - Request runtime `Manifest.permission.RECORD_AUDIO` gracefully when user enables the feature (never required by default; clear privacy disclosure: *on-device instantaneous 150ms amplitude check only, nothing ever recorded or saved*).
+  - Sample short RMS amplitude before speaking, compute approximate dB SPL, and when `dB >= configuredThreshold` (e.g. `65 dB` / `70 dB` / `75 dB`), boost TTS volume/gain cleanly (`volumeLevel` + boost gain).
+  - **UI Enable/Disable & Config**: Add *"Ambient Noise Auto-Boost"* switch (prompts `RECORD_AUDIO` permission if needed) + noise threshold (`65 / 70 / 75 dB`) & boost amount (`+15% / +20% / +30%`) inside **Voice & Speech** / **Active Intelligence**.
+
 ---
 
 ## ✅ Already Verified / Implemented Features in this Audit
@@ -484,3 +523,6 @@ Once the review is completed, these items will be batched and implemented system
 14. **Item 15 Idea 22 (Per-Device Sound Output Test)**: Implemented in `DevicesScreen.kt` — each connected Bluetooth accessory row has a 1-tap speaker `IconButton` playing a `ToneGenerator(STREAM_MUSIC, 70)` test beep. *(Note: plays on active media route without `ToneGenerator.release()` or device-specific TTS speech routing).*
 15. **Item 16 Idea 27 (Markdown & Formatting Syntax Stripper)**: Implemented via `SmartContentCleaner.stripMarkdown()` (`SmartContentCleaner.kt` + `SmartContentCleanerTest.kt`) with toggle `isMarkdownStripperEnabled` in **Active Intelligence**. *(Startup hydration fix tracked in Backlog #26).*
 16. **Item 16 Idea 29 (Physical Volume Key Silence)**: Implemented via `AnnouncementService.volumeReceiver` (`android.media.VOLUME_CHANGED_ACTION` calling `engine.stop()`) with toggle `isVolumeKeyToStopEnabled` in **Active Intelligence** $\to$ **Gestures & Playback Controls**.
+17. **Item 18 Idea 41 (Shake Within 10s to Repeat)**: Implemented in `AnnouncementService.sensorEventListener` (`lastSpeechEndTimeMillis <= 10_000L`) replaying `lastAction` *(separate toggle & timer config tracked in Backlog #19)*.
+18. **Item 19 Idea 48 (Bot & Automated Sender Cleaning)**: Implemented via `SmartContentCleaner.cleanSender()` (`BOT_SENDER_PATTERN`, `SHORTCODE_SENDER_PATTERN`) with `isBotSenderCleaningEnabled` toggle in **Active Intelligence** *(startup hydration tracked in Backlog #26)*.
+19. **Item 20 Idea 52 (Currency & Unit Spoken Normalizer)**: Implemented via `SmartContentCleaner.normalizeUnitsAndCurrencies()` (`₹`, `$`, `€`, `£`, `km/h`, `mph`, `GB`/`MB`/`KB`, `mins`/`hrs`/`secs`) with `isCurrencyNormalizerEnabled` toggle in **Active Intelligence** *(startup hydration tracked in Backlog #26)*.
