@@ -140,6 +140,35 @@ class SessionStore(context: Context) {
             prefs.edit().putBoolean(KEY_BOT_SENDER_CLEANING, value).apply()
         }
 
+    /** True if user has permanent premium entitlement (Google Play IAP/Subscription). */
+    var isPremiumEntitled: Boolean
+        get() = prefs.getBoolean(KEY_PREMIUM_ENTITLED, false)
+        set(value) {
+            prefs.edit().putBoolean(KEY_PREMIUM_ENTITLED, value).apply()
+        }
+
+    /** Expiry timestamp of temporary premium pass earned by watching a rewarded ad. */
+    var temporaryPremiumExpiryTimestamp: Long
+        get() = prefs.getLong(KEY_TEMPORARY_PREMIUM_EXPIRY, 0L)
+        set(value) {
+            prefs.edit().putLong(KEY_TEMPORARY_PREMIUM_EXPIRY, value).apply()
+        }
+
+    /** Returns true if user has active permanent premium or an unexpired temporary pass. */
+    val isPremiumActive: Boolean
+        get() = isPremiumEntitled || temporaryPremiumExpiryTimestamp > System.currentTimeMillis()
+
+    /** Grants hours of temporary premium pass, stacking up to maxStackHours. */
+    fun grantTemporaryPremium(hours: Int = 12, maxStackHours: Int = 24) {
+        val now = System.currentTimeMillis()
+        val addMs = hours * 3600 * 1000L
+        val maxMs = maxStackHours * 3600 * 1000L
+        val currentExpiry = temporaryPremiumExpiryTimestamp
+        val baseTime = if (currentExpiry > now) currentExpiry else now
+        val newExpiry = Math.min(baseTime + addMs, now + maxMs)
+        temporaryPremiumExpiryTimestamp = newExpiry
+    }
+
     private companion object {
         const val FILE_NAME = "hearit_session"
         const val KEY_STARTED = "started"
@@ -160,5 +189,7 @@ class SessionStore(context: Context) {
         const val KEY_EMOJI_COLLAPSING = "emoji_collapsing"
         const val KEY_REACTION_FILTER = "reaction_filter"
         const val KEY_BOT_SENDER_CLEANING = "bot_sender_cleaning"
+        const val KEY_PREMIUM_ENTITLED = "premium_entitled"
+        const val KEY_TEMPORARY_PREMIUM_EXPIRY = "temporary_premium_expiry_ts"
     }
 }

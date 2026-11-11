@@ -1260,18 +1260,22 @@ private fun SmartAudioPolishCard(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        listOf(0L to "None (0ms)", 300L to "300ms", 500L to "500ms").forEach { (ms, label) ->
-                            FilterChip(
-                                selected = antiCollisionMs == ms,
+                    Spacer(modifier = Modifier.height(10.dp))
+                    val delayOptions = listOf(0L to "0 ms", 300L to "300 ms", 500L to "500 ms")
+                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                        delayOptions.forEachIndexed { index, (ms, label) ->
+                            val isSelected = antiCollisionMs == ms
+                            SegmentedButton(
+                                selected = isSelected,
                                 onClick = { antiCollisionMs = ms },
-                                label = { Text(label) },
-                                modifier = Modifier.weight(1f),
-                            )
+                                shape = SegmentedButtonDefaults.itemShape(index = index, count = delayOptions.size),
+                            ) {
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                )
+                            }
                         }
                     }
                 }

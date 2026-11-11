@@ -81,10 +81,13 @@ object WearDataLayerSync {
                 val jsonArray = JSONArray()
                 enabledApps.forEach { jsonArray.put(it) }
 
+                val sessionStore = com.jayanth.hearit.service.SessionStore(context)
                 val payload = JSONObject().apply {
                     put("type", "CONFIG_SYNC")
                     put("timestamp", System.currentTimeMillis())
                     put("enabledApps", jsonArray)
+                    put("isPremium", sessionStore.isPremiumActive)
+                    put("temporaryPremiumExpiryTs", sessionStore.temporaryPremiumExpiryTimestamp)
                 }.toString().toByteArray(Charsets.UTF_8)
 
                 for (node in nodes) {

@@ -13,6 +13,14 @@ object WearNotificationStore {
     private val _enabledApps = MutableStateFlow<Set<String>?>(null)
     val enabledApps: StateFlow<Set<String>?> = _enabledApps.asStateFlow()
 
+    // Premium status synced from Phone
+    private val _isPremium = MutableStateFlow(true)
+    val isPremium: StateFlow<Boolean> = _isPremium.asStateFlow()
+
+    fun setPremiumStatus(active: Boolean) {
+        _isPremium.value = active
+    }
+
     fun setEnabledApps(apps: Set<String>) {
         _enabledApps.value = apps
         // Filter existing notifications to only those in the enabled set

@@ -20,6 +20,11 @@ class WearNotificationListenerService : WearableListenerService() {
                         }
                     }
                     WearNotificationStore.setEnabledApps(enabled)
+
+                    val isPremium = json.optBoolean("isPremium", false)
+                    val tempExpiry = json.optLong("temporaryPremiumExpiryTs", 0L)
+                    val active = isPremium || tempExpiry > System.currentTimeMillis()
+                    WearNotificationStore.setPremiumStatus(active)
                 } catch (_: Exception) {
                 }
             }
