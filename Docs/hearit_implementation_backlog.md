@@ -7,7 +7,7 @@ Once the review is completed, these items will be batched and implemented system
 ---
 
 ## 📋 Status Overview
-- Total Identified Backlog Items: 8
+- Total Identified Backlog Items: 10
 - In Discussion / Under Review
 
 ---
@@ -151,6 +151,36 @@ Once the review is completed, these items will be batched and implemented system
   - `core/queue/src/main/kotlin/com/jayanth/hearit/core/queue/AnnouncementQueue.kt`
   - `app/src/main/java/com/jayanth/hearit/service/AnnouncementPipeline.kt` & `AnnouncementService.kt`
   - `app/src/main/java/com/jayanth/hearit/dashboard/DashboardViewModel.kt` & `DashboardScreen.kt`
+
+### 9. Roadmap Item 8.1: History Date Range Filtering — ❌ UI NOT IMPLEMENTED (Database Ready)
+- **Priority / Effort**: Medium Value / Low Effort
+- **Current State**:
+  - **Database Layer Already Built**: `HistoryQuery` (`core/database/.../HistoryPolicy.kt`) and `HistoryRepository` already support `dateFrom: Long?` and `dateTo: Long?`.
+  - **Missing UI & Mapper**: `HistoryFilter` (`HistoryModels.kt`), `HistoryQueryMapper.toQuery()`, `HistoryViewModel`, and `HistoryScreen` do not include date range filtering or chips.
+- **What Needs to Be Implemented**:
+  - Add `DateRangePreset` (`ALL`, `TODAY`, `YESTERDAY`, `LAST_7_DAYS`, `CUSTOM`) + `dateFrom: Long?`, `dateTo: Long?` to `HistoryFilter` (`HistoryUiState.isFiltered` updated accordingly).
+  - Forward `dateFrom` / `dateTo` in `HistoryQueryMapper.toQuery(...)`.
+  - Add `onDateRangeChanged(...)` in `HistoryViewModel`.
+  - Add horizontal Date Range filter chips (**All / Today / Yesterday / Last 7 Days / Custom Range** with Material 3 `DateRangePickerDialog`) in `HistoryScreen`.
+- **Files Likely Touched**:
+  - `app/src/main/java/com/jayanth/hearit/history/HistoryModels.kt`
+  - `app/src/main/java/com/jayanth/hearit/history/HistoryQueryMapper.kt`
+  - `app/src/main/java/com/jayanth/hearit/history/HistoryViewModel.kt`
+  - `app/src/main/java/com/jayanth/hearit/history/HistoryScreen.kt`
+
+### 10. Roadmap Item 8.2: History Export (CSV / TXT via SAF) — ❌ NOT IMPLEMENTED
+- **Priority / Effort**: Low Value / Low Effort
+- **Current State**:
+  - History entries reside strictly in local Room storage; no export button, serializer, or SAF document launcher exists in `HistoryScreen` or `HistoryViewModel`.
+- **What Needs to Be Implemented**:
+  - Add pure CSV / TXT formatter for `HistoryEntry` / `HistoryItem` list (properly escaping CSV quotes/commas and respecting `Privacy` / `METADATA_ONLY` redacted messages).
+  - Query matching filtered history (or all history) without the 50-row page cap via `HistoryRepository` (`limit = Int.MAX_VALUE` / larger limit).
+  - Use Android Storage Access Framework (`ActivityResultContracts.CreateDocument("text/csv")` or `"text/plain"`) from `HistoryScreen` to save the file cleanly via `ContentResolver.openOutputStream(uri)`.
+  - Add an **"Export"** icon/button in the `HistoryScreen` header/toolbar alongside Clear All (with format choice CSV vs TXT).
+- **Files Likely Touched**:
+  - `app/src/main/java/com/jayanth/hearit/history/HistoryViewModel.kt`
+  - `app/src/main/java/com/jayanth/hearit/history/HistoryScreen.kt`
+  - Pure formatter + unit test under `app/src/test/java/com/jayanth/hearit/history/`
 
 ---
 
