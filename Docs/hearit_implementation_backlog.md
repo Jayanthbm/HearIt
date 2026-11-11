@@ -7,7 +7,7 @@ Once the review is completed, these items will be batched and implemented system
 ---
 
 ## 📋 Status Overview
-- Total Identified Backlog Items: 6
+- Total Identified Backlog Items: 7
 - In Discussion / Under Review
 
 ---
@@ -119,6 +119,24 @@ Once the review is completed, these items will be batched and implemented system
   - `app/src/main/java/com/jayanth/hearit/service/SettingsSource.kt` & `AnnouncementService.kt`
   - `app/src/main/java/com/jayanth/hearit/applications/ApplicationsModels.kt`, `AppSettingsEditor.kt`, `ApplicationsViewModel.kt`, `ApplicationsScreen.kt`
 
+### 7. Roadmap Item 6.2: Per-App Batch Actions & Multi-Select Mode — ❌ NOT IMPLEMENTED
+- **Priority / Effort**: Medium Value / Medium Effort
+- **Current State**:
+  - `ApplicationsListScreen` only has an *"Enable all visible" / "Disable all visible"* toggle (`ApplicationsViewModel.onSelectAllVisible()` / `onDeselectAllVisible()`), and note that `onSelectAllVisible()` currently selects from `visibleApps` rather than `displayedApps` (so it doesn't filter out hidden system apps or Selected/Unselected tabs).
+  - There is **no** multi-select checkbox mode and **no** bulk action bar for applying settings to a custom subset of apps.
+- **What Needs to Be Implemented**:
+  - Add multi-select mode in `ApplicationsListScreen` (enter via long-press on an app card or a *"Select"* icon/chip), showing checkboxes on each app row and selection count.
+  - Add a contextual bottom/top **Batch Action Bar** when 1+ apps are selected:
+    - **Enable** / **Disable** selected apps.
+    - **Add to Priority Announce** / **Remove from Priority Announce** (integrating with Item 4.2).
+    - **Set Speech Priority** (Critical / High / Normal / Low) or bulk reset to global defaults.
+  - Also fix `onSelectAllVisible` / `onDeselectAllVisible` (or pass `showSystemApps` / `filterType` into ViewModel) so *"Enable all visible"* respects the active System Apps / tab filters.
+- **Files Likely Touched**:
+  - `app/src/main/java/com/jayanth/hearit/applications/ApplicationsModels.kt`
+  - `app/src/main/java/com/jayanth/hearit/applications/AppSettingsEditor.kt`
+  - `app/src/main/java/com/jayanth/hearit/applications/ApplicationsViewModel.kt`
+  - `app/src/main/java/com/jayanth/hearit/applications/ApplicationsScreen.kt`
+
 ---
 
 ## ✅ Already Verified / Implemented Features in this Audit
@@ -127,3 +145,4 @@ Once the review is completed, these items will be batched and implemented system
 2. **Item 1.2 Direct Battery Optimization Exemption**: Fully implemented with `ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` (1-tap OS system prompt) in Setup and Diagnostics.
 3. **Item 2.1 Multi-Action Persistent Notification**: Fully implemented in `AnnouncementNotification.kt` (Dynamic actions: Pause/Skip/Stop when speaking, Priority Toggle/Mute/Stop when idle).
 4. **Item 5.1 System TTS Settings Direct Shortcut**: Fully implemented in `VoiceSpeechScreen.kt` (`SystemTtsSettingsCard` + Voice Picker shortcut) and `DiagnosticsScreen.kt` firing `Intent("com.android.settings.TTS_SETTINGS")`.
+5. **Item 6.1 System Apps vs User Apps Filter**: Implemented via `AppCatalog.kt` (`FLAG_SYSTEM` detection) and `FilterChip` (*"System Apps Hidden" / "System Apps Shown"*) in `ApplicationsScreen.kt`. *(Follow-up fix tracked in Item 6.2: ensure "Enable all visible" respects `showSystemApps` & filter tab).*
