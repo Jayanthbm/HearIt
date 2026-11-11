@@ -93,4 +93,13 @@ data class GeneralSettingsUiState(
     val spamCooldownWindowMs: Long = 60_000L,
     val isMultiAppDigestEnabled: Boolean = true,
     val multiAppDigestWindowMs: Long = 2_500L,
+    // Batch 6 (#15): Tier 2 Local AI Strategy & Support Status
+    val isMlKitEntityExtractionEnabled: Boolean = false,
+    val isAiCoreSummarizationEnabled: Boolean = false,
+    val mlKitStatusLabel: String = "Checking device support…",
+    val mlKitSupported: Boolean = false,
+    val mlKitModelReady: Boolean = false,
+    val isMlKitDownloading: Boolean = false,
+    val aiCoreStatusLabel: String = "Checking Android AICore…",
+    val aiCoreSupported: Boolean = false,
 )

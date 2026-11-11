@@ -753,14 +753,35 @@ fun WearOsCompanionCard(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    var companionState by remember { mutableStateOf(WearCompanionState()) }
+    val sessionStore = remember(context) { com.jayanth.hearit.service.SessionStore(context) }
+    var companionState by remember {
+        mutableStateOf(
+            WearCompanionState(
+                watchFilterApps = sessionStore.watchFilterApps,
+                isForwardingEnabled = sessionStore.isWatchForwardingEnabled,
+                isHapticsEnabled = sessionStore.isWatchHapticsEnabled,
+            ),
+        )
+    }
     var isSyncing by remember { mutableStateOf(false) }
     var syncMessage by remember { mutableStateOf<String?>(null) }
     var isSuccess by remember { mutableStateOf(true) }
+    var showWatchAppsPicker by remember { mutableStateOf(false) }
 
     val refreshStatus: () -> Unit = {
         WearDataLayerSync.checkCompanionStatus(context) { state ->
             companionState = state
+        }
+    }
+
+    val triggerConfigSync: () -> Unit = {
+        isSyncing = true
+        syncMessage = null
+        WearDataLayerSync.syncAllNow(context) { success, msg ->
+            isSyncing = false
+            isSuccess = success
+            syncMessage = msg
+            refreshStatus()
         }
     }
 
@@ -891,16 +912,93 @@ fun WearOsCompanionCard(
 
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = "Phone Apps Enabled",
+                        text = "Watch Apps Selected",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
-                        text = "${companionState.enabledAppsCount} apps",
+                        text = "${companionState.watchFilterApps.size} / 4 apps",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
                     )
                 }
+            }
+
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                thickness = 0.5.dp,
+            )
+
+            // Master Forwarding Switch (#35 Option A)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 10.dp)) {
+                    Text(
+                        text = "Watch Notification Forwarding",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = "Forward up to 4 selected apps independently of phone speech",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = companionState.isForwardingEnabled,
+                    onCheckedChange = { checked ->
+                        sessionStore.isWatchForwardingEnabled = checked
+                        companionState = companionState.copy(isForwardingEnabled = checked)
+                        triggerConfigSync()
+                    },
+                )
+            }
+
+            // Watch Haptic Pulse Switch (#35)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 10.dp)) {
+                    Text(
+                        text = "Watch Haptic Pulse",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = "Gently vibrate watch when a mirrored alert arrives",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = companionState.isHapticsEnabled,
+                    enabled = companionState.isForwardingEnabled,
+                    onCheckedChange = { checked ->
+                        sessionStore.isWatchHapticsEnabled = checked
+                        companionState = companionState.copy(isHapticsEnabled = checked)
+                        triggerConfigSync()
+                    },
+                )
+            }
+
+            // Max-4 Watch Apps Config Button (#35)
+            OutlinedButton(
+                onClick = { showWatchAppsPicker = true },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Tune,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Configure Watch Apps (${companionState.watchFilterApps.size} / 4)")
             }
 
             if (syncMessage != null) {
@@ -908,30 +1006,21 @@ fun WearOsCompanionCard(
                     shape = RoundedCornerShape(8.dp),
                     color = if (isSuccess) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
                     else MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text(
                         text = syncMessage!!,
                         style = MaterialTheme.typography.bodySmall,
                         color = if (isSuccess) MaterialTheme.colorScheme.onPrimaryContainer
                         else MaterialTheme.colorScheme.onErrorContainer,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                     )
                 }
             }
 
             // Sync button
             OutlinedButton(
-                onClick = {
-                    isSyncing = true
-                    syncMessage = null
-                    WearDataLayerSync.syncAllNow(context) { success, msg ->
-                        isSyncing = false
-                        isSuccess = success
-                        syncMessage = msg
-                        refreshStatus()
-                    }
-                },
+                onClick = triggerConfigSync,
                 enabled = !isSyncing,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
@@ -947,12 +1036,25 @@ fun WearOsCompanionCard(
                     Icon(
                         imageVector = Icons.Rounded.Refresh,
                         contentDescription = null,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(18.dp),
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Sync Enabled Apps to Watch")
+                    Text("Sync Watch Config & Icons")
                 }
             }
         }
+    }
+
+    if (showWatchAppsPicker) {
+        WearWatchAppsPickerDialog(
+            initialSelected = companionState.watchFilterApps,
+            onSave = { picked ->
+                sessionStore.watchFilterApps = picked
+                companionState = companionState.copy(watchFilterApps = picked)
+                showWatchAppsPicker = false
+                triggerConfigSync()
+            },
+            onDismiss = { showWatchAppsPicker = false },
+        )
     }
 }

@@ -55,6 +55,7 @@ class GeneralSettingsViewModel @Inject constructor(
     private val settingsSource: SettingsSource,
     private val intelligentSettingsSync: IntelligentSettingsSync,
     private val sessionStore: com.jayanth.hearit.service.SessionStore,
+    private val capabilityProbe: com.jayanth.hearit.intelligence.IntelligenceCapabilityProbe,
     @param:ApplicationContext private val context: Context,
 ) : ViewModel() {
 
@@ -127,12 +128,15 @@ class GeneralSettingsViewModel @Inject constructor(
             spamCooldownWindowMs = sessionStore.spamCooldownWindowMs,
             isMultiAppDigestEnabled = sessionStore.isMultiAppDigestEnabled,
             multiAppDigestWindowMs = sessionStore.multiAppDigestWindowMs,
+            isMlKitEntityExtractionEnabled = sessionStore.isMlKitEntityExtractionEnabled,
+            isAiCoreSummarizationEnabled = sessionStore.isAiCoreSummarizationEnabled,
         ),
     )
     val state: StateFlow<GeneralSettingsUiState> = _state.asStateFlow()
 
     init {
         intelligentSettingsSync.hydrateSessionFlags()
+        onRefreshLocalAiCapabilities()
         viewModelScope.launch {
             installedCatalog = runCatching { applicationCatalog.installedApps() }.getOrDefault(emptyList())
             val currentSettings = runCatching { settingsRepository.current() }.getOrNull()
@@ -616,6 +620,48 @@ class GeneralSettingsViewModel @Inject constructor(
     fun onToggleRepeatLastShortcut(enabled: Boolean) {
         sessionStore.isRepeatLastShortcutEnabled = enabled
         _state.update { it.copy(isRepeatLastShortcutEnabled = enabled) }
+    }
+
+    fun onRefreshLocalAiCapabilities() {
+        viewModelScope.launch {
+            val report = capabilityProbe.probe()
+            _state.update {
+                it.copy(
+                    mlKitStatusLabel = report.mlKitStatusLabel,
+                    mlKitSupported = report.mlKitSupported,
+                    mlKitModelReady = report.mlKitModelReady,
+                    aiCoreStatusLabel = report.aiCoreStatusLabel,
+                    aiCoreSupported = report.aiCoreSupported,
+                )
+            }
+        }
+    }
+
+    fun onToggleMlKitEntityExtraction(enabled: Boolean) {
+        sessionStore.isMlKitEntityExtractionEnabled = enabled
+        _state.update { it.copy(isMlKitEntityExtractionEnabled = enabled) }
+        if (enabled && !_state.value.mlKitModelReady && _state.value.mlKitSupported) {
+            onDownloadMlKitModel()
+        }
+    }
+
+    fun onDownloadMlKitModel() {
+        if (_state.value.isMlKitDownloading) return
+        _state.update { it.copy(isMlKitDownloading = true) }
+        viewModelScope.launch {
+            val result = capabilityProbe.downloadMlKitModel()
+            _state.update { it.copy(isMlKitDownloading = false) }
+            if (result.isSuccess && result.getOrDefault(false)) {
+                sessionStore.isMlKitEntityExtractionEnabled = true
+                _state.update { it.copy(isMlKitEntityExtractionEnabled = true) }
+            }
+            onRefreshLocalAiCapabilities()
+        }
+    }
+
+    fun onToggleAiCoreSummarization(enabled: Boolean) {
+        sessionStore.isAiCoreSummarizationEnabled = enabled
+        _state.update { it.copy(isAiCoreSummarizationEnabled = enabled) }
     }
 
     fun onToggleSpamCooldown(enabled: Boolean) {

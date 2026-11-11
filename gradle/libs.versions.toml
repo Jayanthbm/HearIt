@@ -14,6 +14,7 @@ datastorePreferences = "1.3.0"
 room = "2.8.5"
 playServicesWearable = "19.0.0"
 wearCompose = "1.4.1"
+mlkitEntityExtraction = "16.0.0-beta5"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -40,6 +41,7 @@ androidx-room-testing = { group = "androidx.room", name = "room-testing", versio
 play-services-wearable = { group = "com.google.android.gms", name = "play-services-wearable", version.ref = "playServicesWearable" }
 wear-compose-material = { group = "androidx.wear.compose", name = "compose-material", version.ref = "wearCompose" }
 wear-compose-foundation = { group = "androidx.wear.compose", name = "compose-foundation", version.ref = "wearCompose" }
+mlkit-entity-extraction = { group = "com.google.mlkit", name = "entity-extraction", version.ref = "mlkitEntityExtraction" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

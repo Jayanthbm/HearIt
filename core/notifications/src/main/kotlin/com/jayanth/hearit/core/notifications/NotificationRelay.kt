@@ -22,7 +22,15 @@ object NotificationRelay : NotificationSink {
     @Volatile
     var sink: NotificationSink? = null
 
+    /**
+     * Secondary listener invoked on every posted notification regardless of whether
+     * the foreground TTS service is running (used by Wear OS Option A forwarding, #36).
+     */
+    @Volatile
+    var onAnyNotificationPosted: ((NotificationSnapshot) -> Unit)? = null
+
     override fun onPosted(snapshot: NotificationSnapshot) {
+        onAnyNotificationPosted?.invoke(snapshot)
         sink?.onPosted(snapshot)
     }
 

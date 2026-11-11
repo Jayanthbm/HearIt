@@ -80,6 +80,10 @@ data class IntelligenceActions(
     val onSpamCooldownWindowChanged: (Long) -> Unit = {},
     val onToggleMultiAppDigest: (Boolean) -> Unit = {},
     val onMultiAppDigestWindowChanged: (Long) -> Unit = {},
+    val onRefreshLocalAiCapabilities: () -> Unit = {},
+    val onToggleMlKitEntityExtraction: (Boolean) -> Unit = {},
+    val onDownloadMlKitModel: () -> Unit = {},
+    val onToggleAiCoreSummarization: (Boolean) -> Unit = {},
 ) {
     companion object {
         fun from(viewModel: GeneralSettingsViewModel): IntelligenceActions = IntelligenceActions(
@@ -149,6 +153,10 @@ data class IntelligenceActions(
             onSpamCooldownWindowChanged = viewModel::onSpamCooldownWindowChanged,
             onToggleMultiAppDigest = viewModel::onToggleMultiAppDigest,
             onMultiAppDigestWindowChanged = viewModel::onMultiAppDigestWindowChanged,
+            onRefreshLocalAiCapabilities = viewModel::onRefreshLocalAiCapabilities,
+            onToggleMlKitEntityExtraction = viewModel::onToggleMlKitEntityExtraction,
+            onDownloadMlKitModel = viewModel::onDownloadMlKitModel,
+            onToggleAiCoreSummarization = viewModel::onToggleAiCoreSummarization,
         )
     }
 }

@@ -149,6 +149,12 @@ fun IntelligenceControlsScreen(
             actions = intelligenceActions,
         )
 
+        // Section 3: On-Device AI Engines (Tier 1 & Tier 2 Status + Controls, #15)
+        LocalAiEnginesCard(
+            state = state,
+            actions = intelligenceActions,
+        )
+
         // Section 3: Gestures & Playback Controls
         GesturesAndControlsCard(
             state = state,

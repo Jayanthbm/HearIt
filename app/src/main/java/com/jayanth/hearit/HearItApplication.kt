@@ -30,6 +30,9 @@ class HearItApplication : Application() {
         super.onCreate()
         HearItLogger.registerSink(fileDiagnosticLogger)
         intelligentSettingsSync.start()
+        com.jayanth.hearit.core.notifications.NotificationRelay.onAnyNotificationPosted = { snapshot ->
+            com.jayanth.hearit.wear.WearDataLayerSync.syncNotification(this, snapshot)
+        }
         val appVersion = try {
             packageManager.getPackageInfo(packageName, 0).versionName ?: "2.0.0"
         } catch (e: Exception) {

@@ -50,6 +50,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * The single foreground announcement service (ADR-010): hosts the queue + TTS loop and the
@@ -95,6 +96,9 @@ class AnnouncementService : Service(), NotificationSink {
     @Inject
     lateinit var intelligentSettingsSync: com.jayanth.hearit.intelligence.IntelligentSettingsSync
 
+    @Inject
+    lateinit var capabilityProbe: com.jayanth.hearit.intelligence.IntelligenceCapabilityProbe
+
     private lateinit var sessionStore: SessionStore
     private lateinit var stateReader: RuntimeStateReader
     private lateinit var queue: AnnouncementQueue
@@ -115,6 +119,9 @@ class AnnouncementService : Service(), NotificationSink {
 
     /** The announcement currently being spoken, or null. */
     private var currentAction: AnnouncementPipeline.Action.Speak? = null
+
+    /** Pending async Tier 2 enhancement before TTS starts, or null. */
+    private var preparingAction: AnnouncementPipeline.Action.Speak? = null
 
     /** Last accepted announcement, so Pause/Resume can re-speak it (P16). */
     private var lastAction: AnnouncementPipeline.Action.Speak? = null
@@ -481,7 +488,6 @@ class AnnouncementService : Service(), NotificationSink {
             spamCooldownMaxMessages = sessionStore.spamCooldownMaxMessages,
             spamCooldownWindowMs = sessionStore.spamCooldownWindowMs,
         )
-        com.jayanth.hearit.wear.WearDataLayerSync.syncNotification(this, snapshot)
     }
 
     override fun onRemoved(key: String) {
@@ -699,9 +705,11 @@ class AnnouncementService : Service(), NotificationSink {
             pipeline.releaseHeld(state) { packageName -> settingsSource.forApp(packageName) }
         }
         val speaking = currentAction
-        if (speaking != null) {
-            pipeline.onStateChanged(state) { packageName -> settingsSource.forApp(packageName) }
-                .forEach { action -> if (action is AnnouncementPipeline.Action.StopSpeech) engine.stop() }
+        if (speaking != null || preparingAction != null) {
+            if (speaking != null) {
+                pipeline.onStateChanged(state) { packageName -> settingsSource.forApp(packageName) }
+                    .forEach { action -> if (action is AnnouncementPipeline.Action.StopSpeech) engine.stop() }
+            }
             publishStatus()
             return
         }
@@ -721,7 +729,30 @@ class AnnouncementService : Service(), NotificationSink {
             settingsOf = { packageName -> settingsSource.forApp(packageName) },
         )
         if (spoken != null) {
-            speak(spoken)
+            val useTier2 = (sessionStore.isMlKitEntityExtractionEnabled || sessionStore.isAiCoreSummarizationEnabled) &&
+                spoken.announcement.sections.any { it.text.length >= 16 }
+            if (useTier2) {
+                preparingAction = spoken
+                serviceScope.launch {
+                    val enhanced = capabilityProbe.enhanceAnnouncement(
+                        announcement = spoken.announcement,
+                        mlKitEnabled = sessionStore.isMlKitEntityExtractionEnabled,
+                        aiCoreEnabled = sessionStore.isAiCoreSummarizationEnabled,
+                    )
+                    withContext(Dispatchers.Main) {
+                        if (preparingAction === spoken) {
+                            preparingAction = null
+                            if (sessionStore.isStarted && currentAction == null) {
+                                speak(spoken.copy(announcement = enhanced))
+                            } else {
+                                pipeline.onSpeechFinished(spoken = false)
+                            }
+                        }
+                    }
+                }
+            } else {
+                speak(spoken)
+            }
         } else {
             maybeRunPeriodicCheckin(state, eligibility)
         }

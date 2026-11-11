@@ -9,9 +9,9 @@ Master tracking document for all **38 backlog items** defined in [`hearit_implem
 ## Summary Progress
 
 - **Total Backlog Items**: 38
-- **Code & Unit Tests Done (Pending Device/Screenshot Verification)**: 33 / 38 (Batches 1–5: `#1–#14, #16–#34`)
+- **Code & Unit Tests Done (Pending Device/Screenshot Verification)**: 38 / 38 (Batches 1–7: `#1–#38`)
 - **Verified with Screenshots**: 0 / 38
-- **Pending**: 5 / 38 (`#15`, `#35–#38`)
+- **Pending**: 0 / 38
 
 ## Status Table
 
@@ -31,7 +31,7 @@ Master tracking document for all **38 backlog items** defined in [`hearit_implem
 | 12 | OTP & Phone Number Digit-by-Digit Speech Formatting | Batch 1 | Implemented (Tests Pass) | `SmartContentCleanerTest` | Active Intelligence Switch + OTP/Phone + Grouping Chips | Pending final verify |
 | 13 | Smart Link & URL Summarization Configurable Predefined & Custom Rules | Batch 1 | Implemented (Tests Pass) | `SmartContentCleanerTest` | Active Intelligence Switch + URL Rules Dialog + Load Presets | Pending final verify |
 | 14 | Category Intelligence (Messaging, SMS/RCS, Email) & Config UI | Batch 1 | Implemented (Tests Pass) | `SmartContentCleanerTest`, `AnnouncementTemplateTest`, `AnnouncementPipelineTest` | Active Intelligence `CategoryIntelligenceCard` + Promo Dialog | Pending final verify |
-| 15 | Local AI Strategy — Tier 2 (AICore & ML Kit) + Support Status UI | Batch 6 | Pending | — | — | — |
+| 15 | Local AI Strategy — Tier 2 (AICore & ML Kit) + Support Status UI | Batch 6 | Implemented (Tests Pass) | `LocalAiEnhancerTest` + `IntelligenceCapabilityProbe` | Active Intelligence `LocalAiEnginesCard` + Model Download & Switches | Pending final verify |
 | 16 | App Categories & Email / Messaging Grouping UI | Batch 1 | Implemented (Tests Pass) | `SettingsCodecTest`, `SmartContentCleanerTest` | `AppCategoriesDialog` in Active Intelligence & Applications | Pending final verify |
 | 17 | Background Audio Ducking Level Control | Batch 2 | Implemented (Tests Pass) | `AudioDuckingMathTest` | Audio Focus Card Custom Ducking Switch + 20%/50%/80%/OS + Return Delay Chips | Pending final verify |
 | 18 | Voice Tuning Polish (`SmartAudioPolishCard` Real Wiring) | Batch 2 | Implemented (Tests Pass) | Build + `AudioPolishCard` wired to `SessionStore` & `AndroidTextToSpeechEngine` | Voice & Speech Earcon Chime/Duration, Anti-Collision, Adaptive Speed, Mono Switch | Pending final verify |
@@ -51,10 +51,10 @@ Master tracking document for all **38 backlog items** defined in [`hearit_implem
 | 32 | Wire Periodic Spoken Check-in Scheduler & Missing Checkboxes | Batch 3 | Implemented (Tests Pass) | `CheckinAndCatchUpHelperTest` | Active Intelligence / Preferences Check-in Timer + Time/Phone/Earphones/Summary Chips | Pending final verify |
 | 33 | Multi-App Smart Notification Batching Digest (2–3s Burst Collector) | Batch 4 | Implemented (Tests Pass) | `AnnouncementQueueBatchAndClearTest`, `AnnouncementTemplateTest` | Active Intelligence / Preferences Switch + 2–3s Collector Window Config | Pending final verify |
 | 34 | Ambient Noise Level Auto-Volume Boost (`>70 dB`) | Batch 2 | Implemented (Tests Pass) | `AudioDuckingMathTest` (`computeDbSplFromRms`) | Voice & Speech Optional Mic Permission Flow + `65/70/75 dB` + `+15/+20/+30%` Boost | Pending final verify |
-| 35 | Wear OS Phone UI: Watch Forwarding Toggle & Max-4 Watch Apps Picker | Batch 7 | Pending | — | — | — |
-| 36 | Wear OS Option A Independent Forwarding & Persistent `DataClient` Icons Sync | Batch 7 | Pending | — | — | — |
-| 37 | Wear OS App UI Overhaul: Connection Green Dot, Max-4 Icons + ALL, Empty State | Batch 7 | Pending | — | — | — |
-| 38 | Wear OS Manifest (`standalone="false"`) & Play Store Companion Compliance | Batch 7 | Pending | — | — | — |
+| 35 | Wear OS Phone UI: Watch Forwarding Toggle & Max-4 Watch Apps Picker | Batch 7 | Implemented (Tests Pass) | `WearConfigHelperTest` | `WearOsCompanionCard` Switches + `WearWatchAppsPickerDialog` (`X / 4`) | Pending final verify |
+| 36 | Wear OS Option A Independent Forwarding & Persistent `DataClient` Icons Sync | Batch 7 | Implemented (Tests Pass) | `WearConfigHelperTest` + `:core:notifications:test` | `NotificationRelay.onAnyNotificationPosted` + `DataClient.putDataItem` PNG Assets | Pending final verify |
+| 37 | Wear OS App UI Overhaul: Connection Green Dot, Max-4 Icons + ALL, Empty State | Batch 7 | Implemented (Tests Pass) | `:wear:assembleDebug` + `WearNotificationStore` | Wear `MainActivity` Green/Red Connection Dot, Real App Icons Bar (`ALL` + 4) & Empty State | Pending final verify |
+| 38 | Wear OS Manifest (`standalone="false"`) & Play Store Companion Compliance | Batch 7 | Implemented (Tests Pass) | `:wear:assembleDebug` | `wear/AndroidManifest.xml` `standalone="false"` + HearIt Adaptive Launcher Icons | Pending final verify |
 
 ## Batch Verification Log
 
@@ -64,3 +64,4 @@ Master tracking document for all **38 backlog items** defined in [`hearit_implem
 - **Batch 3 (`#19, #22, #23, #27, #29, #30, #32`)**: `./gradlew test :app:assembleDebug` PASSED (0 failures).
 - **Batch 4 (`#4, #8, #20, #25, #28, #33`)**: `./gradlew test :app:assembleDebug` PASSED (0 failures).
 - **Batch 5 (`#2, #5, #6, #7, #9, #10, #11, #31`)**: `./gradlew test :app:assembleDebug` PASSED (0 failures).
+- **Batch 6 & Batch 7 (`#15, #35, #36, #37, #38`)**: `./gradlew test :app:assembleDebug :wear:assembleDebug` PASSED across all modules (0 failures).

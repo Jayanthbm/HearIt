@@ -93,6 +93,7 @@ dependencies {
     // type must be on this module's compile classpath, not just on :core:database's.
     implementation(libs.androidx.room.runtime)
     implementation(libs.play.services.wearable)
+    implementation(libs.mlkit.entity.extraction)
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
     testImplementation(libs.junit)

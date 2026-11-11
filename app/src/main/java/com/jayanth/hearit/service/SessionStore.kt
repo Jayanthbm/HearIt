@@ -552,6 +552,42 @@ class SessionStore(context: Context) {
             prefs.edit().putLong(KEY_MULTI_APP_DIGEST_WINDOW_MS, value.coerceIn(1_500L, 5_000L)).apply()
         }
 
+    /** Batch 6 (#15): Tier 2 Local AI toggles. */
+    var isMlKitEntityExtractionEnabled: Boolean
+        get() = prefs.getBoolean(KEY_MLKIT_ENTITY_ENABLED, false)
+        set(value) {
+            prefs.edit().putBoolean(KEY_MLKIT_ENTITY_ENABLED, value).apply()
+        }
+
+    var isAiCoreSummarizationEnabled: Boolean
+        get() = prefs.getBoolean(KEY_AICORE_SUMMARIZATION_ENABLED, false)
+        set(value) {
+            prefs.edit().putBoolean(KEY_AICORE_SUMMARIZATION_ENABLED, value).apply()
+        }
+
+    // ---- Batch 7 (#35-#36): Wear OS Companion Settings (Max 4 Watch Apps, Option A) ----
+
+    var isWatchForwardingEnabled: Boolean
+        get() = prefs.getBoolean(KEY_WATCH_FORWARDING_ENABLED, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_WATCH_FORWARDING_ENABLED, value).apply()
+        }
+
+    var isWatchHapticsEnabled: Boolean
+        get() = prefs.getBoolean(KEY_WATCH_HAPTICS_ENABLED, false)
+        set(value) {
+            prefs.edit().putBoolean(KEY_WATCH_HAPTICS_ENABLED, value).apply()
+        }
+
+    var watchFilterApps: List<String>
+        get() = com.jayanth.hearit.wear.WearConfigHelper.normalizeWatchApps(
+            decodeStringList(prefs.getString(KEY_WATCH_FILTER_APPS, null) ?: "[]"),
+        )
+        set(value) {
+            val capped = com.jayanth.hearit.wear.WearConfigHelper.normalizeWatchApps(value)
+            prefs.edit().putString(KEY_WATCH_FILTER_APPS, encodeStringList(capped)).apply()
+        }
+
     /** True if user has permanent premium entitlement (Google Play IAP/Subscription). */
     var isPremiumEntitled: Boolean
         get() = prefs.getBoolean(KEY_PREMIUM_ENTITLED, false)
@@ -733,6 +769,11 @@ class SessionStore(context: Context) {
         const val KEY_SPAM_COOLDOWN_WINDOW_MS = "spam_cooldown_window_ms"
         const val KEY_MULTI_APP_DIGEST_ENABLED = "multi_app_digest_enabled"
         const val KEY_MULTI_APP_DIGEST_WINDOW_MS = "multi_app_digest_window_ms"
+        const val KEY_MLKIT_ENTITY_ENABLED = "mlkit_entity_enabled"
+        const val KEY_AICORE_SUMMARIZATION_ENABLED = "aicore_summarization_enabled"
+        const val KEY_WATCH_FORWARDING_ENABLED = "watch_forwarding_enabled"
+        const val KEY_WATCH_HAPTICS_ENABLED = "watch_haptics_enabled"
+        const val KEY_WATCH_FILTER_APPS = "watch_filter_apps_json"
         const val KEY_PREMIUM_ENTITLED = "premium_entitled"
         const val KEY_TEMPORARY_PREMIUM_EXPIRY = "temporary_premium_expiry_ts"
     }
