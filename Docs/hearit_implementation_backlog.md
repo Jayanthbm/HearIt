@@ -7,7 +7,7 @@ Once the review is completed, these items will be batched and implemented system
 ---
 
 ## 📋 Status Overview
-- Total Identified Backlog Items: 29
+- Total Identified Backlog Items: 30
 - In Discussion / Under Review
 - **Mandatory Requirement (All Features)**: Every capability—including automatic intelligence rules and playback behaviors—MUST have a dedicated UI **Enable / Disable switch** and **configuration controls** (thresholds, patterns, presets, or timing options) persisted across restarts.
 
@@ -446,6 +446,24 @@ Once the review is completed, these items will be batched and implemented system
   - `app/src/main/java/com/jayanth/hearit/applications/GlobalSettingsUiState.kt` & `GlobalSettingsScreen.kt` (and/or `IntelligenceControlsScreen.kt`)
   - `app/src/main/java/com/jayanth/hearit/service/AndroidTextToSpeechEngine.kt` & `AnnouncementService.kt`
 
+### 30. Roadmap Item 16 (Idea 26): Pocket Detection via Proximity Sensor (In-Pocket vs In-Hand) — ❌ NOT IMPLEMENTED
+- **Priority / Effort**: High Value / Medium Effort
+- **Current State**:
+  - `RuntimeState` (`core/common`) has a dummy unused field `val isProximityCovered: Boolean = true`.
+  - No `Sensor.TYPE_PROXIMITY` listener exists in `AnnouncementService`, `EligibilityRules` never checks `state.isProximityCovered`, and there is **no UI setting or configuration** anywhere.
+- **What Needs to Be Implemented**:
+  - **Sensor Listener (`AnnouncementService.kt`)**: Register `Sensor.TYPE_PROXIMITY` listener on `SensorManager` when enabled (cleanly unregistered in `onDestroy` and when disabled; treat `distance < minOf(sensor.maximumRange, 5f)` as covered/in-pocket, updating `isProximityCovered` in `RuntimeStateReader` / service state).
+  - **Rule Evaluation (`EligibilityRules.kt` & `EligibilitySettings`)**:
+    - Only enforce when Pocket Detection is enabled **and** Priority Announce is inactive (`!state.priorityAnnounceActive` so priority alerts always break through).
+    - Configurable behavior mode: e.g., **"Only Announce When in Pocket (Sensor Covered)"** (`SkipReason` when uncovered/in hand) OR optional Queue-until-pocket / Immediate Skip, plus whether Headphones Bypass (`"Even if uncovered when headphones connected"` = Off by default per Idea 26 spec).
+  - **UI Enable/Disable & Configuration**: Add *"Pocket Detection (Proximity Sensor)"* toggle + mode/rule configuration card inside **Active Intelligence** (`IntelligenceControlsScreen`) and/or **Global Eligibility Rules** (with live proximity sensor availability badge if a tablet/emulator lacks `TYPE_PROXIMITY`).
+- **Files Likely Touched**:
+  - `core/common/.../RuntimeState.kt`, `EligibilitySettings.kt`, `SkipReason.kt`
+  - `core/datastore/.../SettingsCodec.kt` & `core/rules/.../EligibilityRules.kt`
+  - `app/src/main/java/com/jayanth/hearit/service/AnnouncementService.kt` & `SessionStore.kt`
+  - `app/src/main/java/com/jayanth/hearit/intelligence/IntelligenceControlsScreen.kt` / `GlobalSettingsScreen.kt`
+  - Unit tests in `EligibilityRulesTest.kt`
+
 ---
 
 ## ✅ Already Verified / Implemented Features in this Audit
@@ -464,3 +482,5 @@ Once the review is completed, these items will be batched and implemented system
 12. **Item 12 Idea 12 (Basic Quoted Tap-Back Reaction Filter)**: Implemented via `TAPBACK_PATTERN` in `SmartContentCleaner.kt` with toggle `isReactionFilterEnabled` in **Active Intelligence**. *(Unquoted patterns, Silence vs Condense mode, and `SessionStore` startup hydration fix are tracked in Backlog #26).*
 13. **Item 14 Idea 15 & Idea 19 Core Behavior**: `BluetoothDeviceReceiver` (`ACTION_ACL_CONNECTED`/`DISCONNECTED`) auto-starts/stops service via `SessionStore.isBluetoothAutoStartEnabled`, and `RuntimeStateReader` + `EligibilityRules` mute below 15% battery or Battery Saver. *(Designated audio device filtering & separate UI configs tracked in Backlog #27 & #23).*
 14. **Item 15 Idea 22 (Per-Device Sound Output Test)**: Implemented in `DevicesScreen.kt` — each connected Bluetooth accessory row has a 1-tap speaker `IconButton` playing a `ToneGenerator(STREAM_MUSIC, 70)` test beep. *(Note: plays on active media route without `ToneGenerator.release()` or device-specific TTS speech routing).*
+15. **Item 16 Idea 27 (Markdown & Formatting Syntax Stripper)**: Implemented via `SmartContentCleaner.stripMarkdown()` (`SmartContentCleaner.kt` + `SmartContentCleanerTest.kt`) with toggle `isMarkdownStripperEnabled` in **Active Intelligence**. *(Startup hydration fix tracked in Backlog #26).*
+16. **Item 16 Idea 29 (Physical Volume Key Silence)**: Implemented via `AnnouncementService.volumeReceiver` (`android.media.VOLUME_CHANGED_ACTION` calling `engine.stop()`) with toggle `isVolumeKeyToStopEnabled` in **Active Intelligence** $\to$ **Gestures & Playback Controls**.
