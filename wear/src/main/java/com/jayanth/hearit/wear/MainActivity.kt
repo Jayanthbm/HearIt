@@ -89,6 +89,11 @@ fun WearApp() {
     val allNotifications by WearNotificationStore.notifications.collectAsState()
     val watchApps by WearNotificationStore.watchApps.collectAsState()
     val forwardingEnabled by WearNotificationStore.forwardingEnabled.collectAsState()
+    val wearVersionName = remember(context) {
+        runCatching {
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName
+        }.getOrNull() ?: "1.0.0"
+    }
 
     var isPhoneConnected by remember { mutableStateOf(false) }
     var connectedNodeName by remember { mutableStateOf<String?>(null) }
@@ -389,9 +394,21 @@ fun WearApp() {
                                 color = Color(0xFFFF8A80),
                             )
                         },
-                        modifier = Modifier.padding(top = 8.dp, bottom = 16.dp),
+                        modifier = Modifier.padding(top = 8.dp, bottom = 6.dp),
                     )
                 }
+            }
+
+            item(key = "app_version") {
+                Text(
+                    text = "HearIt v$wearVersionName",
+                    fontSize = 10.5.sp,
+                    color = Color(0xFF757575),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp, bottom = 6.dp),
+                )
             }
         }
     }

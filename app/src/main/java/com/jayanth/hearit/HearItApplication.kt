@@ -1,6 +1,7 @@
 package com.jayanth.hearit
 
 import android.app.Application
+import android.content.Context
 import android.os.Build
 import com.jayanth.hearit.core.common.logger.HearItLogger
 import com.jayanth.hearit.core.common.logger.LogCategory
@@ -33,14 +34,18 @@ class HearItApplication : Application() {
         com.jayanth.hearit.core.notifications.NotificationRelay.onAnyNotificationPosted = { snapshot ->
             com.jayanth.hearit.wear.WearDataLayerSync.syncNotification(this, snapshot)
         }
-        val appVersion = try {
-            packageManager.getPackageInfo(packageName, 0).versionName ?: "2.0.0"
-        } catch (e: Exception) {
-            "2.0.0"
-        }
+        val appVersion = readAppVersionName()
         HearItLogger.info(
             LogCategory.SERVICE,
             "HearIt application initialized (version $appVersion, SDK ${Build.VERSION.SDK_INT}, OEM ${Build.MANUFACTURER})",
         )
     }
 }
+
+/** Reads the installed app `versionName` without any build code suffix. */
+fun Context.readAppVersionName(fallback: String = "1.0.0"): String =
+    try {
+        packageManager.getPackageInfo(packageName, 0).versionName ?: fallback
+    } catch (_: Exception) {
+        fallback
+    }

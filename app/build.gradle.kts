@@ -28,8 +28,15 @@ android {
         applicationId = "com.jayanth.hearit"
         minSdk = 29
         targetSdk = 37
-        versionCode = 5
-        versionName = "2.0.0"
+        val rawVersionName = libs.versions.appVersionName.get()
+        val parts = rawVersionName.split(".").map { it.toIntOrNull() ?: 0 }
+        val major = parts.getOrElse(0) { 1 }
+        val minor = parts.getOrElse(1) { 0 }
+        val patch = parts.getOrElse(2) { 0 }
+        val baseCode = major * 10000 + minor * 100 + patch * 10
+
+        versionCode = baseCode + 1 // Odd for Phone app
+        versionName = rawVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

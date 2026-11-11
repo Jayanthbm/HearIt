@@ -1,7 +1,7 @@
 package com.jayanth.hearit.settings
 
 import android.app.Activity
-import android.os.Build
+import com.jayanth.hearit.readAppVersionName
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -359,20 +359,7 @@ fun GeneralSettingsScreen(
 
         // App Version Info
         val context = LocalContext.current
-        val packageInfo = remember(context) {
-            try {
-                context.packageManager.getPackageInfo(context.packageName, 0)
-            } catch (_: Exception) {
-                null
-            }
-        }
-        val appVersionName = packageInfo?.versionName ?: "2.0.0"
-        val appVersionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            packageInfo?.longVersionCode?.toString() ?: "5"
-        } else {
-            @Suppress("DEPRECATION")
-            packageInfo?.versionCode?.toString() ?: "5"
-        }
+        val appVersionName = remember(context) { context.readAppVersionName() }
 
         Box(
             modifier = Modifier
@@ -381,7 +368,7 @@ fun GeneralSettingsScreen(
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                text = "Hear It v$appVersionName ($appVersionCode)",
+                text = "HearIt v$appVersionName",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
             )

@@ -1,7 +1,7 @@
 package com.jayanth.hearit.dashboard
 
-import android.os.Build
 import androidx.activity.compose.BackHandler
+import com.jayanth.hearit.readAppVersionName
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -2198,20 +2198,7 @@ private fun SettingsHubScreen(
 
         // App Version & Branding Footer
         val context = LocalContext.current
-        val packageInfo = remember(context) {
-            try {
-                context.packageManager.getPackageInfo(context.packageName, 0)
-            } catch (_: Exception) {
-                null
-            }
-        }
-        val appVersionName = packageInfo?.versionName ?: "2.0.0"
-        val appVersionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            packageInfo?.longVersionCode?.toString() ?: "5"
-        } else {
-            @Suppress("DEPRECATION")
-            packageInfo?.versionCode?.toString() ?: "5"
-        }
+        val appVersionName = remember(context) { context.readAppVersionName() }
 
         Column(
             modifier = Modifier
@@ -2237,7 +2224,7 @@ private fun SettingsHubScreen(
                             .background(Color(0xFF10B981)),
                     )
                     Text(
-                        text = "Hear It v$appVersionName ($appVersionCode)",
+                        text = "HearIt v$appVersionName",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface,
