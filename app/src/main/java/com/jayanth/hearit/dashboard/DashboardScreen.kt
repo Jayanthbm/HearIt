@@ -101,6 +101,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -596,6 +597,7 @@ private fun DashboardHome(
 ) {
     val testAnnouncementText = stringResource(R.string.dashboard_test_announcement_spoken)
     var showMuteDurationDialog by rememberSaveable { mutableStateOf(false) }
+    var showIntelligenceFeaturesDialog by rememberSaveable { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -1089,7 +1091,9 @@ private fun DashboardHome(
 
         // ── Smart Intelligence & Hardware Shortcuts Card ───────────────────
         Card(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { showIntelligenceFeaturesDialog = true },
             shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -1100,16 +1104,21 @@ private fun DashboardHome(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(end = 8.dp),
+                    ) {
                         Surface(
-                            modifier = Modifier.size(32.dp),
+                            modifier = Modifier.size(36.dp),
                             shape = RoundedCornerShape(10.dp),
                             color = MaterialTheme.colorScheme.primaryContainer,
                         ) {
@@ -1118,7 +1127,7 @@ private fun DashboardHome(
                                     imageVector = Icons.Rounded.Tune,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(18.dp),
+                                    modifier = Modifier.size(20.dp),
                                 )
                             }
                         }
@@ -1131,7 +1140,7 @@ private fun DashboardHome(
                                 color = MaterialTheme.colorScheme.onSurface,
                             )
                             Text(
-                                text = "NLP Cleaner, Gestures & Wear OS Sync",
+                                text = "Tap to view active features & shortcuts",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 11.sp,
@@ -1139,23 +1148,31 @@ private fun DashboardHome(
                         }
                     }
 
-                    TextButton(
-                        onClick = { onSelectDestination(DashboardDestination.SETTINGS) },
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                    // Settings Button - Clean rounded elevated pill
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
+                        modifier = Modifier.clickable { onSelectDestination(DashboardDestination.SETTINGS) },
                     ) {
-                        Text(
-                            text = "Settings",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                        Spacer(modifier = Modifier.width(2.dp))
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(14.dp),
-                        )
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(3.dp),
+                        ) {
+                            Text(
+                                text = "Settings",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(14.dp),
+                            )
+                        }
                     }
                 }
 
@@ -1163,79 +1180,31 @@ private fun DashboardHome(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
+                    listOf(
+                        "🧠 NLP Clean",
+                        "📳 Gestures",
+                        "🧹 Dismiss",
+                        "⌚ Wear OS",
+                    ).forEach { label ->
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { showIntelligenceFeaturesDialog = true },
                         ) {
-                            Text(
-                                text = "🧠 NLP Clean",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 10.5.sp,
-                                maxLines = 1,
-                            )
-                        }
-                    }
-
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                text = "📳 Gestures",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 10.5.sp,
-                                maxLines = 1,
-                            )
-                        }
-                    }
-
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                text = "🧹 Dismiss",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 10.5.sp,
-                                maxLines = 1,
-                            )
-                        }
-                    }
-
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                text = "⌚ Wear OS",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 10.5.sp,
-                                maxLines = 1,
-                            )
+                            Box(
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 7.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 10.5.sp,
+                                    maxLines = 1,
+                                )
+                            }
                         }
                     }
                 }
@@ -1417,6 +1386,155 @@ private fun DashboardHome(
             },
             shape = RoundedCornerShape(24.dp),
         )
+    }
+
+    // Active Intelligence & Controls Features Details Dialog
+    if (showIntelligenceFeaturesDialog) {
+        AlertDialog(
+            onDismissRequest = { showIntelligenceFeaturesDialog = false },
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier.size(38.dp),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Rounded.Tune,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                    }
+                    Column {
+                        Text(
+                            text = "Intelligence & Controls",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            text = "Real-time speech & hardware enhancements",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 11.sp,
+                        )
+                    }
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    IntelligenceFeatureItem(
+                        icon = "🧠",
+                        title = "Smart Content Cleaning & NLP",
+                        description = "Cleans lengthy URLs into short spoken links, collapses repeated emoji spam, expands currencies ($ -> dollars), and strips Markdown.",
+                    )
+                    HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                    IntelligenceFeatureItem(
+                        icon = "📳",
+                        title = "Shake / Flip to Silence & Replay",
+                        description = "Gently shake or flip phone face-down to stop speaking immediately. Shake again within 10s to repeat the announcement.",
+                    )
+                    HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                    IntelligenceFeatureItem(
+                        icon = "🧹",
+                        title = "Auto-Dismiss Spoken Alerts",
+                        description = "Clears spoken notifications automatically from the Android status bar shade so your notifications stay tidy.",
+                    )
+                    HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                    IntelligenceFeatureItem(
+                        icon = "⌚",
+                        title = "Wear OS Companion Sync",
+                        description = "Synchronizes enabled apps and notifications in real-time to your paired Wear OS smartwatch.",
+                    )
+                    HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                    IntelligenceFeatureItem(
+                        icon = "🕒",
+                        title = "Periodic Spoken Check-ins",
+                        description = "Hands-free time and battery percentage spoken updates periodically through your earphones.",
+                    )
+                    HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                    IntelligenceFeatureItem(
+                        icon = "⚡",
+                        title = "Music Paused Hold",
+                        description = "Waits up to 60 seconds while music or media is paused so announcements don't startle you when you pause playback.",
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showIntelligenceFeaturesDialog = false
+                        onSelectDestination(DashboardDestination.SETTINGS)
+                    },
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    Text("Open Settings")
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showIntelligenceFeaturesDialog = false }) {
+                    Text("Close")
+                }
+            },
+            shape = RoundedCornerShape(24.dp),
+        )
+    }
+}
+
+@Composable
+private fun IntelligenceFeatureItem(
+    icon: String,
+    title: String,
+    description: String,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Text(
+            text = icon,
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(top = 2.dp),
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 12.sp,
+                lineHeight = 16.sp,
+            )
+        }
     }
 }
 
