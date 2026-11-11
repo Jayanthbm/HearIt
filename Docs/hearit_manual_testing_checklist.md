@@ -181,6 +181,14 @@ This document tracks all features implemented across Phases 1 through 5. You can
   - Toggling it instantly hides/shows pre-installed system apps (`FLAG_SYSTEM`), keeping the app list clean and focused on user-installed apps.
 - **Location**: Phone App $\to$ Applications Tab $\to$ Filter Chip bar.
 
+### [ ] Item 6.3: Direct 1-Tap Battery Optimization Exemption Prompt — 🚀 READY FOR TESTING
+- **User Request**: *"Direct prompt with ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS for seamless one-tap exemption so aggressive OEM task-killers do not kill the service"*.
+- **Implementation**:
+  - In `AndroidSetupLauncher`: Invokes `Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` with `package:com.jayanth.hearit` which pops the direct OS system prompt (*"Let HearIt always run in background? [Allow] [Deny]"*).
+  - In `DiagnosticsScreen`: Real-time status shows `"Granted"` badge when unrestricted, and `"Unrestrict"` button triggers the 1-tap dialog if not yet exempt.
+  - In `SetupScreen`: Step 5 button directly fires the 1-tap system prompt.
+- **Location**: Phone App $\to$ Settings Hub $\to$ System Diagnostics $\to$ **Background Execution** (or Initial Setup Step 5).
+
 ---
 
 > [!TIP]

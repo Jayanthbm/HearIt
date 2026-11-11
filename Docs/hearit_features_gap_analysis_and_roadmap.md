@@ -23,17 +23,11 @@ This guide provides a comprehensive audit of all functional features across Hear
 
 ## 1. Service Lifecycle & Device Integration
 
-### 1.1 Phone Reboot Auto-Recovery (`BOOT_COMPLETED`)
-- **Current State**: If the phone restarts, HearIt does not resume announcements automatically even if `SessionStore.isStarted == true`. The user must manually launch the app.
-- **What's Missing**:
-  - `RECEIVE_BOOT_COMPLETED` manifest permission.
-  - A `BootReceiver` that checks `SessionStore.isStarted` and restarts `AnnouncementService` in the background with appropriate Android 12+ foreground-service restrictions in mind.
-- **Value / Effort**: **High Value / Low Effort**. Essential for a hands-free notification reader.
+### 1.1 Phone Reboot Auto-Recovery (`BOOT_COMPLETED`) — ✅ IMPLEMENTED
+- **Status**: Implemented via `BootReceiver` listening for `BOOT_COMPLETED` and `MY_PACKAGE_REPLACED`, auto-recovering `AnnouncementService` when `SessionStore.isStarted == true`.
 
-### 1.2 Direct Battery Optimization Exemption
-- **Current State**: Diagnostics screen detects whether battery optimization is active and opens the generic OS battery settings page.
-- **What's Missing**: Direct prompt with `ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` for seamless one-tap exemption so aggressive OEM task-killers (OnePlus, Samsung, Xiaomi) do not kill the service.
-- **Value / Effort**: **High Value / Low Effort**.
+### 1.2 Direct Battery Optimization Exemption — ✅ IMPLEMENTED
+- **Status**: Implemented direct 1-tap exemption via `Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` in `AndroidSetupLauncher` and live status badge in Diagnostics screen.
 
 ---
 
