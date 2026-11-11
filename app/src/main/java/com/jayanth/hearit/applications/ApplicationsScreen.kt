@@ -4,7 +4,10 @@ import android.text.format.DateUtils
 import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -15,9 +18,11 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -66,6 +71,8 @@ import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.SearchOff
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.StarBorder
 import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.AlertDialog
@@ -73,6 +80,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
@@ -129,6 +137,7 @@ import com.jayanth.hearit.core.common.model.KeywordMatchMode
 import com.jayanth.hearit.core.database.HistoryEntry
 import com.jayanth.hearit.core.rules.KeywordMatcher
 import com.jayanth.hearit.history.skipReasonLabel
+import com.jayanth.hearit.ui.components.verticalScrollbar
 
 /**
  * Entry point of the Applications feature (master prompt §5, phase P13).
@@ -147,6 +156,7 @@ fun ApplicationsRoute(viewModel: ApplicationsViewModel, modifier: Modifier = Mod
     }
 
     BackHandler(enabled = settings != null) { viewModel.onCloseApp() }
+    BackHandler(enabled = settings == null && state.isSelectionMode) { viewModel.onClearSelection() }
 
     Box(modifier = modifier.fillMaxSize()) {
         AnimatedContent(
@@ -175,9 +185,17 @@ fun ApplicationsRoute(viewModel: ApplicationsViewModel, modifier: Modifier = Mod
                     onFilterTypeChange = { filterType = it },
                     onQueryChange = viewModel::onQueryChange,
                     onToggleApp = viewModel::onToggleApp,
+                    onTogglePriorityAnnounce = viewModel::onTogglePriorityAnnounce,
                     onOpenApp = viewModel::onOpenApp,
                     onSelectAllVisible = viewModel::onSelectAllVisible,
                     onDeselectAllVisible = viewModel::onDeselectAllVisible,
+                    onToggleSelectionMode = viewModel::onToggleSelectionMode,
+                    onToggleSelectPackage = viewModel::onToggleSelectPackage,
+                    onSelectAllForBatch = viewModel::onSelectAllForBatch,
+                    onClearSelection = viewModel::onClearSelection,
+                    onBatchSetEnabled = viewModel::onBatchSetEnabled,
+                    onBatchSetPriorityAnnounce = viewModel::onBatchSetPriorityAnnounce,
+                    onBatchResetToGlobal = viewModel::onBatchResetToGlobal,
                     onSetAppCategory = viewModel::onSetAppCategory,
                     onResetAppCategory = viewModel::onResetAppCategory,
                     modifier = Modifier.fillMaxSize(),
@@ -188,6 +206,11 @@ fun ApplicationsRoute(viewModel: ApplicationsViewModel, modifier: Modifier = Mod
                     icons = viewModel.icons,
                     onBack = viewModel::onCloseApp,
                     onToggleEnabled = { viewModel.onToggleApp(settings.packageName) },
+                    onTogglePriorityAnnounce = { viewModel.onTogglePriorityAnnounce(settings.packageName) },
+                    onSpeechRateChanged = viewModel::onSpeechRateChanged,
+                    onSpeechPitchChanged = viewModel::onSpeechPitchChanged,
+                    onSpeechVoiceChanged = viewModel::onSpeechVoiceChanged,
+                    onAutoDismissChanged = viewModel::onAutoDismissChanged,
                     onPriorityChanged = viewModel::onPriorityChanged,
                     onHistoryStorageModeChanged = viewModel::onHistoryStorageModeChanged,
                     onHistoryUpdateHandlingChanged = viewModel::onHistoryUpdateHandlingChanged,
@@ -232,20 +255,35 @@ private fun ApplicationsListScreen(
     onFilterTypeChange: (Int) -> Unit,
     onQueryChange: (String) -> Unit,
     onToggleApp: (String) -> Unit,
+    onTogglePriorityAnnounce: (String) -> Unit,
     onOpenApp: (String) -> Unit,
-    onSelectAllVisible: () -> Unit,
-    onDeselectAllVisible: () -> Unit,
+    onSelectAllVisible: (Collection<String>) -> Unit,
+    onDeselectAllVisible: (Collection<String>) -> Unit,
+    onToggleSelectionMode: (String?) -> Unit,
+    onToggleSelectPackage: (String) -> Unit,
+    onSelectAllForBatch: (Collection<String>) -> Unit,
+    onClearSelection: () -> Unit,
+    onBatchSetEnabled: (Boolean) -> Unit,
+    onBatchSetPriorityAnnounce: (Boolean) -> Unit,
+    onBatchResetToGlobal: () -> Unit,
     onSetAppCategory: (String, com.jayanth.hearit.core.common.model.AppCategory?) -> Unit = { _, _ -> },
     onResetAppCategory: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var showSystemApps by rememberSaveable { mutableStateOf(false) }
     var showCategoriesDialog by rememberSaveable { mutableStateOf(false) }
-    val displayedApps = remember(state.visibleApps, state.enabledApps, filterType, showSystemApps) {
+    val displayedApps = remember(
+        state.visibleApps,
+        state.enabledApps,
+        state.priorityAnnounceApps,
+        filterType,
+        showSystemApps,
+    ) {
         val base = if (showSystemApps) state.visibleApps else state.visibleApps.filter { !it.isSystemApp || it.packageName in state.enabledApps }
         when (filterType) {
             1 -> base.filter { it.packageName in state.enabledApps }
             2 -> base.filter { it.packageName !in state.enabledApps }
+            3 -> base.filter { it.packageName in state.priorityAnnounceApps }
             else -> base
         }
     }
@@ -345,8 +383,9 @@ private fun ApplicationsListScreen(
             ) {
                 val filters = listOf(
                     0 to "All",
-                    1 to "Selected (${state.enabledApps.size})",
-                    2 to "Unselected",
+                    1 to "Enabled (${state.enabledApps.size})",
+                    2 to "Off",
+                    3 to "Priority (${state.priorityAnnounceApps.size})",
                 )
                 filters.forEach { (type, label) ->
                     val isSelected = filterType == type
@@ -371,10 +410,11 @@ private fun ApplicationsListScreen(
                     ) {
                         Text(
                             text = label,
-                            style = MaterialTheme.typography.labelMedium,
+                            style = MaterialTheme.typography.labelSmall,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                             color = textTint,
                             maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                 }
@@ -386,17 +426,38 @@ private fun ApplicationsListScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
                 .padding(horizontal = 4.dp, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             FilterChip(
                 selected = showSystemApps,
                 onClick = { showSystemApps = !showSystemApps },
                 label = {
                     Text(
-                        text = if (showSystemApps) "System Apps Shown" else "System Apps Hidden",
+                        text = if (showSystemApps) "System Shown" else "System Hidden",
                         fontSize = 11.5.sp,
+                        maxLines = 1,
+                    )
+                },
+                shape = RoundedCornerShape(10.dp),
+            )
+            FilterChip(
+                selected = state.isSelectionMode,
+                onClick = { onToggleSelectionMode(null) },
+                leadingIcon = {
+                    Icon(
+                        imageVector = if (state.isSelectionMode) Icons.Rounded.Check else Icons.Rounded.CheckCircle,
+                        contentDescription = null,
+                        modifier = Modifier.size(15.dp),
+                    )
+                },
+                label = {
+                    Text(
+                        text = if (state.isSelectionMode) "Selecting (${state.selectedPackages.size})" else "Select",
+                        fontSize = 11.5.sp,
+                        maxLines = 1,
                     )
                 },
                 shape = RoundedCornerShape(10.dp),
@@ -415,6 +476,7 @@ private fun ApplicationsListScreen(
                     Text(
                         text = "Categories",
                         fontSize = 11.5.sp,
+                        maxLines = 1,
                     )
                 },
                 shape = RoundedCornerShape(10.dp),
@@ -449,9 +511,11 @@ private fun ApplicationsListScreen(
                 )
 
                 val anyUnselected = displayedApps.any { it.packageName !in state.enabledApps }
+                val displayedPackageNames = remember(displayedApps) { displayedApps.map { it.packageName } }
                 Surface(
                     onClick = {
-                        if (anyUnselected) onSelectAllVisible() else onDeselectAllVisible()
+                        if (anyUnselected) onSelectAllVisible(displayedPackageNames)
+                        else onDeselectAllVisible(displayedPackageNames)
                     },
                     shape = RoundedCornerShape(8.dp),
                     color = Color.Transparent,
@@ -516,14 +580,39 @@ private fun ApplicationsListScreen(
                         ApplicationRow(
                             app = app,
                             enabled = app.packageName in state.enabledApps,
+                            isPriorityListed = app.packageName in state.priorityAnnounceApps,
                             hasCustomRules = app.packageName in state.customizedApps,
+                            isSelectionMode = state.isSelectionMode,
+                            isSelected = app.packageName in state.selectedPackages,
                             icons = icons,
                             onToggle = { onToggleApp(app.packageName) },
+                            onTogglePriority = { onTogglePriorityAnnounce(app.packageName) },
+                            onToggleSelect = { onToggleSelectPackage(app.packageName) },
+                            onEnterSelectionMode = { onToggleSelectionMode(app.packageName) },
                             onOpenSettings = { onOpenApp(app.packageName) },
                         )
                     }
-                    item { Spacer(modifier = Modifier.height(100.dp)) }
+                    item { Spacer(modifier = Modifier.height(if (state.isSelectionMode) 190.dp else 100.dp)) }
                 }
+            }
+
+            val allDisplayedSelected = displayedApps.isNotEmpty() && displayedApps.all { it.packageName in state.selectedPackages }
+            androidx.compose.animation.AnimatedVisibility(
+                visible = state.isSelectionMode,
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically(),
+                modifier = Modifier.align(Alignment.BottomCenter),
+            ) {
+                ApplicationsBatchActionBar(
+                    selectedCount = state.selectedPackages.size,
+                    allVisibleSelected = allDisplayedSelected,
+                    onToggleSelectAll = { onSelectAllForBatch(displayedApps.map { it.packageName }) },
+                    onEnableSelected = { onBatchSetEnabled(true) },
+                    onDisableSelected = { onBatchSetEnabled(false) },
+                    onAddToPriority = { onBatchSetPriorityAnnounce(true) },
+                    onResetSelected = onBatchResetToGlobal,
+                    onExitSelectionMode = onClearSelection,
+                )
             }
         }
     }
@@ -565,6 +654,7 @@ private fun ApplicationsEmptyCard(
                         query.isNotBlank() -> Icons.Rounded.SearchOff
                         filterType == 1 -> Icons.Rounded.NotificationsOff
                         filterType == 2 -> Icons.Rounded.CheckCircle
+                        filterType == 3 -> Icons.Rounded.Star
                         else -> Icons.Rounded.Apps
                     }
                     Icon(
@@ -582,6 +672,7 @@ private fun ApplicationsEmptyCard(
                 query.isNotBlank() -> "No matching apps found"
                 filterType == 1 -> "No enabled apps"
                 filterType == 2 -> "All apps enabled"
+                filterType == 3 -> "No priority apps yet"
                 else -> "No applications available"
             }
 
@@ -597,8 +688,9 @@ private fun ApplicationsEmptyCard(
 
             val description = when {
                 query.isNotBlank() -> "No installed apps match \"${query.trim()}\". Try another term or clear the search query."
-                filterType == 1 -> "You haven't enabled speech announcements for any apps yet. Switch to 'All' or 'Unselected' to turn them on."
+                filterType == 1 -> "You haven't enabled speech announcements for any apps yet. Switch to 'All' or 'Off' to turn them on."
                 filterType == 2 -> "Every installed application currently has announcement permissions enabled."
+                filterType == 3 -> "Tap the star button on any app to add it to your Priority Announce quick-access list."
                 else -> "No installed apps were detected on this device."
             }
 
@@ -625,7 +717,7 @@ private fun ApplicationsEmptyCard(
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Clear search", fontWeight = FontWeight.SemiBold)
                 }
-            } else if (filterType == 1 || filterType == 2) {
+            } else if (filterType in 1..3) {
                 Spacer(modifier = Modifier.height(20.dp))
                 Button(
                     onClick = onResetFilter,
@@ -642,25 +734,45 @@ private fun ApplicationsEmptyCard(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ApplicationRow(
     app: AppEntry,
     enabled: Boolean,
+    isPriorityListed: Boolean,
     hasCustomRules: Boolean = false,
+    isSelectionMode: Boolean = false,
+    isSelected: Boolean = false,
     icons: AppIconLoader,
     onToggle: () -> Unit,
+    onTogglePriority: () -> Unit,
+    onToggleSelect: () -> Unit,
+    onEnterSelectionMode: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
     Card(
-        onClick = onOpenSettings,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .combinedClickable(
+                onClick = { if (isSelectionMode) onToggleSelect() else onOpenSettings() },
+                onLongClick = { if (!isSelectionMode) onEnterSelectionMode() else onToggleSelect() },
+            ),
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (enabled) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surfaceContainer,
+            containerColor = when {
+                isSelected -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+                enabled -> MaterialTheme.colorScheme.surfaceContainerHigh
+                else -> MaterialTheme.colorScheme.surfaceContainer
+            },
         ),
         border = BorderStroke(
             1.dp,
-            if (enabled) MaterialTheme.colorScheme.primary.copy(alpha = 0.35f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+            when {
+                isSelected -> MaterialTheme.colorScheme.primary
+                enabled -> MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+                else -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+            },
         ),
     ) {
         Row(
@@ -726,31 +838,49 @@ private fun ApplicationRow(
                 )
             }
 
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(6.dp))
 
-            // Switch (ONLY toggles enable / disable)
-            Switch(
-                checked = enabled,
-                onCheckedChange = { onToggle() },
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-                    checkedTrackColor = MaterialTheme.colorScheme.primary,
-                ),
-            )
-
-            Spacer(modifier = Modifier.width(4.dp))
-
-            // Settings button (also opens settings)
-            IconButton(
-                onClick = onOpenSettings,
-                modifier = Modifier.size(36.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Tune,
-                    contentDescription = stringResource(R.string.applications_open_settings),
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp),
+            if (isSelectionMode) {
+                Checkbox(
+                    checked = isSelected,
+                    onCheckedChange = { onToggleSelect() },
                 )
+            } else {
+                // 1-tap Priority Star (#5)
+                IconButton(
+                    onClick = onTogglePriority,
+                    modifier = Modifier.size(34.dp),
+                ) {
+                    Icon(
+                        imageVector = if (isPriorityListed) Icons.Rounded.Star else Icons.Rounded.StarBorder,
+                        contentDescription = if (isPriorityListed) "Remove from Priority List" else "Add to Priority List",
+                        tint = if (isPriorityListed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(19.dp),
+                    )
+                }
+
+                // Switch (ONLY toggles enable / disable)
+                Switch(
+                    checked = enabled,
+                    onCheckedChange = { onToggle() },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                        checkedTrackColor = MaterialTheme.colorScheme.primary,
+                    ),
+                )
+
+                // Settings button
+                IconButton(
+                    onClick = onOpenSettings,
+                    modifier = Modifier.size(34.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Tune,
+                        contentDescription = stringResource(R.string.applications_open_settings),
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(19.dp),
+                    )
+                }
             }
         }
     }
@@ -785,6 +915,11 @@ private fun AppSettingsScreen(
     icons: AppIconLoader,
     onBack: () -> Unit,
     onToggleEnabled: () -> Unit,
+    onTogglePriorityAnnounce: () -> Unit,
+    onSpeechRateChanged: (Float?) -> Unit,
+    onSpeechPitchChanged: (Float?) -> Unit,
+    onSpeechVoiceChanged: (String?) -> Unit,
+    onAutoDismissChanged: (Boolean?) -> Unit,
     onPriorityChanged: (AppPriority?) -> Unit,
     onHistoryStorageModeChanged: (HistoryStorageMode?) -> Unit,
     onHistoryUpdateHandlingChanged: (HistoryUpdateHandling?) -> Unit,
@@ -1527,6 +1662,16 @@ private fun AppSettingsScreen(
                             }
                         }
                     }
+
+                    // Priority List (#5), Voice/Speed/Pitch Override (#6) & Auto-Dismiss Override (#31)
+                    PerAppPriorityVoiceAndDismissSection(
+                        state = state,
+                        onTogglePriorityAnnounce = onTogglePriorityAnnounce,
+                        onSpeechRateChanged = onSpeechRateChanged,
+                        onSpeechPitchChanged = onSpeechPitchChanged,
+                        onSpeechVoiceChanged = onSpeechVoiceChanged,
+                        onAutoDismissChanged = onAutoDismissChanged,
+                    )
                 } else {
                         // Banner showing announcements are silenced
                         Card(
@@ -2370,7 +2515,16 @@ private fun HistoryDetailDialog(
             }
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            val detailScrollState = rememberScrollState()
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 380.dp)
+                    .verticalScroll(detailScrollState)
+                    .verticalScrollbar(detailScrollState)
+                    .padding(end = 6.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
                 val sender = entry.sender
                 if (sender != null) {
                     Column {

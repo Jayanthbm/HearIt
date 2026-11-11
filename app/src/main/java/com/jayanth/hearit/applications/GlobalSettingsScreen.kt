@@ -34,6 +34,7 @@ import androidx.compose.material.icons.rounded.Cable
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.CreditCard
+import androidx.compose.material.icons.rounded.DoNotDisturbOn
 import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.Info
@@ -42,6 +43,7 @@ import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material.icons.rounded.Nightlight
 import androidx.compose.material.icons.rounded.PhoneAndroid
+import androidx.compose.material.icons.rounded.PhoneInTalk
 import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.Shield
@@ -143,6 +145,12 @@ class GlobalSettingsViewModel @Inject constructor(
     fun onLockConditionChanged(condition: LockCondition) =
         updateEligibility { it.copy(lockCondition = condition) }
 
+    fun onRespectDndChanged(respectDnd: Boolean) =
+        updateEligibility { it.copy(respectDnd = respectDnd) }
+
+    fun onQueueDuringCallChanged(queueDuringCall: Boolean) =
+        updateEligibility { it.copy(queueDuringCall = queueDuringCall) }
+
     fun onTextLengthChanged(textLength: TextLengthSettings) =
         updateEligibility { it.copy(textLength = textLength) }
 
@@ -195,6 +203,8 @@ fun GlobalSettingsRoute(
         state = state,
         onScreenConditionChanged = viewModel::onScreenConditionChanged,
         onLockConditionChanged = viewModel::onLockConditionChanged,
+        onRespectDndChanged = viewModel::onRespectDndChanged,
+        onQueueDuringCallChanged = viewModel::onQueueDuringCallChanged,
         onTextLengthChanged = viewModel::onTextLengthChanged,
         onKeywordFilterChanged = viewModel::onKeywordFilterChanged,
         onPrivacyChanged = viewModel::onPrivacyChanged,
@@ -218,6 +228,8 @@ fun GlobalSettingsScreen(
     onPrivacyChanged: (PrivacySettings) -> Unit,
     onResetToDefaults: () -> Unit,
     modifier: Modifier = Modifier,
+    onRespectDndChanged: (Boolean) -> Unit = {},
+    onQueueDuringCallChanged: (Boolean) -> Unit = {},
     onAudioOutputChanged: (Boolean?, Boolean?, Boolean?) -> Unit = { _, _, _ -> },
     onEligibilityChanged: (EligibilitySettings) -> Unit = {},
 ) {
@@ -234,7 +246,10 @@ fun GlobalSettingsScreen(
         // Hero Card with un-truncated FlowRow status pills
         GlobalRulesHeroCard(state = state)
 
-        val isDeviceStateModified = state.screenCondition != ScreenCondition.OFF || state.lockCondition != LockCondition.LOCKED
+        val isDeviceStateModified = state.screenCondition != ScreenCondition.OFF ||
+            state.lockCondition != LockCondition.LOCKED ||
+            !state.eligibility.respectDnd ||
+            state.eligibility.queueDuringCall
         val activeShieldsCount = listOf(
             state.privacy.skipOtp,
             state.privacy.skipPassword,
@@ -243,13 +258,17 @@ fun GlobalSettingsScreen(
             state.privacy.hideContent,
         ).count { it }
 
-        // Section 1: Device State Conditions
+        // Section 1: Device State Conditions (#2 DND & Call Handling)
         DeviceStateCard(
             screenCondition = state.screenCondition,
             lockCondition = state.lockCondition,
+            respectDnd = state.eligibility.respectDnd,
+            queueDuringCall = state.eligibility.queueDuringCall,
             isModified = isDeviceStateModified,
             onScreenConditionChanged = onScreenConditionChanged,
             onLockConditionChanged = onLockConditionChanged,
+            onRespectDndChanged = onRespectDndChanged,
+            onQueueDuringCallChanged = onQueueDuringCallChanged,
         )
 
         // Section 2: Privacy Protection & Content Shields (with keyboard bringIntoView)
@@ -453,6 +472,18 @@ private fun GlobalRulesHeroCard(state: GlobalSettingsUiState) {
                     else -> Triple(Icons.Rounded.Shield, "Shields Off", false)
                 }
                 StatusPill(icon = shieldIcon, text = shieldText, isPositive = shieldPositive)
+
+                StatusPill(
+                    icon = Icons.Rounded.DoNotDisturbOn,
+                    text = if (state.eligibility.respectDnd) "Respect DND" else "Ignore DND",
+                    isPositive = state.eligibility.respectDnd,
+                )
+
+                StatusPill(
+                    icon = Icons.Rounded.PhoneInTalk,
+                    text = if (state.eligibility.queueDuringCall) "Calls: Queue" else "Calls: Discard",
+                    isPositive = state.eligibility.queueDuringCall,
+                )
             }
         }
     }
@@ -502,9 +533,13 @@ private fun StatusPill(
 private fun DeviceStateCard(
     screenCondition: ScreenCondition,
     lockCondition: LockCondition,
+    respectDnd: Boolean,
+    queueDuringCall: Boolean,
     isModified: Boolean,
     onScreenConditionChanged: (ScreenCondition) -> Unit,
     onLockConditionChanged: (LockCondition) -> Unit,
+    onRespectDndChanged: (Boolean) -> Unit,
+    onQueueDuringCallChanged: (Boolean) -> Unit,
 ) {
     SectionCard(
         title = "Device State",
@@ -591,6 +626,51 @@ private fun DeviceStateCard(
                         icon = Icons.Rounded.Sync,
                         selected = lockCondition == LockCondition.BOTH,
                         onClick = { onLockConditionChanged(LockCondition.BOTH) },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+            // Do Not Disturb Policy (#2)
+            ModernSwitchRow(
+                label = "Silence during Do Not Disturb",
+                subtitle = "Mute regular alerts when Android DND is active (critical keywords still break through)",
+                checked = respectDnd,
+                onCheckedChange = onRespectDndChanged,
+                icon = Icons.Rounded.DoNotDisturbOn,
+            )
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+            // Phone Call Handling Policy (#2)
+            Column {
+                Text(
+                    text = "During Phone Calls",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    SegmentOption(
+                        label = "Discard",
+                        subtitle = "Skip during calls",
+                        icon = Icons.Rounded.Close,
+                        selected = !queueDuringCall,
+                        onClick = { onQueueDuringCallChanged(false) },
+                        modifier = Modifier.weight(1f),
+                    )
+                    SegmentOption(
+                        label = "Queue & Release",
+                        subtitle = "Speak after call",
+                        icon = Icons.Rounded.PhoneInTalk,
+                        selected = queueDuringCall,
+                        onClick = { onQueueDuringCallChanged(true) },
                         modifier = Modifier.weight(1f),
                     )
                 }

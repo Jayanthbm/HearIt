@@ -225,4 +225,40 @@ class AppSettingsEditorTest {
 
         assertEquals(KeywordMatchMode.PHRASE, state.keywordFilter.effective.mode)
     }
+
+    @Test
+    fun speechAndAutoDismissOverrides_applyAndRevertToGlobal() {
+        var updated = AppSettingsEditor.setSpeechRate(HearItSettings(), packageName, 1.35f)
+        updated = AppSettingsEditor.setSpeechPitch(updated, packageName, 0.9f)
+        updated = AppSettingsEditor.setSpeechVoiceId(updated, packageName, "voice-a")
+        updated = AppSettingsEditor.setAutoDismiss(updated, packageName, false)
+
+        val state = AppSettingsEditor.settingsFor(updated, packageName, "WhatsApp", globalAutoDismiss = true)
+        assertEquals(1.35f, state.speechRate.effective, 0.0001f)
+        assertEquals(0.9f, state.speechPitch.effective, 0.0001f)
+        assertEquals("voice-a", state.speechVoiceId.effective)
+        assertFalse(state.autoDismiss.effective)
+
+        val reset = AppSettingsEditor.resetToGlobal(updated, packageName)
+        val resetState = AppSettingsEditor.settingsFor(reset, packageName, "WhatsApp", globalAutoDismiss = true)
+        assertTrue(resetState.speechRate.isInherited)
+        assertTrue(resetState.autoDismiss.isInherited)
+        assertTrue(resetState.autoDismiss.effective)
+    }
+
+    @Test
+    fun priorityAnnounceAndBatchActions_workAcrossMultiplePackages() {
+        val pkgs = listOf("com.a", "com.b")
+        var settings = AppSettingsEditor.enableAll(HearItSettings(), pkgs)
+        settings = AppSettingsEditor.batchSetPriorityAnnounce(settings, pkgs, true)
+        assertTrue("com.a" in settings.priorityAnnounceApps)
+        assertTrue("com.b" in settings.priorityAnnounceApps)
+
+        settings = AppSettingsEditor.batchSetPriority(settings, pkgs, com.jayanth.hearit.core.common.model.AppPriority.HIGH)
+        assertEquals(com.jayanth.hearit.core.common.model.AppPriority.HIGH, settings.priorityFor("com.a"))
+
+        settings = AppSettingsEditor.batchResetToGlobal(settings, pkgs)
+        assertFalse(settings.appOverrides.containsKey("com.a"))
+        assertFalse(settings.appOverrides.containsKey("com.b"))
+    }
 }

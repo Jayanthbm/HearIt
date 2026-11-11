@@ -24,6 +24,8 @@ object HistoryQueryMapper {
         packageName = filter.selectedPackageName,
         status = filter.status,
         searchText = filter.query.trim().takeIf { it.isNotEmpty() },
+        dateFrom = filter.dateFromMillis,
+        dateTo = filter.dateToMillis,
         sortBy = when (filter.sort) {
             HistorySortOrder.RecentFirst -> HistoryQuery.SortBy.RecentFirst
             HistorySortOrder.OldestFirst -> HistoryQuery.SortBy.OldestFirst

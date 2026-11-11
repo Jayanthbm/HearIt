@@ -328,4 +328,28 @@ class SettingsCodecTest {
             decoded.categoryFor("com.whatsapp"),
         )
     }
+
+    @Test
+    fun appSpeechAndAutoDismissOverrides_roundTrip() {
+        val settings = HearItSettings(
+            speech = SpeechSettings(speechRate = 1.0f, pitch = 1.0f, voiceId = "global-voice"),
+            appOverrides = mapOf(
+                "com.whatsapp" to AppOverride(
+                    speech = com.jayanth.hearit.core.tts.AppSpeechOverride(
+                        speechRate = 1.4f,
+                        pitch = 0.85f,
+                        voiceId = "en-us-custom",
+                    ),
+                    autoDismiss = false,
+                ),
+            ),
+        )
+        val decoded = roundTrip(settings)
+        val waSpeech = decoded.speechFor("com.whatsapp")
+        assertEquals(1.4f, waSpeech.speechRate, 0.0001f)
+        assertEquals(0.85f, waSpeech.pitch, 0.0001f)
+        assertEquals("en-us-custom", waSpeech.voiceId)
+        assertFalse(decoded.autoDismissFor("com.whatsapp", globalDefault = true))
+        assertTrue(decoded.autoDismissFor("com.other", globalDefault = true))
+    }
 }

@@ -75,6 +75,13 @@ class SettingsSource(private val repository: SettingsRepository) {
     /** Speech settings (master prompt §7: speed, pitch, voice). */
     fun speech(): SpeechSettings = settings.speech
 
+    /** Resolved per-app speech rate, pitch, and voice for [packageName] (#6). */
+    fun speechFor(packageName: String): SpeechSettings = settings.speechFor(packageName)
+
+    /** Resolved auto-dismiss preference for [packageName] (#31). */
+    fun autoDismissFor(packageName: String, globalDefault: Boolean): Boolean =
+        settings.autoDismissFor(packageName, globalDefault)
+
     /** Global queue/scheduling settings. */
     fun queueSettings(): QueueSettings = settings.queue
 

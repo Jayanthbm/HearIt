@@ -28,6 +28,34 @@ data class SpeechSettings(
         require(pitch > 0f) { "SpeechSettings.pitch must be > 0" }
         require(volumeLevel in 0f..1f) { "SpeechSettings.volumeLevel must be between 0 and 1" }
     }
+
+    /** Returns these global settings with non-null fields from [override] applied (#6). */
+    fun resolveWith(override: AppSpeechOverride?): SpeechSettings {
+        if (override == null) return this
+        return copy(
+            speechRate = override.speechRate ?: speechRate,
+            pitch = override.pitch ?: pitch,
+            voiceId = override.voiceId ?: voiceId,
+        )
+    }
+}
+
+/**
+ * Sparse per-app speech overrides (#6). Any null field inherits the global [SpeechSettings].
+ */
+data class AppSpeechOverride(
+    val speechRate: Float? = null,
+    val pitch: Float? = null,
+    val voiceId: String? = null,
+) {
+    init {
+        require(speechRate == null || speechRate > 0f) { "AppSpeechOverride.speechRate must be > 0" }
+        require(pitch == null || pitch > 0f) { "AppSpeechOverride.pitch must be > 0" }
+    }
+
+    /** True when every field inherits the global voice/rate/pitch. */
+    val inheritsEveryValue: Boolean
+        get() = speechRate == null && pitch == null && voiceId == null
 }
 
 /**

@@ -129,6 +129,10 @@ object SettingsCodec {
     private const val APP_PRIORITY = "priority"
     private const val APP_SPOKEN_NAME = "spokenName"
     private const val APP_CATEGORY = "category"
+    private const val APP_AUTO_DISMISS = "elig.autoDismiss"
+    private const val APP_SPEECH_RATE = "speech.rate"
+    private const val APP_SPEECH_PITCH = "speech.pitch"
+    private const val APP_SPEECH_VOICE = "speech.voice"
     private const val APP_QUEUE_WINDOW = "queue.groupingWindow"
     private const val APP_HISTORY_MODE = "history.storageMode"
     private const val APP_HISTORY_UPDATES = "history.updateHandling"
@@ -298,6 +302,10 @@ object SettingsCodec {
         override.history.updateHandling?.let { values[prefix + APP_HISTORY_UPDATES] = it.name }
         override.history.retentionDays?.let { values[prefix + APP_HISTORY_RETENTION] = it.toString() }
         override.history.requireAuth?.let { values[prefix + APP_HISTORY_AUTH] = it.toString() }
+        override.speech.speechRate?.let { values[prefix + APP_SPEECH_RATE] = it.toString() }
+        override.speech.pitch?.let { values[prefix + APP_SPEECH_PITCH] = it.toString() }
+        override.speech.voiceId?.let { values[prefix + APP_SPEECH_VOICE] = it }
+        override.autoDismiss?.let { values[prefix + APP_AUTO_DISMISS] = it.toString() }
         override.priority?.let { values[prefix + APP_PRIORITY] = it.name }
         override.spokenName?.let { values[prefix + APP_SPOKEN_NAME] = it }
         override.categoryOverride?.let { values[prefix + APP_CATEGORY] = it.name }
@@ -528,6 +536,12 @@ object SettingsCodec {
                 retentionDays = string(APP_HISTORY_RETENTION)?.toIntOrNull(),
                 requireAuth = string(APP_HISTORY_AUTH)?.toBooleanStrictOrNull(),
             ),
+            speech = com.jayanth.hearit.core.tts.AppSpeechOverride(
+                speechRate = string(APP_SPEECH_RATE)?.toFloatOrNull()?.takeIf { it > 0f && it.isFinite() },
+                pitch = string(APP_SPEECH_PITCH)?.toFloatOrNull()?.takeIf { it > 0f && it.isFinite() },
+                voiceId = string(APP_SPEECH_VOICE)?.takeIf { it.isNotBlank() },
+            ),
+            autoDismiss = string(APP_AUTO_DISMISS)?.toBooleanStrictOrNull(),
             priority = string(APP_PRIORITY)?.enumOrNull<AppPriority>(),
             spokenName = string(APP_SPOKEN_NAME)?.takeIf { it.isNotBlank() },
             categoryOverride = string(APP_CATEGORY)?.enumOrNull<AppCategoryChoice>(),

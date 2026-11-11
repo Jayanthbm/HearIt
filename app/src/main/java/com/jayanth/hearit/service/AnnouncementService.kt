@@ -847,7 +847,7 @@ class AnnouncementService : Service(), NotificationSink {
         )
         val accepted = engine.speak(
             announcement = action.announcement,
-            settings = settingsSource.speech(),
+            settings = settingsSource.speechFor(action.selection.packageName),
             listener = object : UtteranceListener {
                 override fun onComplete(announcement: BuiltAnnouncement) {
                     handler.post { finishSpeech(action) }
@@ -885,12 +885,15 @@ class AnnouncementService : Service(), NotificationSink {
             LogCategory.TTS,
             "Finished speech announcement: pkg=${action.selection.packageName}, spoken=$spoken",
         )
-        if (spoken && sessionStore.isAutoDismissEnabled) {
+        if (spoken) {
+            val globalAutoDismiss = sessionStore.isAutoDismissEnabled
             action.spokenItems.forEach { snapshot ->
-                HearItNotificationListenerService.dismissNotification(
-                    key = snapshot.key,
-                    packageName = snapshot.packageName,
-                )
+                if (settingsSource.autoDismissFor(snapshot.packageName, globalAutoDismiss)) {
+                    HearItNotificationListenerService.dismissNotification(
+                        key = snapshot.key,
+                        packageName = snapshot.packageName,
+                    )
+                }
             }
         }
         startInForeground()

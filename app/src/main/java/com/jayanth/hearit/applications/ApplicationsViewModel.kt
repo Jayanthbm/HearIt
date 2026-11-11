@@ -19,6 +19,7 @@ import com.jayanth.hearit.core.tts.TextToSpeechEngine
 import com.jayanth.hearit.core.tts.UtteranceListener
 import com.jayanth.hearit.core.database.HistoryEntry
 import com.jayanth.hearit.core.datastore.SettingsRepository
+import com.jayanth.hearit.service.SessionStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Job
@@ -51,6 +52,7 @@ class ApplicationsViewModel @Inject constructor(
     private val iconLoader: AppIconLoader,
     private val historyRepository: HistoryRepository,
     private val engine: TextToSpeechEngine,
+    private val sessionStore: SessionStore,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ApplicationsUiState())
@@ -104,16 +106,92 @@ class ApplicationsViewModel @Inject constructor(
         update { settings -> AppSettingsEditor.toggleEnabled(settings, packageName) }
     }
 
-    /** Enables every currently visible app ("select all" honours the search). */
-    fun onSelectAllVisible() {
-        val visible = _state.value.visibleApps.map { it.packageName }
-        update { settings -> AppSettingsEditor.enableAll(settings, visible) }
+    /** Enables every currently visible app ("select all" honours search, tab & system filter). */
+    fun onSelectAllVisible(packageNames: Collection<String> = _state.value.visibleApps.map { it.packageName }) {
+        update { settings -> AppSettingsEditor.enableAll(settings, packageNames) }
     }
 
     /** Disables every currently visible app. */
-    fun onDeselectAllVisible() {
-        val visible = _state.value.visibleApps.map { it.packageName }
-        update { settings -> AppSettingsEditor.disableAll(settings, visible) }
+    fun onDeselectAllVisible(packageNames: Collection<String> = _state.value.visibleApps.map { it.packageName }) {
+        update { settings -> AppSettingsEditor.disableAll(settings, packageNames) }
+    }
+
+    /** Toggles Priority Announce quick-access membership from the list or details (#5). */
+    fun onTogglePriorityAnnounce(packageName: String) {
+        update { settings ->
+            val current = settings.priorityAnnounceFor(packageName)
+            AppSettingsEditor.setPriorityAnnounceListed(settings, packageName, !current)
+        }
+    }
+
+    /** Enters or exits multi-select batch mode (#7). */
+    fun onToggleSelectionMode(initialPackage: String? = null) {
+        _state.update { current ->
+            val nextMode = if (initialPackage != null) true else !current.isSelectionMode
+            val nextSelected = when {
+                !nextMode -> emptySet()
+                initialPackage != null -> current.selectedPackages + initialPackage
+                else -> current.selectedPackages
+            }
+            current.copy(isSelectionMode = nextMode, selectedPackages = nextSelected)
+        }
+    }
+
+    fun onToggleSelectPackage(packageName: String) {
+        _state.update { current ->
+            val next = if (packageName in current.selectedPackages) {
+                current.selectedPackages - packageName
+            } else {
+                current.selectedPackages + packageName
+            }
+            current.copy(selectedPackages = next)
+        }
+    }
+
+    fun onSelectAllForBatch(packageNames: Collection<String>) {
+        _state.update { current ->
+            val target = packageNames.toSet()
+            val allSelected = target.isNotEmpty() && target.all { it in current.selectedPackages }
+            current.copy(
+                selectedPackages = if (allSelected) current.selectedPackages - target else current.selectedPackages + target,
+            )
+        }
+    }
+
+    fun onClearSelection() {
+        _state.update { it.copy(isSelectionMode = false, selectedPackages = emptySet()) }
+    }
+
+    fun onBatchSetEnabled(enabled: Boolean) {
+        val selected = _state.value.selectedPackages.takeIf { it.isNotEmpty() } ?: return
+        update { settings ->
+            if (enabled) AppSettingsEditor.enableAll(settings, selected)
+            else AppSettingsEditor.disableAll(settings, selected)
+        }
+        viewModelScope.launch {
+            _userMessage.emit("${if (enabled) "Enabled" else "Silenced"} ${selected.size} apps")
+        }
+        onClearSelection()
+    }
+
+    fun onBatchSetPriorityAnnounce(listed: Boolean) {
+        val selected = _state.value.selectedPackages.takeIf { it.isNotEmpty() } ?: return
+        update { settings -> AppSettingsEditor.batchSetPriorityAnnounce(settings, selected, listed) }
+        viewModelScope.launch {
+            _userMessage.emit(
+                "${if (listed) "Added" else "Removed"} ${selected.size} apps ${if (listed) "to" else "from"} Priority List",
+            )
+        }
+        onClearSelection()
+    }
+
+    fun onBatchResetToGlobal() {
+        val selected = _state.value.selectedPackages.takeIf { it.isNotEmpty() } ?: return
+        update { settings -> AppSettingsEditor.batchResetToGlobal(settings, selected) }
+        viewModelScope.launch {
+            _userMessage.emit("Reset ${selected.size} apps to global rules")
+        }
+        onClearSelection()
     }
 
     /** Opens the per-app settings screen and starts live notification history observation. */
@@ -349,6 +427,30 @@ class ApplicationsViewModel @Inject constructor(
         }
     }
 
+    fun onSpeechRateChanged(speechRate: Float?) {
+        updateSelected { settings, packageName ->
+            AppSettingsEditor.setSpeechRate(settings, packageName, speechRate)
+        }
+    }
+
+    fun onSpeechPitchChanged(pitch: Float?) {
+        updateSelected { settings, packageName ->
+            AppSettingsEditor.setSpeechPitch(settings, packageName, pitch)
+        }
+    }
+
+    fun onSpeechVoiceChanged(voiceId: String?) {
+        updateSelected { settings, packageName ->
+            AppSettingsEditor.setSpeechVoiceId(settings, packageName, voiceId)
+        }
+    }
+
+    fun onAutoDismissChanged(autoDismiss: Boolean?) {
+        updateSelected { settings, packageName ->
+            AppSettingsEditor.setAutoDismiss(settings, packageName, autoDismiss)
+        }
+    }
+
     /** Clears every override of the open app (its announcement switch is kept). */
     fun onResetToGlobal() {
         updateSelected { settings, packageName ->
@@ -381,6 +483,10 @@ class ApplicationsViewModel @Inject constructor(
         val categoriesMap = merged.associate { entry ->
             entry.packageName to settings.categoryFor(entry.packageName)
         }
+        val prioritySet = merged.filter { settings.priorityAnnounceFor(it.packageName) }
+            .map { it.packageName }
+            .toSet() + settings.priorityAnnounceApps
+        val voices = runCatching { engine.listVoices() }.getOrDefault(emptyList())
         _state.update { current ->
             val openPackage = current.openPackage
             current.copy(
@@ -388,8 +494,10 @@ class ApplicationsViewModel @Inject constructor(
                 apps = merged,
                 visibleApps = AppFilter.filter(merged, current.query),
                 enabledApps = settings.enabledApps,
+                priorityAnnounceApps = prioritySet,
                 customizedApps = settings.appOverrides.filterValues { !it.inheritsEveryValue }.keys,
                 appCategories = categoriesMap,
+                availableVoices = voices,
                 settings = openPackage?.let { packageName ->
                     val previousHistory = current.settings?.recentHistory ?: emptyList()
                     val previousLoading = current.settings?.historyLoading ?: false
@@ -397,6 +505,8 @@ class ApplicationsViewModel @Inject constructor(
                         settings = settings,
                         packageName = packageName,
                         label = merged.firstOrNull { it.packageName == packageName }?.label ?: packageName,
+                        globalAutoDismiss = sessionStore.isAutoDismissEnabled,
+                        availableVoices = voices,
                     ).copy(
                         recentHistory = previousHistory,
                         historyLoading = previousLoading,

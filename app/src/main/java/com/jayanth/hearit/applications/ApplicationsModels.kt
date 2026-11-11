@@ -8,6 +8,7 @@ import com.jayanth.hearit.core.common.model.HistoryStorageMode
 import com.jayanth.hearit.core.common.model.HistoryUpdateHandling
 import com.jayanth.hearit.core.common.model.KeywordFilterSettings
 import com.jayanth.hearit.core.database.HistoryEntry
+import com.jayanth.hearit.core.tts.TtsVoice
 
 /** One application the user can enable (master prompt §5, phase P13). */
 data class AppEntry(
@@ -55,8 +56,12 @@ data class ApplicationsUiState(
     val apps: List<AppEntry> = emptyList(),
     val visibleApps: List<AppEntry> = emptyList(),
     val enabledApps: Set<String> = emptySet(),
+    val priorityAnnounceApps: Set<String> = emptySet(),
     val customizedApps: Set<String> = emptySet(),
     val appCategories: Map<String, AppCategory?> = emptyMap(),
+    val availableVoices: List<TtsVoice> = emptyList(),
+    val isSelectionMode: Boolean = false,
+    val selectedPackages: Set<String> = emptySet(),
     val openPackage: String? = null,
     val settings: AppSettingsUiState? = null,
 )
@@ -75,7 +80,13 @@ data class AppSettingsUiState(
     val packageName: String = "",
     val label: String = "",
     val enabled: Boolean = false,
+    val priorityAnnounceListed: Boolean = false,
     val priority: Inherited<AppPriority> = Inherited(null, AppPriority.NORMAL),
+    val speechRate: Inherited<Float> = Inherited(null, 1.0f),
+    val speechPitch: Inherited<Float> = Inherited(null, 1.0f),
+    val speechVoiceId: Inherited<String?> = Inherited(null, null),
+    val autoDismiss: Inherited<Boolean> = Inherited(null, true),
+    val availableVoices: List<TtsVoice> = emptyList(),
     val historyStorageMode: Inherited<HistoryStorageMode> =
         Inherited(null, HistoryStorageMode.FULL_CONTENT),
     val historyUpdateHandling: Inherited<HistoryUpdateHandling> =

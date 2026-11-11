@@ -1,6 +1,8 @@
 package com.jayanth.hearit.history
 
 import android.text.format.DateUtils
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
@@ -38,7 +40,9 @@ import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.DateRange
 import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Info
@@ -106,6 +110,7 @@ import com.jayanth.hearit.core.common.model.HistoryStorageMode
 import com.jayanth.hearit.core.common.model.HistoryUpdateHandling
 import com.jayanth.hearit.core.common.model.KeywordMatchMode
 import com.jayanth.hearit.core.common.model.SkipReason
+import com.jayanth.hearit.ui.components.verticalScrollbar
 
 /**
  * Entry point of the History feature (master prompt §12, phase P18).
@@ -135,12 +140,37 @@ fun HistoryRoute(viewModel: HistoryViewModel, modifier: Modifier = Modifier) {
         }
     }
 
+    val csvExportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/csv"),
+    ) { uri ->
+        if (uri != null) {
+            viewModel.exportToUri(context.contentResolver, uri, asCsv = true)
+        }
+    }
+    val txtExportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/plain"),
+    ) { uri ->
+        if (uri != null) {
+            viewModel.exportToUri(context.contentResolver, uri, asCsv = false)
+        }
+    }
+
     HistoryScreen(
         state = state,
         snackbarHostState = snackbarHostState,
         onQueryChanged = viewModel::onQueryChanged,
         onStatusChanged = viewModel::onStatusChanged,
         onSortChanged = viewModel::onSortChanged,
+        onDatePresetSelected = viewModel::onDatePresetSelected,
+        onCustomDateRangeSelected = viewModel::onCustomDateRangeSelected,
+        onRequestExportCsv = {
+            val stamp = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+            csvExportLauncher.launch("hearit_history_$stamp.csv")
+        },
+        onRequestExportTxt = {
+            val stamp = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+            txtExportLauncher.launch("hearit_history_$stamp.txt")
+        },
         onAppFilterChanged = viewModel::onAppFilterChanged,
         onPlayEntry = viewModel::onPlayEntry,
         onStopPlaying = viewModel::onStopPlaying,
@@ -166,6 +196,10 @@ fun HistoryScreen(
     onQueryChanged: (String) -> Unit,
     onStatusChanged: (HistoryStatus?) -> Unit,
     onSortChanged: (HistorySortOrder) -> Unit,
+    onDatePresetSelected: (HistoryDatePreset) -> Unit = {},
+    onCustomDateRangeSelected: (Long, Long) -> Unit = { _, _ -> },
+    onRequestExportCsv: () -> Unit = {},
+    onRequestExportTxt: () -> Unit = {},
     onAppFilterChanged: (String?, String?) -> Unit,
     onPlayEntry: (HistoryItem) -> Unit,
     onStopPlaying: () -> Unit,
@@ -295,6 +329,24 @@ fun HistoryScreen(
                         shape = RoundedCornerShape(12.dp),
                     )
 
+                    // Date Range pill (#9)
+                    FilterChip(
+                        selected = state.filter.datePreset != HistoryDatePreset.ALL,
+                        onClick = { openDialog = DIALOG_DATE },
+                        label = {
+                            Text(
+                                text = historyDateChipLabel(state.filter),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(Icons.Rounded.DateRange, contentDescription = null, modifier = Modifier.size(15.dp))
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                    )
+
                     // Sort pill
                     FilterChip(
                         selected = state.filter.sort != HistorySortOrder.RecentFirst,
@@ -318,6 +370,24 @@ fun HistoryScreen(
                     )
 
                     if (state.items.isNotEmpty()) {
+                        // Export CSV/TXT pill (#10)
+                        FilterChip(
+                            selected = false,
+                            onClick = { openDialog = DIALOG_EXPORT },
+                            label = {
+                                Text(
+                                    text = "Export",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(Icons.Rounded.FileDownload, contentDescription = null, modifier = Modifier.size(15.dp))
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                        )
+
                         // Multi-select toggle chip
                         FilterChip(
                             selected = isSelectionMode,
@@ -627,6 +697,30 @@ fun HistoryScreen(
                     ?: stringResource(R.string.history_retention_never)
             },
             onSelect = { days -> openDialog = DIALOG_NONE; onRetentionChanged(days) },
+            onDismiss = { openDialog = DIALOG_NONE },
+        )
+
+        DIALOG_DATE -> HistoryDatePresetDialog(
+            selected = state.filter.datePreset,
+            onSelectPreset = { preset -> openDialog = DIALOG_NONE; onDatePresetSelected(preset) },
+            onOpenCustomPicker = { openDialog = DIALOG_DATE_CUSTOM },
+            onDismiss = { openDialog = DIALOG_NONE },
+        )
+
+        DIALOG_DATE_CUSTOM -> HistoryCustomDateRangePickerDialog(
+            initialStartMillis = state.filter.dateFromMillis,
+            initialEndMillis = state.filter.dateToMillis,
+            onConfirm = { start, end ->
+                openDialog = DIALOG_NONE
+                onCustomDateRangeSelected(start, end)
+            },
+            onDismiss = { openDialog = DIALOG_NONE },
+        )
+
+        DIALOG_EXPORT -> HistoryExportFormatDialog(
+            entryCountShown = state.items.size,
+            onExportCsv = { openDialog = DIALOG_NONE; onRequestExportCsv() },
+            onExportTxt = { openDialog = DIALOG_NONE; onRequestExportTxt() },
             onDismiss = { openDialog = DIALOG_NONE },
         )
     }
@@ -1013,10 +1107,13 @@ private fun HistoryDetailDialog(
                     .heightIn(max = 380.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                val detailScrollState = rememberScrollState()
                 Column(
                     modifier = Modifier
                         .weight(1f, fill = false)
-                        .verticalScroll(rememberScrollState()),
+                        .verticalScroll(detailScrollState)
+                        .verticalScrollbar(detailScrollState)
+                        .padding(end = 6.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     if (item.sender != null) {
@@ -1699,5 +1796,8 @@ private const val DIALOG_STORAGE = 3
 private const val DIALOG_UPDATES = 4
 private const val DIALOG_RETENTION = 5
 private const val DIALOG_APP = 6
+private const val DIALOG_DATE = 7
+private const val DIALOG_DATE_CUSTOM = 8
+private const val DIALOG_EXPORT = 9
 
 private val RETENTION_OPTIONS: List<Int?> = listOf(null, 7, 30, 90)

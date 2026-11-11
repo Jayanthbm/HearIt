@@ -9,6 +9,7 @@ import com.jayanth.hearit.core.common.model.KeywordFilterSettings
 import com.jayanth.hearit.core.common.model.KeywordMatchMode
 import com.jayanth.hearit.core.datastore.AppOverride
 import com.jayanth.hearit.core.datastore.HearItSettings
+import com.jayanth.hearit.core.tts.TtsVoice
 
 /**
  * Pure per-app edits over [HearItSettings] (phase P13).
@@ -43,6 +44,89 @@ object AppSettingsEditor {
     /** "Deselect all" over the visible list; other enabled apps are untouched. */
     fun disableAll(settings: HearItSettings, packageNames: Collection<String>): HearItSettings =
         settings.copy(enabledApps = AppSelection.disable(settings.enabledApps, packageNames))
+
+    /** Adds or removes [packageName] from the Priority Announce quick-access list (#5). */
+    fun setPriorityAnnounceListed(
+        settings: HearItSettings,
+        packageName: String,
+        listed: Boolean,
+    ): HearItSettings {
+        val updatedSet = if (listed) {
+            settings.priorityAnnounceApps + packageName
+        } else {
+            settings.priorityAnnounceApps - packageName
+        }
+        val cleaned = updateOverride(settings, packageName) { override ->
+            if (!listed && override.priorityAnnounceOverride.listed != null) {
+                override.copy(priorityAnnounceOverride = com.jayanth.hearit.core.datastore.PriorityAnnounceOverride())
+            } else {
+                override
+            }
+        }
+        return cleaned.copy(priorityAnnounceApps = updatedSet)
+    }
+
+    /** Sets or clears per-app speech rate override (#6; null = inherit global). */
+    fun setSpeechRate(
+        settings: HearItSettings,
+        packageName: String,
+        speechRate: Float?,
+    ): HearItSettings = updateOverride(settings, packageName) { override ->
+        override.copy(speech = override.speech.copy(speechRate = speechRate))
+    }
+
+    /** Sets or clears per-app pitch override (#6; null = inherit global). */
+    fun setSpeechPitch(
+        settings: HearItSettings,
+        packageName: String,
+        pitch: Float?,
+    ): HearItSettings = updateOverride(settings, packageName) { override ->
+        override.copy(speech = override.speech.copy(pitch = pitch))
+    }
+
+    /** Sets or clears per-app voice ID override (#6; null = inherit global). */
+    fun setSpeechVoiceId(
+        settings: HearItSettings,
+        packageName: String,
+        voiceId: String?,
+    ): HearItSettings = updateOverride(settings, packageName) { override ->
+        override.copy(speech = override.speech.copy(voiceId = voiceId?.takeIf { it.isNotBlank() }))
+    }
+
+    /** Sets or clears per-app auto-dismiss override (#31; null = inherit global). */
+    fun setAutoDismiss(
+        settings: HearItSettings,
+        packageName: String,
+        autoDismiss: Boolean?,
+    ): HearItSettings = updateOverride(settings, packageName) { override ->
+        override.copy(autoDismiss = autoDismiss)
+    }
+
+    /** Batch-updates Priority Announce membership across [packageNames] (#7). */
+    fun batchSetPriorityAnnounce(
+        settings: HearItSettings,
+        packageNames: Collection<String>,
+        listed: Boolean,
+    ): HearItSettings = packageNames.fold(settings) { acc, pkg ->
+        setPriorityAnnounceListed(acc, pkg, listed)
+    }
+
+    /** Batch-updates speech priority across [packageNames] (#7). */
+    fun batchSetPriority(
+        settings: HearItSettings,
+        packageNames: Collection<String>,
+        priority: AppPriority?,
+    ): HearItSettings = packageNames.fold(settings) { acc, pkg ->
+        setPriority(acc, pkg, priority)
+    }
+
+    /** Resets all sparse per-app overrides across [packageNames] (#7). */
+    fun batchResetToGlobal(
+        settings: HearItSettings,
+        packageNames: Collection<String>,
+    ): HearItSettings = packageNames.fold(settings) { acc, pkg ->
+        resetToGlobal(acc, pkg)
+    }
 
     /** Sets or clears the announcement priority override (null = inherit Normal). */
     fun setPriority(
@@ -255,13 +339,21 @@ object AppSettingsEditor {
         settings: HearItSettings,
         packageName: String,
         label: String,
+        globalAutoDismiss: Boolean = true,
+        availableVoices: List<TtsVoice> = emptyList(),
     ): AppSettingsUiState {
         val override = settings.appOverrides[packageName] ?: AppOverride()
         return AppSettingsUiState(
             packageName = packageName,
             label = label.ifBlank { packageName },
             enabled = packageName in settings.enabledApps,
+            priorityAnnounceListed = settings.priorityAnnounceFor(packageName),
             priority = Inherited(override.priority, AppPriority.NORMAL),
+            speechRate = Inherited(override.speech.speechRate, settings.speech.speechRate),
+            speechPitch = Inherited(override.speech.pitch, settings.speech.pitch),
+            speechVoiceId = Inherited(override.speech.voiceId, settings.speech.voiceId),
+            autoDismiss = Inherited(override.autoDismiss, globalAutoDismiss),
+            availableVoices = availableVoices,
             historyStorageMode = Inherited(override.history.storageMode, settings.history.storageMode),
             historyUpdateHandling =
                 Inherited(override.history.updateHandling, settings.history.updateHandling),

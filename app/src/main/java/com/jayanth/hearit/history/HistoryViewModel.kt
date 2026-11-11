@@ -1,7 +1,12 @@
 package com.jayanth.hearit.history
 
+import android.content.ContentResolver
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.jayanth.hearit.core.database.HistoryQuery
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.jayanth.hearit.core.common.model.HistoryStatus
 import com.jayanth.hearit.core.common.model.HistoryStorageMode
 import com.jayanth.hearit.core.common.model.HistoryUpdateHandling
@@ -85,6 +90,66 @@ class HistoryViewModel @Inject constructor(
     fun onStatusChanged(status: HistoryStatus?) = updateFilter { it.copy(status = status) }
 
     fun onSortChanged(sort: HistorySortOrder) = updateFilter { it.copy(sort = sort) }
+
+    fun onDatePresetSelected(preset: HistoryDatePreset) {
+        val (fromMillis, toMillis) = HistoryExporter.dateBoundsForPreset(preset)
+        updateFilter {
+            it.copy(
+                datePreset = preset,
+                dateFromMillis = fromMillis,
+                dateToMillis = toMillis,
+            )
+        }
+    }
+
+    fun onCustomDateRangeSelected(startUtcMillis: Long, endUtcMillis: Long) {
+        val (fromMillis, toMillis) = HistoryExporter.normalizePickerRange(startUtcMillis, endUtcMillis)
+        updateFilter {
+            it.copy(
+                datePreset = HistoryDatePreset.CUSTOM,
+                dateFromMillis = fromMillis,
+                dateToMillis = toMillis,
+            )
+        }
+    }
+
+    /** Exports every entry matching the active filter to CSV or TXT via SAF (#10). */
+    fun exportToUri(contentResolver: ContentResolver, uri: Uri, asCsv: Boolean) {
+        val currentFilter = _state.value.filter
+        viewModelScope.launch {
+            val entries = safely {
+                val all = mutableListOf<com.jayanth.hearit.core.database.HistoryEntry>()
+                var offset = 0
+                while (true) {
+                    val page = historyRepository.page(
+                        HistoryQueryMapper.toQuery(currentFilter, offset)
+                            .copy(limit = HistoryQuery.MAX_PAGE_SIZE),
+                    )
+                    all += page
+                    if (page.size < HistoryQuery.MAX_PAGE_SIZE) break
+                    offset += page.size
+                }
+                all.toList()
+            } ?: return@launch
+
+            val content = withContext(Dispatchers.Default) {
+                if (asCsv) HistoryExporter.formatCsv(entries) else HistoryExporter.formatTxt(entries)
+            }
+            val wrote = withContext(Dispatchers.IO) {
+                runCatching {
+                    contentResolver.openOutputStream(uri)?.use { stream ->
+                        stream.write(content.toByteArray(Charsets.UTF_8))
+                        stream.flush()
+                    } ?: error("Cannot open output stream")
+                }.isSuccess
+            }
+            if (wrote) {
+                _userMessage.emit("Exported ${entries.size} history ${if (entries.size == 1) "entry" else "entries"}")
+            } else {
+                _userMessage.emit("Could not write export file")
+            }
+        }
+    }
 
     /** Appends the next page; a no-op at the end or while a page is already loading. */
     fun onLoadMore() = load(reset = false)

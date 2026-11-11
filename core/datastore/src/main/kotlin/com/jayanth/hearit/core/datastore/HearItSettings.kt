@@ -14,6 +14,7 @@ import com.jayanth.hearit.core.common.model.QueueSettings
 import com.jayanth.hearit.core.common.model.ResolvedSettings
 import com.jayanth.hearit.core.common.model.SecuritySettings
 import com.jayanth.hearit.core.tts.AnnouncementFormat
+import com.jayanth.hearit.core.tts.AppSpeechOverride
 import com.jayanth.hearit.core.tts.SpeechSettings
 
 /**
@@ -83,6 +84,14 @@ data class HearItSettings(
                 DefaultAppCategories.defaultCategoryFor(packageName)
             }
 
+    /** Resolved speech rate, pitch, and voice for [packageName] (#6). */
+    fun speechFor(packageName: String): SpeechSettings =
+        speech.resolveWith(overrideFor(packageName)?.speech)
+
+    /** Resolved auto-dismiss preference for [packageName] (#31). */
+    fun autoDismissFor(packageName: String, globalDefault: Boolean): Boolean =
+        overrideFor(packageName)?.autoDismiss ?: globalDefault
+
     private fun overrideFor(packageName: String): AppOverride? = appOverrides[packageName]
 }
 
@@ -111,6 +120,8 @@ data class AppOverride(
     val eligibility: AppEligibilityOverride = AppEligibilityOverride(),
     val queue: AppQueueOverride = AppQueueOverride(),
     val history: AppHistoryOverride = AppHistoryOverride(),
+    val speech: AppSpeechOverride = AppSpeechOverride(),
+    val autoDismiss: Boolean? = null,
     val priority: AppPriority? = null,
     val priorityAnnounceOverride: PriorityAnnounceOverride = PriorityAnnounceOverride(),
     val spokenName: String? = null,
@@ -122,6 +133,8 @@ data class AppOverride(
         get() = eligibility.inheritsEveryValue &&
             queue.inheritsEveryValue &&
             history.inheritsEveryValue &&
+            speech.inheritsEveryValue &&
+            autoDismiss == null &&
             priorityAnnounceOverride.inheritsEveryValue &&
             priority == null &&
             spokenName.isNullOrBlank() &&

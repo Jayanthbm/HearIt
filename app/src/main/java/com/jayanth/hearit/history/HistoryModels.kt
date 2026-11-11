@@ -18,12 +18,23 @@ enum class HistorySortOrder {
  * The free-text query searches app name, sender and stored message text in one field; the
  * database decides what can match, so the UI never builds SQL.
  */
+enum class HistoryDatePreset {
+    ALL,
+    TODAY,
+    YESTERDAY,
+    LAST_7_DAYS,
+    CUSTOM,
+}
+
 data class HistoryFilter(
     val query: String = "",
     val status: HistoryStatus? = null,
     val sort: HistorySortOrder = HistorySortOrder.RecentFirst,
     val selectedPackageName: String? = null,
     val selectedAppName: String? = null,
+    val datePreset: HistoryDatePreset = HistoryDatePreset.ALL,
+    val dateFromMillis: Long? = null,
+    val dateToMillis: Long? = null,
 )
 
 /**
@@ -75,5 +86,8 @@ data class HistoryUiState(
 
     /** True when the query is filtered or searched, so an empty list needs different copy. */
     val isFiltered: Boolean
-        get() = filter.query.isNotBlank() || filter.status != null || filter.selectedPackageName != null
+        get() = filter.query.isNotBlank() ||
+            filter.status != null ||
+            filter.selectedPackageName != null ||
+            filter.datePreset != HistoryDatePreset.ALL
 }

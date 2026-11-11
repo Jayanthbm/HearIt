@@ -9,25 +9,25 @@ Master tracking document for all **38 backlog items** defined in [`hearit_implem
 ## Summary Progress
 
 - **Total Backlog Items**: 38
-- **Code & Unit Tests Done (Pending Device/Screenshot Verification)**: 25 / 38 (Batches 1–4: `#1, #3, #4, #8, #12, #13, #14, #16, #17, #18, #19, #20, #21, #22, #23, #24, #25, #26, #27, #28, #29, #30, #32, #33, #34`)
+- **Code & Unit Tests Done (Pending Device/Screenshot Verification)**: 33 / 38 (Batches 1–5: `#1–#14, #16–#34`)
 - **Verified with Screenshots**: 0 / 38
-- **Pending**: 13 / 38
+- **Pending**: 5 / 38 (`#15`, `#35–#38`)
 
 ## Status Table
 
 | # | Backlog Item | Batch | Status | Unit Tests | UI Toggle & Config | Device / Screenshot Proof |
 |---|---|---|---|---|---|---|
 | 1 | Bluetooth Headset Button Controls (`MediaSession`) | Batch 2 | Implemented (Tests Pass) | `GeneralSettingsUiStateTest` (compile + service integration) | Active Intelligence / Preferences Gestures Switch + 1×/2×/3× Tap Chips | Pending final verify |
-| 2 | Global DND & Phone Call Handling Settings UI | Batch 5 | Pending | — | — | — |
+| 2 | Global DND & Phone Call Handling Settings UI | Batch 5 | Implemented (Tests Pass) | `CallAndDndEligibilityTest` + `GlobalSettingsScreen` | Global Rules Hero Pills, DND Switch & Calls Discard/Queue Segments | Pending final verify |
 | 3 | Text Pronunciation & Acronym Dictionary | Batch 1 | Implemented (Tests Pass) | `SmartContentCleanerTest` | Active Intelligence Switch + Dictionary Dialog + TTS Test | Pending final verify |
 | 4 | Priority Announce Configurable Expiry Durations | Batch 4 | Implemented (Tests Pass) | `AnnouncementService` & `DashboardViewModel` compile + build | Home Hero Duration Picker (`15m/30m/1h/4h/Until off`) + Live Countdown | Pending final verify |
-| 5 | Priority Announce Quick-Access List | Batch 5 | Pending | — | — | — |
-| 6 | Per-App Voice / Pitch / Speed Overrides | Batch 5 | Pending | — | — | — |
-| 7 | Per-App Batch Actions & Multi-Select Mode | Batch 5 | Pending | — | — | — |
+| 5 | Priority Announce Quick-Access List | Batch 5 | Implemented (Tests Pass) | `AppSettingsEditorTest` | Applications 4th `"Priority (N)"` Filter Tab, 1-Tap Star & Per-App Switch | Pending final verify |
+| 6 | Per-App Voice / Pitch / Speed Overrides | Batch 5 | Implemented (Tests Pass) | `SettingsCodecTest`, `AppSettingsEditorTest` | Per-App Details Voice Picker, Speed & Pitch Sliders + Global Inherit Reset | Pending final verify |
+| 7 | Per-App Batch Actions & Multi-Select Mode | Batch 5 | Implemented (Tests Pass) | `AppSettingsEditorTest` | Long-Press / `"Select"` Chip + Checkboxes + Batch Enable/Silence/Priority/Reset Bar | Pending final verify |
 | 8 | Manual "Clear Queue" Action | Batch 4 | Implemented (Tests Pass) | `AnnouncementQueueBatchAndClearTest`, `AnnouncementPipelineTest` | Home Quick Action `"Clear Queue (N)"` + History `"Manually cleared"` Skip Label | Pending final verify |
-| 9 | History Date Range Filtering UI | Batch 5 | Pending | — | — | — |
-| 10 | History Export (CSV / TXT via SAF) | Batch 5 | Pending | — | — | — |
-| 11 | History Detail Modal Visible Scrollbar Indicator | Batch 5 | Pending | — | — | — |
+| 9 | History Date Range Filtering UI | Batch 5 | Implemented (Tests Pass) | `HistoryExporterTest` (`dateBoundsForPreset`) | History `Date` Chip + Preset Modal (`Today/Yesterday/7d`) + M3 `DateRangePicker` | Pending final verify |
+| 10 | History Export (CSV / TXT via SAF) | Batch 5 | Implemented (Tests Pass) | `HistoryExporterTest` (`formatCsv`/`formatTxt`) | History `Export` Chip + CSV/TXT Choice + SAF `CreateDocument` Export | Pending final verify |
+| 11 | History Detail Modal Visible Scrollbar Indicator | Batch 5 | Implemented (Tests Pass) | Build + `Modifier.verticalScrollbar` | Visible M3 Vertical Scrollbar Thumb in `HistoryDetailDialog` (History & Apps) | Pending final verify |
 | 12 | OTP & Phone Number Digit-by-Digit Speech Formatting | Batch 1 | Implemented (Tests Pass) | `SmartContentCleanerTest` | Active Intelligence Switch + OTP/Phone + Grouping Chips | Pending final verify |
 | 13 | Smart Link & URL Summarization Configurable Predefined & Custom Rules | Batch 1 | Implemented (Tests Pass) | `SmartContentCleanerTest` | Active Intelligence Switch + URL Rules Dialog + Load Presets | Pending final verify |
 | 14 | Category Intelligence (Messaging, SMS/RCS, Email) & Config UI | Batch 1 | Implemented (Tests Pass) | `SmartContentCleanerTest`, `AnnouncementTemplateTest`, `AnnouncementPipelineTest` | Active Intelligence `CategoryIntelligenceCard` + Promo Dialog | Pending final verify |
@@ -47,7 +47,7 @@ Master tracking document for all **38 backlog items** defined in [`hearit_implem
 | 28 | Spam Cooldown Throttle per Sender / Chat | Batch 4 | Implemented (Tests Pass) | `AnnouncementPipelineTest` (`SenderCooldownBucket`) | Active Intelligence / Preferences Switch + Trigger Count & Cooldown Window Config | Pending final verify |
 | 29 | "Must-Hear" Critical Keyword Breakthrough — Custom Keywords & Chime | Batch 3 | Implemented (Tests Pass) | `SafeguardAndBreakthroughEligibilityTest`, `AnnouncementTemplateTest` | Global Rules Keywords Chip Manager + Disabled-App Breakthrough + Urgent Chime | Pending final verify |
 | 30 | Pocket Detection via Proximity Sensor (In-Pocket vs In-Hand) | Batch 3 | Implemented (Tests Pass) | `SafeguardAndBreakthroughEligibilityTest` | Global Rules & Active Intelligence Proximity Switch + Hardware Status + Headphone Bypass | Pending final verify |
-| 31 | Per-App Auto-Dismiss Override | Batch 5 | Pending | — | — | — |
+| 31 | Per-App Auto-Dismiss Override | Batch 5 | Implemented (Tests Pass) | `SettingsCodecTest`, `AppSettingsEditorTest` | Per-App `Inherit / Always / Never` Auto-Dismiss Control + Service Wiring | Pending final verify |
 | 32 | Wire Periodic Spoken Check-in Scheduler & Missing Checkboxes | Batch 3 | Implemented (Tests Pass) | `CheckinAndCatchUpHelperTest` | Active Intelligence / Preferences Check-in Timer + Time/Phone/Earphones/Summary Chips | Pending final verify |
 | 33 | Multi-App Smart Notification Batching Digest (2–3s Burst Collector) | Batch 4 | Implemented (Tests Pass) | `AnnouncementQueueBatchAndClearTest`, `AnnouncementTemplateTest` | Active Intelligence / Preferences Switch + 2–3s Collector Window Config | Pending final verify |
 | 34 | Ambient Noise Level Auto-Volume Boost (`>70 dB`) | Batch 2 | Implemented (Tests Pass) | `AudioDuckingMathTest` (`computeDbSplFromRms`) | Voice & Speech Optional Mic Permission Flow + `65/70/75 dB` + `+15/+20/+30%` Boost | Pending final verify |
@@ -63,3 +63,4 @@ Master tracking document for all **38 backlog items** defined in [`hearit_implem
 - **Batch 2 (`#1, #17, #18, #24, #34`)**: `./gradlew test :app:assembleDebug` PASSED (0 failures).
 - **Batch 3 (`#19, #22, #23, #27, #29, #30, #32`)**: `./gradlew test :app:assembleDebug` PASSED (0 failures).
 - **Batch 4 (`#4, #8, #20, #25, #28, #33`)**: `./gradlew test :app:assembleDebug` PASSED (0 failures).
+- **Batch 5 (`#2, #5, #6, #7, #9, #10, #11, #31`)**: `./gradlew test :app:assembleDebug` PASSED (0 failures).
