@@ -25,7 +25,7 @@ android {
     defaultConfig {
         applicationId = "com.jayanth.hearit"
         minSdk = 30
-        targetSdk = 34
+        targetSdk = 35
         val rawVersionName = libs.versions.appVersionName.get()
         val parts = rawVersionName.split(".").map { it.toIntOrNull() ?: 0 }
         val major = parts.getOrElse(0) { 1 }
