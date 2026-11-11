@@ -1,6 +1,13 @@
 package com.jayanth.hearit.service
 
 import android.content.Context
+import com.jayanth.hearit.core.common.model.DigitGroupingStyle
+import com.jayanth.hearit.core.common.model.IntelligencePresets
+import com.jayanth.hearit.core.common.model.PronunciationRule
+import com.jayanth.hearit.core.common.model.ReactionFilterMode
+import com.jayanth.hearit.core.common.model.UrlSummaryRule
+import org.json.JSONArray
+import org.json.JSONObject
 
 /**
  * Minimal persisted session state for the announcement service.
@@ -140,6 +147,123 @@ class SessionStore(context: Context) {
             prefs.edit().putBoolean(KEY_BOT_SENDER_CLEANING, value).apply()
         }
 
+    var reactionFilterMode: ReactionFilterMode
+        get() = prefs.getString(KEY_REACTION_FILTER_MODE, ReactionFilterMode.CONDENSE.name)
+            ?.let { raw -> ReactionFilterMode.entries.firstOrNull { it.name == raw } }
+            ?: ReactionFilterMode.CONDENSE
+        set(value) {
+            prefs.edit().putString(KEY_REACTION_FILTER_MODE, value.name).apply()
+        }
+
+    var isPronunciationDictionaryEnabled: Boolean
+        get() = prefs.getBoolean(KEY_PRONUNCIATION_ENABLED, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_PRONUNCIATION_ENABLED, value).apply()
+        }
+
+    var isPronunciationOnSenderEnabled: Boolean
+        get() = prefs.getBoolean(KEY_PRONUNCIATION_ON_SENDER, false)
+        set(value) {
+            prefs.edit().putBoolean(KEY_PRONUNCIATION_ON_SENDER, value).apply()
+        }
+
+    var pronunciationRules: List<PronunciationRule>
+        get() {
+            val raw = prefs.getString(KEY_PRONUNCIATION_RULES, null) ?: return emptyList()
+            return decodePronunciationRules(raw)
+        }
+        set(value) {
+            prefs.edit().putString(KEY_PRONUNCIATION_RULES, encodePronunciationRules(value)).apply()
+        }
+
+    var urlSummaryRules: List<UrlSummaryRule>
+        get() {
+            val raw = prefs.getString(KEY_URL_SUMMARY_RULES, null)
+                ?: return IntelligencePresets.DEFAULT_URL_SUMMARY_RULES
+            return decodeUrlSummaryRules(raw)
+        }
+        set(value) {
+            prefs.edit().putString(KEY_URL_SUMMARY_RULES, encodeUrlSummaryRules(value)).apply()
+        }
+
+    var isDigitFormattingEnabled: Boolean
+        get() = prefs.getBoolean(KEY_DIGIT_FORMATTING_ENABLED, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_DIGIT_FORMATTING_ENABLED, value).apply()
+        }
+
+    var isFormatPhoneNumbersEnabled: Boolean
+        get() = prefs.getBoolean(KEY_FORMAT_PHONE_NUMBERS, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_FORMAT_PHONE_NUMBERS, value).apply()
+        }
+
+    var isFormatOtpCodesEnabled: Boolean
+        get() = prefs.getBoolean(KEY_FORMAT_OTP_CODES, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_FORMAT_OTP_CODES, value).apply()
+        }
+
+    var digitGroupingStyle: DigitGroupingStyle
+        get() = prefs.getString(KEY_DIGIT_GROUPING_STYLE, DigitGroupingStyle.CHUNKS_OF_3.name)
+            ?.let { raw -> DigitGroupingStyle.entries.firstOrNull { it.name == raw } }
+            ?: DigitGroupingStyle.CHUNKS_OF_3
+        set(value) {
+            prefs.edit().putString(KEY_DIGIT_GROUPING_STYLE, value.name).apply()
+        }
+
+    var isMessagingIntelligenceEnabled: Boolean
+        get() = prefs.getBoolean(KEY_MESSAGING_INTELLIGENCE, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_MESSAGING_INTELLIGENCE, value).apply()
+        }
+
+    var isSmsBankCleanerEnabled: Boolean
+        get() = prefs.getBoolean(KEY_SMS_BANK_CLEANER, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_SMS_BANK_CLEANER, value).apply()
+        }
+
+    var isCarrierSpamFilterEnabled: Boolean
+        get() = prefs.getBoolean(KEY_CARRIER_SPAM_FILTER, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_CARRIER_SPAM_FILTER, value).apply()
+        }
+
+    var carrierSpamPhrases: List<String>
+        get() {
+            val raw = prefs.getString(KEY_CARRIER_SPAM_PHRASES, null)
+                ?: return IntelligencePresets.DEFAULT_CARRIER_SPAM_PHRASES
+            return decodeStringList(raw)
+        }
+        set(value) {
+            prefs.edit().putString(KEY_CARRIER_SPAM_PHRASES, encodeStringList(value)).apply()
+        }
+
+    var isEmailCleanupEnabled: Boolean
+        get() = prefs.getBoolean(KEY_EMAIL_CLEANUP, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_EMAIL_CLEANUP, value).apply()
+        }
+
+    var isContactSanitizerEnabled: Boolean
+        get() = prefs.getBoolean(KEY_CONTACT_SANITIZER, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_CONTACT_SANITIZER, value).apply()
+        }
+
+    var isStripSenderEmojisEnabled: Boolean
+        get() = prefs.getBoolean(KEY_STRIP_SENDER_EMOJIS, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_STRIP_SENDER_EMOJIS, value).apply()
+        }
+
+    var isStripSenderBracketsEnabled: Boolean
+        get() = prefs.getBoolean(KEY_STRIP_SENDER_BRACKETS, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_STRIP_SENDER_BRACKETS, value).apply()
+        }
+
     /** True if user has permanent premium entitlement (Google Play IAP/Subscription). */
     var isPremiumEntitled: Boolean
         get() = prefs.getBoolean(KEY_PREMIUM_ENTITLED, false)
@@ -169,6 +293,76 @@ class SessionStore(context: Context) {
         temporaryPremiumExpiryTimestamp = newExpiry
     }
 
+    private fun encodePronunciationRules(rules: List<PronunciationRule>): String =
+        JSONArray().apply {
+            rules.forEach { r ->
+                put(
+                    JSONObject().apply {
+                        put("match", r.match)
+                        put("spokenAs", r.spokenAs)
+                        put("matchCase", r.matchCase)
+                        put("wholeWord", r.wholeWord)
+                        put("enabled", r.enabled)
+                    },
+                )
+            }
+        }.toString()
+
+    private fun decodePronunciationRules(raw: String): List<PronunciationRule> = try {
+        val arr = JSONArray(raw)
+        List(arr.length()) { i ->
+            val o = arr.getJSONObject(i)
+            PronunciationRule(
+                match = o.optString("match", ""),
+                spokenAs = o.optString("spokenAs", ""),
+                matchCase = o.optBoolean("matchCase", false),
+                wholeWord = o.optBoolean("wholeWord", true),
+                enabled = o.optBoolean("enabled", true),
+            )
+        }.filter { it.match.isNotBlank() }
+    } catch (_: Throwable) {
+        emptyList()
+    }
+
+    private fun encodeUrlSummaryRules(rules: List<UrlSummaryRule>): String =
+        JSONArray().apply {
+            rules.forEach { r ->
+                put(
+                    JSONObject().apply {
+                        put("pattern", r.pattern)
+                        put("spokenPhrase", r.spokenPhrase)
+                        put("isPredefined", r.isPredefined)
+                        put("enabled", r.enabled)
+                    },
+                )
+            }
+        }.toString()
+
+    private fun decodeUrlSummaryRules(raw: String): List<UrlSummaryRule> = try {
+        val arr = JSONArray(raw)
+        List(arr.length()) { i ->
+            val o = arr.getJSONObject(i)
+            UrlSummaryRule(
+                pattern = o.optString("pattern", ""),
+                spokenPhrase = o.optString("spokenPhrase", ""),
+                isPredefined = o.optBoolean("isPredefined", false),
+                enabled = o.optBoolean("enabled", true),
+            )
+        }.filter { it.pattern.isNotBlank() && it.spokenPhrase.isNotBlank() }
+    } catch (_: Throwable) {
+        IntelligencePresets.DEFAULT_URL_SUMMARY_RULES
+    }
+
+    private fun encodeStringList(items: List<String>): String =
+        JSONArray().apply { items.forEach { put(it) } }.toString()
+
+    private fun decodeStringList(raw: String): List<String> = try {
+        val arr = JSONArray(raw)
+        List(arr.length()) { i -> arr.optString(i, "") }.filter { it.isNotBlank() }
+    } catch (_: Throwable) {
+        emptyList()
+    }
+
     private companion object {
         const val FILE_NAME = "hearit_session"
         const val KEY_STARTED = "started"
@@ -188,7 +382,24 @@ class SessionStore(context: Context) {
         const val KEY_MARKDOWN_STRIPPER = "markdown_stripper"
         const val KEY_EMOJI_COLLAPSING = "emoji_collapsing"
         const val KEY_REACTION_FILTER = "reaction_filter"
+        const val KEY_REACTION_FILTER_MODE = "reaction_filter_mode"
         const val KEY_BOT_SENDER_CLEANING = "bot_sender_cleaning"
+        const val KEY_PRONUNCIATION_ENABLED = "pronunciation_enabled"
+        const val KEY_PRONUNCIATION_ON_SENDER = "pronunciation_on_sender"
+        const val KEY_PRONUNCIATION_RULES = "pronunciation_rules_json"
+        const val KEY_URL_SUMMARY_RULES = "url_summary_rules_json"
+        const val KEY_DIGIT_FORMATTING_ENABLED = "digit_formatting_enabled"
+        const val KEY_FORMAT_PHONE_NUMBERS = "format_phone_numbers"
+        const val KEY_FORMAT_OTP_CODES = "format_otp_codes"
+        const val KEY_DIGIT_GROUPING_STYLE = "digit_grouping_style"
+        const val KEY_MESSAGING_INTELLIGENCE = "messaging_intelligence"
+        const val KEY_SMS_BANK_CLEANER = "sms_bank_cleaner"
+        const val KEY_CARRIER_SPAM_FILTER = "carrier_spam_filter"
+        const val KEY_CARRIER_SPAM_PHRASES = "carrier_spam_phrases_json"
+        const val KEY_EMAIL_CLEANUP = "email_cleanup"
+        const val KEY_CONTACT_SANITIZER = "contact_sanitizer"
+        const val KEY_STRIP_SENDER_EMOJIS = "strip_sender_emojis"
+        const val KEY_STRIP_SENDER_BRACKETS = "strip_sender_brackets"
         const val KEY_PREMIUM_ENTITLED = "premium_entitled"
         const val KEY_TEMPORARY_PREMIUM_EXPIRY = "temporary_premium_expiry_ts"
     }

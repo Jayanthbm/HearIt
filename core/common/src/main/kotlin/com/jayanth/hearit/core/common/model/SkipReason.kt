@@ -72,4 +72,7 @@ enum class SkipReason {
 
     /** The item was an update of an already-announced notification and updates are not repeated (queue, phase P05 dedup). */
     DUPLICATE_UPDATE,
+
+    /** Suppressed by Active Intelligence rules (background sync status, silenced reaction, or carrier promo SMS). */
+    SUPPRESSED_INTELLIGENCE,
 }

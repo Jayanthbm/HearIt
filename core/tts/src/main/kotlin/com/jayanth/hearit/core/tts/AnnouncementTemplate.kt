@@ -1,5 +1,6 @@
 package com.jayanth.hearit.core.tts
 
+import com.jayanth.hearit.core.common.model.AppCategory
 import com.jayanth.hearit.core.common.model.NotificationSnapshot
 
 /**
@@ -90,34 +91,43 @@ object AnnouncementTemplate {
             "AnnouncementTemplate.build groups only notifications from one package ($packageName)"
         }
 
+        val activeSnapshots = snapshots.filterNot { snapshot ->
+            SmartContentCleaner.shouldSuppress(snapshot.messageText, packageName)
+        }
+        if (activeSnapshots.isEmpty()) {
+            return BuiltAnnouncement(emptyList(), format.pauseBetweenSectionsMillis)
+        }
+
         val sections = mutableListOf<AnnouncementSection>()
 
         format.introduction?.trim()?.takeIf { it.isNotEmpty() }?.let { intro ->
             sections += AnnouncementSection(SectionKind.INTRODUCTION, intro)
         }
 
-        val rawAppName = snapshots.first().appName.trim()
+        val rawAppName = activeSnapshots.first().appName.trim()
         val appName = SmartContentCleaner.resolveAppName(packageName, rawAppName)
         if (format.includeAppName && appName.isNotEmpty()) {
             sections += AnnouncementSection(SectionKind.APP_NAME, "$appName.")
         }
 
         // §8: always plural — grouped lists have at least two members when this is emitted.
-        if (snapshots.size > 1) {
-            sections += AnnouncementSection(SectionKind.MESSAGE_COUNT, "${snapshots.size} messages.")
+        if (activeSnapshots.size > 1) {
+            sections += AnnouncementSection(SectionKind.MESSAGE_COUNT, "${activeSnapshots.size} messages.")
         }
 
-        for (snapshot in snapshots) {
-            val rawSender = snapshot.sender?.trim().orEmpty()
-            val sender = SmartContentCleaner.cleanSender(rawSender) ?: rawSender
-            val message = SmartContentCleaner.cleanMessageText(snapshot.messageText)
+        val category = SmartContentCleaner.resolveCategory(packageName)
+
+        for (snapshot in activeSnapshots) {
+            val resolved = resolveGroupAndContent(snapshot, category)
+            val sender = SmartContentCleaner.cleanSender(resolved.sender) ?: resolved.sender
+            val message = SmartContentCleaner.cleanMessage(resolved.messageText, packageName).text
 
             if (format.includeSender && sender.isNotEmpty()) {
-                val text = if (snapshot.isGroup && !snapshot.groupTitle.isNullOrBlank()) {
+                val text = if (!resolved.groupTitle.isNullOrBlank()) {
                     if (format.includeMessage && message.isNotEmpty()) {
-                        "$sender in ${snapshot.groupTitle} says,"
+                        "$sender in ${resolved.groupTitle} says,"
                     } else {
-                        "$sender in ${snapshot.groupTitle}."
+                        "$sender in ${resolved.groupTitle}."
                     }
                 } else if (format.includeMessage && message.isNotEmpty()) {
                     "$sender says,"
@@ -134,4 +144,70 @@ object AnnouncementTemplate {
 
         return BuiltAnnouncement(sections, format.pauseBetweenSectionsMillis)
     }
+
+    private data class ResolvedSnapshotContent(
+        val sender: String,
+        val groupTitle: String?,
+        val messageText: String,
+    )
+
+    private fun resolveGroupAndContent(
+        snapshot: NotificationSnapshot,
+        category: AppCategory?,
+    ): ResolvedSnapshotContent {
+        val rawSender = snapshot.sender?.trim().orEmpty()
+        val rawGroup = if (snapshot.isGroup) snapshot.groupTitle?.trim()?.takeIf { it.isNotEmpty() } else null
+        val rawMessage = snapshot.messageText.trim()
+
+        if (!SmartContentCleaner.isMessagingIntelligenceEnabled) {
+            return ResolvedSnapshotContent(rawSender, rawGroup, rawMessage)
+        }
+
+        // Already structured group metadata from Android MessagingStyle
+        if (rawGroup != null) {
+            return ResolvedSnapshotContent(rawSender, rawGroup, rawMessage)
+        }
+
+        // Inline format 1: sender itself is "Group Name: Sender Name"
+        val colonSplitSender = INLINE_GROUP_SENDER_REGEX.matchEntire(rawSender)
+        if (colonSplitSender != null) {
+            val group = colonSplitSender.groupValues[1].trim()
+            val member = colonSplitSender.groupValues[2].trim()
+            if (group.isNotEmpty() && member.isNotEmpty() && !NON_GROUP_PREFIXES.contains(group.lowercase())) {
+                return ResolvedSnapshotContent(member, group, rawMessage)
+            }
+        }
+
+        // Inline format 2 (Messaging apps): sender is group name, message starts with "Member: text"
+        if (category == AppCategory.MESSAGING && rawSender.isNotEmpty()) {
+            val inlineMemberMsg = INLINE_MEMBER_MESSAGE_REGEX.matchEntire(rawMessage)
+            if (inlineMemberMsg != null) {
+                val member = inlineMemberMsg.groupValues[1].trim()
+                val body = inlineMemberMsg.groupValues[2].trim()
+                if (!NON_GROUP_PREFIXES.contains(member.lowercase()) && !member.contains("http", ignoreCase = true)) {
+                    return ResolvedSnapshotContent(member, rawSender, body)
+                }
+            }
+        }
+
+        // Inline format 3 (Messaging apps): missing sender, message starts with "Group: Member: text"
+        if (category == AppCategory.MESSAGING && rawSender.isEmpty()) {
+            val triple = TRIPLE_GROUP_REGEX.matchEntire(rawMessage)
+            if (triple != null) {
+                val group = triple.groupValues[1].trim()
+                val member = triple.groupValues[2].trim()
+                val body = triple.groupValues[3].trim()
+                if (!NON_GROUP_PREFIXES.contains(group.lowercase()) && !NON_GROUP_PREFIXES.contains(member.lowercase())) {
+                    return ResolvedSnapshotContent(member, group, body)
+                }
+            }
+        }
+
+        return ResolvedSnapshotContent(rawSender, null, rawMessage)
+    }
+
+    private val INLINE_GROUP_SENDER_REGEX = Regex("^([^:]{2,40}):\\s+([^:]{1,40})$")
+    private val INLINE_MEMBER_MESSAGE_REGEX = Regex("^([A-Za-z][A-Za-z0-9 ._'-]{1,28}):\\s+(.+)$")
+    private val TRIPLE_GROUP_REGEX = Regex("^([^:]{2,35}):\\s+([A-Za-z][^:]{1,28}):\\s+(.+)$")
+    private val NON_GROUP_PREFIXES = setOf("re", "fwd", "fw", "reply", "forward", "http", "https", "note", "alert", "document", "contact")
 }

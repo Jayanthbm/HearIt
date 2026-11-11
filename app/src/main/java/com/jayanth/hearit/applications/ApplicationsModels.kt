@@ -1,5 +1,7 @@
 package com.jayanth.hearit.applications
 
+import com.jayanth.hearit.core.common.model.AppCategory
+import com.jayanth.hearit.core.common.model.AppCategoryChoice
 import com.jayanth.hearit.core.common.model.AppPriority
 import com.jayanth.hearit.core.common.model.AudioFocusPolicy
 import com.jayanth.hearit.core.common.model.HistoryStorageMode
@@ -54,6 +56,7 @@ data class ApplicationsUiState(
     val visibleApps: List<AppEntry> = emptyList(),
     val enabledApps: Set<String> = emptySet(),
     val customizedApps: Set<String> = emptySet(),
+    val appCategories: Map<String, AppCategory?> = emptyMap(),
     val openPackage: String? = null,
     val settings: AppSettingsUiState? = null,
 )
@@ -89,4 +92,6 @@ data class AppSettingsUiState(
     val enabledAppCount: Int = 0,
     val hasOverrides: Boolean = false,
     val spokenName: String? = null,
+    val category: AppCategory? = null,
+    val categoryOverride: AppCategoryChoice? = null,
 )

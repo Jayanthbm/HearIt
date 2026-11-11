@@ -58,5 +58,13 @@ class GeneralSettingsUiStateTest {
         assertEquals(OverflowPolicy.KEEP_HIGHEST_PRIORITY, state.queue.overflowPolicy)
         assertEquals(true, state.queue.repeatNotificationUpdates)
         assertEquals(false, state.isServiceNotificationVisible)
+        assertEquals(
+            com.jayanth.hearit.core.common.model.ReactionFilterMode.CONDENSE,
+            state.reactionFilterMode,
+        )
+        assertEquals(
+            com.jayanth.hearit.core.common.model.DigitGroupingStyle.CHUNKS_OF_3,
+            state.digitGroupingStyle,
+        )
     }
 }

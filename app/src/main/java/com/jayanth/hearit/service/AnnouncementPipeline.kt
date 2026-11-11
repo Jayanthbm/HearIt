@@ -16,6 +16,7 @@ import com.jayanth.hearit.core.rules.EligibilityRules
 import com.jayanth.hearit.core.tts.AnnouncementFormat
 import com.jayanth.hearit.core.tts.AnnouncementTemplate
 import com.jayanth.hearit.core.tts.BuiltAnnouncement
+import com.jayanth.hearit.core.tts.SmartContentCleaner
 
 /**
  * The speech pipeline between collection and the TTS engine (architecture §3, P08).
@@ -165,6 +166,17 @@ class AnnouncementPipeline(
             )
             val skipDecision = EligibilityDecision.Skip(SkipReason.DUPLICATE_UPDATE)
             onRecord(HistoryRecord(snapshot, HistoryStatus.SKIPPED, SkipReason.DUPLICATE_UPDATE, priority))
+            return Processed(skipDecision, emptyList())
+        }
+        if (decision is EligibilityDecision.Announce &&
+            SmartContentCleaner.shouldSuppress(snapshot.messageText, snapshot.packageName)
+        ) {
+            HearItLogger.info(
+                LogCategory.RULES,
+                "Notification suppressed by Active Intelligence rules for pkg=${snapshot.packageName}",
+            )
+            val skipDecision = EligibilityDecision.Skip(SkipReason.SUPPRESSED_INTELLIGENCE)
+            onRecord(HistoryRecord(snapshot, HistoryStatus.SKIPPED, SkipReason.SUPPRESSED_INTELLIGENCE, priority))
             return Processed(skipDecision, emptyList())
         }
         val events = when (decision) {

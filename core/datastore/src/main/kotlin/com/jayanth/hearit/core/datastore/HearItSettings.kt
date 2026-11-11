@@ -1,9 +1,12 @@
 package com.jayanth.hearit.core.datastore
 
+import com.jayanth.hearit.core.common.model.AppCategory
+import com.jayanth.hearit.core.common.model.AppCategoryChoice
 import com.jayanth.hearit.core.common.model.AppEligibilityOverride
 import com.jayanth.hearit.core.common.model.AppHistoryOverride
 import com.jayanth.hearit.core.common.model.AppPriority
 import com.jayanth.hearit.core.common.model.AppQueueOverride
+import com.jayanth.hearit.core.common.model.DefaultAppCategories
 import com.jayanth.hearit.core.common.model.EligibilitySettings
 import com.jayanth.hearit.core.common.model.HistorySettings
 import com.jayanth.hearit.core.common.model.KnownAudioDevice
@@ -71,6 +74,15 @@ data class HearItSettings(
     fun priorityAnnounceFor(packageName: String): Boolean =
         packageName in priorityAnnounceApps || overrideFor(packageName)?.priorityAnnounceOverride?.listed == true
 
+    /** Resolved category for [packageName] (explicit override else recognized package defaults). */
+    fun categoryFor(packageName: String): AppCategory? =
+        overrideFor(packageName)?.categoryOverride?.toCategoryOrNull()
+            ?: if (overrideFor(packageName)?.categoryOverride == AppCategoryChoice.NONE) {
+                null
+            } else {
+                DefaultAppCategories.defaultCategoryFor(packageName)
+            }
+
     private fun overrideFor(packageName: String): AppOverride? = appOverrides[packageName]
 }
 
@@ -102,6 +114,7 @@ data class AppOverride(
     val priority: AppPriority? = null,
     val priorityAnnounceOverride: PriorityAnnounceOverride = PriorityAnnounceOverride(),
     val spokenName: String? = null,
+    val categoryOverride: AppCategoryChoice? = null,
 ) {
 
     /** True when nothing is overridden for this app. */
@@ -111,5 +124,6 @@ data class AppOverride(
             history.inheritsEveryValue &&
             priorityAnnounceOverride.inheritsEveryValue &&
             priority == null &&
-            spokenName.isNullOrBlank()
+            spokenName.isNullOrBlank() &&
+            categoryOverride == null
 }

@@ -190,4 +190,22 @@ class AnnouncementTemplateTest {
         val announcement = AnnouncementTemplate.build(snapshot(messageText = message), AnnouncementFormat())
         assertEquals(message, texts(announcement).last())
     }
+
+    @Test
+    fun build_inlineGroupChatFormat_readsSenderInGroupSays() {
+        val groupSnap = snapshot(sender = "Family Group", messageText = "Rahul: Dinner at 8?")
+        val announcement = AnnouncementTemplate.build(groupSnap, AnnouncementFormat())
+        assertEquals(
+            listOf("WhatsApp.", "Rahul in Family Group says,", "Dinner at 8?"),
+            texts(announcement),
+        )
+    }
+
+    @Test
+    fun build_suppressedMessage_returnsEmptyAnnouncementWithoutAppName() {
+        val syncSnap = snapshot(sender = null, messageText = "Checking for new messages...")
+        val announcement = AnnouncementTemplate.build(syncSnap, AnnouncementFormat())
+        assertTrue(announcement.isEmpty)
+        assertTrue(announcement.sections.isEmpty())
+    }
 }

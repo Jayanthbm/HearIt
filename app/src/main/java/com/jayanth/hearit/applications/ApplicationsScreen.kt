@@ -178,6 +178,8 @@ fun ApplicationsRoute(viewModel: ApplicationsViewModel, modifier: Modifier = Mod
                     onOpenApp = viewModel::onOpenApp,
                     onSelectAllVisible = viewModel::onSelectAllVisible,
                     onDeselectAllVisible = viewModel::onDeselectAllVisible,
+                    onSetAppCategory = viewModel::onSetAppCategory,
+                    onResetAppCategory = viewModel::onResetAppCategory,
                     modifier = Modifier.fillMaxSize(),
                 )
             } else {
@@ -233,9 +235,12 @@ private fun ApplicationsListScreen(
     onOpenApp: (String) -> Unit,
     onSelectAllVisible: () -> Unit,
     onDeselectAllVisible: () -> Unit,
+    onSetAppCategory: (String, com.jayanth.hearit.core.common.model.AppCategory?) -> Unit = { _, _ -> },
+    onResetAppCategory: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var showSystemApps by rememberSaveable { mutableStateOf(false) }
+    var showCategoriesDialog by rememberSaveable { mutableStateOf(false) }
     val displayedApps = remember(state.visibleApps, state.enabledApps, filterType, showSystemApps) {
         val base = if (showSystemApps) state.visibleApps else state.visibleApps.filter { !it.isSystemApp || it.packageName in state.enabledApps }
         when (filterType) {
@@ -395,6 +400,34 @@ private fun ApplicationsListScreen(
                     )
                 },
                 shape = RoundedCornerShape(10.dp),
+            )
+            FilterChip(
+                selected = false,
+                onClick = { showCategoriesDialog = true },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Rounded.Tune,
+                        contentDescription = null,
+                        modifier = Modifier.size(15.dp),
+                    )
+                },
+                label = {
+                    Text(
+                        text = "Categories",
+                        fontSize = 11.5.sp,
+                    )
+                },
+                shape = RoundedCornerShape(10.dp),
+            )
+        }
+
+        if (showCategoriesDialog) {
+            com.jayanth.hearit.intelligence.AppCategoriesDialog(
+                apps = state.apps,
+                appCategories = state.appCategories,
+                onSetAppCategory = onSetAppCategory,
+                onResetAppCategory = onResetAppCategory,
+                onDismiss = { showCategoriesDialog = false },
             )
         }
 

@@ -26,6 +26,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -36,7 +37,6 @@ import com.jayanth.hearit.settings.GeneralSettingsUiState
 import com.jayanth.hearit.settings.GeneralSettingsViewModel
 import com.jayanth.hearit.settings.GesturesAndControlsCard
 import com.jayanth.hearit.settings.PeriodicCheckinCard
-import com.jayanth.hearit.settings.SmartContentCleaningCard
 
 /**
  * Route wrapping [IntelligenceControlsScreen] with [GeneralSettingsViewModel].
@@ -47,9 +47,11 @@ fun IntelligenceControlsRoute(
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.state.collectAsState()
+    val intelligenceActions = remember(viewModel) { IntelligenceActions.from(viewModel) }
 
     IntelligenceControlsScreen(
         state = state,
+        intelligenceActions = intelligenceActions,
         onToggleAutoDismiss = viewModel::onToggleAutoDismiss,
         onToggleShakeToStop = viewModel::onToggleShakeToStop,
         onToggleVolumeKeyToStop = viewModel::onToggleVolumeKeyToStop,
@@ -59,25 +61,17 @@ fun IntelligenceControlsRoute(
         onPeriodicCheckinIntervalChanged = viewModel::onPeriodicCheckinIntervalChanged,
         onTogglePeriodicCheckinTime = viewModel::onTogglePeriodicCheckinTime,
         onTogglePeriodicCheckinBattery = viewModel::onTogglePeriodicCheckinBattery,
-        onToggleUrlSummarizer = viewModel::onToggleUrlSummarizer,
-        onToggleCurrencyNormalizer = viewModel::onToggleCurrencyNormalizer,
-        onToggleMarkdownStripper = viewModel::onToggleMarkdownStripper,
-        onToggleEmojiCollapsing = viewModel::onToggleEmojiCollapsing,
-        onToggleReactionFilter = viewModel::onToggleReactionFilter,
-        onToggleBotSenderCleaning = viewModel::onToggleBotSenderCleaning,
         modifier = modifier,
     )
 }
 
 /**
  * Modern Material 3 Expressive Active Intelligence Screen.
- *
- * Designed identically to Devices and Voice & Speech screens with a clean
- * one-line title and subtitle intro card, followed by modular settings cards.
  */
 @Composable
 fun IntelligenceControlsScreen(
     state: GeneralSettingsUiState,
+    intelligenceActions: IntelligenceActions,
     onToggleAutoDismiss: (Boolean) -> Unit,
     onToggleShakeToStop: (Boolean) -> Unit,
     onToggleVolumeKeyToStop: (Boolean) -> Unit,
@@ -87,12 +81,6 @@ fun IntelligenceControlsScreen(
     onPeriodicCheckinIntervalChanged: (Int) -> Unit,
     onTogglePeriodicCheckinTime: (Boolean) -> Unit,
     onTogglePeriodicCheckinBattery: (Boolean) -> Unit,
-    onToggleUrlSummarizer: (Boolean) -> Unit,
-    onToggleCurrencyNormalizer: (Boolean) -> Unit,
-    onToggleMarkdownStripper: (Boolean) -> Unit,
-    onToggleEmojiCollapsing: (Boolean) -> Unit,
-    onToggleReactionFilter: (Boolean) -> Unit,
-    onToggleBotSenderCleaning: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -102,7 +90,7 @@ fun IntelligenceControlsScreen(
             .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        // Explanatory Intro Card (Matching Devices & Settings screens)
+        // Explanatory Intro Card
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(20.dp),
@@ -151,21 +139,17 @@ fun IntelligenceControlsScreen(
 
         // Section 1: Smart Content Cleaning (NLP)
         SmartContentCleaningCard(
-            isUrlSummarizerEnabled = state.isUrlSummarizerEnabled,
-            isCurrencyNormalizerEnabled = state.isCurrencyNormalizerEnabled,
-            isMarkdownStripperEnabled = state.isMarkdownStripperEnabled,
-            isEmojiCollapsingEnabled = state.isEmojiCollapsingEnabled,
-            isReactionFilterEnabled = state.isReactionFilterEnabled,
-            isBotSenderCleaningEnabled = state.isBotSenderCleaningEnabled,
-            onToggleUrlSummarizer = onToggleUrlSummarizer,
-            onToggleCurrencyNormalizer = onToggleCurrencyNormalizer,
-            onToggleMarkdownStripper = onToggleMarkdownStripper,
-            onToggleEmojiCollapsing = onToggleEmojiCollapsing,
-            onToggleReactionFilter = onToggleReactionFilter,
-            onToggleBotSenderCleaning = onToggleBotSenderCleaning,
+            state = state,
+            actions = intelligenceActions,
         )
 
-        // Section 2: Gestures & Playback Controls
+        // Section 2: Category Intelligence & App Grouping
+        CategoryIntelligenceCard(
+            state = state,
+            actions = intelligenceActions,
+        )
+
+        // Section 3: Gestures & Playback Controls
         GesturesAndControlsCard(
             isAutoDismissEnabled = state.isAutoDismissEnabled,
             isShakeToStopEnabled = state.isShakeToStopEnabled,
@@ -179,7 +163,7 @@ fun IntelligenceControlsScreen(
             onToggleBluetoothAutoStart = onToggleBluetoothAutoStart,
         )
 
-        // Section 3: Periodic Spoken Check-in
+        // Section 4: Periodic Spoken Check-in
         PeriodicCheckinCard(
             isEnabled = state.isPeriodicCheckinEnabled,
             intervalMinutes = state.periodicCheckinIntervalMinutes,
@@ -191,7 +175,7 @@ fun IntelligenceControlsScreen(
             onToggleBattery = onTogglePeriodicCheckinBattery,
         )
 
-        // Section 4: Wear OS Companion Smartwatch
+        // Section 5: Wear OS Companion Smartwatch
         WearOsCompanionCard()
 
         Spacer(modifier = Modifier.height(100.dp))

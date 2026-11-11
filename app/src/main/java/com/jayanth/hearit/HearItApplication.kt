@@ -5,6 +5,7 @@ import android.os.Build
 import com.jayanth.hearit.core.common.logger.HearItLogger
 import com.jayanth.hearit.core.common.logger.LogCategory
 import com.jayanth.hearit.diagnostics.FileDiagnosticLogger
+import com.jayanth.hearit.intelligence.IntelligentSettingsSync
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 
@@ -22,9 +23,13 @@ class HearItApplication : Application() {
     @Inject
     lateinit var fileDiagnosticLogger: FileDiagnosticLogger
 
+    @Inject
+    lateinit var intelligentSettingsSync: IntelligentSettingsSync
+
     override fun onCreate() {
         super.onCreate()
         HearItLogger.registerSink(fileDiagnosticLogger)
+        intelligentSettingsSync.start()
         val appVersion = try {
             packageManager.getPackageInfo(packageName, 0).versionName ?: "2.0.0"
         } catch (e: Exception) {

@@ -7,6 +7,7 @@ import com.jayanth.hearit.core.common.model.ResolvedSettings
 import com.jayanth.hearit.core.datastore.HearItSettings
 import com.jayanth.hearit.core.datastore.SettingsRepository
 import com.jayanth.hearit.core.tts.AnnouncementFormat
+import com.jayanth.hearit.core.tts.SmartContentCleaner
 import com.jayanth.hearit.core.tts.SpeechSettings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -38,12 +39,28 @@ class SettingsSource(private val repository: SettingsRepository) {
 
     /** Starts mirroring [SettingsRepository.settings] into [settings] for [scope]'s lifetime. */
     fun observe(scope: CoroutineScope): Job = scope.launch {
-        repository.settings.collect { incoming -> state.value = incoming }
+        repository.settings.collect { incoming ->
+            state.value = incoming
+            syncCleanerFromSettings(incoming)
+        }
     }
 
     /** One-shot read, for callers that need the stored value before the flow emits. */
     suspend fun reload() {
-        state.value = repository.current()
+        val loaded = repository.current()
+        state.value = loaded
+        syncCleanerFromSettings(loaded)
+    }
+
+    private fun syncCleanerFromSettings(settings: HearItSettings) {
+        val aliases = settings.appOverrides.mapNotNull { (pkg, override) ->
+            override.spokenName?.takeIf { it.isNotBlank() }?.let { pkg to it }
+        }.toMap()
+        val categories = settings.appOverrides.mapNotNull { (pkg, override) ->
+            override.categoryOverride?.let { pkg to it }
+        }.toMap()
+        SmartContentCleaner.replaceAppAliases(aliases)
+        SmartContentCleaner.replaceAppCategories(categories)
     }
 
     /** Rules input for [packageName]: global values merged with that app's overrides. */

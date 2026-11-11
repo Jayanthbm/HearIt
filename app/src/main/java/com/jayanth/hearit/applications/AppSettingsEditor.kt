@@ -1,5 +1,6 @@
 package com.jayanth.hearit.applications
 
+import com.jayanth.hearit.core.common.model.AppCategoryChoice
 import com.jayanth.hearit.core.common.model.AppPriority
 import com.jayanth.hearit.core.common.model.AudioFocusPolicy
 import com.jayanth.hearit.core.common.model.HistoryStorageMode
@@ -57,6 +58,15 @@ object AppSettingsEditor {
         spokenName: String?,
     ): HearItSettings = updateOverride(settings, packageName) { override ->
         override.copy(spokenName = spokenName?.trim()?.ifBlank { null })
+    }
+
+    /** Assigns or clears the per-app intelligence category (`null` = recognized default). */
+    fun setCategoryChoice(
+        settings: HearItSettings,
+        packageName: String,
+        choice: AppCategoryChoice?,
+    ): HearItSettings = updateOverride(settings, packageName) { override ->
+        override.copy(categoryOverride = choice)
     }
 
     /** Sets or clears the per-app history storage mode (master prompt §12). */
@@ -265,6 +275,8 @@ object AppSettingsEditor {
             enabledAppCount = settings.enabledApps.size,
             hasOverrides = !override.inheritsEveryValue,
             spokenName = override.spokenName,
+            category = settings.categoryFor(packageName),
+            categoryOverride = override.categoryOverride,
         )
     }
 

@@ -1,13 +1,18 @@
 package com.jayanth.hearit.settings
 
+import com.jayanth.hearit.applications.AppEntry
+import com.jayanth.hearit.core.common.model.AppCategory
 import com.jayanth.hearit.core.common.model.AudioFocusPolicy
+import com.jayanth.hearit.core.common.model.DigitGroupingStyle
+import com.jayanth.hearit.core.common.model.IntelligencePresets
+import com.jayanth.hearit.core.common.model.PronunciationRule
 import com.jayanth.hearit.core.common.model.QueueSettings
+import com.jayanth.hearit.core.common.model.ReactionFilterMode
 import com.jayanth.hearit.core.common.model.SecuritySettings
+import com.jayanth.hearit.core.common.model.UrlSummaryRule
 
 /**
- * UI State for the General Settings feature (Queue, Pacing, Eviction, Audio Focus, Service Notification, and Security).
- *
- * Master prompt §8 and §15, phase P15 and P19.
+ * UI State for General Settings & Active Intelligence controls.
  */
 data class GeneralSettingsUiState(
     val queue: QueueSettings = QueueSettings(),
@@ -26,9 +31,28 @@ data class GeneralSettingsUiState(
     val periodicCheckinAnnounceTime: Boolean = true,
     val periodicCheckinAnnounceBattery: Boolean = true,
     val isUrlSummarizerEnabled: Boolean = true,
+    val urlSummaryRules: List<UrlSummaryRule> = IntelligencePresets.DEFAULT_URL_SUMMARY_RULES,
     val isCurrencyNormalizerEnabled: Boolean = true,
     val isMarkdownStripperEnabled: Boolean = true,
     val isEmojiCollapsingEnabled: Boolean = true,
     val isReactionFilterEnabled: Boolean = true,
+    val reactionFilterMode: ReactionFilterMode = ReactionFilterMode.CONDENSE,
     val isBotSenderCleaningEnabled: Boolean = true,
+    val isPronunciationDictionaryEnabled: Boolean = true,
+    val isPronunciationOnSenderEnabled: Boolean = false,
+    val pronunciationRules: List<PronunciationRule> = emptyList(),
+    val isDigitFormattingEnabled: Boolean = true,
+    val isFormatPhoneNumbersEnabled: Boolean = true,
+    val isFormatOtpCodesEnabled: Boolean = true,
+    val digitGroupingStyle: DigitGroupingStyle = DigitGroupingStyle.CHUNKS_OF_3,
+    val isMessagingIntelligenceEnabled: Boolean = true,
+    val isSmsBankCleanerEnabled: Boolean = true,
+    val isCarrierSpamFilterEnabled: Boolean = true,
+    val carrierSpamPhrases: List<String> = IntelligencePresets.DEFAULT_CARRIER_SPAM_PHRASES,
+    val isEmailCleanupEnabled: Boolean = true,
+    val isContactSanitizerEnabled: Boolean = true,
+    val isStripSenderEmojisEnabled: Boolean = true,
+    val isStripSenderBracketsEnabled: Boolean = true,
+    val installedApps: List<AppEntry> = emptyList(),
+    val appCategories: Map<String, AppCategory?> = emptyMap(),
 )

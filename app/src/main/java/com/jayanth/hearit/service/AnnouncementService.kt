@@ -86,6 +86,9 @@ class AnnouncementService : Service(), NotificationSink {
     @Inject
     lateinit var history: HistoryRepository
 
+    @Inject
+    lateinit var intelligentSettingsSync: com.jayanth.hearit.intelligence.IntelligentSettingsSync
+
     private lateinit var sessionStore: SessionStore
     private lateinit var stateReader: RuntimeStateReader
     private lateinit var queue: AnnouncementQueue
@@ -230,6 +233,7 @@ class AnnouncementService : Service(), NotificationSink {
     override fun onCreate() {
         super.onCreate()
         sessionStore = SessionStore(this)
+        intelligentSettingsSync.start()
         stateReader = RuntimeStateReader(this, audioManager, sessionStore)
 
         val clock = Clock { SystemClock.elapsedRealtime() }

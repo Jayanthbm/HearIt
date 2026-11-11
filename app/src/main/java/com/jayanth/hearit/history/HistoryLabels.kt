@@ -54,4 +54,5 @@ fun skipReasonLabelRes(reason: SkipReason): Int = when (reason) {
     SkipReason.EXPIRED -> R.string.history_reason_expired
     SkipReason.OVERFLOW -> R.string.history_reason_overflow
     SkipReason.DUPLICATE_UPDATE -> R.string.history_reason_duplicate
+    SkipReason.SUPPRESSED_INTELLIGENCE -> R.string.history_reason_suppressed_intelligence
 }

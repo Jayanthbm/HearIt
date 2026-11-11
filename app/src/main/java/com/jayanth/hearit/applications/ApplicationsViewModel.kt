@@ -2,6 +2,8 @@ package com.jayanth.hearit.applications
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.jayanth.hearit.core.common.model.AppCategory
+import com.jayanth.hearit.core.common.model.AppCategoryChoice
 import com.jayanth.hearit.core.common.model.AppPriority
 import com.jayanth.hearit.core.common.model.AudioFocusPolicy
 import com.jayanth.hearit.core.common.model.HistoryStorageMode
@@ -70,11 +72,14 @@ class ApplicationsViewModel @Inject constructor(
         viewModelScope.launch {
             settingsRepository.settings.collect { settings ->
                 latestSettings = settings
-                settings.appOverrides.forEach { (pkg, override) ->
-                    if (!override.spokenName.isNullOrBlank()) {
-                        com.jayanth.hearit.core.tts.SmartContentCleaner.setAppAlias(pkg, override.spokenName)
-                    }
-                }
+                val aliases = settings.appOverrides.mapNotNull { (pkg, override) ->
+                    override.spokenName?.takeIf { it.isNotBlank() }?.let { pkg to it }
+                }.toMap()
+                val categoryOverrides = settings.appOverrides.mapNotNull { (pkg, override) ->
+                    override.categoryOverride?.let { pkg to it }
+                }.toMap()
+                com.jayanth.hearit.core.tts.SmartContentCleaner.replaceAppAliases(aliases)
+                com.jayanth.hearit.core.tts.SmartContentCleaner.replaceAppCategories(categoryOverrides)
                 publish()
             }
         }
@@ -295,6 +300,19 @@ class ApplicationsViewModel @Inject constructor(
         }
     }
 
+    fun onSetAppCategory(packageName: String, category: AppCategory?) {
+        val choice = AppCategoryChoice.fromCategory(category)
+        update { settings ->
+            AppSettingsEditor.setCategoryChoice(settings, packageName, choice)
+        }
+    }
+
+    fun onResetAppCategory(packageName: String) {
+        update { settings ->
+            AppSettingsEditor.setCategoryChoice(settings, packageName, null)
+        }
+    }
+
     fun onHistoryStorageModeChanged(storageMode: HistoryStorageMode?) {
         updateSelected { settings, packageName ->
             AppSettingsEditor.setHistoryStorageMode(settings, packageName, storageMode)
@@ -360,6 +378,9 @@ class ApplicationsViewModel @Inject constructor(
     private fun publish() {
         val settings = latestSettings ?: return
         val merged = AppCatalogMerge.merge(installedApps, settings.enabledApps)
+        val categoriesMap = merged.associate { entry ->
+            entry.packageName to settings.categoryFor(entry.packageName)
+        }
         _state.update { current ->
             val openPackage = current.openPackage
             current.copy(
@@ -368,6 +389,7 @@ class ApplicationsViewModel @Inject constructor(
                 visibleApps = AppFilter.filter(merged, current.query),
                 enabledApps = settings.enabledApps,
                 customizedApps = settings.appOverrides.filterValues { !it.inheritsEveryValue }.keys,
+                appCategories = categoriesMap,
                 settings = openPackage?.let { packageName ->
                     val previousHistory = current.settings?.recentHistory ?: emptyList()
                     val previousLoading = current.settings?.historyLoading ?: false

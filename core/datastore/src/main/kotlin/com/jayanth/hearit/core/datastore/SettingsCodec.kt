@@ -1,5 +1,6 @@
 package com.jayanth.hearit.core.datastore
 
+import com.jayanth.hearit.core.common.model.AppCategoryChoice
 import com.jayanth.hearit.core.common.model.AppEligibilityOverride
 import com.jayanth.hearit.core.common.model.AppHistoryOverride
 import com.jayanth.hearit.core.common.model.AppPriority
@@ -118,6 +119,7 @@ object SettingsCodec {
     // Per-app suffixes (used after "app:<package>:").
     private const val APP_PRIORITY = "priority"
     private const val APP_SPOKEN_NAME = "spokenName"
+    private const val APP_CATEGORY = "category"
     private const val APP_QUEUE_WINDOW = "queue.groupingWindow"
     private const val APP_HISTORY_MODE = "history.storageMode"
     private const val APP_HISTORY_UPDATES = "history.updateHandling"
@@ -279,6 +281,7 @@ object SettingsCodec {
         override.history.requireAuth?.let { values[prefix + APP_HISTORY_AUTH] = it.toString() }
         override.priority?.let { values[prefix + APP_PRIORITY] = it.name }
         override.spokenName?.let { values[prefix + APP_SPOKEN_NAME] = it }
+        override.categoryOverride?.let { values[prefix + APP_CATEGORY] = it.name }
     }
 
     private fun decodeEligibility(values: Map<String, String>): EligibilitySettings {
@@ -479,6 +482,7 @@ object SettingsCodec {
             ),
             priority = string(APP_PRIORITY)?.enumOrNull<AppPriority>(),
             spokenName = string(APP_SPOKEN_NAME)?.takeIf { it.isNotBlank() },
+            categoryOverride = string(APP_CATEGORY)?.enumOrNull<AppCategoryChoice>(),
         )
     }
 

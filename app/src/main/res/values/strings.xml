@@ -371,6 +371,7 @@
     <string name="history_reason_expired">expired before speaking</string>
     <string name="history_reason_overflow">queue limit</string>
     <string name="history_reason_duplicate">already announced</string>
+    <string name="history_reason_suppressed_intelligence">filtered by active intelligence</string>
 
     <!-- App icon / splash -->
     <string name="splash_icon_description">Hear It app icon</string>

@@ -4,13 +4,32 @@ import android.app.Activity
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.jayanth.hearit.applications.AppEntry
+import com.jayanth.hearit.applications.AppSettingsEditor
+import com.jayanth.hearit.applications.ApplicationCatalog
+import com.jayanth.hearit.core.common.model.AppCategory
+import com.jayanth.hearit.core.common.model.AppCategoryChoice
 import com.jayanth.hearit.core.common.model.AudioFocusPolicy
+import com.jayanth.hearit.core.common.model.DigitGroupingStyle
+import com.jayanth.hearit.core.common.model.IntelligencePresets
 import com.jayanth.hearit.core.common.model.OverflowPolicy
+import com.jayanth.hearit.core.common.model.PronunciationRule
 import com.jayanth.hearit.core.common.model.QueueSettings
+import com.jayanth.hearit.core.common.model.ReactionFilterMode
+import com.jayanth.hearit.core.common.model.UrlSummaryRule
 import com.jayanth.hearit.core.datastore.SettingsRepository
+import com.jayanth.hearit.core.tts.AnnouncementSection
+import com.jayanth.hearit.core.tts.BuiltAnnouncement
+import com.jayanth.hearit.core.tts.SectionKind
+import com.jayanth.hearit.core.tts.SmartContentCleaner
+import com.jayanth.hearit.core.tts.TextToSpeechEngine
+import com.jayanth.hearit.core.tts.TtsError
+import com.jayanth.hearit.core.tts.UtteranceListener
+import com.jayanth.hearit.intelligence.IntelligentSettingsSync
 import com.jayanth.hearit.security.BiometricAuthManager
 import com.jayanth.hearit.security.BiometricAuthResult
 import com.jayanth.hearit.service.AnnouncementNotification
+import com.jayanth.hearit.service.SettingsSource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -21,7 +40,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
- * ViewModel managing General Settings (Queue, Grouping, Pacing, Audio Focus, Service Notification, and Security).
+ * ViewModel managing General Settings & Active Intelligence controls.
  *
  * Single-writer pattern over [SettingsRepository] (ADR-021).
  */
@@ -29,10 +48,15 @@ import kotlinx.coroutines.launch
 class GeneralSettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val biometricAuthManager: BiometricAuthManager,
+    private val applicationCatalog: ApplicationCatalog,
+    private val ttsEngine: TextToSpeechEngine,
+    private val settingsSource: SettingsSource,
+    private val intelligentSettingsSync: IntelligentSettingsSync,
+    private val sessionStore: com.jayanth.hearit.service.SessionStore,
     @param:ApplicationContext private val context: Context,
 ) : ViewModel() {
 
-    private val sessionStore = com.jayanth.hearit.service.SessionStore(context)
+    private var installedCatalog: List<AppEntry> = emptyList()
 
     private val _state = MutableStateFlow(
         GeneralSettingsUiState(
@@ -48,24 +72,55 @@ class GeneralSettingsViewModel @Inject constructor(
             periodicCheckinAnnounceTime = sessionStore.periodicCheckinAnnounceTime,
             periodicCheckinAnnounceBattery = sessionStore.periodicCheckinAnnounceBattery,
             isUrlSummarizerEnabled = sessionStore.isUrlSummarizerEnabled,
+            urlSummaryRules = sessionStore.urlSummaryRules,
             isCurrencyNormalizerEnabled = sessionStore.isCurrencyNormalizerEnabled,
             isMarkdownStripperEnabled = sessionStore.isMarkdownStripperEnabled,
             isEmojiCollapsingEnabled = sessionStore.isEmojiCollapsingEnabled,
             isReactionFilterEnabled = sessionStore.isReactionFilterEnabled,
+            reactionFilterMode = sessionStore.reactionFilterMode,
             isBotSenderCleaningEnabled = sessionStore.isBotSenderCleaningEnabled,
+            isPronunciationDictionaryEnabled = sessionStore.isPronunciationDictionaryEnabled,
+            isPronunciationOnSenderEnabled = sessionStore.isPronunciationOnSenderEnabled,
+            pronunciationRules = sessionStore.pronunciationRules,
+            isDigitFormattingEnabled = sessionStore.isDigitFormattingEnabled,
+            isFormatPhoneNumbersEnabled = sessionStore.isFormatPhoneNumbersEnabled,
+            isFormatOtpCodesEnabled = sessionStore.isFormatOtpCodesEnabled,
+            digitGroupingStyle = sessionStore.digitGroupingStyle,
+            isMessagingIntelligenceEnabled = sessionStore.isMessagingIntelligenceEnabled,
+            isSmsBankCleanerEnabled = sessionStore.isSmsBankCleanerEnabled,
+            isCarrierSpamFilterEnabled = sessionStore.isCarrierSpamFilterEnabled,
+            carrierSpamPhrases = sessionStore.carrierSpamPhrases,
+            isEmailCleanupEnabled = sessionStore.isEmailCleanupEnabled,
+            isContactSanitizerEnabled = sessionStore.isContactSanitizerEnabled,
+            isStripSenderEmojisEnabled = sessionStore.isStripSenderEmojisEnabled,
+            isStripSenderBracketsEnabled = sessionStore.isStripSenderBracketsEnabled,
         ),
     )
     val state: StateFlow<GeneralSettingsUiState> = _state.asStateFlow()
 
     init {
+        intelligentSettingsSync.hydrateSessionFlags()
+        viewModelScope.launch {
+            installedCatalog = runCatching { applicationCatalog.installedApps() }.getOrDefault(emptyList())
+            val currentSettings = runCatching { settingsRepository.current() }.getOrNull()
+            val categories = currentSettings?.let { settings ->
+                installedCatalog.associate { it.packageName to settings.categoryFor(it.packageName) }
+            } ?: emptyMap()
+            _state.update { it.copy(installedApps = installedCatalog, appCategories = categories) }
+        }
         viewModelScope.launch {
             settingsRepository.settings.collect { settings ->
+                intelligentSettingsSync.applySettings(settings)
+                val categories = installedCatalog.associate { entry ->
+                    entry.packageName to settings.categoryFor(entry.packageName)
+                }
                 _state.update { current ->
                     current.copy(
                         queue = settings.queue,
                         audioFocus = settings.eligibility.audioFocus,
                         security = settings.security,
                         isBiometricAvailable = biometricAuthManager.canAuthenticate(),
+                        appCategories = categories,
                     )
                 }
             }
@@ -164,8 +219,233 @@ class GeneralSettingsViewModel @Inject constructor(
 
     fun onToggleBotSenderCleaning(enabled: Boolean) {
         sessionStore.isBotSenderCleaningEnabled = enabled
-        com.jayanth.hearit.core.tts.SmartContentCleaner.isBotSenderCleaningEnabled = enabled
+        SmartContentCleaner.isBotSenderCleaningEnabled = enabled
         _state.update { it.copy(isBotSenderCleaningEnabled = enabled) }
+    }
+
+    fun onReactionFilterModeChanged(mode: ReactionFilterMode) {
+        sessionStore.reactionFilterMode = mode
+        SmartContentCleaner.reactionFilterMode = mode
+        _state.update { it.copy(reactionFilterMode = mode) }
+    }
+
+    fun onTogglePronunciationDictionary(enabled: Boolean) {
+        sessionStore.isPronunciationDictionaryEnabled = enabled
+        SmartContentCleaner.isPronunciationDictionaryEnabled = enabled
+        _state.update { it.copy(isPronunciationDictionaryEnabled = enabled) }
+    }
+
+    fun onTogglePronunciationOnSender(enabled: Boolean) {
+        sessionStore.isPronunciationOnSenderEnabled = enabled
+        SmartContentCleaner.isPronunciationOnSenderEnabled = enabled
+        _state.update { it.copy(isPronunciationOnSenderEnabled = enabled) }
+    }
+
+    fun onSavePronunciationRule(oldMatch: String?, rule: PronunciationRule) {
+        val cleanMatch = rule.match.trim()
+        val cleanSpoken = rule.spokenAs.trim()
+        if (cleanMatch.isEmpty() || cleanSpoken.isEmpty()) return
+        val normalized = rule.copy(match = cleanMatch, spokenAs = cleanSpoken)
+        val filtered = sessionStore.pronunciationRules.filterNot { existing ->
+            existing.match.equals(oldMatch ?: cleanMatch, ignoreCase = true) ||
+                existing.match.equals(cleanMatch, ignoreCase = true)
+        } + normalized
+        sessionStore.pronunciationRules = filtered
+        SmartContentCleaner.pronunciationRules = filtered
+        _state.update { it.copy(pronunciationRules = filtered) }
+    }
+
+    fun onTogglePronunciationRule(match: String, enabled: Boolean) {
+        val updated = sessionStore.pronunciationRules.map { rule ->
+            if (rule.match.equals(match, ignoreCase = true)) rule.copy(enabled = enabled) else rule
+        }
+        sessionStore.pronunciationRules = updated
+        SmartContentCleaner.pronunciationRules = updated
+        _state.update { it.copy(pronunciationRules = updated) }
+    }
+
+    fun onDeletePronunciationRule(match: String) {
+        val updated = sessionStore.pronunciationRules.filterNot { it.match.equals(match, ignoreCase = true) }
+        sessionStore.pronunciationRules = updated
+        SmartContentCleaner.pronunciationRules = updated
+        _state.update { it.copy(pronunciationRules = updated) }
+    }
+
+    fun onLoadPronunciationPresets() {
+        val current = sessionStore.pronunciationRules
+        val merged = current + IntelligencePresets.DEFAULT_PRONUNCIATION_RULES.filter { preset ->
+            current.none { it.match.equals(preset.match, ignoreCase = true) }
+        }
+        sessionStore.pronunciationRules = merged
+        SmartContentCleaner.pronunciationRules = merged
+        _state.update { it.copy(pronunciationRules = merged) }
+    }
+
+    fun onTestPronunciation(sampleText: String) {
+        val cleaned = SmartContentCleaner.cleanMessageText(sampleText)
+        if (cleaned.isBlank()) return
+        val announcement = BuiltAnnouncement(
+            sections = listOf(AnnouncementSection(SectionKind.MESSAGE, cleaned)),
+            pauseBetweenSectionsMillis = 0L,
+        )
+        ttsEngine.speak(
+            announcement = announcement,
+            settings = settingsSource.speech(),
+            listener = object : UtteranceListener {
+                override fun onStart(announcement: BuiltAnnouncement) {}
+                override fun onComplete(announcement: BuiltAnnouncement) {}
+                override fun onError(announcement: BuiltAnnouncement, error: TtsError) {}
+            },
+        )
+    }
+
+    fun onSaveUrlSummaryRule(oldPattern: String?, rule: UrlSummaryRule) {
+        val cleanPattern = rule.pattern.trim()
+        val cleanPhrase = rule.spokenPhrase.trim()
+        if (cleanPattern.isEmpty() || cleanPhrase.isEmpty()) return
+        val normalized = rule.copy(pattern = cleanPattern, spokenPhrase = cleanPhrase)
+        val updated = sessionStore.urlSummaryRules.filterNot { existing ->
+            existing.pattern.equals(oldPattern ?: cleanPattern, ignoreCase = true) ||
+                existing.pattern.equals(cleanPattern, ignoreCase = true)
+        } + normalized
+        sessionStore.urlSummaryRules = updated
+        SmartContentCleaner.urlSummaryRules = updated
+        _state.update { it.copy(urlSummaryRules = updated) }
+    }
+
+    fun onToggleUrlSummaryRule(pattern: String, enabled: Boolean) {
+        val updated = sessionStore.urlSummaryRules.map { rule ->
+            if (rule.pattern.equals(pattern, ignoreCase = true)) rule.copy(enabled = enabled) else rule
+        }
+        sessionStore.urlSummaryRules = updated
+        SmartContentCleaner.urlSummaryRules = updated
+        _state.update { it.copy(urlSummaryRules = updated) }
+    }
+
+    fun onDeleteUrlSummaryRule(pattern: String) {
+        val updated = sessionStore.urlSummaryRules.filterNot { it.pattern.equals(pattern, ignoreCase = true) }
+        sessionStore.urlSummaryRules = updated
+        SmartContentCleaner.urlSummaryRules = updated
+        _state.update { it.copy(urlSummaryRules = updated) }
+    }
+
+    fun onLoadPredefinedUrlRules() {
+        val current = sessionStore.urlSummaryRules
+        val merged = current + IntelligencePresets.DEFAULT_URL_SUMMARY_RULES.filter { preset ->
+            current.none { it.pattern.equals(preset.pattern, ignoreCase = true) }
+        }
+        sessionStore.urlSummaryRules = merged
+        SmartContentCleaner.urlSummaryRules = merged
+        _state.update { it.copy(urlSummaryRules = merged) }
+    }
+
+    fun onToggleDigitFormatting(enabled: Boolean) {
+        sessionStore.isDigitFormattingEnabled = enabled
+        SmartContentCleaner.isDigitFormattingEnabled = enabled
+        _state.update { it.copy(isDigitFormattingEnabled = enabled) }
+    }
+
+    fun onToggleFormatPhoneNumbers(enabled: Boolean) {
+        sessionStore.isFormatPhoneNumbersEnabled = enabled
+        SmartContentCleaner.isFormatPhoneNumbersEnabled = enabled
+        _state.update { it.copy(isFormatPhoneNumbersEnabled = enabled) }
+    }
+
+    fun onToggleFormatOtpCodes(enabled: Boolean) {
+        sessionStore.isFormatOtpCodesEnabled = enabled
+        SmartContentCleaner.isFormatOtpCodesEnabled = enabled
+        _state.update { it.copy(isFormatOtpCodesEnabled = enabled) }
+    }
+
+    fun onDigitGroupingStyleChanged(style: DigitGroupingStyle) {
+        sessionStore.digitGroupingStyle = style
+        SmartContentCleaner.digitGroupingStyle = style
+        _state.update { it.copy(digitGroupingStyle = style) }
+    }
+
+    fun onToggleMessagingIntelligence(enabled: Boolean) {
+        sessionStore.isMessagingIntelligenceEnabled = enabled
+        SmartContentCleaner.isMessagingIntelligenceEnabled = enabled
+        _state.update { it.copy(isMessagingIntelligenceEnabled = enabled) }
+    }
+
+    fun onToggleSmsBankCleaner(enabled: Boolean) {
+        sessionStore.isSmsBankCleanerEnabled = enabled
+        SmartContentCleaner.isSmsBankCleanerEnabled = enabled
+        _state.update { it.copy(isSmsBankCleanerEnabled = enabled) }
+    }
+
+    fun onToggleCarrierSpamFilter(enabled: Boolean) {
+        sessionStore.isCarrierSpamFilterEnabled = enabled
+        SmartContentCleaner.isCarrierSpamFilterEnabled = enabled
+        _state.update { it.copy(isCarrierSpamFilterEnabled = enabled) }
+    }
+
+    fun onAddCarrierSpamPhrase(phrase: String) {
+        val clean = phrase.trim()
+        if (clean.isEmpty()) return
+        val updated = (sessionStore.carrierSpamPhrases.filterNot { it.equals(clean, ignoreCase = true) }) + clean
+        sessionStore.carrierSpamPhrases = updated
+        SmartContentCleaner.carrierSpamPhrases = updated
+        _state.update { it.copy(carrierSpamPhrases = updated) }
+    }
+
+    fun onRemoveCarrierSpamPhrase(phrase: String) {
+        val updated = sessionStore.carrierSpamPhrases.filterNot { it.equals(phrase, ignoreCase = true) }
+        sessionStore.carrierSpamPhrases = updated
+        SmartContentCleaner.carrierSpamPhrases = updated
+        _state.update { it.copy(carrierSpamPhrases = updated) }
+    }
+
+    fun onLoadDefaultCarrierSpamPhrases() {
+        val current = sessionStore.carrierSpamPhrases
+        val merged = current + IntelligencePresets.DEFAULT_CARRIER_SPAM_PHRASES.filter { preset ->
+            current.none { it.equals(preset, ignoreCase = true) }
+        }
+        sessionStore.carrierSpamPhrases = merged
+        SmartContentCleaner.carrierSpamPhrases = merged
+        _state.update { it.copy(carrierSpamPhrases = merged) }
+    }
+
+    fun onToggleEmailCleanup(enabled: Boolean) {
+        sessionStore.isEmailCleanupEnabled = enabled
+        SmartContentCleaner.isEmailCleanupEnabled = enabled
+        _state.update { it.copy(isEmailCleanupEnabled = enabled) }
+    }
+
+    fun onToggleContactSanitizer(enabled: Boolean) {
+        sessionStore.isContactSanitizerEnabled = enabled
+        SmartContentCleaner.isContactSanitizerEnabled = enabled
+        _state.update { it.copy(isContactSanitizerEnabled = enabled) }
+    }
+
+    fun onToggleStripSenderEmojis(enabled: Boolean) {
+        sessionStore.isStripSenderEmojisEnabled = enabled
+        SmartContentCleaner.isStripSenderEmojisEnabled = enabled
+        _state.update { it.copy(isStripSenderEmojisEnabled = enabled) }
+    }
+
+    fun onToggleStripSenderBrackets(enabled: Boolean) {
+        sessionStore.isStripSenderBracketsEnabled = enabled
+        SmartContentCleaner.isStripSenderBracketsEnabled = enabled
+        _state.update { it.copy(isStripSenderBracketsEnabled = enabled) }
+    }
+
+    fun onSetAppCategory(packageName: String, category: AppCategory?) {
+        val choice = AppCategoryChoice.fromCategory(category)
+        viewModelScope.launch {
+            settingsRepository.update { current ->
+                AppSettingsEditor.setCategoryChoice(current, packageName, choice)
+            }
+        }
+    }
+
+    fun onResetAppCategory(packageName: String) {
+        viewModelScope.launch {
+            settingsRepository.update { current ->
+                AppSettingsEditor.setCategoryChoice(current, packageName, null)
+            }
+        }
     }
 
     fun onGroupingWindowChanged(millis: Long) {

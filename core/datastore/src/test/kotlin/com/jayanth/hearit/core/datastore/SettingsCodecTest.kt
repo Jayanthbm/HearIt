@@ -304,4 +304,28 @@ class SettingsCodecTest {
         assertFalse(decoded.security.biometricLockEnabled)
         assertFalse(decoded.security.secureScreenEnabled)
     }
+
+    @Test
+    fun appCategoryOverrides_roundTripAndRespectDefaultFallback() {
+        val settings = HearItSettings(
+            appOverrides = mapOf(
+                "com.google.android.gm" to AppOverride(
+                    categoryOverride = com.jayanth.hearit.core.common.model.AppCategoryChoice.NONE,
+                ),
+                "com.custom.mail" to AppOverride(
+                    categoryOverride = com.jayanth.hearit.core.common.model.AppCategoryChoice.EMAIL,
+                ),
+            ),
+        )
+        val decoded = roundTrip(settings)
+        assertNull(decoded.categoryFor("com.google.android.gm"))
+        assertEquals(
+            com.jayanth.hearit.core.common.model.AppCategory.EMAIL,
+            decoded.categoryFor("com.custom.mail"),
+        )
+        assertEquals(
+            com.jayanth.hearit.core.common.model.AppCategory.MESSAGING,
+            decoded.categoryFor("com.whatsapp"),
+        )
+    }
 }

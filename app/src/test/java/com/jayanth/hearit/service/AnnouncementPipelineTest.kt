@@ -284,4 +284,34 @@ class AnnouncementPipelineTest {
         assertEquals(0, pipeline.heldCount)
         assertEquals(1, pipeline.pendingCount)
     }
+
+    @Test
+    fun onNotification_suppressedByIntelligence_skipsWithoutSpeaking() {
+        com.jayanth.hearit.core.tts.SmartContentCleaner.isReactionFilterEnabled = true
+        com.jayanth.hearit.core.tts.SmartContentCleaner.reactionFilterMode =
+            com.jayanth.hearit.core.common.model.ReactionFilterMode.SILENCE
+        try {
+            val recorded = mutableListOf<AnnouncementPipeline.HistoryRecord>()
+            val pipeline = AnnouncementPipeline(newQueue(), onRecord = { recorded += it })
+
+            val processed = pipeline.onNotification(
+                snapshot(messageText = "Liked a photo"),
+                enabled,
+                state(),
+            )
+
+            assertEquals(
+                EligibilityDecision.Skip(com.jayanth.hearit.core.common.model.SkipReason.SUPPRESSED_INTELLIGENCE),
+                processed.decision,
+            )
+            assertEquals(0, pipeline.pendingCount)
+            assertEquals(
+                com.jayanth.hearit.core.common.model.SkipReason.SUPPRESSED_INTELLIGENCE,
+                recorded.single().reason,
+            )
+        } finally {
+            com.jayanth.hearit.core.tts.SmartContentCleaner.reactionFilterMode =
+                com.jayanth.hearit.core.common.model.ReactionFilterMode.CONDENSE
+        }
+    }
 }
