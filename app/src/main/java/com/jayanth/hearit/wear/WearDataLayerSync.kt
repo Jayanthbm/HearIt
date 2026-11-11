@@ -177,8 +177,7 @@ object WearDataLayerSync {
                 prefs.edit().putLong(KEY_LAST_SYNC, now).apply()
 
                 if (nodes.isNotEmpty()) {
-                    val names = nodes.joinToString { it.displayName }
-                    callback(true, "Synced ${watchApps.size}/4 watch apps to $names")
+                    callback(true, "Synced ${watchApps.size}/4 watch apps")
                 } else if (dataSaved) {
                     callback(true, "Saved ${watchApps.size}/4 watch apps — auto-syncs when watch connects")
                 } else {

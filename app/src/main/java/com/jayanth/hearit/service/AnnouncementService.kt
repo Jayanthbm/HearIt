@@ -16,6 +16,7 @@ import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
 import android.media.AudioFocusRequest
 import android.media.AudioManager
+import android.media.AudioPlaybackConfiguration
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
@@ -23,9 +24,10 @@ import android.os.Looper
 import android.os.SystemClock
 import com.jayanth.hearit.core.common.logger.HearItLogger
 import com.jayanth.hearit.core.common.logger.LogCategory
+import com.jayanth.hearit.core.common.model.AppPriority
 import com.jayanth.hearit.core.common.model.AudioOutputKind
-import com.jayanth.hearit.core.common.model.HeadsetButtonAction
 import com.jayanth.hearit.core.common.model.HistoryStatus
+import com.jayanth.hearit.core.common.model.NavigationPriorityDetector
 import com.jayanth.hearit.core.common.model.NotificationSnapshot
 import com.jayanth.hearit.core.common.model.SkipReason
 import com.jayanth.hearit.core.common.time.Clock
@@ -37,6 +39,7 @@ import com.jayanth.hearit.core.notifications.NotificationRelay
 import com.jayanth.hearit.core.notifications.NotificationSink
 import com.jayanth.hearit.core.queue.AnnouncementQueue
 import com.jayanth.hearit.core.queue.DeviceAudioState
+import com.jayanth.hearit.core.rules.EligibilityDecision
 import com.jayanth.hearit.core.tts.BuiltAnnouncement
 import com.jayanth.hearit.core.tts.TextToSpeechEngine
 import com.jayanth.hearit.core.tts.TtsError
@@ -131,7 +134,16 @@ class AnnouncementService : Service(), NotificationSink {
     private var pendingAbandonFocusRequest: AudioFocusRequest? = null
     private var savedMusicVolumeIndex: Int? = null
     private var isPausedMidUtterance: Boolean = false
-    private lateinit var headsetMediaController: HeadsetMediaSessionController
+
+    @Volatile
+    private var isNavigationAudioActive: Boolean = false
+    private var lastNavigationAudioEndedElapsed: Long = 0L
+
+    private val resumeAfterNavRunnable = Runnable {
+        if (::sessionStore.isInitialized && sessionStore.isStarted) {
+            tickOnce()
+        }
+    }
 
     private val abandonFocusRunnable = Runnable {
         restoreSavedMusicVolume()
@@ -139,17 +151,70 @@ class AnnouncementService : Service(), NotificationSink {
         pendingAbandonFocusRequest = null
     }
 
+    private val playbackCallback = object : AudioManager.AudioPlaybackCallback() {
+        override fun onPlaybackConfigChanged(configs: MutableList<AudioPlaybackConfiguration>?) {
+            handler.post {
+                val navPlayingNow = configs.orEmpty().any { cfg ->
+                    cfg.audioAttributes.usage == AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE
+                }
+                val wasNavPlaying = isNavigationAudioActive
+                isNavigationAudioActive = navPlayingNow
+                if (navPlayingNow && !wasNavPlaying && ::sessionStore.isInitialized && sessionStore.isNavigationYieldEnabled) {
+                    HearItLogger.info(
+                        LogCategory.SERVICE,
+                        "Navigation voice guidance active; yielding active announcement",
+                    )
+                    yieldForNavigationAudio()
+                } else if (!navPlayingNow && wasNavPlaying) {
+                    lastNavigationAudioEndedElapsed = SystemClock.elapsedRealtime()
+                    if (::sessionStore.isInitialized && sessionStore.isNavigationYieldEnabled) {
+                        handler.removeCallbacks(resumeAfterNavRunnable)
+                        handler.postDelayed(
+                            resumeAfterNavRunnable,
+                            sessionStore.navigationYieldSettleDelayMs.coerceAtLeast(500L),
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     /**
-     * Another app taking focus away ends the utterance: HearIt never talks over a caller
-     * or a competing player. Losing focus *transiently while ducking* is our own request
-     * working as intended, so it is ignored.
+     * Another app taking focus away stops or yields HearIt's utterance cleanly. When Navigation
+     * Yield is enabled, transient interrupts (including `AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK` from
+     * turn-by-turn guidance) pause/defer the notification instead of discarding it so it re-announces
+     * once guidance completes.
      */
     private val audioFocusListener = AudioManager.OnAudioFocusChangeListener { change ->
         handler.post {
-            if (currentAction == null) return@post
             when (change) {
-                AudioManager.AUDIOFOCUS_LOSS,
-                AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> engine.stop()
+                AudioManager.AUDIOFOCUS_LOSS -> {
+                    if (currentAction != null) engine.stop()
+                }
+                AudioManager.AUDIOFOCUS_LOSS_TRANSIENT,
+                AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
+                    val hasYield = ::sessionStore.isInitialized && sessionStore.isNavigationYieldEnabled
+                    if (hasYield && (currentAction != null || preparingAction != null) && !isSpeakingNavigation()) {
+                        lastNavigationAudioEndedElapsed = SystemClock.elapsedRealtime()
+                        yieldForNavigationAudio()
+                        handler.removeCallbacks(resumeAfterNavRunnable)
+                        handler.postDelayed(
+                            resumeAfterNavRunnable,
+                            sessionStore.navigationYieldSettleDelayMs.coerceAtLeast(500L),
+                        )
+                    } else if (change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT && currentAction != null) {
+                        engine.stop()
+                    }
+                }
+                AudioManager.AUDIOFOCUS_GAIN -> {
+                    if (::sessionStore.isInitialized && sessionStore.isNavigationYieldEnabled && !isNavigationAudioActive) {
+                        handler.removeCallbacks(resumeAfterNavRunnable)
+                        handler.postDelayed(
+                            resumeAfterNavRunnable,
+                            sessionStore.navigationYieldSettleDelayMs.coerceAtLeast(0L),
+                        )
+                    }
+                }
                 else -> Unit
             }
         }
@@ -358,9 +423,7 @@ class AnnouncementService : Service(), NotificationSink {
             registerReceiver(volumeReceiver, filter)
         } catch (_: Throwable) {}
         HearItNotificationListenerService.requestRebindIfDisconnected(this)
-        headsetMediaController = HeadsetMediaSessionController(this, sessionStore) { buttonAction ->
-            handleHeadsetButtonAction(buttonAction)
-        }
+        audioManager.registerAudioPlaybackCallback(playbackCallback, handler)
 
         HearItLogger.info(LogCategory.SERVICE, "AnnouncementService created")
     }
@@ -479,15 +542,34 @@ class AnnouncementService : Service(), NotificationSink {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onPosted(snapshot: NotificationSnapshot) {
-        pipeline.onNotification(
-            snapshot = snapshot,
-            settings = settingsSource.forApp(snapshot.packageName),
-            state = currentState(),
-            priority = settingsSource.priorityFor(snapshot.packageName),
-            isSpamCooldownEnabled = sessionStore.isSpamCooldownEnabled,
-            spamCooldownMaxMessages = sessionStore.spamCooldownMaxMessages,
-            spamCooldownWindowMs = sessionStore.spamCooldownWindowMs,
-        )
+        handler.post {
+            val isNavNotification = sessionStore.isNavigationYieldEnabled &&
+                NavigationPriorityDetector.isNavigationNotification(snapshot)
+            val effectivePriority = if (isNavNotification) {
+                AppPriority.CRITICAL
+            } else {
+                settingsSource.priorityFor(snapshot.packageName)
+            }
+            val processed = pipeline.onNotification(
+                snapshot = snapshot,
+                settings = settingsSource.forApp(snapshot.packageName),
+                state = currentState(),
+                priority = effectivePriority,
+                isSpamCooldownEnabled = sessionStore.isSpamCooldownEnabled,
+                spamCooldownMaxMessages = sessionStore.spamCooldownMaxMessages,
+                spamCooldownWindowMs = sessionStore.spamCooldownWindowMs,
+            )
+            if (isNavNotification && processed.decision is EligibilityDecision.Announce) {
+                val shouldPreemptSpeaking = currentAction != null && !isSpeakingNavigation()
+                val shouldPreemptPreparing = preparingAction?.spokenItems?.any {
+                    NavigationPriorityDetector.isNavigationNotification(it)
+                } == false
+                if (shouldPreemptSpeaking || shouldPreemptPreparing) {
+                    yieldForNavigationAudio()
+                    tickOnce()
+                }
+            }
+        }
     }
 
     override fun onRemoved(key: String) {
@@ -500,12 +582,12 @@ class AnnouncementService : Service(), NotificationSink {
         serviceScope.cancel()
         handler.removeCallbacksAndMessages(null)
         audioManager.unregisterAudioDeviceCallback(audioDeviceCallback)
+        audioManager.unregisterAudioPlaybackCallback(playbackCallback)
         try {
             unregisterReceiver(volumeReceiver)
         } catch (_: Throwable) {}
         (getSystemService(Context.SENSOR_SERVICE) as? SensorManager)?.unregisterListener(sensorEventListener)
         NotificationRelay.sink = null
-        headsetMediaController.release()
         abandonAudioFocus(immediate = true)
         engine.shutdown()
         HearItLogger.info(LogCategory.SERVICE, "AnnouncementService destroyed")
@@ -612,35 +694,62 @@ class AnnouncementService : Service(), NotificationSink {
         }
     }
 
-    private fun handleHeadsetButtonAction(action: HeadsetButtonAction) {
-        when (action) {
-            HeadsetButtonAction.PAUSE_RESUME -> {
-                if (currentAction != null) {
-                    isPausedMidUtterance = true
-                    engine.stop()
-                } else if (isPausedMidUtterance && lastAction != null) {
-                    isPausedMidUtterance = false
-                    lastAction?.let { speak(it) }
+    private fun isSpeakingNavigation(): Boolean {
+        val active = currentAction ?: return false
+        return active.spokenItems.any { NavigationPriorityDetector.isNavigationNotification(it) }
+    }
+
+    private fun shouldHoldForNavigationGuidance(): Boolean {
+        val activeNavPlayback = runCatching {
+            audioManager.activePlaybackConfigurations.any { cfg ->
+                cfg.audioAttributes.usage == AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE
+            }
+        }.getOrDefault(isNavigationAudioActive)
+
+        if (activeNavPlayback) {
+            isNavigationAudioActive = true
+            return true
+        }
+        if (isNavigationAudioActive) {
+            isNavigationAudioActive = false
+            lastNavigationAudioEndedElapsed = SystemClock.elapsedRealtime()
+        }
+        val endedAt = lastNavigationAudioEndedElapsed
+        return endedAt > 0L && (SystemClock.elapsedRealtime() - endedAt < sessionStore.navigationYieldSettleDelayMs)
+    }
+
+    private fun yieldForNavigationAudio() {
+        val prep = preparingAction
+        if (prep != null) {
+            val prepIsNav = prep.spokenItems.any { NavigationPriorityDetector.isNavigationNotification(it) }
+            if (!prepIsNav) {
+                preparingAction = null
+                if (sessionStore.isReannounceAfterNavigationEnabled) {
+                    pipeline.deferActiveSpeechForNavigation()
+                } else {
+                    pipeline.onSpeechFinished(spoken = false)
                 }
-                publishStatus()
             }
-            HeadsetButtonAction.SKIP -> {
-                isPausedMidUtterance = false
-                currentAction?.let { finishSpeech(it, spoken = false) }
-                pipeline.tick(
-                    state = currentState(),
-                    settingsOf = { packageName -> settingsSource.forApp(packageName) },
-                    announcementFormat = settingsSource.format(),
-                )?.let { speak(it) }
-                publishStatus()
-            }
-            HeadsetButtonAction.REPEAT -> {
-                isPausedMidUtterance = false
-                val target = currentAction ?: lastAction
-                target?.let { speak(it) }
-                publishStatus()
-            }
-            HeadsetButtonAction.NONE -> Unit
+        }
+        val active = currentAction ?: return
+        if (active.spokenItems.any { NavigationPriorityDetector.isNavigationNotification(it) }) {
+            return
+        }
+        if (sessionStore.isReannounceAfterNavigationEnabled) {
+            // Clear currentAction before engine.stop() so UtteranceListener.onError -> finishSpeech
+            // does not mark the yielded notification INTERRUPTED or drop it from history/queue.
+            currentAction = null
+            isPausedMidUtterance = false
+            pipeline.deferActiveSpeechForNavigation()
+            abandonAudioFocus(immediate = true)
+            engine.stop()
+            HearItLogger.info(
+                LogCategory.TTS,
+                "Yielded active announcement (${active.selection.packageName}) for navigation guidance",
+            )
+            publishStatus()
+        } else {
+            engine.stop()
         }
     }
 
@@ -710,6 +819,11 @@ class AnnouncementService : Service(), NotificationSink {
                 pipeline.onStateChanged(state) { packageName -> settingsSource.forApp(packageName) }
                     .forEach { action -> if (action is AnnouncementPipeline.Action.StopSpeech) engine.stop() }
             }
+            publishStatus()
+            return
+        }
+
+        if (sessionStore.isNavigationYieldEnabled && shouldHoldForNavigationGuidance()) {
             publishStatus()
             return
         }
@@ -971,12 +1085,6 @@ class AnnouncementService : Service(), NotificationSink {
      * announcements wait, never what they say (master prompt §17).
      */
     private fun publishStatus() {
-        if (::headsetMediaController.isInitialized) {
-            headsetMediaController.updateState(
-                isSpeaking = pipeline.isSpeaking,
-                isPausedMidUtterance = isPausedMidUtterance,
-            )
-        }
         serviceStatus.updateSpeech(
             isSpeaking = pipeline.isSpeaking,
             pendingCount = pipeline.pendingCount,

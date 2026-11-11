@@ -43,8 +43,9 @@ data class AudioPolishCallbacks(
     val onEarconDurationChanged: (Int) -> Unit = {},
     val onAntiCollisionDelayChanged: (Long) -> Unit = {},
     val onToggleAdaptiveSpeed: (Boolean) -> Unit = {},
-    val onAdaptiveSpeedWordThresholdChanged: (Int) -> Unit = {},
-    val onAdaptiveSpeedMultiplierChanged: (Float) -> Unit = {},
+    val onAdaptiveSpeedTier1Changed: (Float) -> Unit = {},
+    val onAdaptiveSpeedTier2Changed: (Float) -> Unit = {},
+    val onAdaptiveSpeedTier3Changed: (Float) -> Unit = {},
     val onToggleMonoFoldDown: (Boolean) -> Unit = {},
     val onToggleVoiceBoost: (Boolean) -> Unit = {},
     val onVoiceBoostPercentChanged: (Int) -> Unit = {},
@@ -59,8 +60,9 @@ data class AudioPolishCallbacks(
             onEarconDurationChanged = viewModel::onEarconDurationChanged,
             onAntiCollisionDelayChanged = viewModel::onAntiCollisionDelayChanged,
             onToggleAdaptiveSpeed = viewModel::onToggleAdaptiveSpeed,
-            onAdaptiveSpeedWordThresholdChanged = viewModel::onAdaptiveSpeedWordThresholdChanged,
-            onAdaptiveSpeedMultiplierChanged = viewModel::onAdaptiveSpeedMultiplierChanged,
+            onAdaptiveSpeedTier1Changed = viewModel::onAdaptiveSpeedTier1Changed,
+            onAdaptiveSpeedTier2Changed = viewModel::onAdaptiveSpeedTier2Changed,
+            onAdaptiveSpeedTier3Changed = viewModel::onAdaptiveSpeedTier3Changed,
             onToggleMonoFoldDown = viewModel::onToggleMonoFoldDown,
             onToggleVoiceBoost = viewModel::onToggleVoiceBoost,
             onVoiceBoostPercentChanged = viewModel::onVoiceBoostPercentChanged,
@@ -189,24 +191,70 @@ internal fun PersistedSmartAudioPolishCard(
                 // 3. Adaptive Speech Speed (#18)
                 PolishSwitchRow(
                     title = "Adaptive Speed for Long Messages",
-                    subtitle = "Automatically speeds up messages longer than threshold words",
+                    subtitle = "Automatically scales reading speed across word-count brackets",
                     checked = state.isAdaptiveSpeedEnabled,
                     onCheckedChange = callbacks.onToggleAdaptiveSpeed,
                 )
                 if (state.isAdaptiveSpeedEnabled) {
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf(20, 30, 50).forEach { words ->
-                            FilterChip(
-                                selected = state.adaptiveSpeedWordThreshold == words,
-                                onClick = { callbacks.onAdaptiveSpeedWordThresholdChanged(words) },
-                                label = { Text(">$words words") },
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = "Under 20 words",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Text(
+                                    text = "Base speed (${AdaptiveSpeedCalculator.formatMultiplier(state.speech.speechRate)})",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                            AdaptiveSpeedTierControl(
+                                bracketLabel = "20 – 30 words",
+                                baseRate = state.speech.speechRate,
+                                wordSample = 25,
+                                selectedMultiplier = state.adaptiveSpeedTier1Multiplier,
+                                options = listOf(1.0f to "1.0×", 1.1f to "1.1×", 1.15f to "1.15×", 1.25f to "1.25×"),
+                                onSelect = callbacks.onAdaptiveSpeedTier1Changed,
                             )
-                        }
-                        listOf(1.15f to "1.15×", 1.25f to "1.25×", 1.5f to "1.5×").forEach { (mult, label) ->
-                            FilterChip(
-                                selected = kotlin.math.abs(state.adaptiveSpeedMultiplier - mult) < 0.02f,
-                                onClick = { callbacks.onAdaptiveSpeedMultiplierChanged(mult) },
-                                label = { Text(label) },
+
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                            AdaptiveSpeedTierControl(
+                                bracketLabel = "30 – 40 words",
+                                baseRate = state.speech.speechRate,
+                                wordSample = 35,
+                                selectedMultiplier = state.adaptiveSpeedTier2Multiplier,
+                                options = listOf(1.15f to "1.15×", 1.25f to "1.25×", 1.35f to "1.35×", 1.5f to "1.5×"),
+                                onSelect = callbacks.onAdaptiveSpeedTier2Changed,
+                            )
+
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                            AdaptiveSpeedTierControl(
+                                bracketLabel = "Over 40 words",
+                                baseRate = state.speech.speechRate,
+                                wordSample = 50,
+                                selectedMultiplier = state.adaptiveSpeedTier3Multiplier,
+                                options = listOf(1.25f to "1.25×", 1.4f to "1.4×", 1.5f to "1.5×", 1.75f to "1.75×"),
+                                onSelect = callbacks.onAdaptiveSpeedTier3Changed,
                             )
                         }
                     }
@@ -306,5 +354,62 @@ private fun PolishSwitchRow(
             )
         }
         Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+@Composable
+private fun AdaptiveSpeedTierControl(
+    bracketLabel: String,
+    baseRate: Float,
+    wordSample: Int,
+    selectedMultiplier: Float,
+    options: List<Pair<Float, String>>,
+    onSelect: (Float) -> Unit,
+) {
+    val effectiveRate = AdaptiveSpeedCalculator.resolveRate(
+        baseRate = baseRate,
+        wordCount = wordSample,
+        enabled = true,
+        tier1Multiplier = selectedMultiplier,
+        tier2Multiplier = selectedMultiplier,
+        tier3Multiplier = selectedMultiplier,
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = bracketLabel,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = "Speaks at ${AdaptiveSpeedCalculator.formatMultiplier(effectiveRate)}",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            options.forEachIndexed { index, (multiplier, label) ->
+                val isSelected = kotlin.math.abs(selectedMultiplier - multiplier) < 0.02f
+                SegmentedButton(
+                    selected = isSelected,
+                    onClick = { onSelect(multiplier) },
+                    shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
+                ) {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                        maxLines = 1,
+                        softWrap = false,
+                    )
+                }
+            }
+        }
     }
 }

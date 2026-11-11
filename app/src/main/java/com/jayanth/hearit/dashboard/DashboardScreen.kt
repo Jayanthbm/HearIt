@@ -1199,7 +1199,7 @@ private fun DashboardHome(
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = "Smart NLP cleaning, gestures & watch sync",
+                                text = "NLP text cleaning & AI rules",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 11.sp,
@@ -1242,9 +1242,9 @@ private fun DashboardHome(
                 ) {
                     listOf(
                         Triple(Icons.Rounded.AutoAwesome, "NLP", MaterialTheme.colorScheme.primary),
-                        Triple(Icons.Rounded.GraphicEq, "Gestures", MaterialTheme.colorScheme.primary),
-                        Triple(Icons.Rounded.NotificationsOff, "Dismiss", MaterialTheme.colorScheme.primary),
-                        Triple(Icons.Rounded.DevicesOther, "Wear OS", MaterialTheme.colorScheme.primary),
+                        Triple(Icons.Rounded.RecordVoiceOver, "Dict", MaterialTheme.colorScheme.primary),
+                        Triple(Icons.Rounded.GraphicEq, "Filter", MaterialTheme.colorScheme.primary),
+                        Triple(Icons.Rounded.Apps, "AI", MaterialTheme.colorScheme.primary),
                     ).forEach { (icon, label, tint) ->
                         Surface(
                             shape = RoundedCornerShape(10.dp),
@@ -2110,21 +2110,21 @@ private fun SettingsHubScreen(
                     SettingsHubRow(
                         icon = Icons.Rounded.Headphones,
                         title = "Devices & Audio Routing",
-                        subtitle = "Bluetooth, wired, and speaker routing",
+                        subtitle = "Bluetooth, wired, speaker & Wear OS watch",
                         onClick = { onSelectDestination(DashboardDestination.DEVICES) },
                     )
                     SettingsHubDivider()
                     SettingsHubRow(
                         icon = Icons.Rounded.RecordVoiceOver,
                         title = "Voice & Speech Engine",
-                        subtitle = "Speed, pitch, voices, and spoken format",
+                        subtitle = "Speed brackets, pitch, voices, boost & earcon",
                         onClick = { onSelectDestination(DashboardDestination.VOICE_SPEECH) },
                     )
                     SettingsHubDivider()
                     SettingsHubRow(
                         icon = Icons.AutoMirrored.Rounded.VolumeUp,
-                        title = "Audio Focus & Media",
-                        subtitle = "Ducking, media pausing, and message grouping",
+                        title = "Playback & Gestures",
+                        subtitle = "Audio focus, Maps yield, gestures, check-in & queue",
                         onClick = { onSelectDestination(DashboardDestination.PREFERENCES) },
                     )
                 }
@@ -2146,14 +2146,14 @@ private fun SettingsHubScreen(
                     SettingsHubRow(
                         icon = Icons.Rounded.Tune,
                         title = "Global Eligibility Rules",
-                        subtitle = "Screen, lock, OTP shield, character limit",
+                        subtitle = "Screen, lock, pocket detection, OTP shield & limits",
                         onClick = { onSelectDestination(DashboardDestination.GLOBAL_RULES) },
                     )
                     SettingsHubDivider()
                     SettingsHubRow(
                         icon = Icons.Rounded.AutoAwesome,
                         title = "Active Intelligence",
-                        subtitle = "Smart NLP cleaning, gestures, check-in, smartwatch",
+                        subtitle = "On-device AI, NLP text cleaning & app categories",
                         onClick = { onSelectDestination(DashboardDestination.ACTIVE_INTELLIGENCE) },
                     )
                     SettingsHubDivider()

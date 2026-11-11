@@ -41,8 +41,9 @@ class VoiceSpeechViewModel @Inject constructor(
             earconDurationMs = sessionStore.earconDurationMs,
             antiCollisionDelayMs = sessionStore.antiCollisionDelayMs,
             isAdaptiveSpeedEnabled = sessionStore.isAdaptiveSpeedEnabled,
-            adaptiveSpeedWordThreshold = sessionStore.adaptiveSpeedWordThreshold,
-            adaptiveSpeedMultiplier = sessionStore.adaptiveSpeedMultiplier,
+            adaptiveSpeedTier1Multiplier = sessionStore.adaptiveSpeedTier1Multiplier,
+            adaptiveSpeedTier2Multiplier = sessionStore.adaptiveSpeedTier2Multiplier,
+            adaptiveSpeedTier3Multiplier = sessionStore.adaptiveSpeedTier3Multiplier,
             isMonoFoldDownEnabled = sessionStore.isMonoFoldDownEnabled,
             isVoiceBoostEnabled = sessionStore.isVoiceBoostEnabled,
             voiceBoostPercent = sessionStore.voiceBoostPercent,
@@ -138,8 +139,9 @@ class VoiceSpeechViewModel @Inject constructor(
         sessionStore.earconDurationMs = 120
         sessionStore.antiCollisionDelayMs = 300L
         sessionStore.isAdaptiveSpeedEnabled = true
-        sessionStore.adaptiveSpeedWordThreshold = 30
-        sessionStore.adaptiveSpeedMultiplier = 1.25f
+        sessionStore.adaptiveSpeedTier1Multiplier = AdaptiveSpeedCalculator.DEFAULT_TIER_1_MULTIPLIER
+        sessionStore.adaptiveSpeedTier2Multiplier = AdaptiveSpeedCalculator.DEFAULT_TIER_2_MULTIPLIER
+        sessionStore.adaptiveSpeedTier3Multiplier = AdaptiveSpeedCalculator.DEFAULT_TIER_3_MULTIPLIER
         sessionStore.isMonoFoldDownEnabled = true
         sessionStore.isVoiceBoostEnabled = false
         sessionStore.voiceBoostPercent = 20
@@ -152,8 +154,9 @@ class VoiceSpeechViewModel @Inject constructor(
                 earconDurationMs = 120,
                 antiCollisionDelayMs = 300L,
                 isAdaptiveSpeedEnabled = true,
-                adaptiveSpeedWordThreshold = 30,
-                adaptiveSpeedMultiplier = 1.25f,
+                adaptiveSpeedTier1Multiplier = AdaptiveSpeedCalculator.DEFAULT_TIER_1_MULTIPLIER,
+                adaptiveSpeedTier2Multiplier = AdaptiveSpeedCalculator.DEFAULT_TIER_2_MULTIPLIER,
+                adaptiveSpeedTier3Multiplier = AdaptiveSpeedCalculator.DEFAULT_TIER_3_MULTIPLIER,
                 isMonoFoldDownEnabled = true,
                 isVoiceBoostEnabled = false,
                 voiceBoostPercent = 20,
@@ -243,14 +246,19 @@ class VoiceSpeechViewModel @Inject constructor(
         _state.update { it.copy(isAdaptiveSpeedEnabled = enabled) }
     }
 
-    fun onAdaptiveSpeedWordThresholdChanged(words: Int) {
-        sessionStore.adaptiveSpeedWordThreshold = words
-        _state.update { it.copy(adaptiveSpeedWordThreshold = words) }
+    fun onAdaptiveSpeedTier1Changed(multiplier: Float) {
+        sessionStore.adaptiveSpeedTier1Multiplier = multiplier
+        _state.update { it.copy(adaptiveSpeedTier1Multiplier = multiplier) }
     }
 
-    fun onAdaptiveSpeedMultiplierChanged(multiplier: Float) {
-        sessionStore.adaptiveSpeedMultiplier = multiplier
-        _state.update { it.copy(adaptiveSpeedMultiplier = multiplier) }
+    fun onAdaptiveSpeedTier2Changed(multiplier: Float) {
+        sessionStore.adaptiveSpeedTier2Multiplier = multiplier
+        _state.update { it.copy(adaptiveSpeedTier2Multiplier = multiplier) }
+    }
+
+    fun onAdaptiveSpeedTier3Changed(multiplier: Float) {
+        sessionStore.adaptiveSpeedTier3Multiplier = multiplier
+        _state.update { it.copy(adaptiveSpeedTier3Multiplier = multiplier) }
     }
 
     fun onToggleMonoFoldDown(enabled: Boolean) {

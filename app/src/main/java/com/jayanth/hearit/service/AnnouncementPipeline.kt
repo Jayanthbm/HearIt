@@ -4,6 +4,7 @@ import com.jayanth.hearit.core.common.logger.HearItLogger
 import com.jayanth.hearit.core.common.logger.LogCategory
 import com.jayanth.hearit.core.common.model.AppPriority
 import com.jayanth.hearit.core.common.model.HistoryStatus
+import com.jayanth.hearit.core.common.model.NavigationPriorityDetector
 import com.jayanth.hearit.core.common.model.NotificationSnapshot
 import com.jayanth.hearit.core.common.model.ResolvedSettings
 import com.jayanth.hearit.core.common.model.RuntimeState
@@ -386,6 +387,24 @@ class AnnouncementPipeline(
         }
         return events
     }
+
+    /**
+     * Pauses and defers the active speech back to the pending queue so higher-priority
+     * Maps/navigation audio or alerts can speak first, then resumes the deferred notification.
+     *
+     * Does NOT record an `INTERRUPTED` history row and clears rapid same-app dedup so the
+     * deferred notification speaks with its full introduction when resumed.
+     */
+    fun deferActiveSpeechForNavigation(): Int {
+        val deferred = active ?: return 0
+        active = null
+        lastAnnouncedPackage = null
+        return queue.requeueSpeaking(deferred.selection.id)
+    }
+
+    /** True when the currently speaking announcement is itself a navigation notification. */
+    fun isSpeakingNavigation(): Boolean =
+        active?.selection?.items?.any { NavigationPriorityDetector.isNavigationNotification(it) } == true
 
     /**
      * Maps one queue event to the history fact to store.

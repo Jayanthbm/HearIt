@@ -16,6 +16,7 @@ import com.jayanth.hearit.core.tts.TtsError
 import com.jayanth.hearit.core.tts.TtsErrorCode
 import com.jayanth.hearit.core.tts.TtsVoice
 import com.jayanth.hearit.core.tts.UtteranceListener
+import com.jayanth.hearit.voicespeech.AdaptiveSpeedCalculator
 import java.util.Locale
 
 /**
@@ -105,17 +106,15 @@ class AndroidTextToSpeechEngine(context: Context) : TextToSpeechEngine {
             return true
         }
 
-        val totalWords = announcement.sections.sumOf {
-            it.text.split(Regex("\\s+")).count { word -> word.isNotBlank() }
-        }
-        val effectiveRate = if (
-            sessionStore.isAdaptiveSpeedEnabled &&
-            totalWords > sessionStore.adaptiveSpeedWordThreshold
-        ) {
-            (settings.speechRate * sessionStore.adaptiveSpeedMultiplier).coerceAtMost(2.5f)
-        } else {
-            settings.speechRate
-        }
+        val totalWords = AdaptiveSpeedCalculator.countWords(announcement.sections.map { it.text })
+        val effectiveRate = AdaptiveSpeedCalculator.resolveRate(
+            baseRate = settings.speechRate,
+            wordCount = totalWords,
+            enabled = sessionStore.isAdaptiveSpeedEnabled,
+            tier1Multiplier = sessionStore.adaptiveSpeedTier1Multiplier,
+            tier2Multiplier = sessionStore.adaptiveSpeedTier2Multiplier,
+            tier3Multiplier = sessionStore.adaptiveSpeedTier3Multiplier,
+        )
         tts.setSpeechRate(effectiveRate)
         tts.setPitch(settings.pitch)
         applyVoice(tts, settings.voiceId)

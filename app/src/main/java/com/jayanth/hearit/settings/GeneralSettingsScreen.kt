@@ -249,7 +249,13 @@ fun GeneralSettingsScreen(
             onToggleBluetoothAutoStart = onToggleBluetoothAutoStart,
         )
 
-        // Section 0B: Periodic Spoken Check-in Card (Idea 43)
+        // Section 0B: Timing, Catch-Up & Cooldown Automation (#19, #22)
+        com.jayanth.hearit.intelligence.AutomaticBehaviorAndCatchUpCard(
+            state = state,
+            actions = intelligenceActions,
+        )
+
+        // Section 0C: Periodic Spoken Check-in Card (Idea 43)
         PeriodicCheckinCard(
             isEnabled = state.isPeriodicCheckinEnabled,
             intervalMinutes = state.periodicCheckinIntervalMinutes,
@@ -265,18 +271,7 @@ fun GeneralSettingsScreen(
             onToggleSummary = intelligenceActions.onTogglePeriodicCheckinSummary,
         )
 
-        // Section 0C: Smart Content Cleaning (NLP) & Category Intelligence
-        com.jayanth.hearit.intelligence.SmartContentCleaningCard(
-            state = state,
-            actions = intelligenceActions,
-        )
-
-        com.jayanth.hearit.intelligence.CategoryIntelligenceCard(
-            state = state,
-            actions = intelligenceActions,
-        )
-
-        // Section 1: Audio Focus Card
+        // Section 1: Audio Focus & Maps Navigation Yield
         AudioFocusCard(
             selectedPolicy = state.audioFocus,
             onPolicySelected = onAudioFocusPolicyChanged,
@@ -333,9 +328,6 @@ fun GeneralSettingsScreen(
             onToggleBiometric = onToggleBiometric,
             onToggleSecureScreen = onToggleSecureScreen,
         )
-
-        // Section 8: Wear OS Companion Smartwatch (Item 5.1)
-        com.jayanth.hearit.devices.WearOsCompanionCard()
 
         val hasQueueChanges = state.queue != com.jayanth.hearit.core.common.model.QueueSettings() ||
             state.audioFocus != AudioFocusPolicy.DUCK
@@ -612,6 +604,79 @@ private fun AudioFocusCard(
                         FilterChip(
                             selected = state.audioFocusReturnDelayMs == delay,
                             onClick = { intelligenceActions.onAudioFocusReturnDelayChanged(delay) },
+                            label = { Text(label) },
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                    Text(
+                        text = "Yield to Maps & Navigation Voice",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = "Pauses active notifications immediately when turn-by-turn guidance or Maps alerts play",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = state.isNavigationYieldEnabled,
+                    onCheckedChange = intelligenceActions.onToggleNavigationYield,
+                )
+            }
+
+            if (state.isNavigationYieldEnabled) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                        Text(
+                            text = "Re-announce Paused Notification Afterward",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                        )
+                        Text(
+                            text = "Queues paused notification and speaks it again after navigation guidance finishes",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(
+                        checked = state.isReannounceAfterNavigationEnabled,
+                        onCheckedChange = intelligenceActions.onToggleReannounceAfterNavigation,
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Resume Delay After Turn Guidance",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(
+                        1_000L to "1s Smooth",
+                        2_000L to "2s Balanced",
+                        3_000L to "3s Extra",
+                    ).forEach { (delayMs, label) ->
+                        FilterChip(
+                            selected = state.navigationYieldSettleDelayMs == delayMs,
+                            onClick = { intelligenceActions.onNavigationYieldSettleDelayChanged(delayMs) },
                             label = { Text(label) },
                         )
                     }
@@ -1624,79 +1689,6 @@ internal fun GesturesAndControlsCard(
                 Switch(
                     checked = state.isBluetoothAutoOnlyAllowedEnabled,
                     onCheckedChange = intelligenceActions.onToggleBluetoothAutoOnlyAllowed,
-                )
-            }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-            // Bluetooth Headset Button Controls (#1 MediaSession)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                    Text(
-                        text = "Bluetooth Headset Button Controls",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        text = "Pause, skip, or repeat via headset buttons only while HearIt speaks",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Switch(
-                    checked = state.isHeadsetMediaControlsEnabled,
-                    onCheckedChange = intelligenceActions.onToggleHeadsetMediaControls,
-                )
-            }
-            if (state.isHeadsetMediaControlsEnabled) {
-                HeadsetTapMappingRow(
-                    tapLabel = "1× Tap",
-                    selected = state.headsetSinglePressAction,
-                    onSelect = intelligenceActions.onHeadsetSinglePressActionChanged,
-                )
-                HeadsetTapMappingRow(
-                    tapLabel = "2× Tap / Next",
-                    selected = state.headsetDoublePressAction,
-                    onSelect = intelligenceActions.onHeadsetDoublePressActionChanged,
-                )
-                HeadsetTapMappingRow(
-                    tapLabel = "3× Tap / Prev",
-                    selected = state.headsetTriplePressAction,
-                    onSelect = intelligenceActions.onHeadsetTriplePressActionChanged,
-                )
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun HeadsetTapMappingRow(
-    tapLabel: String,
-    selected: com.jayanth.hearit.core.common.model.HeadsetButtonAction,
-    onSelect: (com.jayanth.hearit.core.common.model.HeadsetButtonAction) -> Unit,
-) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            text = tapLabel,
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            listOf(
-                com.jayanth.hearit.core.common.model.HeadsetButtonAction.PAUSE_RESUME to "Pause/Resume",
-                com.jayanth.hearit.core.common.model.HeadsetButtonAction.SKIP to "Skip",
-                com.jayanth.hearit.core.common.model.HeadsetButtonAction.REPEAT to "Repeat",
-                com.jayanth.hearit.core.common.model.HeadsetButtonAction.NONE to "Off",
-            ).forEach { (action, title) ->
-                FilterChip(
-                    selected = selected == action,
-                    onClick = { onSelect(action) },
-                    label = { Text(title, fontSize = 11.sp) },
                 )
             }
         }

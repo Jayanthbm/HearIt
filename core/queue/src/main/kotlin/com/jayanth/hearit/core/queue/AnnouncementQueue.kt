@@ -289,8 +289,9 @@ class AnnouncementQueue(
         )
     }
 
-    /** Snapshots of the group being spoken, reported as ANNOUNCED when it completes. */
+    /** Snapshots & entries of the group currently being spoken. */
     private var speakingItems: List<NotificationSnapshot> = emptyList()
+    private var speakingEntries: List<PendingItem> = emptyList()
 
     /**
      * Confirms the latest [pollReady] selection as the one being spoken: removes the group
@@ -312,6 +313,7 @@ class AnnouncementQueue(
 
         val events = sweepExpired()
         speakingId = id
+        speakingEntries = selection.second
         speakingItems = selection.second.map { it.snapshot }
         val now = clock.nowMillis()
         selection.second.forEach { item ->
@@ -320,6 +322,26 @@ class AnnouncementQueue(
         }
         lastSelection = null
         return events
+    }
+
+    /**
+     * Defers the currently speaking announcement back into [pending] so higher-priority
+     * navigation audio or alerts can speak immediately without recording `INTERRUPTED` or
+     * enforcing the inter-announcement cooldown gap.
+     */
+    fun requeueSpeaking(id: Long): Int {
+        if (speakingId != id || speakingEntries.isEmpty()) return 0
+        val entries = speakingEntries
+        speakingId = null
+        speakingEntries = emptyList()
+        speakingItems = emptyList()
+        entries.forEach { entry ->
+            announcedAt.remove(entry.snapshot.key)
+            if (pending.none { it.snapshot.key == entry.snapshot.key }) {
+                pending += entry
+            }
+        }
+        return entries.size
     }
 
     /**
@@ -334,6 +356,7 @@ class AnnouncementQueue(
         // The spoken group is reported as ANNOUNCED so history can record it; the sweep
         // events that follow keep reporting expiries that happened meanwhile.
         val announced = speakingItems.map { QueueEvent.Announced(it) }
+        speakingEntries = emptyList()
         speakingItems = emptyList()
         return announced + sweepExpired()
     }
@@ -450,6 +473,23 @@ class AnnouncementQueue(
             compareByDescending<PendingItem> { it.priority.rank }.thenBy { it.seq },
         ) ?: return BatchPollResult(events, null)
 
+        // Critical announcements (e.g. active navigation turn alerts) bypass the multi-app digest
+        // hold delay and announce immediately without being bundled with normal notifications.
+        if (first.priority == AppPriority.CRITICAL) {
+            val poll = pollReady()
+            val mapped = poll.announcement?.let { ann ->
+                ReadyBatch(
+                    id = ann.id,
+                    primaryPackageName = ann.packageName,
+                    appName = ann.appName,
+                    priority = ann.priority,
+                    items = ann.items,
+                    isMultiApp = false,
+                )
+            }
+            return BatchPollResult(events + poll.events, mapped)
+        }
+
         // Hold briefly inside digest window if fewer than maxMessages have arrived yet
         val digestEnd = first.enqueuedAt + digestWindowMillis.coerceAtLeast(0L)
         if (now < digestEnd && ready.size < settings.maxMessagesPerAnnouncement) {
@@ -458,7 +498,7 @@ class AnnouncementQueue(
 
         val group = ready
             .filter { it.enqueuedAt <= digestEnd }
-            .sortedBy { it.seq }
+            .sortedWith(compareByDescending<PendingItem> { it.priority.rank }.thenBy { it.seq })
             .take(settings.maxMessagesPerAnnouncement)
         if (group.isEmpty() || !canAnnounce) return BatchPollResult(events, null)
 

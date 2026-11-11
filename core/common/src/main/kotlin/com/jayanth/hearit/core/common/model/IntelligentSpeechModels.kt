@@ -120,14 +120,6 @@ enum class DigitGroupingStyle {
     CHUNKS_OF_3,
 }
 
-/** Action triggered by Bluetooth headset playback buttons via MediaSession. */
-enum class HeadsetButtonAction {
-    PAUSE_RESUME,
-    SKIP,
-    REPEAT,
-    NONE,
-}
-
 /** Built-in starter presets for active intelligence features. */
 object IntelligencePresets {
     val DEFAULT_PRONUNCIATION_RULES: List<PronunciationRule> = listOf(

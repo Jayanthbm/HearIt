@@ -12,7 +12,6 @@ import com.jayanth.hearit.core.common.model.AppCategoryChoice
 import com.jayanth.hearit.core.common.model.AudioFocusPolicy
 import com.jayanth.hearit.core.common.model.DigitGroupingStyle
 import com.jayanth.hearit.core.common.model.EligibilitySettings
-import com.jayanth.hearit.core.common.model.HeadsetButtonAction
 import com.jayanth.hearit.core.common.model.IntelligencePresets
 import com.jayanth.hearit.core.common.model.OverflowPolicy
 import com.jayanth.hearit.core.common.model.PronunciationRule
@@ -100,10 +99,9 @@ class GeneralSettingsViewModel @Inject constructor(
             isDuckingLevelControlEnabled = sessionStore.isDuckingLevelControlEnabled,
             duckingVolumePercent = sessionStore.duckingVolumePercent,
             audioFocusReturnDelayMs = sessionStore.audioFocusReturnDelayMs,
-            isHeadsetMediaControlsEnabled = sessionStore.isHeadsetMediaControlsEnabled,
-            headsetSinglePressAction = sessionStore.headsetSinglePressAction,
-            headsetDoublePressAction = sessionStore.headsetDoublePressAction,
-            headsetTriplePressAction = sessionStore.headsetTriplePressAction,
+            isNavigationYieldEnabled = sessionStore.isNavigationYieldEnabled,
+            isReannounceAfterNavigationEnabled = sessionStore.isReannounceAfterNavigationEnabled,
+            navigationYieldSettleDelayMs = sessionStore.navigationYieldSettleDelayMs,
             isAppNameDedupEnabled = sessionStore.isAppNameDedupEnabled,
             appNameDedupWindowMs = sessionStore.appNameDedupWindowMs,
             isDelayedTimestampTagEnabled = sessionStore.isDelayedTimestampTagEnabled,
@@ -501,24 +499,19 @@ class GeneralSettingsViewModel @Inject constructor(
         _state.update { it.copy(audioFocusReturnDelayMs = delayMs) }
     }
 
-    fun onToggleHeadsetMediaControls(enabled: Boolean) {
-        sessionStore.isHeadsetMediaControlsEnabled = enabled
-        _state.update { it.copy(isHeadsetMediaControlsEnabled = enabled) }
+    fun onToggleNavigationYield(enabled: Boolean) {
+        sessionStore.isNavigationYieldEnabled = enabled
+        _state.update { it.copy(isNavigationYieldEnabled = enabled) }
     }
 
-    fun onHeadsetSinglePressActionChanged(action: HeadsetButtonAction) {
-        sessionStore.headsetSinglePressAction = action
-        _state.update { it.copy(headsetSinglePressAction = action) }
+    fun onToggleReannounceAfterNavigation(enabled: Boolean) {
+        sessionStore.isReannounceAfterNavigationEnabled = enabled
+        _state.update { it.copy(isReannounceAfterNavigationEnabled = enabled) }
     }
 
-    fun onHeadsetDoublePressActionChanged(action: HeadsetButtonAction) {
-        sessionStore.headsetDoublePressAction = action
-        _state.update { it.copy(headsetDoublePressAction = action) }
-    }
-
-    fun onHeadsetTriplePressActionChanged(action: HeadsetButtonAction) {
-        sessionStore.headsetTriplePressAction = action
-        _state.update { it.copy(headsetTriplePressAction = action) }
+    fun onNavigationYieldSettleDelayChanged(delayMs: Long) {
+        sessionStore.navigationYieldSettleDelayMs = delayMs
+        _state.update { it.copy(navigationYieldSettleDelayMs = delayMs) }
     }
 
     fun onToggleAppNameDedup(enabled: Boolean) {

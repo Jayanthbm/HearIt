@@ -5,7 +5,6 @@ import com.jayanth.hearit.core.common.model.AppCategory
 import com.jayanth.hearit.core.common.model.AudioFocusPolicy
 import com.jayanth.hearit.core.common.model.DigitGroupingStyle
 import com.jayanth.hearit.core.common.model.EligibilitySettings
-import com.jayanth.hearit.core.common.model.HeadsetButtonAction
 import com.jayanth.hearit.core.common.model.IntelligencePresets
 import com.jayanth.hearit.core.common.model.PronunciationRule
 import com.jayanth.hearit.core.common.model.QueueSettings
@@ -57,15 +56,13 @@ data class GeneralSettingsUiState(
     val isStripSenderBracketsEnabled: Boolean = true,
     val installedApps: List<AppEntry> = emptyList(),
     val appCategories: Map<String, AppCategory?> = emptyMap(),
-    // Audio Ducking Level Control (#17)
+    // Audio Ducking Level Control (#17) & Maps Navigation Yield
     val isDuckingLevelControlEnabled: Boolean = true,
     val duckingVolumePercent: Int = 50,
     val audioFocusReturnDelayMs: Long = 500L,
-    // Bluetooth Headset MediaSession Controls (#1)
-    val isHeadsetMediaControlsEnabled: Boolean = true,
-    val headsetSinglePressAction: HeadsetButtonAction = HeadsetButtonAction.PAUSE_RESUME,
-    val headsetDoublePressAction: HeadsetButtonAction = HeadsetButtonAction.SKIP,
-    val headsetTriplePressAction: HeadsetButtonAction = HeadsetButtonAction.REPEAT,
+    val isNavigationYieldEnabled: Boolean = true,
+    val isReannounceAfterNavigationEnabled: Boolean = true,
+    val navigationYieldSettleDelayMs: Long = 2_000L,
     // Batch 3: Automatic behavior configs (#19), Catch-Up (#22), BT Filtering (#27), Check-in (#32)
     val isAppNameDedupEnabled: Boolean = true,
     val appNameDedupWindowMs: Long = 45_000L,

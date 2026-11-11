@@ -18,8 +18,9 @@ data class VoiceSpeechUiState(
     val earconDurationMs: Int = 120,
     val antiCollisionDelayMs: Long = 300L,
     val isAdaptiveSpeedEnabled: Boolean = true,
-    val adaptiveSpeedWordThreshold: Int = 30,
-    val adaptiveSpeedMultiplier: Float = 1.25f,
+    val adaptiveSpeedTier1Multiplier: Float = AdaptiveSpeedCalculator.DEFAULT_TIER_1_MULTIPLIER,
+    val adaptiveSpeedTier2Multiplier: Float = AdaptiveSpeedCalculator.DEFAULT_TIER_2_MULTIPLIER,
+    val adaptiveSpeedTier3Multiplier: Float = AdaptiveSpeedCalculator.DEFAULT_TIER_3_MULTIPLIER,
     val isMonoFoldDownEnabled: Boolean = true,
     // Voice Loudness Boost (#24)
     val isVoiceBoostEnabled: Boolean = false,

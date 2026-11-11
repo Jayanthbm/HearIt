@@ -32,11 +32,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.jayanth.hearit.devices.WearOsCompanionCard
 import com.jayanth.hearit.settings.GeneralSettingsUiState
 import com.jayanth.hearit.settings.GeneralSettingsViewModel
-import com.jayanth.hearit.settings.GesturesAndControlsCard
-import com.jayanth.hearit.settings.PeriodicCheckinCard
 
 /**
  * Route wrapping [IntelligenceControlsScreen] with [GeneralSettingsViewModel].
@@ -52,35 +49,18 @@ fun IntelligenceControlsRoute(
     IntelligenceControlsScreen(
         state = state,
         intelligenceActions = intelligenceActions,
-        onToggleAutoDismiss = viewModel::onToggleAutoDismiss,
-        onToggleShakeToStop = viewModel::onToggleShakeToStop,
-        onToggleVolumeKeyToStop = viewModel::onToggleVolumeKeyToStop,
-        onToggleMusicPauseHold = viewModel::onToggleMusicPauseHold,
-        onToggleBluetoothAutoStart = viewModel::onToggleBluetoothAutoStart,
-        onTogglePeriodicCheckin = viewModel::onTogglePeriodicCheckin,
-        onPeriodicCheckinIntervalChanged = viewModel::onPeriodicCheckinIntervalChanged,
-        onTogglePeriodicCheckinTime = viewModel::onTogglePeriodicCheckinTime,
-        onTogglePeriodicCheckinBattery = viewModel::onTogglePeriodicCheckinBattery,
         modifier = modifier,
     )
 }
 
 /**
- * Modern Material 3 Expressive Active Intelligence Screen.
+ * Dedicated Active Intelligence Screen: On-device AI engines, NLP text cleaning,
+ * and smart category rules — cleanly separated from Devices, Global Rules, and Playback.
  */
 @Composable
 fun IntelligenceControlsScreen(
     state: GeneralSettingsUiState,
     intelligenceActions: IntelligenceActions,
-    onToggleAutoDismiss: (Boolean) -> Unit,
-    onToggleShakeToStop: (Boolean) -> Unit,
-    onToggleVolumeKeyToStop: (Boolean) -> Unit,
-    onToggleMusicPauseHold: (Boolean) -> Unit,
-    onToggleBluetoothAutoStart: (Boolean) -> Unit,
-    onTogglePeriodicCheckin: (Boolean) -> Unit,
-    onPeriodicCheckinIntervalChanged: (Int) -> Unit,
-    onTogglePeriodicCheckinTime: (Boolean) -> Unit,
-    onTogglePeriodicCheckinBattery: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -127,80 +107,33 @@ fun IntelligenceControlsScreen(
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "Real-time speech & hardware enhancements",
+                        text = "On-device AI engines, NLP text cleaning & app categories",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
         }
 
-        // Section 1: Smart Content Cleaning (NLP)
-        SmartContentCleaningCard(
-            state = state,
-            actions = intelligenceActions,
-        )
-
-        // Section 2: Category Intelligence & App Grouping
-        CategoryIntelligenceCard(
-            state = state,
-            actions = intelligenceActions,
-        )
-
-        // Section 3: On-Device AI Engines (Tier 1 & Tier 2 Status + Controls, #15)
+        // Section 1: On-Device AI Engines (Tier 1 & Tier 2 Status + Individual Controls, #15)
         LocalAiEnginesCard(
             state = state,
             actions = intelligenceActions,
         )
 
-        // Section 3: Gestures & Playback Controls
-        GesturesAndControlsCard(
-            state = state,
-            intelligenceActions = intelligenceActions,
-            isAutoDismissEnabled = state.isAutoDismissEnabled,
-            isShakeToStopEnabled = state.isShakeToStopEnabled,
-            isVolumeKeyToStopEnabled = state.isVolumeKeyToStopEnabled,
-            isMusicPauseHoldEnabled = state.isMusicPauseHoldEnabled,
-            isBluetoothAutoStartEnabled = state.isBluetoothAutoStartEnabled,
-            onToggleAutoDismiss = onToggleAutoDismiss,
-            onToggleShakeToStop = onToggleShakeToStop,
-            onToggleVolumeKeyToStop = onToggleVolumeKeyToStop,
-            onToggleMusicPauseHold = onToggleMusicPauseHold,
-            onToggleBluetoothAutoStart = onToggleBluetoothAutoStart,
-        )
-
-        // Section 4: Timing & Catch-Up Automation (#19, #22)
-        AutomaticBehaviorAndCatchUpCard(
+        // Section 2: Smart Content Cleaning (NLP)
+        SmartContentCleaningCard(
             state = state,
             actions = intelligenceActions,
         )
 
-        // Section 5: Proximity Pocket Detection (#30)
-        com.jayanth.hearit.applications.PocketDetectionCard(
-            eligibility = state.eligibility,
-            onEligibilityChanged = intelligenceActions.onUpdateEligibility,
+        // Section 3: Category Intelligence & App Grouping
+        CategoryIntelligenceCard(
+            state = state,
+            actions = intelligenceActions,
         )
-
-        // Section 6: Periodic Spoken Check-in (#32)
-        PeriodicCheckinCard(
-            isEnabled = state.isPeriodicCheckinEnabled,
-            intervalMinutes = state.periodicCheckinIntervalMinutes,
-            announceTime = state.periodicCheckinAnnounceTime,
-            announceBattery = state.periodicCheckinAnnounceBattery,
-            announceEarphonesBattery = state.periodicCheckinAnnounceEarphonesBattery,
-            announceSummary = state.periodicCheckinAnnounceSummary,
-            onToggleEnabled = onTogglePeriodicCheckin,
-            onIntervalChanged = onPeriodicCheckinIntervalChanged,
-            onToggleTime = onTogglePeriodicCheckinTime,
-            onToggleBattery = onTogglePeriodicCheckinBattery,
-            onToggleEarphonesBattery = intelligenceActions.onTogglePeriodicCheckinEarphonesBattery,
-            onToggleSummary = intelligenceActions.onTogglePeriodicCheckinSummary,
-        )
-
-        // Section 5: Wear OS Companion Smartwatch
-        WearOsCompanionCard()
 
         Spacer(modifier = Modifier.height(100.dp))
     }

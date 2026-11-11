@@ -2,7 +2,6 @@ package com.jayanth.hearit.service
 
 import android.content.Context
 import com.jayanth.hearit.core.common.model.DigitGroupingStyle
-import com.jayanth.hearit.core.common.model.HeadsetButtonAction
 import com.jayanth.hearit.core.common.model.IntelligencePresets
 import com.jayanth.hearit.core.common.model.PronunciationRule
 import com.jayanth.hearit.core.common.model.ReactionFilterMode
@@ -290,16 +289,22 @@ class SessionStore(context: Context) {
             prefs.edit().putBoolean(KEY_ADAPTIVE_SPEED_ENABLED, value).apply()
         }
 
-    var adaptiveSpeedWordThreshold: Int
-        get() = prefs.getInt(KEY_ADAPTIVE_SPEED_WORD_THRESHOLD, 30)
+    var adaptiveSpeedTier1Multiplier: Float
+        get() = prefs.getFloat(KEY_ADAPTIVE_SPEED_TIER_1_MULTIPLIER, 1.15f)
         set(value) {
-            prefs.edit().putInt(KEY_ADAPTIVE_SPEED_WORD_THRESHOLD, value.coerceIn(10, 200)).apply()
+            prefs.edit().putFloat(KEY_ADAPTIVE_SPEED_TIER_1_MULTIPLIER, value.coerceIn(1.0f, 2.0f)).apply()
         }
 
-    var adaptiveSpeedMultiplier: Float
-        get() = prefs.getFloat(KEY_ADAPTIVE_SPEED_MULTIPLIER, 1.25f)
+    var adaptiveSpeedTier2Multiplier: Float
+        get() = prefs.getFloat(KEY_ADAPTIVE_SPEED_TIER_2_MULTIPLIER, 1.25f)
         set(value) {
-            prefs.edit().putFloat(KEY_ADAPTIVE_SPEED_MULTIPLIER, value.coerceIn(1.0f, 2.0f)).apply()
+            prefs.edit().putFloat(KEY_ADAPTIVE_SPEED_TIER_2_MULTIPLIER, value.coerceIn(1.0f, 2.0f)).apply()
+        }
+
+    var adaptiveSpeedTier3Multiplier: Float
+        get() = prefs.getFloat(KEY_ADAPTIVE_SPEED_TIER_3_MULTIPLIER, 1.40f)
+        set(value) {
+            prefs.edit().putFloat(KEY_ADAPTIVE_SPEED_TIER_3_MULTIPLIER, value.coerceIn(1.0f, 2.0f)).apply()
         }
 
     var isMonoFoldDownEnabled: Boolean
@@ -357,35 +362,23 @@ class SessionStore(context: Context) {
             prefs.edit().putLong(KEY_AUDIO_FOCUS_RETURN_DELAY_MS, value.coerceIn(0L, 1500L)).apply()
         }
 
-    /** Bluetooth Headset MediaSession Button Controls (#1). */
-    var isHeadsetMediaControlsEnabled: Boolean
-        get() = prefs.getBoolean(KEY_HEADSET_MEDIA_CONTROLS, true)
+    /** Google Maps & Navigation Yield Priority. */
+    var isNavigationYieldEnabled: Boolean
+        get() = prefs.getBoolean(KEY_NAVIGATION_YIELD_ENABLED, true)
         set(value) {
-            prefs.edit().putBoolean(KEY_HEADSET_MEDIA_CONTROLS, value).apply()
+            prefs.edit().putBoolean(KEY_NAVIGATION_YIELD_ENABLED, value).apply()
         }
 
-    var headsetSinglePressAction: HeadsetButtonAction
-        get() = prefs.getString(KEY_HEADSET_SINGLE_ACTION, HeadsetButtonAction.PAUSE_RESUME.name)
-            ?.let { raw -> HeadsetButtonAction.entries.firstOrNull { it.name == raw } }
-            ?: HeadsetButtonAction.PAUSE_RESUME
+    var isReannounceAfterNavigationEnabled: Boolean
+        get() = prefs.getBoolean(KEY_REANNOUNCE_AFTER_NAV_ENABLED, true)
         set(value) {
-            prefs.edit().putString(KEY_HEADSET_SINGLE_ACTION, value.name).apply()
+            prefs.edit().putBoolean(KEY_REANNOUNCE_AFTER_NAV_ENABLED, value).apply()
         }
 
-    var headsetDoublePressAction: HeadsetButtonAction
-        get() = prefs.getString(KEY_HEADSET_DOUBLE_ACTION, HeadsetButtonAction.SKIP.name)
-            ?.let { raw -> HeadsetButtonAction.entries.firstOrNull { it.name == raw } }
-            ?: HeadsetButtonAction.SKIP
+    var navigationYieldSettleDelayMs: Long
+        get() = prefs.getLong(KEY_NAVIGATION_SETTLE_DELAY_MS, 2_000L)
         set(value) {
-            prefs.edit().putString(KEY_HEADSET_DOUBLE_ACTION, value.name).apply()
-        }
-
-    var headsetTriplePressAction: HeadsetButtonAction
-        get() = prefs.getString(KEY_HEADSET_TRIPLE_ACTION, HeadsetButtonAction.REPEAT.name)
-            ?.let { raw -> HeadsetButtonAction.entries.firstOrNull { it.name == raw } }
-            ?: HeadsetButtonAction.REPEAT
-        set(value) {
-            prefs.edit().putString(KEY_HEADSET_TRIPLE_ACTION, value.name).apply()
+            prefs.edit().putLong(KEY_NAVIGATION_SETTLE_DELAY_MS, value.coerceIn(500L, 5_000L)).apply()
         }
 
     /** Built-in Automatic Feature Configurations (#19). */
@@ -728,8 +721,9 @@ class SessionStore(context: Context) {
         const val KEY_EARCON_DURATION_MS = "earcon_duration_ms"
         const val KEY_ANTI_COLLISION_DELAY_MS = "anti_collision_delay_ms"
         const val KEY_ADAPTIVE_SPEED_ENABLED = "adaptive_speed_enabled"
-        const val KEY_ADAPTIVE_SPEED_WORD_THRESHOLD = "adaptive_speed_word_threshold"
-        const val KEY_ADAPTIVE_SPEED_MULTIPLIER = "adaptive_speed_multiplier"
+        const val KEY_ADAPTIVE_SPEED_TIER_1_MULTIPLIER = "adaptive_speed_tier1_multiplier"
+        const val KEY_ADAPTIVE_SPEED_TIER_2_MULTIPLIER = "adaptive_speed_tier2_multiplier"
+        const val KEY_ADAPTIVE_SPEED_TIER_3_MULTIPLIER = "adaptive_speed_tier3_multiplier"
         const val KEY_MONO_FOLD_DOWN = "mono_fold_down"
         const val KEY_VOICE_BOOST_ENABLED = "voice_boost_enabled"
         const val KEY_VOICE_BOOST_PERCENT = "voice_boost_percent"
@@ -739,10 +733,9 @@ class SessionStore(context: Context) {
         const val KEY_DUCKING_LEVEL_ENABLED = "ducking_level_enabled"
         const val KEY_DUCKING_VOLUME_PERCENT = "ducking_volume_percent"
         const val KEY_AUDIO_FOCUS_RETURN_DELAY_MS = "audio_focus_return_delay_ms"
-        const val KEY_HEADSET_MEDIA_CONTROLS = "headset_media_controls"
-        const val KEY_HEADSET_SINGLE_ACTION = "headset_single_action"
-        const val KEY_HEADSET_DOUBLE_ACTION = "headset_double_action"
-        const val KEY_HEADSET_TRIPLE_ACTION = "headset_triple_action"
+        const val KEY_NAVIGATION_YIELD_ENABLED = "navigation_yield_enabled"
+        const val KEY_REANNOUNCE_AFTER_NAV_ENABLED = "reannounce_after_nav_enabled"
+        const val KEY_NAVIGATION_SETTLE_DELAY_MS = "navigation_settle_delay_ms"
         const val KEY_APP_NAME_DEDUP_ENABLED = "app_name_dedup_enabled"
         const val KEY_APP_NAME_DEDUP_WINDOW_MS = "app_name_dedup_window_ms"
         const val KEY_DELAYED_TIMESTAMP_ENABLED = "delayed_timestamp_enabled"

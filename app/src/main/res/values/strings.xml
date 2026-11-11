@@ -103,7 +103,7 @@
     <string name="nav_global_rules">Global Rules</string>
     <string name="nav_voice_speech">Voice &amp; Speech</string>
     <string name="nav_settings">Settings</string>
-    <string name="nav_preferences">App Preferences</string>
+    <string name="nav_preferences">Playback &amp; Gestures</string>
     <string name="nav_backup_restore">Backup &amp; Restore</string>
     <string name="nav_diagnostics">Diagnostics</string>
     <string name="nav_active_intelligence">Active Intelligence</string>

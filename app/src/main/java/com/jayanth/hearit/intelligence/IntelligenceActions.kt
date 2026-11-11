@@ -3,7 +3,6 @@ package com.jayanth.hearit.intelligence
 import com.jayanth.hearit.core.common.model.AppCategory
 import com.jayanth.hearit.core.common.model.DigitGroupingStyle
 import com.jayanth.hearit.core.common.model.EligibilitySettings
-import com.jayanth.hearit.core.common.model.HeadsetButtonAction
 import com.jayanth.hearit.core.common.model.PronunciationRule
 import com.jayanth.hearit.core.common.model.ReactionFilterMode
 import com.jayanth.hearit.core.common.model.UrlSummaryRule
@@ -51,10 +50,9 @@ data class IntelligenceActions(
     val onToggleDuckingLevelControl: (Boolean) -> Unit = {},
     val onDuckingVolumePercentChanged: (Int) -> Unit = {},
     val onAudioFocusReturnDelayChanged: (Long) -> Unit = {},
-    val onToggleHeadsetMediaControls: (Boolean) -> Unit = {},
-    val onHeadsetSinglePressActionChanged: (HeadsetButtonAction) -> Unit = {},
-    val onHeadsetDoublePressActionChanged: (HeadsetButtonAction) -> Unit = {},
-    val onHeadsetTriplePressActionChanged: (HeadsetButtonAction) -> Unit = {},
+    val onToggleNavigationYield: (Boolean) -> Unit = {},
+    val onToggleReannounceAfterNavigation: (Boolean) -> Unit = {},
+    val onNavigationYieldSettleDelayChanged: (Long) -> Unit = {},
     val onToggleAppNameDedup: (Boolean) -> Unit = {},
     val onAppNameDedupWindowChanged: (Long) -> Unit = {},
     val onToggleDelayedTimestampTag: (Boolean) -> Unit = {},
@@ -124,10 +122,9 @@ data class IntelligenceActions(
             onToggleDuckingLevelControl = viewModel::onToggleDuckingLevelControl,
             onDuckingVolumePercentChanged = viewModel::onDuckingVolumePercentChanged,
             onAudioFocusReturnDelayChanged = viewModel::onAudioFocusReturnDelayChanged,
-            onToggleHeadsetMediaControls = viewModel::onToggleHeadsetMediaControls,
-            onHeadsetSinglePressActionChanged = viewModel::onHeadsetSinglePressActionChanged,
-            onHeadsetDoublePressActionChanged = viewModel::onHeadsetDoublePressActionChanged,
-            onHeadsetTriplePressActionChanged = viewModel::onHeadsetTriplePressActionChanged,
+            onToggleNavigationYield = viewModel::onToggleNavigationYield,
+            onToggleReannounceAfterNavigation = viewModel::onToggleReannounceAfterNavigation,
+            onNavigationYieldSettleDelayChanged = viewModel::onNavigationYieldSettleDelayChanged,
             onToggleAppNameDedup = viewModel::onToggleAppNameDedup,
             onAppNameDedupWindowChanged = viewModel::onAppNameDedupWindowChanged,
             onToggleDelayedTimestampTag = viewModel::onToggleDelayedTimestampTag,
