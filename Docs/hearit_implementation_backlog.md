@@ -7,14 +7,33 @@ Once the review is completed, these items will be batched and implemented system
 ---
 
 ## 📋 Status Overview
-- Total Identified Backlog Items: 0
+- Total Identified Backlog Items: 1
 - In Discussion / Under Review
 
 ---
 
 ## 🛠️ Backlog Items
 
-*(Items will be added here as we review each section)*
+### 1. Roadmap Item 2.2: Bluetooth Headset Button Controls (`MediaSession`) — ❌ NOT IMPLEMENTED
+- **Priority / Effort**: Medium Value / Medium Effort
+- **Current State**:
+  - `AnnouncementService` already handles `ACTION_PAUSE`, `ACTION_RESUME`, `ACTION_SKIP`, and `ACTION_REPEAT` intents internally.
+  - Earphone disconnect stops speech via `AudioDeviceCallback` / `ACTION_AUDIO_BECOMING_NOISY`.
+  - No `MediaSession` or media button key event handling is registered anywhere in `app/` or `core/`.
+- **What Needs to Be Implemented**:
+  - Register a lightweight native `android.media.session.MediaSession` (`minSdk = 29`) inside `AnnouncementService`.
+  - **Lifecycle Scoping (Critical)**: Activate the `MediaSession` (`isActive = true`) **only while announcements are actively speaking or paused mid-utterance**, and release/deactivate it (`isActive = false`) when idle so Spotify / YouTube Music playback buttons aren't hijacked when HearIt isn't speaking.
+  - **Key / Action Mapping in `MediaSession.Callback`**:
+    - Single press (`KEYCODE_HEADSETHOOK` / `KEYCODE_MEDIA_PLAY_PAUSE` / `onPlay` / `onPause`): Toggle **Pause / Resume** (`ACTION_PAUSE` / `ACTION_RESUME`).
+    - Double press (or `onSkipToNext` / `KEYCODE_MEDIA_NEXT`): **Skip** current notification (`ACTION_SKIP`).
+    - Triple press / Long press / `onSkipToPrevious` (`KEYCODE_MEDIA_PREVIOUS`): **Repeat** last announcement (`ACTION_REPEAT`).
+  - Optional toggle in **Active Intelligence $\to$ Gestures & Playback Controls** (*"Bluetooth Headset Button Controls"*) so users can enable/disable it.
+- **Files Likely Touched**:
+  - `app/src/main/java/com/jayanth/hearit/service/AnnouncementService.kt`
+  - `app/src/main/java/com/jayanth/hearit/service/SessionStore.kt`
+  - `app/src/main/java/com/jayanth/hearit/settings/GeneralSettingsUiState.kt`
+  - `app/src/main/java/com/jayanth/hearit/settings/GeneralSettingsViewModel.kt`
+  - `app/src/main/java/com/jayanth/hearit/settings/GeneralSettingsScreen.kt` (shared `GesturesAndControlsCard` used by `IntelligenceControlsScreen`)
 
 ---
 
