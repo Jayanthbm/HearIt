@@ -73,6 +73,8 @@ import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.Cable
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.DevicesOther
+import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Home
@@ -83,6 +85,7 @@ import androidx.compose.material.icons.rounded.NotificationImportant
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.NotificationsNone
+import androidx.compose.material.icons.rounded.NotificationsOff
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.RecordVoiceOver
 import androidx.compose.material.icons.rounded.Search
@@ -1140,18 +1143,22 @@ private fun DashboardHome(
                             }
                         }
                         Spacer(modifier = Modifier.width(10.dp))
-                        Column {
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Active Intelligence & Controls",
+                                text = "Active Intelligence",
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
                             )
+                            Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = "Tap to configure NLP, gestures & watch sync",
+                                text = "Smart NLP cleaning, gestures & watch sync",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 11.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
                         }
                     }
@@ -1188,26 +1195,41 @@ private fun DashboardHome(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     listOf(
-                        "🧠 NLP Clean",
-                        "📳 Gestures",
-                        "🧹 Dismiss",
-                        "⌚ Wear OS",
-                    ).forEach { label ->
+                        Triple(Icons.Rounded.AutoAwesome, "NLP", MaterialTheme.colorScheme.primary),
+                        Triple(Icons.Rounded.GraphicEq, "Gestures", MaterialTheme.colorScheme.primary),
+                        Triple(Icons.Rounded.NotificationsOff, "Dismiss", MaterialTheme.colorScheme.primary),
+                        Triple(Icons.Rounded.DevicesOther, "Wear OS", MaterialTheme.colorScheme.primary),
+                    ).forEach { (icon, label, tint) ->
                         Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(32.dp),
                         ) {
-                            Box(
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 7.dp),
-                                contentAlignment = Alignment.Center,
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center,
                             ) {
+                                Icon(
+                                    imageVector = icon,
+                                    contentDescription = null,
+                                    tint = tint,
+                                    modifier = Modifier.size(13.dp),
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
                                 Text(
                                     text = label,
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.SemiBold,
-                                    fontSize = 10.5.sp,
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurface,
                                     maxLines = 1,
+                                    softWrap = false,
                                 )
                             }
                         }
@@ -1972,7 +1994,7 @@ private fun SettingsHubScreen(
                     SettingsHubDivider()
                     SettingsHubRow(
                         icon = Icons.Rounded.AutoAwesome,
-                        title = "Intelligence & Controls",
+                        title = "Active Intelligence",
                         subtitle = "Smart NLP cleaning, gestures, check-in, smartwatch",
                         onClick = { onSelectDestination(DashboardDestination.ACTIVE_INTELLIGENCE) },
                     )

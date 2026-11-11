@@ -106,7 +106,7 @@
     <string name="nav_preferences">App Preferences</string>
     <string name="nav_backup_restore">Backup &amp; Restore</string>
     <string name="nav_diagnostics">Diagnostics</string>
-    <string name="nav_active_intelligence">Intelligence &amp; Controls</string>
+    <string name="nav_active_intelligence">Active Intelligence</string>
 
     <string name="dashboard_loading">Loading\u2026</string>
     <string name="dashboard_back">Back</string>

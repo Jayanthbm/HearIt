@@ -17,8 +17,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -31,8 +29,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.jayanth.hearit.devices.WearOsCompanionCard
 import com.jayanth.hearit.settings.GeneralSettingsUiState
 import com.jayanth.hearit.settings.GeneralSettingsViewModel
@@ -72,10 +70,10 @@ fun IntelligenceControlsRoute(
 }
 
 /**
- * Dedicated Full Screen for Active Intelligence & Controls.
+ * Modern Material 3 Expressive Active Intelligence Screen.
  *
- * Houses real-time NLP text cleaning, hands-free hardware gestures, smartwatch companion,
- * and periodic check-ins. Designed for seamless future integration with premium gating.
+ * Designed identically to Devices and Voice & Speech screens with a clean
+ * one-line title and subtitle intro card, followed by modular settings cards.
  */
 @Composable
 fun IntelligenceControlsScreen(
@@ -101,100 +99,57 @@ fun IntelligenceControlsScreen(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        // ── Pro Intelligence Header / Future Premium Banner ─────────────
+        // Explanatory Intro Card (Matching Devices & Settings screens)
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-            ),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                Surface(
+                    modifier = Modifier.size(40.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer,
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(38.dp),
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Rounded.AutoAwesome,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onPrimary,
-                                    modifier = Modifier.size(20.dp),
-                                )
-                            }
-                        }
-                        Column {
-                            Text(
-                                text = "Intelligence & Controls Suite",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                            Text(
-                                text = "Real-time speech & hardware enhancements",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-
-                    // Active Status / Future Premium Badge
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.CheckCircle,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(12.dp),
-                            )
-                            Text(
-                                text = "ACTIVE",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontSize = 10.sp,
-                            )
-                        }
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Rounded.AutoAwesome,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(22.dp),
+                        )
                     }
                 }
-
-                Text(
-                    text = "Zero-latency on-device processing. Clean links, normalize currency, control speech with physical motion, and synchronize seamlessly with Wear OS.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    lineHeight = 18.sp,
-                )
+                Spacer(modifier = Modifier.width(14.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Active Intelligence",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Real-time speech & hardware enhancements",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
         }
 
-        // ── Section 1: Smart Content Cleaning (NLP) ───────────────────────
+        // Section 1: Smart Content Cleaning (NLP)
         SmartContentCleaningCard(
             isUrlSummarizerEnabled = state.isUrlSummarizerEnabled,
             isCurrencyNormalizerEnabled = state.isCurrencyNormalizerEnabled,
@@ -210,7 +165,7 @@ fun IntelligenceControlsScreen(
             onToggleBotSenderCleaning = onToggleBotSenderCleaning,
         )
 
-        // ── Section 2: Gestures & Playback Controls ────────────────────────
+        // Section 2: Gestures & Playback Controls
         GesturesAndControlsCard(
             isAutoDismissEnabled = state.isAutoDismissEnabled,
             isShakeToStopEnabled = state.isShakeToStopEnabled,
@@ -224,7 +179,7 @@ fun IntelligenceControlsScreen(
             onToggleBluetoothAutoStart = onToggleBluetoothAutoStart,
         )
 
-        // ── Section 3: Periodic Spoken Check-in ─────────────────────────────
+        // Section 3: Periodic Spoken Check-in
         PeriodicCheckinCard(
             isEnabled = state.isPeriodicCheckinEnabled,
             intervalMinutes = state.periodicCheckinIntervalMinutes,
@@ -236,38 +191,9 @@ fun IntelligenceControlsScreen(
             onToggleBattery = onTogglePeriodicCheckinBattery,
         )
 
-        // ── Section 4: Wear OS Companion Smartwatch ────────────────────────
+        // Section 4: Wear OS Companion Smartwatch
         WearOsCompanionCard()
 
-        // ── Informative Footer Tip ─────────────────────────────────────────
-        Surface(
-            shape = RoundedCornerShape(12.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.5f),
-            border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Info,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(18.dp),
-                )
-                Text(
-                    text = "All intelligence features execute locally on your device for absolute privacy and maximum battery efficiency.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    lineHeight = 16.sp,
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(100.dp))
     }
 }
