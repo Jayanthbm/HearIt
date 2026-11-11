@@ -65,7 +65,7 @@ This document tracks all features implemented across Phases 1 through 5. You can
   4. *Collapse Repeated Emojis* (Collapses `😂😂😂😂` to *"2 laughing faces"*).
   5. *Filter Tapback Reactions* (Simplifies reactions like *"Liked an image"*).
   6. *Clean Bot & SMS Sender Headers* (Normalizes alphanumeric shortcodes e.g. `VK-HDFCBK`).
-- **Location**: Phone App $\to$ Settings Tab $\to$ **Smart Content Cleaning & NLP**.
+- **Location**: Phone App $\to$ Home Screen **Active Intelligence & Controls** Card (tap card or "Configure") OR Settings Tab $\to$ Rules &amp; Activity $\to$ **Intelligence &amp; Controls** (Dedicated full screen with future Premium paywall readiness).
 
 ### [ ] Item 2.2: Currency, Amounts & Units Spoken Normalization — ⏳ PENDING
 - **Status**: User will test on real device with release APK.
