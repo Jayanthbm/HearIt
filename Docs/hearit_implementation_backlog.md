@@ -7,7 +7,7 @@ Once the review is completed, these items will be batched and implemented system
 ---
 
 ## 📋 Status Overview
-- Total Identified Backlog Items: 25
+- Total Identified Backlog Items: 26
 - In Discussion / Under Review
 - **Mandatory Requirement (All Features)**: Every capability—including automatic intelligence rules and playback behaviors—MUST have a dedicated UI **Enable / Disable switch** and **configuration controls** (thresholds, patterns, presets, or timing options) persisted across restarts.
 
@@ -398,6 +398,18 @@ Once the review is completed, these items will be batched and implemented system
   - Track `hasLastAnnouncement: Boolean` cleanly in `ServiceStatusMonitor` / `DashboardUiState` (content-free, preserving privacy).
   - **UI Enable/Disable & Config**: Add toggle in **Active Intelligence** / Notification Controls to enable/disable the Repeat shortcut on Home & persistent notification.
 
+### 26. Roadmap Item 12 (Idea 12 Enhancements) & `SmartContentCleaner` Startup Sync Bug — ⚠️ PARTIALLY IMPLEMENTED
+- **Priority / Effort**: High Value / Low Effort
+- **Current State**:
+  - `SmartContentCleaner.TAPBACK_PATTERN` handles quoted reactions (e.g., `Rahul loved "Happy birthday!"` $\to$ `"Reacted to a message"`), with UI toggle `isReactionFilterEnabled` in **Active Intelligence**.
+  - **Gap 1 — Missing Common Unquoted Patterns**: Regex only matches strings ending in quotes (`"..."` / `'...'`), missing `"Liked a photo"`, `"Rahul reacted ❤️ to your message"`, `"Laughed at your message"`, etc.
+  - **Gap 2 — Condense vs Silence Config**: No mode selector between **Condense** (*"Reacted to a message"*) vs **Silence** (skip speaking reactions altogether).
+  - **Gap 3 — Startup Hydration Bug (All `SmartContentCleaner` Flags & `appAliases`)**: `SessionStore` flags (`isUrlSummarizerEnabled`, `isReactionFilterEnabled`, etc.) and `HearItSettings.appOverrides[*].spokenName` are only synced when ViewModels are opened/toggled — **never** hydrated in `HearItApplication.onCreate()` or `AnnouncementService.onCreate()`. After a phone reboot or background restart, `SmartContentCleaner` reverts to default `true`/empty aliases!
+- **What Needs to Be Implemented**:
+  - Expand `TAPBACK_PATTERN` cleanly to handle both quoted reactions (`loved "..."`) AND unquoted social reactions (`Liked a photo`, `reacted <emoji> to a message`, `Laughed at an image`, etc.).
+  - Add Reaction Filter Mode UI inside **Active Intelligence $\to$ Smart Content Cleaning & NLP**: **Condense** vs **Silence** (skip speaking completely in `AnnouncementPipeline`).
+  - Hydrate ALL `SmartContentCleaner` flags (from `SessionStore`) and `appAliases` (from `SettingsSource` / `HearItSettings`) on service startup in `AnnouncementService.onCreate()` and on DataStore updates!
+
 ---
 
 ## ✅ Already Verified / Implemented Features in this Audit
@@ -413,3 +425,4 @@ Once the review is completed, these items will be batched and implemented system
 9. **Item 9.5 Pipeline Hardening (Listener Watchdog, MessagingStyle/InboxStyle Parser & 1-Tap Battery Exemption)**: Implemented across `HearItNotificationListenerService.kt` + `AnnouncementService.kt` (periodic `requestRebindIfDisconnected()` watchdog every ~22.5s and `onListenerDisconnected()` rebind), `StatusBarNotificationMapper.kt` (`EXTRA_MESSAGES` & `EXTRA_TEXT_LINES` fallback parsing), and `SetupProbes.kt` (1-tap `ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`).
 10. **Item 10 Feature A (Shake or Flip Phone to Stop Speech)**: Fully implemented in `AnnouncementService.sensorEventListener` (`TYPE_ACCELEROMETER` shake > 15.5 m/s² or face-down `z < -8.5f`) calling `engine.stop()` without triggering temporary mute, with `SessionStore.isShakeToStopEnabled` toggle in **Active Intelligence**.
 11. **Item 11 Idea 1 & Idea 6 Engines**: Soft pre-speech earcon chime (`AndroidTextToSpeechEngine.kt` ToneGenerator `120ms`) and `Announcement Volume` slider (`0–100%` in `VoiceSpeechScreen.kt`) exist; wiring earcon/delay UI controls to persistence & engine (#18) and adding true boost >100% / balance (#24) are in the backlog.
+12. **Item 12 Idea 12 (Basic Quoted Tap-Back Reaction Filter)**: Implemented via `TAPBACK_PATTERN` in `SmartContentCleaner.kt` with toggle `isReactionFilterEnabled` in **Active Intelligence**. *(Unquoted patterns, Silence vs Condense mode, and `SessionStore` startup hydration fix are tracked in Backlog #26).*
