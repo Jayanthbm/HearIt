@@ -78,6 +78,31 @@ class SessionStore(context: Context) {
             prefs.edit().putBoolean(KEY_MUSIC_PAUSE_HOLD, value).apply()
         }
 
+    /** Periodic check-in settings (Idea 43). */
+    var isPeriodicCheckinEnabled: Boolean
+        get() = prefs.getBoolean(KEY_PERIODIC_CHECKIN_ENABLED, false)
+        set(value) {
+            prefs.edit().putBoolean(KEY_PERIODIC_CHECKIN_ENABLED, value).apply()
+        }
+
+    var periodicCheckinIntervalMinutes: Int
+        get() = prefs.getInt(KEY_PERIODIC_CHECKIN_INTERVAL, 30)
+        set(value) {
+            prefs.edit().putInt(KEY_PERIODIC_CHECKIN_INTERVAL, value).apply()
+        }
+
+    var periodicCheckinAnnounceTime: Boolean
+        get() = prefs.getBoolean(KEY_PERIODIC_ANNOUNCE_TIME, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_PERIODIC_ANNOUNCE_TIME, value).apply()
+        }
+
+    var periodicCheckinAnnounceBattery: Boolean
+        get() = prefs.getBoolean(KEY_PERIODIC_ANNOUNCE_BATTERY, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_PERIODIC_ANNOUNCE_BATTERY, value).apply()
+        }
+
     private companion object {
         const val FILE_NAME = "hearit_session"
         const val KEY_STARTED = "started"
@@ -88,5 +113,9 @@ class SessionStore(context: Context) {
         const val KEY_SHAKE_TO_STOP = "shake_to_stop"
         const val KEY_VOLUME_KEY_TO_STOP = "volume_key_to_stop"
         const val KEY_MUSIC_PAUSE_HOLD = "music_pause_hold"
+        const val KEY_PERIODIC_CHECKIN_ENABLED = "periodic_checkin_enabled"
+        const val KEY_PERIODIC_CHECKIN_INTERVAL = "periodic_checkin_interval"
+        const val KEY_PERIODIC_ANNOUNCE_TIME = "periodic_announce_time"
+        const val KEY_PERIODIC_ANNOUNCE_BATTERY = "periodic_announce_battery"
     }
 }

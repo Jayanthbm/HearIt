@@ -16,4 +16,13 @@ data class GeneralSettingsUiState(
     val security: SecuritySettings = SecuritySettings(),
     val isBiometricAvailable: Boolean = false,
     val securityErrorMessage: String? = null,
+    val isAutoDismissEnabled: Boolean = true,
+    val isShakeToStopEnabled: Boolean = true,
+    val isVolumeKeyToStopEnabled: Boolean = true,
+    val isMusicPauseHoldEnabled: Boolean = true,
+    val isBluetoothAutoStartEnabled: Boolean = true,
+    val isPeriodicCheckinEnabled: Boolean = false,
+    val periodicCheckinIntervalMinutes: Int = 30,
+    val periodicCheckinAnnounceTime: Boolean = true,
+    val periodicCheckinAnnounceBattery: Boolean = true,
 )

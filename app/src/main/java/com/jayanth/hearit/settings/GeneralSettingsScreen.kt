@@ -130,6 +130,15 @@ fun GeneralSettingsRoute(
         },
         onDismissSecurityError = viewModel::onClearSecurityErrorMessage,
         onResetToDefaults = viewModel::onResetToDefaults,
+        onToggleAutoDismiss = viewModel::onToggleAutoDismiss,
+        onToggleShakeToStop = viewModel::onToggleShakeToStop,
+        onToggleVolumeKeyToStop = viewModel::onToggleVolumeKeyToStop,
+        onToggleMusicPauseHold = viewModel::onToggleMusicPauseHold,
+        onToggleBluetoothAutoStart = viewModel::onToggleBluetoothAutoStart,
+        onTogglePeriodicCheckin = viewModel::onTogglePeriodicCheckin,
+        onPeriodicCheckinIntervalChanged = viewModel::onPeriodicCheckinIntervalChanged,
+        onTogglePeriodicCheckinTime = viewModel::onTogglePeriodicCheckinTime,
+        onTogglePeriodicCheckinBattery = viewModel::onTogglePeriodicCheckinBattery,
         modifier = modifier,
     )
 }
@@ -155,6 +164,15 @@ fun GeneralSettingsScreen(
     onToggleBiometric: () -> Unit,
     onDismissSecurityError: () -> Unit,
     onResetToDefaults: () -> Unit,
+    onToggleAutoDismiss: (Boolean) -> Unit = {},
+    onToggleShakeToStop: (Boolean) -> Unit = {},
+    onToggleVolumeKeyToStop: (Boolean) -> Unit = {},
+    onToggleMusicPauseHold: (Boolean) -> Unit = {},
+    onToggleBluetoothAutoStart: (Boolean) -> Unit = {},
+    onTogglePeriodicCheckin: (Boolean) -> Unit = {},
+    onPeriodicCheckinIntervalChanged: (Int) -> Unit = {},
+    onTogglePeriodicCheckinTime: (Boolean) -> Unit = {},
+    onTogglePeriodicCheckinBattery: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var showResetDialog by remember { mutableStateOf(false) }
@@ -209,6 +227,32 @@ fun GeneralSettingsScreen(
                 }
             }
         }
+        // Section 0: Gestures & Playback Controls Card
+        GesturesAndControlsCard(
+            isAutoDismissEnabled = state.isAutoDismissEnabled,
+            isShakeToStopEnabled = state.isShakeToStopEnabled,
+            isVolumeKeyToStopEnabled = state.isVolumeKeyToStopEnabled,
+            isMusicPauseHoldEnabled = state.isMusicPauseHoldEnabled,
+            isBluetoothAutoStartEnabled = state.isBluetoothAutoStartEnabled,
+            onToggleAutoDismiss = onToggleAutoDismiss,
+            onToggleShakeToStop = onToggleShakeToStop,
+            onToggleVolumeKeyToStop = onToggleVolumeKeyToStop,
+            onToggleMusicPauseHold = onToggleMusicPauseHold,
+            onToggleBluetoothAutoStart = onToggleBluetoothAutoStart,
+        )
+
+        // Section 0B: Periodic Spoken Check-in Card (Idea 43)
+        PeriodicCheckinCard(
+            isEnabled = state.isPeriodicCheckinEnabled,
+            intervalMinutes = state.periodicCheckinIntervalMinutes,
+            announceTime = state.periodicCheckinAnnounceTime,
+            announceBattery = state.periodicCheckinAnnounceBattery,
+            onToggleEnabled = onTogglePeriodicCheckin,
+            onIntervalChanged = onPeriodicCheckinIntervalChanged,
+            onToggleTime = onTogglePeriodicCheckinTime,
+            onToggleBattery = onTogglePeriodicCheckinBattery,
+        )
+
         // Section 1: Audio Focus Card
         AudioFocusCard(
             selectedPolicy = state.audioFocus,
@@ -1190,6 +1234,234 @@ private fun SettingsCard(
                 }
             }
             content()
+        }
+    }
+}
+
+@Composable
+private fun GesturesAndControlsCard(
+    isAutoDismissEnabled: Boolean,
+    isShakeToStopEnabled: Boolean,
+    isVolumeKeyToStopEnabled: Boolean,
+    isMusicPauseHoldEnabled: Boolean,
+    isBluetoothAutoStartEnabled: Boolean,
+    onToggleAutoDismiss: (Boolean) -> Unit,
+    onToggleShakeToStop: (Boolean) -> Unit,
+    onToggleVolumeKeyToStop: (Boolean) -> Unit,
+    onToggleMusicPauseHold: (Boolean) -> Unit,
+    onToggleBluetoothAutoStart: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    SettingsCard(
+        title = "Gestures & Playback Controls",
+        subtitle = "Motion shortcuts and smart auto-dismiss actions",
+        icon = Icons.Rounded.GraphicEq,
+        modifier = modifier,
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            // Auto-Dismiss
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                    Text(
+                        text = "Auto-Dismiss Spoken Alerts",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = "Clears notification from status bar once announced",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = isAutoDismissEnabled,
+                    onCheckedChange = onToggleAutoDismiss,
+                )
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+            // Shake/Flip to Silence
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                    Text(
+                        text = "Shake / Flip to Silence & Repeat",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = "Shake or flip face-down to stop; shake within 10s to repeat",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = isShakeToStopEnabled,
+                    onCheckedChange = onToggleShakeToStop,
+                )
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+            // Physical Volume Key Silence
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                    Text(
+                        text = "Physical Volume Key Silence",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = "Press volume up or down to immediately stop speech",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = isVolumeKeyToStopEnabled,
+                    onCheckedChange = onToggleVolumeKeyToStop,
+                )
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+            // Music Pause Hold
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                    Text(
+                        text = "Music Paused Hold (60s)",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = "Delays announcements when you pause music to talk",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = isMusicPauseHoldEnabled,
+                    onCheckedChange = onToggleMusicPauseHold,
+                )
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+            // Bluetooth Auto-Start
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                    Text(
+                        text = "Bluetooth Auto-Start / Stop",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = "Starts HearIt when headphones connect; stops when disconnected",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = isBluetoothAutoStartEnabled,
+                    onCheckedChange = onToggleBluetoothAutoStart,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PeriodicCheckinCard(
+    isEnabled: Boolean,
+    intervalMinutes: Int,
+    announceTime: Boolean,
+    announceBattery: Boolean,
+    onToggleEnabled: (Boolean) -> Unit,
+    onIntervalChanged: (Int) -> Unit,
+    onToggleTime: (Boolean) -> Unit,
+    onToggleBattery: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    SettingsCard(
+        title = "Periodic Spoken Check-in",
+        subtitle = "Speaks time and battery status at regular intervals",
+        icon = Icons.Rounded.Timer,
+        modifier = modifier,
+        action = {
+            Switch(
+                checked = isEnabled,
+                onCheckedChange = onToggleEnabled,
+            )
+        },
+    ) {
+        if (isEnabled) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = "Check-in Interval",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    listOf(15 to "15m", 30 to "30m", 60 to "1h", 120 to "2h").forEach { (mins, label) ->
+                        FilterChip(
+                            selected = intervalMinutes == mins,
+                            onClick = { onIntervalChanged(mins) },
+                            label = { Text(label) },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                Text(
+                    text = "Include in Announcement",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    FilterChip(
+                        selected = announceTime,
+                        onClick = { onToggleTime(!announceTime) },
+                        label = { Text("🕒 Time") },
+                        modifier = Modifier.weight(1f),
+                    )
+                    FilterChip(
+                        selected = announceBattery,
+                        onClick = { onToggleBattery(!announceBattery) },
+                        label = { Text("🔋 Battery") },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        } else {
+            Text(
+                text = "Turn on to receive hands-free time and battery updates periodically through your earphones.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

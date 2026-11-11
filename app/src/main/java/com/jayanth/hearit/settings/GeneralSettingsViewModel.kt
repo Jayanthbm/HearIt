@@ -32,10 +32,21 @@ class GeneralSettingsViewModel @Inject constructor(
     @param:ApplicationContext private val context: Context,
 ) : ViewModel() {
 
+    private val sessionStore = com.jayanth.hearit.service.SessionStore(context)
+
     private val _state = MutableStateFlow(
         GeneralSettingsUiState(
             isServiceNotificationVisible = AnnouncementNotification.isNotificationVisible(context),
             isBiometricAvailable = biometricAuthManager.canAuthenticate(),
+            isAutoDismissEnabled = sessionStore.isAutoDismissEnabled,
+            isShakeToStopEnabled = sessionStore.isShakeToStopEnabled,
+            isVolumeKeyToStopEnabled = sessionStore.isVolumeKeyToStopEnabled,
+            isMusicPauseHoldEnabled = sessionStore.isMusicPauseHoldEnabled,
+            isBluetoothAutoStartEnabled = sessionStore.isBluetoothAutoStartEnabled,
+            isPeriodicCheckinEnabled = sessionStore.isPeriodicCheckinEnabled,
+            periodicCheckinIntervalMinutes = sessionStore.periodicCheckinIntervalMinutes,
+            periodicCheckinAnnounceTime = sessionStore.periodicCheckinAnnounceTime,
+            periodicCheckinAnnounceBattery = sessionStore.periodicCheckinAnnounceBattery,
         ),
     )
     val state: StateFlow<GeneralSettingsUiState> = _state.asStateFlow()
@@ -68,6 +79,51 @@ class GeneralSettingsViewModel @Inject constructor(
 
     fun openServiceNotificationSettings() {
         AnnouncementNotification.openNotificationSettings(context)
+    }
+
+    fun onToggleAutoDismiss(enabled: Boolean) {
+        sessionStore.isAutoDismissEnabled = enabled
+        _state.update { it.copy(isAutoDismissEnabled = enabled) }
+    }
+
+    fun onToggleShakeToStop(enabled: Boolean) {
+        sessionStore.isShakeToStopEnabled = enabled
+        _state.update { it.copy(isShakeToStopEnabled = enabled) }
+    }
+
+    fun onToggleVolumeKeyToStop(enabled: Boolean) {
+        sessionStore.isVolumeKeyToStopEnabled = enabled
+        _state.update { it.copy(isVolumeKeyToStopEnabled = enabled) }
+    }
+
+    fun onToggleMusicPauseHold(enabled: Boolean) {
+        sessionStore.isMusicPauseHoldEnabled = enabled
+        _state.update { it.copy(isMusicPauseHoldEnabled = enabled) }
+    }
+
+    fun onToggleBluetoothAutoStart(enabled: Boolean) {
+        sessionStore.isBluetoothAutoStartEnabled = enabled
+        _state.update { it.copy(isBluetoothAutoStartEnabled = enabled) }
+    }
+
+    fun onTogglePeriodicCheckin(enabled: Boolean) {
+        sessionStore.isPeriodicCheckinEnabled = enabled
+        _state.update { it.copy(isPeriodicCheckinEnabled = enabled) }
+    }
+
+    fun onPeriodicCheckinIntervalChanged(minutes: Int) {
+        sessionStore.periodicCheckinIntervalMinutes = minutes
+        _state.update { it.copy(periodicCheckinIntervalMinutes = minutes) }
+    }
+
+    fun onTogglePeriodicCheckinTime(enabled: Boolean) {
+        sessionStore.periodicCheckinAnnounceTime = enabled
+        _state.update { it.copy(periodicCheckinAnnounceTime = enabled) }
+    }
+
+    fun onTogglePeriodicCheckinBattery(enabled: Boolean) {
+        sessionStore.periodicCheckinAnnounceBattery = enabled
+        _state.update { it.copy(periodicCheckinAnnounceBattery = enabled) }
     }
 
     fun onGroupingWindowChanged(millis: Long) {
