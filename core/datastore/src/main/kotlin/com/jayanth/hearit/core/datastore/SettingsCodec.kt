@@ -117,6 +117,7 @@ object SettingsCodec {
 
     // Per-app suffixes (used after "app:<package>:").
     private const val APP_PRIORITY = "priority"
+    private const val APP_SPOKEN_NAME = "spokenName"
     private const val APP_QUEUE_WINDOW = "queue.groupingWindow"
     private const val APP_HISTORY_MODE = "history.storageMode"
     private const val APP_HISTORY_UPDATES = "history.updateHandling"
@@ -277,6 +278,7 @@ object SettingsCodec {
         override.history.retentionDays?.let { values[prefix + APP_HISTORY_RETENTION] = it.toString() }
         override.history.requireAuth?.let { values[prefix + APP_HISTORY_AUTH] = it.toString() }
         override.priority?.let { values[prefix + APP_PRIORITY] = it.name }
+        override.spokenName?.let { values[prefix + APP_SPOKEN_NAME] = it }
     }
 
     private fun decodeEligibility(values: Map<String, String>): EligibilitySettings {
@@ -476,6 +478,7 @@ object SettingsCodec {
                 requireAuth = string(APP_HISTORY_AUTH)?.toBooleanStrictOrNull(),
             ),
             priority = string(APP_PRIORITY)?.enumOrNull<AppPriority>(),
+            spokenName = string(APP_SPOKEN_NAME)?.takeIf { it.isNotBlank() },
         )
     }
 

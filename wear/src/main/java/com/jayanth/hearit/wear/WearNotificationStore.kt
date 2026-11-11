@@ -5,37 +5,28 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 object WearNotificationStore {
-    private val _notifications = MutableStateFlow<List<WearNotification>>(
-        listOf(
-            WearNotification(
-                id = "demo-1",
-                packageName = "com.whatsapp",
-                appName = "WhatsApp",
-                sender = "Alex Miller",
-                message = "Hey, are you free for a quick sync on the roadmap?",
-                timestamp = System.currentTimeMillis() - 120_000
-            ),
-            WearNotification(
-                id = "demo-2",
-                packageName = "com.google.android.apps.messaging",
-                appName = "Messages",
-                sender = "Mom",
-                message = "Let me know when you reach home safe!",
-                timestamp = System.currentTimeMillis() - 600_000
-            ),
-            WearNotification(
-                id = "demo-3",
-                packageName = "com.hdfc.bank",
-                appName = "HDFC Bank",
-                sender = "HDFCBK",
-                message = "Sent Rs 2,500 via UPI. Remaining Balance: Rs 48,210. Ref 402918.",
-                timestamp = System.currentTimeMillis() - 1_800_000
-            )
-        )
-    )
+    private val _notifications = MutableStateFlow<List<WearNotification>>(emptyList())
     val notifications: StateFlow<List<WearNotification>> = _notifications.asStateFlow()
 
+    // Set of enabled package names synced from phone.
+    // null = no sync received yet; emptySet = synced, 0 apps enabled.
+    private val _enabledApps = MutableStateFlow<Set<String>?>(null)
+    val enabledApps: StateFlow<Set<String>?> = _enabledApps.asStateFlow()
+
+    fun setEnabledApps(apps: Set<String>) {
+        _enabledApps.value = apps
+        // Filter existing notifications to only those in the enabled set
+        _notifications.value = _notifications.value.filter { notif ->
+            apps.contains(notif.packageName)
+        }
+    }
+
     fun addNotification(notification: WearNotification) {
+        val current = _enabledApps.value
+        // If config has been received and this app is not enabled, do not display it
+        if (current != null && !current.contains(notification.packageName)) {
+            return
+        }
         val updated = listOf(notification) + _notifications.value.filter { it.id != notification.id }
         _notifications.value = updated.take(50)
     }

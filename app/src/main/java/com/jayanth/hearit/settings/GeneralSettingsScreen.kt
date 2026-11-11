@@ -139,6 +139,12 @@ fun GeneralSettingsRoute(
         onPeriodicCheckinIntervalChanged = viewModel::onPeriodicCheckinIntervalChanged,
         onTogglePeriodicCheckinTime = viewModel::onTogglePeriodicCheckinTime,
         onTogglePeriodicCheckinBattery = viewModel::onTogglePeriodicCheckinBattery,
+        onToggleUrlSummarizer = viewModel::onToggleUrlSummarizer,
+        onToggleCurrencyNormalizer = viewModel::onToggleCurrencyNormalizer,
+        onToggleMarkdownStripper = viewModel::onToggleMarkdownStripper,
+        onToggleEmojiCollapsing = viewModel::onToggleEmojiCollapsing,
+        onToggleReactionFilter = viewModel::onToggleReactionFilter,
+        onToggleBotSenderCleaning = viewModel::onToggleBotSenderCleaning,
         modifier = modifier,
     )
 }
@@ -173,6 +179,12 @@ fun GeneralSettingsScreen(
     onPeriodicCheckinIntervalChanged: (Int) -> Unit = {},
     onTogglePeriodicCheckinTime: (Boolean) -> Unit = {},
     onTogglePeriodicCheckinBattery: (Boolean) -> Unit = {},
+    onToggleUrlSummarizer: (Boolean) -> Unit = {},
+    onToggleCurrencyNormalizer: (Boolean) -> Unit = {},
+    onToggleMarkdownStripper: (Boolean) -> Unit = {},
+    onToggleEmojiCollapsing: (Boolean) -> Unit = {},
+    onToggleReactionFilter: (Boolean) -> Unit = {},
+    onToggleBotSenderCleaning: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var showResetDialog by remember { mutableStateOf(false) }
@@ -253,6 +265,22 @@ fun GeneralSettingsScreen(
             onToggleBattery = onTogglePeriodicCheckinBattery,
         )
 
+        // Section 0C: Smart Content Cleaning (NLP) Card (Phase 2 & Item 2.1)
+        SmartContentCleaningCard(
+            isUrlSummarizerEnabled = state.isUrlSummarizerEnabled,
+            isCurrencyNormalizerEnabled = state.isCurrencyNormalizerEnabled,
+            isMarkdownStripperEnabled = state.isMarkdownStripperEnabled,
+            isEmojiCollapsingEnabled = state.isEmojiCollapsingEnabled,
+            isReactionFilterEnabled = state.isReactionFilterEnabled,
+            isBotSenderCleaningEnabled = state.isBotSenderCleaningEnabled,
+            onToggleUrlSummarizer = onToggleUrlSummarizer,
+            onToggleCurrencyNormalizer = onToggleCurrencyNormalizer,
+            onToggleMarkdownStripper = onToggleMarkdownStripper,
+            onToggleEmojiCollapsing = onToggleEmojiCollapsing,
+            onToggleReactionFilter = onToggleReactionFilter,
+            onToggleBotSenderCleaning = onToggleBotSenderCleaning,
+        )
+
         // Section 1: Audio Focus Card
         AudioFocusCard(
             selectedPolicy = state.audioFocus,
@@ -308,6 +336,9 @@ fun GeneralSettingsScreen(
             onToggleBiometric = onToggleBiometric,
             onToggleSecureScreen = onToggleSecureScreen,
         )
+
+        // Section 8: Wear OS Companion Smartwatch (Item 5.1)
+        com.jayanth.hearit.devices.WearOsCompanionCard()
 
         val hasQueueChanges = state.queue != com.jayanth.hearit.core.common.model.QueueSettings() ||
             state.audioFocus != AudioFocusPolicy.DUCK
@@ -1462,6 +1493,181 @@ private fun PeriodicCheckinCard(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+    }
+}
+
+@Composable
+private fun SmartContentCleaningCard(
+    isUrlSummarizerEnabled: Boolean,
+    isCurrencyNormalizerEnabled: Boolean,
+    isMarkdownStripperEnabled: Boolean,
+    isEmojiCollapsingEnabled: Boolean,
+    isReactionFilterEnabled: Boolean,
+    isBotSenderCleaningEnabled: Boolean,
+    onToggleUrlSummarizer: (Boolean) -> Unit,
+    onToggleCurrencyNormalizer: (Boolean) -> Unit,
+    onToggleMarkdownStripper: (Boolean) -> Unit,
+    onToggleEmojiCollapsing: (Boolean) -> Unit,
+    onToggleReactionFilter: (Boolean) -> Unit,
+    onToggleBotSenderCleaning: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    SettingsCard(
+        title = "Smart Content Cleaning & NLP",
+        subtitle = "Intelligent cleaning of message text before text-to-speech",
+        icon = Icons.Rounded.GraphicEq,
+        modifier = modifier,
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            // URL Summarizer
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                    Text(
+                        text = "Clean & Summarize URLs",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = "Speaks 'Link from domain.com' instead of reading lengthy http URLs",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = isUrlSummarizerEnabled,
+                    onCheckedChange = onToggleUrlSummarizer,
+                )
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+            // Currency & Units
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                    Text(
+                        text = "Currency & Unit Normalization",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = "Converts symbols like '$50' to '50 dollars' or '₹100' to '100 rupees'",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = isCurrencyNormalizerEnabled,
+                    onCheckedChange = onToggleCurrencyNormalizer,
+                )
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+            // Markdown Stripper
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                    Text(
+                        text = "Strip Markdown & Markup",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = "Removes bold/italic asterisks (*bold*), HTML tags, and backticks",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = isMarkdownStripperEnabled,
+                    onCheckedChange = onToggleMarkdownStripper,
+                )
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+            // Emoji Spam Collapsing
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                    Text(
+                        text = "Collapse Repeated Emojis",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = "Collapses repeated emojis (e.g. '😂😂😂😂' becomes '2 laughing faces')",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = isEmojiCollapsingEnabled,
+                    onCheckedChange = onToggleEmojiCollapsing,
+                )
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+            // Tapback Reaction Filter
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                    Text(
+                        text = "Filter Tapback Reactions",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = "Simplifies reaction announcements like 'Liked an image' or 'Emphasized ...'",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = isReactionFilterEnabled,
+                    onCheckedChange = onToggleReactionFilter,
+                )
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+            // Bot & Shortcode Cleaning
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                    Text(
+                        text = "Clean Bot & SMS Sender Headers",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = "Cleans SMS alphanumeric shortcodes (e.g. 'VK-HDFCBK' spoken as 'HDFCBK')",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = isBotSenderCleaningEnabled,
+                    onCheckedChange = onToggleBotSenderCleaning,
+                )
+            }
         }
     }
 }

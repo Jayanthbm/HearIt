@@ -202,6 +202,7 @@ fun ApplicationsRoute(viewModel: ApplicationsViewModel, modifier: Modifier = Mod
                     onStopPlaying = viewModel::onStopPlaying,
                     onDeleteHistoryEntry = viewModel::onDeleteHistoryEntry,
                     onClearAppHistory = viewModel::onClearAppHistory,
+                    onSpokenNameChanged = viewModel::onSpokenNameChanged,
                     modifier = Modifier.fillMaxSize(),
                 )
             }
@@ -234,11 +235,13 @@ private fun ApplicationsListScreen(
     onDeselectAllVisible: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val displayedApps = remember(state.visibleApps, state.enabledApps, filterType) {
+    var showSystemApps by rememberSaveable { mutableStateOf(false) }
+    val displayedApps = remember(state.visibleApps, state.enabledApps, filterType, showSystemApps) {
+        val base = if (showSystemApps) state.visibleApps else state.visibleApps.filter { !it.isSystemApp || it.packageName in state.enabledApps }
         when (filterType) {
-            1 -> state.visibleApps.filter { it.packageName in state.enabledApps }
-            2 -> state.visibleApps.filter { it.packageName !in state.enabledApps }
-            else -> state.visibleApps
+            1 -> base.filter { it.packageName in state.enabledApps }
+            2 -> base.filter { it.packageName !in state.enabledApps }
+            else -> base
         }
     }
 
@@ -373,7 +376,29 @@ private fun ApplicationsListScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp, vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            FilterChip(
+                selected = showSystemApps,
+                onClick = { showSystemApps = !showSystemApps },
+                label = {
+                    Text(
+                        text = if (showSystemApps) "System Apps Shown" else "System Apps Hidden",
+                        fontSize = 11.5.sp,
+                    )
+                },
+                shape = RoundedCornerShape(10.dp),
+            )
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
 
         if (!state.loading && !state.catalogUnavailable && displayedApps.isNotEmpty()) {
             Row(
@@ -743,6 +768,7 @@ private fun AppSettingsScreen(
     onStopPlaying: () -> Unit,
     onDeleteHistoryEntry: (Long) -> Unit,
     onClearAppHistory: (Int?) -> Unit,
+    onSpokenNameChanged: (String?) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var selectedTab by remember { mutableStateOf(0) } // 0 = Rules & Filters, 1 = App History
@@ -949,6 +975,73 @@ private fun AppSettingsScreen(
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
+                    // Custom Spoken Name Card (Idea 33)
+                    var customSpokenName by remember(state.spokenName) { mutableStateOf(state.spokenName ?: "") }
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Tune,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                                Column {
+                                    Text(
+                                        text = "Custom Spoken App Name",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                    Text(
+                                        text = "Spoken nickname (e.g. 'Teams' instead of 'Microsoft Teams')",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 11.sp,
+                                    )
+                                }
+                            }
+
+                            OutlinedTextField(
+                                value = customSpokenName,
+                                onValueChange = { customSpokenName = it },
+                                placeholder = { Text("Default: ${state.label}") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                trailingIcon = {
+                                    if (customSpokenName.isNotBlank()) {
+                                        IconButton(onClick = {
+                                            customSpokenName = ""
+                                            onSpokenNameChanged(null)
+                                        }) {
+                                            Icon(Icons.Rounded.Close, contentDescription = "Clear")
+                                        }
+                                    }
+                                },
+                            )
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End,
+                            ) {
+                                FilledTonalButton(
+                                    onClick = { onSpokenNameChanged(customSpokenName.ifBlank { null }) },
+                                    shape = RoundedCornerShape(10.dp),
+                                ) {
+                                    Text("Save Name")
+                                }
+                            }
+                        }
+                    }
+
                     if (state.enabled) {
                         // Content & Notification Filters Card
                         val filterSettings = state.keywordFilter.effective

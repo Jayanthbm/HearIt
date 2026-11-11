@@ -42,10 +42,12 @@ class AndroidApplicationCatalog(private val context: Context) : ApplicationCatal
             .filter { it.packageName != context.packageName }
             .distinctBy { it.packageName }
             .map { info ->
+                val isSystem = (info.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0
                 AppEntry(
                     packageName = info.packageName,
                     label = runCatching { packageManager.getApplicationLabel(info).toString() }
                         .getOrDefault(info.packageName),
+                    isSystemApp = isSystem,
                 )
             }
             .sortedBy { it.label.lowercase() }

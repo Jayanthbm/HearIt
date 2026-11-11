@@ -50,6 +50,15 @@ object AppSettingsEditor {
         priority: AppPriority?,
     ): HearItSettings = updateOverride(settings, packageName) { it.copy(priority = priority) }
 
+    /** Sets or clears the per-app custom spoken name/alias (null = inherit default app label). */
+    fun setSpokenName(
+        settings: HearItSettings,
+        packageName: String,
+        spokenName: String?,
+    ): HearItSettings = updateOverride(settings, packageName) { override ->
+        override.copy(spokenName = spokenName?.trim()?.ifBlank { null })
+    }
+
     /** Sets or clears the per-app history storage mode (master prompt §12). */
     fun setHistoryStorageMode(
         settings: HearItSettings,
@@ -255,6 +264,7 @@ object AppSettingsEditor {
             keywordFilter = Inherited(override.eligibility.keywordFilter, settings.eligibility.keywordFilter),
             enabledAppCount = settings.enabledApps.size,
             hasOverrides = !override.inheritsEveryValue,
+            spokenName = override.spokenName,
         )
     }
 

@@ -25,4 +25,10 @@ data class GeneralSettingsUiState(
     val periodicCheckinIntervalMinutes: Int = 30,
     val periodicCheckinAnnounceTime: Boolean = true,
     val periodicCheckinAnnounceBattery: Boolean = true,
+    val isUrlSummarizerEnabled: Boolean = true,
+    val isCurrencyNormalizerEnabled: Boolean = true,
+    val isMarkdownStripperEnabled: Boolean = true,
+    val isEmojiCollapsingEnabled: Boolean = true,
+    val isReactionFilterEnabled: Boolean = true,
+    val isBotSenderCleaningEnabled: Boolean = true,
 )

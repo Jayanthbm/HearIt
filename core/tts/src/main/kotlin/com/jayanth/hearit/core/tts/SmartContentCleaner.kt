@@ -56,6 +56,13 @@ object SmartContentCleaner {
 
     private val appAliases = java.util.concurrent.ConcurrentHashMap<String, String>()
 
+    var isUrlSummarizerEnabled: Boolean = true
+    var isCurrencyNormalizerEnabled: Boolean = true
+    var isMarkdownStripperEnabled: Boolean = true
+    var isEmojiCollapsingEnabled: Boolean = true
+    var isReactionFilterEnabled: Boolean = true
+    var isBotSenderCleaningEnabled: Boolean = true
+
     fun setAppAlias(packageName: String, alias: String?) {
         if (alias.isNullOrBlank()) {
             appAliases.remove(packageName)
@@ -79,14 +86,16 @@ object SmartContentCleaner {
         if (sender.isNullOrBlank()) return null
         val trimmed = sender.trim()
 
-        if (BOT_SENDER_PATTERN.matcher(trimmed).matches()) {
+        if (isBotSenderCleaningEnabled && BOT_SENDER_PATTERN.matcher(trimmed).matches()) {
             val domain = trimmed.substringAfter("@").substringBefore(".").replaceFirstChar { it.uppercase() }
             return "$domain Alert"
         }
 
-        val shortcodeMatcher = SHORTCODE_SENDER_PATTERN.matcher(trimmed)
-        if (shortcodeMatcher.find()) {
-            return shortcodeMatcher.group(1)
+        if (isBotSenderCleaningEnabled) {
+            val shortcodeMatcher = SHORTCODE_SENDER_PATTERN.matcher(trimmed)
+            if (shortcodeMatcher.find()) {
+                return shortcodeMatcher.group(1)
+            }
         }
 
         // Strip bracketed nicknames or notes: "Rahul (Work)" -> "Rahul"
@@ -114,7 +123,7 @@ object SmartContentCleaner {
         }
 
         // 2. Tap-back reaction filtering (Idea 12)
-        if (TAPBACK_PATTERN.matcher(result).matches()) {
+        if (isReactionFilterEnabled && TAPBACK_PATTERN.matcher(result).matches()) {
             return "Reacted to a message"
         }
 
@@ -122,19 +131,27 @@ object SmartContentCleaner {
         result = normalizeMediaTags(result)
 
         // 4. Smart URL summarization
-        result = summarizeUrls(result)
+        if (isUrlSummarizerEnabled) {
+            result = summarizeUrls(result)
+        }
 
         // 5. Currency & Units spoken normalizer (Idea 52)
-        result = normalizeUnitsAndCurrencies(result)
+        if (isCurrencyNormalizerEnabled) {
+            result = normalizeUnitsAndCurrencies(result)
+        }
 
         // 6. Markdown syntax stripping (Idea 27)
-        result = stripMarkdown(result)
+        if (isMarkdownStripperEnabled) {
+            result = stripMarkdown(result)
+        }
 
         // 7. Email subject & sign-off cleaning
         result = cleanEmailContent(result)
 
         // 8. Emoji spam collapsing
-        result = collapseEmojiSpam(result)
+        if (isEmojiCollapsingEnabled) {
+            result = collapseEmojiSpam(result)
+        }
 
         return result.trim()
     }

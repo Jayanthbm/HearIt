@@ -36,6 +36,10 @@
                     android:host="*"
                     android:pathPrefix="/notifications"
                     android:scheme="wear" />
+                <data
+                    android:host="*"
+                    android:pathPrefix="/config"
+                    android:scheme="wear" />
             </intent-filter>
         </service>
     </application>

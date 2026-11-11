@@ -101,6 +101,7 @@ data class AppOverride(
     val history: AppHistoryOverride = AppHistoryOverride(),
     val priority: AppPriority? = null,
     val priorityAnnounceOverride: PriorityAnnounceOverride = PriorityAnnounceOverride(),
+    val spokenName: String? = null,
 ) {
 
     /** True when nothing is overridden for this app. */
@@ -109,5 +110,6 @@ data class AppOverride(
             queue.inheritsEveryValue &&
             history.inheritsEveryValue &&
             priorityAnnounceOverride.inheritsEveryValue &&
-            priority == null
+            priority == null &&
+            spokenName.isNullOrBlank()
 }

@@ -70,6 +70,11 @@ class ApplicationsViewModel @Inject constructor(
         viewModelScope.launch {
             settingsRepository.settings.collect { settings ->
                 latestSettings = settings
+                settings.appOverrides.forEach { (pkg, override) ->
+                    if (!override.spokenName.isNullOrBlank()) {
+                        com.jayanth.hearit.core.tts.SmartContentCleaner.setAppAlias(pkg, override.spokenName)
+                    }
+                }
                 publish()
             }
         }
@@ -279,6 +284,14 @@ class ApplicationsViewModel @Inject constructor(
     fun onPriorityChanged(priority: AppPriority?) {
         updateSelected { settings, packageName ->
             AppSettingsEditor.setPriority(settings, packageName, priority)
+        }
+    }
+
+    fun onSpokenNameChanged(spokenName: String?) {
+        val targetPackage = _state.value.openPackage ?: return
+        com.jayanth.hearit.core.tts.SmartContentCleaner.setAppAlias(targetPackage, spokenName)
+        updateSelected { settings, packageName ->
+            AppSettingsEditor.setSpokenName(settings, packageName, spokenName)
         }
     }
 

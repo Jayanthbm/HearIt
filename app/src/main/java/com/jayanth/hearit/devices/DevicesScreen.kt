@@ -47,8 +47,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.jayanth.hearit.wear.WearCompanionState
+import com.jayanth.hearit.wear.WearDataLayerSync
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -196,6 +202,9 @@ fun DevicesScreen(
                 }
             }
         }
+
+        // Section: Wear OS Smartwatch Companion
+        WearOsCompanionCard()
 
         // Section: Allowed Output Types
         Text(
@@ -733,6 +742,215 @@ private fun RememberedDeviceCard(
                         color = MaterialTheme.colorScheme.error,
                         fontWeight = FontWeight.SemiBold,
                     )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun WearOsCompanionCard(
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    var companionState by remember { mutableStateOf(WearCompanionState()) }
+    var isSyncing by remember { mutableStateOf(false) }
+    var syncMessage by remember { mutableStateOf<String?>(null) }
+    var isSuccess by remember { mutableStateOf(true) }
+
+    val refreshStatus: () -> Unit = {
+        WearDataLayerSync.checkCompanionStatus(context) { state ->
+            companionState = state
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        refreshStatus()
+    }
+
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
+        ),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            if (companionState.isConnected) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+            else MaterialTheme.colorScheme.outlineVariant
+        ),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Surface(
+                        modifier = Modifier.size(40.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (companionState.isConnected)
+                            MaterialTheme.colorScheme.primaryContainer
+                        else MaterialTheme.colorScheme.surfaceVariant,
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Rounded.DevicesOther,
+                                contentDescription = null,
+                                tint = if (companionState.isConnected)
+                                    MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(22.dp),
+                            )
+                        }
+                    }
+
+                    Column {
+                        Text(
+                            text = "Wear OS Companion",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        if (companionState.isConnected) Color(0xFF4CAF50)
+                                        else Color(0xFF9E9E9E)
+                                    )
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (companionState.isConnected)
+                                    "Connected (${companionState.deviceName})"
+                                else "No watch connected",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Medium,
+                                color = if (companionState.isConnected)
+                                    Color(0xFF2E7D32)
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+
+                IconButton(
+                    onClick = { refreshStatus() },
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Refresh,
+                        contentDescription = "Check connection",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                thickness = 0.5.dp
+            )
+
+            // Status details
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column {
+                    Text(
+                        text = "Last Synced",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = if (companionState.lastSyncTimestamp > 0L) {
+                            val diff = System.currentTimeMillis() - companionState.lastSyncTimestamp
+                            when {
+                                diff < 60_000 -> "Just now"
+                                diff < 3600_000 -> "${diff / 60_000}m ago"
+                                else -> "${diff / 3600_000}h ago"
+                            }
+                        } else "Never",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = "Phone Apps Enabled",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = "${companionState.enabledAppsCount} apps",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
+
+            if (syncMessage != null) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (isSuccess) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                    else MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = syncMessage!!,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (isSuccess) MaterialTheme.colorScheme.onPrimaryContainer
+                        else MaterialTheme.colorScheme.onErrorContainer,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
+                }
+            }
+
+            // Sync button
+            OutlinedButton(
+                onClick = {
+                    isSyncing = true
+                    syncMessage = null
+                    WearDataLayerSync.syncAllNow(context) { success, msg ->
+                        isSyncing = false
+                        isSuccess = success
+                        syncMessage = msg
+                        refreshStatus()
+                    }
+                },
+                enabled = !isSyncing,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+            ) {
+                if (isSyncing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Syncing to Watch...")
+                } else {
+                    Icon(
+                        imageVector = Icons.Rounded.Refresh,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Sync Enabled Apps to Watch")
                 }
             }
         }

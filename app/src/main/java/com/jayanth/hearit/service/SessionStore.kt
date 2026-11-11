@@ -103,6 +103,43 @@ class SessionStore(context: Context) {
             prefs.edit().putBoolean(KEY_PERIODIC_ANNOUNCE_BATTERY, value).apply()
         }
 
+    /** Smart NLP Cleaning preferences (Phase 2). */
+    var isUrlSummarizerEnabled: Boolean
+        get() = prefs.getBoolean(KEY_URL_SUMMARIZER, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_URL_SUMMARIZER, value).apply()
+        }
+
+    var isCurrencyNormalizerEnabled: Boolean
+        get() = prefs.getBoolean(KEY_CURRENCY_NORMALIZER, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_CURRENCY_NORMALIZER, value).apply()
+        }
+
+    var isMarkdownStripperEnabled: Boolean
+        get() = prefs.getBoolean(KEY_MARKDOWN_STRIPPER, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_MARKDOWN_STRIPPER, value).apply()
+        }
+
+    var isEmojiCollapsingEnabled: Boolean
+        get() = prefs.getBoolean(KEY_EMOJI_COLLAPSING, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_EMOJI_COLLAPSING, value).apply()
+        }
+
+    var isReactionFilterEnabled: Boolean
+        get() = prefs.getBoolean(KEY_REACTION_FILTER, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_REACTION_FILTER, value).apply()
+        }
+
+    var isBotSenderCleaningEnabled: Boolean
+        get() = prefs.getBoolean(KEY_BOT_SENDER_CLEANING, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_BOT_SENDER_CLEANING, value).apply()
+        }
+
     private companion object {
         const val FILE_NAME = "hearit_session"
         const val KEY_STARTED = "started"
@@ -117,5 +154,11 @@ class SessionStore(context: Context) {
         const val KEY_PERIODIC_CHECKIN_INTERVAL = "periodic_checkin_interval"
         const val KEY_PERIODIC_ANNOUNCE_TIME = "periodic_announce_time"
         const val KEY_PERIODIC_ANNOUNCE_BATTERY = "periodic_announce_battery"
+        const val KEY_URL_SUMMARIZER = "url_summarizer"
+        const val KEY_CURRENCY_NORMALIZER = "currency_normalizer"
+        const val KEY_MARKDOWN_STRIPPER = "markdown_stripper"
+        const val KEY_EMOJI_COLLAPSING = "emoji_collapsing"
+        const val KEY_REACTION_FILTER = "reaction_filter"
+        const val KEY_BOT_SENDER_CLEANING = "bot_sender_cleaning"
     }
 }

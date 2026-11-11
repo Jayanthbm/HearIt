@@ -11,6 +11,7 @@ import com.jayanth.hearit.core.database.HistoryEntry
 data class AppEntry(
     val packageName: String,
     val label: String,
+    val isSystemApp: Boolean = false,
 )
 
 /**
@@ -87,4 +88,5 @@ data class AppSettingsUiState(
     val playingHistoryId: Long? = null,
     val enabledAppCount: Int = 0,
     val hasOverrides: Boolean = false,
+    val spokenName: String? = null,
 )

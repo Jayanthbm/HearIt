@@ -47,6 +47,12 @@ class GeneralSettingsViewModel @Inject constructor(
             periodicCheckinIntervalMinutes = sessionStore.periodicCheckinIntervalMinutes,
             periodicCheckinAnnounceTime = sessionStore.periodicCheckinAnnounceTime,
             periodicCheckinAnnounceBattery = sessionStore.periodicCheckinAnnounceBattery,
+            isUrlSummarizerEnabled = sessionStore.isUrlSummarizerEnabled,
+            isCurrencyNormalizerEnabled = sessionStore.isCurrencyNormalizerEnabled,
+            isMarkdownStripperEnabled = sessionStore.isMarkdownStripperEnabled,
+            isEmojiCollapsingEnabled = sessionStore.isEmojiCollapsingEnabled,
+            isReactionFilterEnabled = sessionStore.isReactionFilterEnabled,
+            isBotSenderCleaningEnabled = sessionStore.isBotSenderCleaningEnabled,
         ),
     )
     val state: StateFlow<GeneralSettingsUiState> = _state.asStateFlow()
@@ -124,6 +130,42 @@ class GeneralSettingsViewModel @Inject constructor(
     fun onTogglePeriodicCheckinBattery(enabled: Boolean) {
         sessionStore.periodicCheckinAnnounceBattery = enabled
         _state.update { it.copy(periodicCheckinAnnounceBattery = enabled) }
+    }
+
+    fun onToggleUrlSummarizer(enabled: Boolean) {
+        sessionStore.isUrlSummarizerEnabled = enabled
+        com.jayanth.hearit.core.tts.SmartContentCleaner.isUrlSummarizerEnabled = enabled
+        _state.update { it.copy(isUrlSummarizerEnabled = enabled) }
+    }
+
+    fun onToggleCurrencyNormalizer(enabled: Boolean) {
+        sessionStore.isCurrencyNormalizerEnabled = enabled
+        com.jayanth.hearit.core.tts.SmartContentCleaner.isCurrencyNormalizerEnabled = enabled
+        _state.update { it.copy(isCurrencyNormalizerEnabled = enabled) }
+    }
+
+    fun onToggleMarkdownStripper(enabled: Boolean) {
+        sessionStore.isMarkdownStripperEnabled = enabled
+        com.jayanth.hearit.core.tts.SmartContentCleaner.isMarkdownStripperEnabled = enabled
+        _state.update { it.copy(isMarkdownStripperEnabled = enabled) }
+    }
+
+    fun onToggleEmojiCollapsing(enabled: Boolean) {
+        sessionStore.isEmojiCollapsingEnabled = enabled
+        com.jayanth.hearit.core.tts.SmartContentCleaner.isEmojiCollapsingEnabled = enabled
+        _state.update { it.copy(isEmojiCollapsingEnabled = enabled) }
+    }
+
+    fun onToggleReactionFilter(enabled: Boolean) {
+        sessionStore.isReactionFilterEnabled = enabled
+        com.jayanth.hearit.core.tts.SmartContentCleaner.isReactionFilterEnabled = enabled
+        _state.update { it.copy(isReactionFilterEnabled = enabled) }
+    }
+
+    fun onToggleBotSenderCleaning(enabled: Boolean) {
+        sessionStore.isBotSenderCleaningEnabled = enabled
+        com.jayanth.hearit.core.tts.SmartContentCleaner.isBotSenderCleaningEnabled = enabled
+        _state.update { it.copy(isBotSenderCleaningEnabled = enabled) }
     }
 
     fun onGroupingWindowChanged(millis: Long) {
