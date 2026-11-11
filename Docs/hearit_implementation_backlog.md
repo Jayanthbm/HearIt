@@ -7,7 +7,7 @@ Once the review is completed, these items will be batched and implemented system
 ---
 
 ## 📋 Status Overview
-- Total Identified Backlog Items: 10
+- Total Identified Backlog Items: 11
 - In Discussion / Under Review
 
 ---
@@ -181,6 +181,16 @@ Once the review is completed, these items will be batched and implemented system
   - `app/src/main/java/com/jayanth/hearit/history/HistoryViewModel.kt`
   - `app/src/main/java/com/jayanth/hearit/history/HistoryScreen.kt`
   - Pure formatter + unit test under `app/src/test/java/com/jayanth/hearit/history/`
+
+### 11. Roadmap Item 9.1: Notification History Detail Modal — Visible Scrollbar Indicator — ⚠️ PARTIALLY IMPLEMENTED
+- **Priority / Effort**: Polish / Very Low Effort
+- **Current State**:
+  - `HistoryDetailDialog` in `HistoryScreen.kt` **already implements** bounded height (`heightIn(max = 380.dp)`) and `verticalScroll(rememberScrollState())` inside the body `Column` (`weight(1f, fill = false)`), keeping the header (`appName`, `relativeTime`, `HistoryStatusPill`) and action buttons (`Listen`, `Filter this`, `Delete`, `Close`) fixed while long text scrolls.
+  - **What Is Missing**: A visible vertical **scrollbar indicator** when text overflows (Compose `verticalScroll` does not draw a scrollbar track/thumb automatically).
+- **What Needs to Be Implemented**:
+  - Add a clean custom vertical scrollbar indicator (`drawWithContent` thumb tied to `ScrollState.value` and `ScrollState.maxValue`, visible whenever `maxValue > 0`) on the scrollable content area inside `HistoryDetailDialog` (and optionally tune `heightIn(max = 420.dp)` if needed).
+- **Files Likely Touched**:
+  - `app/src/main/java/com/jayanth/hearit/history/HistoryScreen.kt`
 
 ---
 
