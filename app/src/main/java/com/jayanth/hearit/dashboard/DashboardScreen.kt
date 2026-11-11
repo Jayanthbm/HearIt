@@ -1728,6 +1728,7 @@ private fun HeroServiceCard(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     val isConnected = state.outputLabel != null
+                    val isSpeaker = state.outputLabel?.contains("Speaker", ignoreCase = true) == true
                     Surface(
                         modifier = Modifier.size(40.dp),
                         shape = RoundedCornerShape(12.dp),
@@ -1735,7 +1736,11 @@ private fun HeroServiceCard(
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
-                                imageVector = if (isConnected) Icons.Rounded.Headphones else Icons.AutoMirrored.Rounded.VolumeOff,
+                                imageVector = when {
+                                    !isConnected -> Icons.AutoMirrored.Rounded.VolumeOff
+                                    isSpeaker -> Icons.AutoMirrored.Rounded.VolumeUp
+                                    else -> Icons.Rounded.Headphones
+                                },
                                 contentDescription = null,
                                 tint = if (isConnected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(20.dp),

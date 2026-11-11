@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.jayanth.hearit.core.common.model.AudioOutputSettings
 import com.jayanth.hearit.core.common.model.HistoryStatus
 import com.jayanth.hearit.core.common.model.LockCondition
 import com.jayanth.hearit.core.common.model.ScreenCondition
@@ -20,6 +21,7 @@ import com.jayanth.hearit.core.tts.UtteranceListener
 import com.jayanth.hearit.service.AnnouncementService
 import com.jayanth.hearit.service.SessionStore
 import com.jayanth.hearit.setup.AudioOutputProbe
+import com.jayanth.hearit.setup.DetectedOutput
 import com.jayanth.hearit.setup.TestAnnouncementState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -59,11 +61,14 @@ class DashboardViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             settingsRepository.settings.collect { settings ->
+                val connected = audioOutputs.connectedOutputs()
+                val resolvedOutput = resolveActiveOutput(settings.eligibility.audioOutput, connected)
                 _state.update { current ->
                     current.copy(
                         loaded = true,
                         enabledAppCount = settings.enabledApps.size,
                         audioOutput = settings.eligibility.audioOutput,
+                        outputLabel = resolvedOutput,
                         screenCondition = settings.eligibility.screenCondition,
                         lockCondition = settings.eligibility.lockCondition,
                     )
@@ -94,6 +99,36 @@ class DashboardViewModel @Inject constructor(
         onRefresh()
     }
 
+    private fun resolveActiveOutput(
+        audioOutput: AudioOutputSettings,
+        connected: List<DetectedOutput>,
+    ): String? {
+        val allowedIds = audioOutput.allowedBluetoothIds
+        // 1. Check connected Bluetooth outputs allowed by policy
+        val allowedBluetooth = connected.firstOrNull { output ->
+            output.isBluetooth && audioOutput.allowBluetooth &&
+                (allowedIds == null || (output.id != null && allowedIds.contains(output.id)))
+        }
+        if (allowedBluetooth != null) {
+            return allowedBluetooth.label
+        }
+
+        // 2. Check connected Wired outputs allowed by policy
+        val allowedWired = connected.firstOrNull { output ->
+            !output.isBluetooth && audioOutput.allowWired
+        }
+        if (allowedWired != null) {
+            return allowedWired.label
+        }
+
+        // 3. Fallback to Phone Speaker if allowed by policy
+        if (audioOutput.allowPhoneSpeaker) {
+            return "Phone Speaker"
+        }
+
+        return null
+    }
+
     private fun getStartOfDayMillis(): Long {
         val calendar = java.util.Calendar.getInstance()
         calendar.set(java.util.Calendar.HOUR_OF_DAY, 0)
@@ -108,11 +143,13 @@ class DashboardViewModel @Inject constructor(
      * outputs) and reloads the history summary. Called when the screen resumes.
      */
     fun onRefresh() {
+        val connected = audioOutputs.connectedOutputs()
+        val currentAudioOutput = _state.value.audioOutput
         _state.update {
             it.copy(
                 temporaryMuteActive = sessionStore.isTemporaryMuteActive,
                 temporaryMuteMinutes = if (sessionStore.isTemporaryMuteActive) it.temporaryMuteMinutes else null,
-                outputLabel = audioOutputs.connectedOutputs().firstOrNull()?.label,
+                outputLabel = resolveActiveOutput(currentAudioOutput, connected),
                 testSpeechDismissed = sessionStore.isTestSpeechDismissed,
             )
         }
