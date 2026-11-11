@@ -23,9 +23,13 @@ import android.os.Looper
 import android.os.SystemClock
 import com.jayanth.hearit.core.common.logger.HearItLogger
 import com.jayanth.hearit.core.common.logger.LogCategory
+import com.jayanth.hearit.core.common.model.AudioOutputKind
 import com.jayanth.hearit.core.common.model.HeadsetButtonAction
+import com.jayanth.hearit.core.common.model.HistoryStatus
 import com.jayanth.hearit.core.common.model.NotificationSnapshot
+import com.jayanth.hearit.core.common.model.SkipReason
 import com.jayanth.hearit.core.common.time.Clock
+import com.jayanth.hearit.core.database.HistoryQuery
 import com.jayanth.hearit.core.database.HistoryRepository
 import com.jayanth.hearit.core.datastore.HearItSettings
 import com.jayanth.hearit.core.notifications.HearItNotificationListenerService
@@ -156,60 +160,104 @@ class AnnouncementService : Service(), NotificationSink {
     /** Any output going away may be the one speech is routed to: stop and let rules decide. */
     private val audioDeviceCallback = object : AudioDeviceCallback() {
         override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>?) {
-            if (!addedDevices.isNullOrEmpty()) {
-                val hasHeadphones = addedDevices.any {
-                    it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
-                        it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO ||
-                        it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET ||
-                        it.type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES
-                }
-                if (hasHeadphones && pipeline.pendingCount > 0) {
-                    val count = pipeline.pendingCount
-                    val text = if (count == 1) "You have 1 pending notification." else "You have $count pending notifications."
-                    val built = BuiltAnnouncement(
-                        listOf(
-                            com.jayanth.hearit.core.tts.AnnouncementSection(
-                                com.jayanth.hearit.core.tts.SectionKind.INTRODUCTION,
-                                "HearIt connected.",
-                            ),
-                            com.jayanth.hearit.core.tts.AnnouncementSection(
-                                com.jayanth.hearit.core.tts.SectionKind.MESSAGE,
-                                text,
-                            ),
+            if (addedDevices.isNullOrEmpty()) return
+            val hasHeadphones = addedDevices.any { it.isHeadphoneDevice() }
+            if (!hasHeadphones || !sessionStore.isCatchUpSummaryEnabled) return
+
+            val nowElapsed = SystemClock.elapsedRealtime()
+            if (nowElapsed - lastCatchUpSpokenAtElapsed < 5_000L) return
+
+            val disconnectedAt = sessionStore.lastHeadphoneDisconnectedAtMillis
+            val absenceMs = if (disconnectedAt > 0L) System.currentTimeMillis() - disconnectedAt else Long.MAX_VALUE
+            if (disconnectedAt > 0L && absenceMs < sessionStore.catchUpAbsenceWindowMs) return
+
+            lastCatchUpSpokenAtElapsed = nowElapsed
+            sessionStore.lastHeadphoneDisconnectedAtMillis = 0L
+
+            serviceScope.launch {
+                val pendingCount = pipeline.pendingCount
+                val pendingApps = pipeline.pendingAppNames()
+                val missedSince = if (disconnectedAt > 0L) disconnectedAt else (System.currentTimeMillis() - 60 * 60_000L)
+                val recentMissed = runCatching {
+                    history.page(
+                        HistoryQuery(
+                            status = HistoryStatus.SKIPPED,
+                            dateFrom = missedSince,
+                            limit = 40,
                         ),
-                        pauseBetweenSectionsMillis = 200L,
-                    )
-                    engine.speak(built, settingsSource.speech(), object : UtteranceListener {
-                        override fun onStart(announcement: BuiltAnnouncement) {}
-                        override fun onComplete(announcement: BuiltAnnouncement) {}
-                        override fun onError(announcement: BuiltAnnouncement, error: TtsError) {}
-                    })
-                }
+                    ).filter { entry ->
+                        entry.reason == SkipReason.OUTPUT_NOT_ALLOWED ||
+                            entry.reason == SkipReason.SCREEN_ON ||
+                            entry.reason == SkipReason.LOCKED ||
+                            entry.reason == SkipReason.UNLOCKED ||
+                            entry.reason == SkipReason.DND ||
+                            entry.reason == SkipReason.PROXIMITY_UNCOVERED
+                    }
+                }.getOrDefault(emptyList())
+
+                val totalCount = pendingCount + recentMissed.size
+                if (totalCount <= 0) return@launch
+
+                val appNames = (pendingApps + recentMissed.map { it.appName }).distinct()
+                val built = CheckinAndCatchUpHelper.buildCatchUpAnnouncement(
+                    count = totalCount,
+                    appNames = appNames,
+                    includeAppBreakdown = sessionStore.catchUpIncludeAppBreakdown,
+                )
+                engine.speak(built, settingsSource.speech(), object : UtteranceListener {
+                    override fun onStart(announcement: BuiltAnnouncement) {}
+                    override fun onComplete(announcement: BuiltAnnouncement) {}
+                    override fun onError(announcement: BuiltAnnouncement, error: TtsError) {}
+                })
             }
         }
 
         override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>?) {
             if (!removedDevices.isNullOrEmpty()) {
+                val removedHeadphone = removedDevices.any { it.isHeadphoneDevice() }
+                if (removedHeadphone) {
+                    val remainingOutputs = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+                    if (remainingOutputs.none { it.isHeadphoneDevice() }) {
+                        sessionStore.lastHeadphoneDisconnectedAtMillis = System.currentTimeMillis()
+                    }
+                }
                 engine.stop()
             }
         }
     }
+
+    private fun AudioDeviceInfo.isHeadphoneDevice(): Boolean =
+        type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
+            type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO ||
+            type == AudioDeviceInfo.TYPE_WIRED_HEADSET ||
+            type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES ||
+            type == AudioDeviceInfo.TYPE_USB_HEADSET
 
     private var lastShakeTime = 0L
     private var lastSpeechEndTimeMillis = 0L
     private var wasMusicActive = false
     private var musicPausedAtMillis = 0L
     private var tickCount = 0L
+    private var isProximityCovered = true
+    private var proximityMaxRange = 5f
+    private var lastCatchUpSpokenAtElapsed = 0L
+    private var lastPeriodicCheckinElapsed = 0L
+    private var lowBatteryWarningSpoken = false
 
     private val sensorEventListener = object : SensorEventListener {
         override fun onSensorChanged(event: SensorEvent?) {
-            if (event == null || event.sensor.type != Sensor.TYPE_ACCELEROMETER) return
+            if (event == null) return
+            if (event.sensor.type == Sensor.TYPE_PROXIMITY) {
+                isProximityCovered = event.values[0] < minOf(proximityMaxRange, 5f)
+                return
+            }
+            if (event.sensor.type != Sensor.TYPE_ACCELEROMETER) return
             val x = event.values[0]
             val y = event.values[1]
             val z = event.values[2]
 
             // 1. Flip check: phone lying flat face down (z < -8.5 m/s^2)
-            if (z < -8.5f && currentAction != null && sessionStore.isShakeToStopEnabled) {
+            if (z < -8.5f && currentAction != null && sessionStore.isFlipToStopEnabled) {
                 HearItLogger.info(LogCategory.SERVICE, "Flip gesture detected: stopping speech")
                 engine.stop()
                 return
@@ -223,8 +271,12 @@ class AnnouncementService : Service(), NotificationSink {
                 if (currentAction != null && sessionStore.isShakeToStopEnabled) {
                     HearItLogger.info(LogCategory.SERVICE, "Shake gesture detected: stopping speech")
                     engine.stop()
-                } else if (currentAction == null && now - lastSpeechEndTimeMillis <= 10_000L && sessionStore.isShakeToStopEnabled) {
-                    HearItLogger.info(LogCategory.SERVICE, "Shake gesture detected within 10s: repeating announcement")
+                } else if (
+                    currentAction == null &&
+                    sessionStore.isShakeToRepeatEnabled &&
+                    now - lastSpeechEndTimeMillis <= sessionStore.shakeRepeatWindowMs
+                ) {
+                    HearItLogger.info(LogCategory.SERVICE, "Shake gesture detected within repeat window: repeating")
                     lastAction?.let { speak(it) }
                 }
             }
@@ -288,6 +340,11 @@ class AnnouncementService : Service(), NotificationSink {
         val accel = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
         if (accel != null) {
             sensorManager.registerListener(sensorEventListener, accel, SensorManager.SENSOR_DELAY_UI)
+        }
+        val proximity = sensorManager?.getDefaultSensor(Sensor.TYPE_PROXIMITY)
+        if (proximity != null) {
+            proximityMaxRange = proximity.maximumRange
+            sensorManager.registerListener(sensorEventListener, proximity, SensorManager.SENSOR_DELAY_NORMAL)
         }
         val filter = IntentFilter("android.media.VOLUME_CHANGED_ACTION")
         try {
@@ -568,9 +625,43 @@ class AnnouncementService : Service(), NotificationSink {
     private fun tickOnce() {
         applyQueueSettings()
         val state = currentState()
+        val eligibility = settingsSource.settings.eligibility
 
         if (tickCount++ % 30L == 0L) {
             HearItNotificationListenerService.requestRebindIfDisconnected(this)
+        }
+
+        // Low Battery one-time spoken notice (#23)
+        val batteryLowNow = eligibility.lowBatterySafeguardEnabled && (
+            state.batteryPercent in 1..eligibility.lowBatteryThresholdPercent ||
+                (state.isPowerSave && eligibility.lowBatteryPauseOnSaverEnabled)
+            )
+        if (!batteryLowNow && state.batteryPercent > eligibility.lowBatteryThresholdPercent + 3) {
+            lowBatteryWarningSpoken = false
+        } else if (
+            batteryLowNow &&
+            !lowBatteryWarningSpoken &&
+            eligibility.lowBatteryWarningSpeechEnabled &&
+            currentAction == null &&
+            !state.priorityAnnounceActive &&
+            !state.temporaryMuteActive &&
+            !state.isCallActive
+        ) {
+            lowBatteryWarningSpoken = true
+            val warning = BuiltAnnouncement(
+                sections = listOf(
+                    com.jayanth.hearit.core.tts.AnnouncementSection(
+                        com.jayanth.hearit.core.tts.SectionKind.MESSAGE,
+                        "Low battery, pausing voice announcements.",
+                    ),
+                ),
+                pauseBetweenSectionsMillis = 0L,
+            )
+            engine.speak(warning, settingsSource.speech(), object : UtteranceListener {
+                override fun onStart(announcement: BuiltAnnouncement) {}
+                override fun onComplete(announcement: BuiltAnnouncement) {}
+                override fun onError(announcement: BuiltAnnouncement, error: TtsError) {}
+            })
         }
 
         val isMusicActiveNow = audioManager.isMusicActive
@@ -580,7 +671,7 @@ class AnnouncementService : Service(), NotificationSink {
         wasMusicActive = isMusicActiveNow
 
         val isMusicHoldActive = sessionStore.isMusicPauseHoldEnabled &&
-            (SystemClock.elapsedRealtime() - musicPausedAtMillis < 60_000L)
+            (SystemClock.elapsedRealtime() - musicPausedAtMillis < sessionStore.musicPauseHoldDurationMs)
         if (isMusicHoldActive && currentAction == null) {
             publishStatus()
             return
@@ -599,12 +690,108 @@ class AnnouncementService : Service(), NotificationSink {
             return
         }
 
-        pipeline.tick(
+        val spoken = pipeline.tick(
             state = state,
-            settingsOf = { packageName -> settingsSource.forApp(packageName) },
             announcementFormat = settingsSource.format(),
-        )?.let { speak(it) }
+            isAppNameDedupEnabled = sessionStore.isAppNameDedupEnabled,
+            appNameDedupWindowMs = sessionStore.appNameDedupWindowMs,
+            isDelayedTimestampEnabled = sessionStore.isDelayedTimestampTagEnabled,
+            delayedTimestampThresholdMs = sessionStore.delayedTimestampThresholdMs,
+            settingsOf = { packageName -> settingsSource.forApp(packageName) },
+        )
+        if (spoken != null) {
+            speak(spoken)
+        } else {
+            maybeRunPeriodicCheckin(state, eligibility)
+        }
         publishStatus()
+    }
+
+    private fun maybeRunPeriodicCheckin(
+        state: com.jayanth.hearit.core.common.model.RuntimeState,
+        eligibility: com.jayanth.hearit.core.common.model.EligibilitySettings,
+    ) {
+        if (!sessionStore.isPeriodicCheckinEnabled) {
+            lastPeriodicCheckinElapsed = 0L
+            return
+        }
+        if (currentAction != null || pipeline.pendingCount > 0) return
+
+        val nowElapsed = SystemClock.elapsedRealtime()
+        if (lastPeriodicCheckinElapsed == 0L) {
+            lastPeriodicCheckinElapsed = nowElapsed
+            return
+        }
+        val intervalMs = sessionStore.periodicCheckinIntervalMinutes.coerceAtLeast(15) * 60_000L
+        if (nowElapsed - lastPeriodicCheckinElapsed < intervalMs) return
+
+        // Eligibility guard for check-ins
+        if (state.isCallActive || state.temporaryMuteActive || state.isBatteryLowOrSaver) return
+        if (state.isDndActive && eligibility.respectDnd) return
+        val hasAllowedOutput = state.activeOutput?.kind == AudioOutputKind.BLUETOOTH ||
+            state.activeOutput?.kind == AudioOutputKind.WIRED ||
+            eligibility.audioOutput.allowPhoneSpeaker
+        if (!hasAllowedOutput) return
+
+        lastPeriodicCheckinElapsed = nowElapsed
+        val needTime = sessionStore.periodicCheckinAnnounceTime
+        val needPhoneBattery = sessionStore.periodicCheckinAnnounceBattery
+        val needEarphonesBattery = sessionStore.periodicCheckinAnnounceEarphonesBattery
+        val needSummary = sessionStore.periodicCheckinAnnounceSummary
+
+        serviceScope.launch {
+            val todayStart = java.util.Calendar.getInstance().apply {
+                set(java.util.Calendar.HOUR_OF_DAY, 0)
+                set(java.util.Calendar.MINUTE, 0)
+                set(java.util.Calendar.SECOND, 0)
+                set(java.util.Calendar.MILLISECOND, 0)
+            }.timeInMillis
+
+            val announcedToday = if (needSummary) {
+                runCatching {
+                    history.page(
+                        HistoryQuery(
+                            status = HistoryStatus.ANNOUNCED,
+                            dateFrom = todayStart,
+                            limit = HistoryQuery.MAX_PAGE_SIZE,
+                        ),
+                    ).size
+                }.getOrDefault(0)
+            } else {
+                0
+            }
+
+            val text = CheckinAndCatchUpHelper.formatCheckinMessage(
+                includeTime = needTime,
+                includePhoneBattery = needPhoneBattery,
+                includeEarphonesBattery = needEarphonesBattery,
+                includeSummary = needSummary,
+                formattedTime = CheckinAndCatchUpHelper.currentFormattedTime(),
+                phoneBatteryPercent = state.batteryPercent,
+                earphonesBatteryPercent = if (needEarphonesBattery) {
+                    CheckinAndCatchUpHelper.readConnectedEarphonesBatteryPercent(this@AnnouncementService)
+                } else {
+                    null
+                },
+                announcedTodayCount = announcedToday,
+                pendingCount = pipeline.pendingCount,
+            )
+            if (text.isBlank()) return@launch
+            val announcement = BuiltAnnouncement(
+                sections = listOf(
+                    com.jayanth.hearit.core.tts.AnnouncementSection(
+                        com.jayanth.hearit.core.tts.SectionKind.MESSAGE,
+                        text,
+                    ),
+                ),
+                pauseBetweenSectionsMillis = 0L,
+            )
+            engine.speak(announcement, settingsSource.speech(), object : UtteranceListener {
+                override fun onStart(announcement: BuiltAnnouncement) {}
+                override fun onComplete(announcement: BuiltAnnouncement) {}
+                override fun onError(announcement: BuiltAnnouncement, error: TtsError) {}
+            })
+        }
     }
 
     /**
@@ -708,9 +895,12 @@ class AnnouncementService : Service(), NotificationSink {
         publishStatus()
     }
 
-    /** Fresh device state, including the mode the service itself owns. */
+    /** Fresh device state, including the mode and proximity sensor state the service owns. */
     private fun currentState() = stateReader.read(
         priorityAnnounceActive = serviceStatus.state.value.isPriorityAnnounceActive,
+        isProximityCovered = isProximityCovered,
+        lowBatteryThresholdPercent = settingsSource.settings.eligibility.lowBatteryThresholdPercent,
+        pauseOnPowerSaver = settingsSource.settings.eligibility.lowBatteryPauseOnSaverEnabled,
     )
 
     /**

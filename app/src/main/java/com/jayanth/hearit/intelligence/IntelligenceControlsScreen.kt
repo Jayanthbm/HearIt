@@ -165,16 +165,32 @@ fun IntelligenceControlsScreen(
             onToggleBluetoothAutoStart = onToggleBluetoothAutoStart,
         )
 
-        // Section 4: Periodic Spoken Check-in
+        // Section 4: Timing & Catch-Up Automation (#19, #22)
+        AutomaticBehaviorAndCatchUpCard(
+            state = state,
+            actions = intelligenceActions,
+        )
+
+        // Section 5: Proximity Pocket Detection (#30)
+        com.jayanth.hearit.applications.PocketDetectionCard(
+            eligibility = state.eligibility,
+            onEligibilityChanged = intelligenceActions.onUpdateEligibility,
+        )
+
+        // Section 6: Periodic Spoken Check-in (#32)
         PeriodicCheckinCard(
             isEnabled = state.isPeriodicCheckinEnabled,
             intervalMinutes = state.periodicCheckinIntervalMinutes,
             announceTime = state.periodicCheckinAnnounceTime,
             announceBattery = state.periodicCheckinAnnounceBattery,
+            announceEarphonesBattery = state.periodicCheckinAnnounceEarphonesBattery,
+            announceSummary = state.periodicCheckinAnnounceSummary,
             onToggleEnabled = onTogglePeriodicCheckin,
             onIntervalChanged = onPeriodicCheckinIntervalChanged,
             onToggleTime = onTogglePeriodicCheckinTime,
             onToggleBattery = onTogglePeriodicCheckinBattery,
+            onToggleEarphonesBattery = intelligenceActions.onTogglePeriodicCheckinEarphonesBattery,
+            onToggleSummary = intelligenceActions.onTogglePeriodicCheckinSummary,
         )
 
         // Section 5: Wear OS Companion Smartwatch

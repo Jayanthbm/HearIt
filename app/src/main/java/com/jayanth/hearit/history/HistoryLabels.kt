@@ -55,4 +55,6 @@ fun skipReasonLabelRes(reason: SkipReason): Int = when (reason) {
     SkipReason.OVERFLOW -> R.string.history_reason_overflow
     SkipReason.DUPLICATE_UPDATE -> R.string.history_reason_duplicate
     SkipReason.SUPPRESSED_INTELLIGENCE -> R.string.history_reason_suppressed_intelligence
+    SkipReason.LOW_BATTERY -> R.string.history_reason_low_battery
+    SkipReason.PROXIMITY_UNCOVERED -> R.string.history_reason_proximity_uncovered
 }

@@ -171,6 +171,9 @@ class GlobalSettingsViewModel @Inject constructor(
         }
     }
 
+    fun onEligibilityChanged(updated: EligibilitySettings) =
+        updateEligibility { updated }
+
     private fun updateEligibility(transform: (EligibilitySettings) -> EligibilitySettings) {
         viewModelScope.launch {
             settingsRepository.update { settings ->
@@ -196,6 +199,7 @@ fun GlobalSettingsRoute(
         onKeywordFilterChanged = viewModel::onKeywordFilterChanged,
         onPrivacyChanged = viewModel::onPrivacyChanged,
         onAudioOutputChanged = viewModel::onAudioOutputChanged,
+        onEligibilityChanged = viewModel::onEligibilityChanged,
         onResetToDefaults = viewModel::onResetToDefaults,
         modifier = modifier,
     )
@@ -215,6 +219,7 @@ fun GlobalSettingsScreen(
     onResetToDefaults: () -> Unit,
     modifier: Modifier = Modifier,
     onAudioOutputChanged: (Boolean?, Boolean?, Boolean?) -> Unit = { _, _, _ -> },
+    onEligibilityChanged: (EligibilitySettings) -> Unit = {},
 ) {
     var showResetDialog by remember { mutableStateOf(false) }
 
@@ -258,6 +263,22 @@ fun GlobalSettingsScreen(
         GlobalKeywordFilterCard(
             keywordFilter = state.keywordFilter,
             onKeywordFilterChanged = onKeywordFilterChanged,
+        )
+
+        // Section 4: Critical Breakthrough, Low Battery Safeguard & Pocket Detection
+        CriticalBreakthroughCard(
+            eligibility = state.eligibility,
+            onEligibilityChanged = onEligibilityChanged,
+        )
+
+        LowBatterySafeguardCard(
+            eligibility = state.eligibility,
+            onEligibilityChanged = onEligibilityChanged,
+        )
+
+        PocketDetectionCard(
+            eligibility = state.eligibility,
+            onEligibilityChanged = onEligibilityChanged,
         )
 
         // Reset to Defaults Button

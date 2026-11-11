@@ -4,6 +4,7 @@ import com.jayanth.hearit.applications.AppEntry
 import com.jayanth.hearit.core.common.model.AppCategory
 import com.jayanth.hearit.core.common.model.AudioFocusPolicy
 import com.jayanth.hearit.core.common.model.DigitGroupingStyle
+import com.jayanth.hearit.core.common.model.EligibilitySettings
 import com.jayanth.hearit.core.common.model.HeadsetButtonAction
 import com.jayanth.hearit.core.common.model.IntelligencePresets
 import com.jayanth.hearit.core.common.model.PronunciationRule
@@ -65,4 +66,21 @@ data class GeneralSettingsUiState(
     val headsetSinglePressAction: HeadsetButtonAction = HeadsetButtonAction.PAUSE_RESUME,
     val headsetDoublePressAction: HeadsetButtonAction = HeadsetButtonAction.SKIP,
     val headsetTriplePressAction: HeadsetButtonAction = HeadsetButtonAction.REPEAT,
+    // Batch 3: Automatic behavior configs (#19), Catch-Up (#22), BT Filtering (#27), Check-in (#32)
+    val isAppNameDedupEnabled: Boolean = true,
+    val appNameDedupWindowMs: Long = 45_000L,
+    val isDelayedTimestampTagEnabled: Boolean = true,
+    val delayedTimestampThresholdMs: Long = 120_000L,
+    val musicPauseHoldDurationMs: Long = 60_000L,
+    val isFlipToStopEnabled: Boolean = true,
+    val isShakeToRepeatEnabled: Boolean = true,
+    val shakeRepeatWindowMs: Long = 10_000L,
+    val isCatchUpSummaryEnabled: Boolean = true,
+    val catchUpAbsenceWindowMs: Long = 15 * 60_000L,
+    val catchUpIncludeAppBreakdown: Boolean = true,
+    val isBluetoothAutoStopEnabled: Boolean = true,
+    val isBluetoothAutoOnlyAllowedEnabled: Boolean = false,
+    val periodicCheckinAnnounceEarphonesBattery: Boolean = true,
+    val periodicCheckinAnnounceSummary: Boolean = true,
+    val eligibility: EligibilitySettings = EligibilitySettings(),
 )

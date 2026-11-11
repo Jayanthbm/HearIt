@@ -388,6 +388,112 @@ class SessionStore(context: Context) {
             prefs.edit().putString(KEY_HEADSET_TRIPLE_ACTION, value.name).apply()
         }
 
+    /** Built-in Automatic Feature Configurations (#19). */
+    var isAppNameDedupEnabled: Boolean
+        get() = prefs.getBoolean(KEY_APP_NAME_DEDUP_ENABLED, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_APP_NAME_DEDUP_ENABLED, value).apply()
+        }
+
+    var appNameDedupWindowMs: Long
+        get() = prefs.getLong(KEY_APP_NAME_DEDUP_WINDOW_MS, 45_000L)
+        set(value) {
+            prefs.edit().putLong(KEY_APP_NAME_DEDUP_WINDOW_MS, value.coerceIn(5_000L, 300_000L)).apply()
+        }
+
+    var isDelayedTimestampTagEnabled: Boolean
+        get() = prefs.getBoolean(KEY_DELAYED_TIMESTAMP_ENABLED, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_DELAYED_TIMESTAMP_ENABLED, value).apply()
+        }
+
+    var delayedTimestampThresholdMs: Long
+        get() = prefs.getLong(KEY_DELAYED_TIMESTAMP_THRESHOLD_MS, 120_000L)
+        set(value) {
+            prefs.edit().putLong(KEY_DELAYED_TIMESTAMP_THRESHOLD_MS, value.coerceIn(30_000L, 600_000L)).apply()
+        }
+
+    var musicPauseHoldDurationMs: Long
+        get() = prefs.getLong(KEY_MUSIC_PAUSE_HOLD_DURATION_MS, 60_000L)
+        set(value) {
+            prefs.edit().putLong(KEY_MUSIC_PAUSE_HOLD_DURATION_MS, value.coerceIn(10_000L, 300_000L)).apply()
+        }
+
+    var isFlipToStopEnabled: Boolean
+        get() = prefs.getBoolean(KEY_FLIP_TO_STOP, isShakeToStopEnabled)
+        set(value) {
+            prefs.edit().putBoolean(KEY_FLIP_TO_STOP, value).apply()
+        }
+
+    var isShakeToRepeatEnabled: Boolean
+        get() = prefs.getBoolean(KEY_SHAKE_TO_REPEAT, isShakeToStopEnabled)
+        set(value) {
+            prefs.edit().putBoolean(KEY_SHAKE_TO_REPEAT, value).apply()
+        }
+
+    var shakeRepeatWindowMs: Long
+        get() = prefs.getLong(KEY_SHAKE_REPEAT_WINDOW_MS, 10_000L)
+        set(value) {
+            prefs.edit().putLong(KEY_SHAKE_REPEAT_WINDOW_MS, value.coerceIn(3_000L, 30_000L)).apply()
+        }
+
+    /** Catch-Up Summary on Connect (#22). */
+    var isCatchUpSummaryEnabled: Boolean
+        get() = prefs.getBoolean(KEY_CATCH_UP_SUMMARY_ENABLED, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_CATCH_UP_SUMMARY_ENABLED, value).apply()
+        }
+
+    var catchUpAbsenceWindowMs: Long
+        get() = prefs.getLong(KEY_CATCH_UP_ABSENCE_WINDOW_MS, 15 * 60_000L)
+        set(value) {
+            prefs.edit().putLong(KEY_CATCH_UP_ABSENCE_WINDOW_MS, value.coerceAtLeast(0L)).apply()
+        }
+
+    var catchUpIncludeAppBreakdown: Boolean
+        get() = prefs.getBoolean(KEY_CATCH_UP_INCLUDE_APPS, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_CATCH_UP_INCLUDE_APPS, value).apply()
+        }
+
+    var lastHeadphoneDisconnectedAtMillis: Long
+        get() = prefs.getLong(KEY_LAST_HEADPHONE_DISCONNECTED_AT, 0L)
+        set(value) {
+            prefs.edit().putLong(KEY_LAST_HEADPHONE_DISCONNECTED_AT, value).apply()
+        }
+
+    /** Separate Bluetooth Auto-Stop & Allowed Devices Filter (#27). */
+    var isBluetoothAutoStopEnabled: Boolean
+        get() = prefs.getBoolean(KEY_BT_AUTO_STOP, isBluetoothAutoStartEnabled)
+        set(value) {
+            prefs.edit().putBoolean(KEY_BT_AUTO_STOP, value).apply()
+        }
+
+    var isBluetoothAutoOnlyAllowedEnabled: Boolean
+        get() = prefs.getBoolean(KEY_BT_AUTO_ONLY_ALLOWED, false)
+        set(value) {
+            prefs.edit().putBoolean(KEY_BT_AUTO_ONLY_ALLOWED, value).apply()
+        }
+
+    var cachedAllowedBluetoothIds: Set<String>
+        get() = prefs.getStringSet(KEY_CACHED_ALLOWED_BT_IDS, emptySet())?.toSet() ?: emptySet()
+        set(value) {
+            prefs.edit().putStringSet(KEY_CACHED_ALLOWED_BT_IDS, value).apply()
+        }
+
+    /** Periodic Spoken Check-in additional items (#32). */
+    var periodicCheckinAnnounceEarphonesBattery: Boolean
+        get() = prefs.getBoolean(KEY_PERIODIC_ANNOUNCE_EARPHONES_BATTERY, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_PERIODIC_ANNOUNCE_EARPHONES_BATTERY, value).apply()
+        }
+
+    var periodicCheckinAnnounceSummary: Boolean
+        get() = prefs.getBoolean(KEY_PERIODIC_ANNOUNCE_SUMMARY, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_PERIODIC_ANNOUNCE_SUMMARY, value).apply()
+        }
+
     /** True if user has permanent premium entitlement (Google Play IAP/Subscription). */
     var isPremiumEntitled: Boolean
         get() = prefs.getBoolean(KEY_PREMIUM_ENTITLED, false)
@@ -543,6 +649,23 @@ class SessionStore(context: Context) {
         const val KEY_HEADSET_SINGLE_ACTION = "headset_single_action"
         const val KEY_HEADSET_DOUBLE_ACTION = "headset_double_action"
         const val KEY_HEADSET_TRIPLE_ACTION = "headset_triple_action"
+        const val KEY_APP_NAME_DEDUP_ENABLED = "app_name_dedup_enabled"
+        const val KEY_APP_NAME_DEDUP_WINDOW_MS = "app_name_dedup_window_ms"
+        const val KEY_DELAYED_TIMESTAMP_ENABLED = "delayed_timestamp_enabled"
+        const val KEY_DELAYED_TIMESTAMP_THRESHOLD_MS = "delayed_timestamp_threshold_ms"
+        const val KEY_MUSIC_PAUSE_HOLD_DURATION_MS = "music_pause_hold_duration_ms"
+        const val KEY_FLIP_TO_STOP = "flip_to_stop"
+        const val KEY_SHAKE_TO_REPEAT = "shake_to_repeat"
+        const val KEY_SHAKE_REPEAT_WINDOW_MS = "shake_repeat_window_ms"
+        const val KEY_CATCH_UP_SUMMARY_ENABLED = "catch_up_summary_enabled"
+        const val KEY_CATCH_UP_ABSENCE_WINDOW_MS = "catch_up_absence_window_ms"
+        const val KEY_CATCH_UP_INCLUDE_APPS = "catch_up_include_apps"
+        const val KEY_LAST_HEADPHONE_DISCONNECTED_AT = "last_headphone_disconnected_at"
+        const val KEY_BT_AUTO_STOP = "bt_auto_stop"
+        const val KEY_BT_AUTO_ONLY_ALLOWED = "bt_auto_only_allowed"
+        const val KEY_CACHED_ALLOWED_BT_IDS = "cached_allowed_bt_ids"
+        const val KEY_PERIODIC_ANNOUNCE_EARPHONES_BATTERY = "periodic_announce_earphones_battery"
+        const val KEY_PERIODIC_ANNOUNCE_SUMMARY = "periodic_announce_summary"
         const val KEY_PREMIUM_ENTITLED = "premium_entitled"
         const val KEY_TEMPORARY_PREMIUM_EXPIRY = "temporary_premium_expiry_ts"
     }

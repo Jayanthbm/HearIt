@@ -82,6 +82,15 @@ object SettingsCodec {
     private const val KEY_AUDIO_SPEAKER = "elig.audio.allowPhoneSpeaker"
     private const val KEY_AUDIO_BT_IDS = "elig.audio.allowedBluetoothIds"
     private const val KEY_AUDIO_UNIDENTIFIED = "elig.audio.allowUnidentifiedOutput"
+    private const val KEY_CRITICAL_ENABLED = "elig.critical.enabled"
+    private const val KEY_CRITICAL_KEYWORDS = "elig.critical.keywords"
+    private const val KEY_CRITICAL_ALLOW_DISABLED = "elig.critical.allowDisabled"
+    private const val KEY_LOW_BATTERY_ENABLED = "elig.lowBattery.enabled"
+    private const val KEY_LOW_BATTERY_THRESHOLD = "elig.lowBattery.threshold"
+    private const val KEY_LOW_BATTERY_SAVER = "elig.lowBattery.saver"
+    private const val KEY_LOW_BATTERY_WARNING = "elig.lowBattery.warning"
+    private const val KEY_POCKET_DETECTION_ENABLED = "elig.pocket.enabled"
+    private const val KEY_POCKET_HEADPHONE_BYPASS = "elig.pocket.headphoneBypass"
 
     private const val KEY_QUEUE_WINDOW = "queue.groupingWindow"
     private const val KEY_QUEUE_DELAY = "queue.delay"
@@ -175,6 +184,16 @@ object SettingsCodec {
         values[KEY_AUDIO_SPEAKER] = audio.allowPhoneSpeaker.toString()
         audio.allowedBluetoothIds?.let { values[KEY_AUDIO_BT_IDS] = encodeList(it) }
         values[KEY_AUDIO_UNIDENTIFIED] = audio.allowUnidentifiedOutput.toString()
+
+        values[KEY_CRITICAL_ENABLED] = eligibility.criticalBreakthroughEnabled.toString()
+        values[KEY_CRITICAL_KEYWORDS] = encodeList(eligibility.criticalKeywords)
+        values[KEY_CRITICAL_ALLOW_DISABLED] = eligibility.criticalBreakthroughAllowDisabledApps.toString()
+        values[KEY_LOW_BATTERY_ENABLED] = eligibility.lowBatterySafeguardEnabled.toString()
+        values[KEY_LOW_BATTERY_THRESHOLD] = eligibility.lowBatteryThresholdPercent.toString()
+        values[KEY_LOW_BATTERY_SAVER] = eligibility.lowBatteryPauseOnSaverEnabled.toString()
+        values[KEY_LOW_BATTERY_WARNING] = eligibility.lowBatteryWarningSpeechEnabled.toString()
+        values[KEY_POCKET_DETECTION_ENABLED] = eligibility.pocketDetectionEnabled.toString()
+        values[KEY_POCKET_HEADPHONE_BYPASS] = eligibility.pocketDetectionHeadphoneBypass.toString()
 
         val queue = settings.queue
         values[KEY_QUEUE_WINDOW] = queue.groupingWindowMillis.toString()
@@ -322,6 +341,35 @@ object SettingsCodec {
                 ),
             ),
             audioFocus = values.enum(KEY_AUDIO_FOCUS, defaults.audioFocus),
+            criticalBreakthroughEnabled = values.boolean(KEY_CRITICAL_ENABLED, defaults.criticalBreakthroughEnabled),
+            criticalKeywords = if (KEY_CRITICAL_KEYWORDS in values) {
+                splitList(values[KEY_CRITICAL_KEYWORDS]).filter { it.isNotBlank() }
+            } else {
+                defaults.criticalKeywords
+            },
+            criticalBreakthroughAllowDisabledApps = values.boolean(
+                KEY_CRITICAL_ALLOW_DISABLED,
+                defaults.criticalBreakthroughAllowDisabledApps,
+            ),
+            lowBatterySafeguardEnabled = values.boolean(KEY_LOW_BATTERY_ENABLED, defaults.lowBatterySafeguardEnabled),
+            lowBatteryThresholdPercent = values.int(
+                KEY_LOW_BATTERY_THRESHOLD,
+                defaults.lowBatteryThresholdPercent,
+                minimum = 5,
+            ).coerceAtMost(50),
+            lowBatteryPauseOnSaverEnabled = values.boolean(
+                KEY_LOW_BATTERY_SAVER,
+                defaults.lowBatteryPauseOnSaverEnabled,
+            ),
+            lowBatteryWarningSpeechEnabled = values.boolean(
+                KEY_LOW_BATTERY_WARNING,
+                defaults.lowBatteryWarningSpeechEnabled,
+            ),
+            pocketDetectionEnabled = values.boolean(KEY_POCKET_DETECTION_ENABLED, defaults.pocketDetectionEnabled),
+            pocketDetectionHeadphoneBypass = values.boolean(
+                KEY_POCKET_HEADPHONE_BYPASS,
+                defaults.pocketDetectionHeadphoneBypass,
+            ),
         )
     }
 

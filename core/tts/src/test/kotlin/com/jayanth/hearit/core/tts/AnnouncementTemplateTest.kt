@@ -208,4 +208,20 @@ class AnnouncementTemplateTest {
         assertTrue(announcement.isEmpty)
         assertTrue(announcement.sections.isEmpty())
     }
+
+    @Test
+    fun build_delayedMessage_formatsNaturalSentMinutesAgo() {
+        val snap = snapshot(sender = "Rahul", messageText = "Where are you?")
+        val announcement = AnnouncementTemplate.build(
+            snapshot = snap,
+            format = AnnouncementFormat(),
+            isCritical = true,
+            delayedMinutesByKey = mapOf(snap.key to 12L),
+        )
+        assertTrue(announcement.isCritical)
+        assertEquals(
+            listOf("WhatsApp.", "Rahul sent 12 minutes ago:", "Where are you?"),
+            texts(announcement),
+        )
+    }
 }

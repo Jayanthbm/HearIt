@@ -75,4 +75,10 @@ enum class SkipReason {
 
     /** Suppressed by Active Intelligence rules (background sync status, silenced reaction, or carrier promo SMS). */
     SUPPRESSED_INTELLIGENCE,
+
+    /** Battery dropped below configured threshold or Battery Saver mode is active. */
+    LOW_BATTERY,
+
+    /** Pocket detection requires the phone proximity sensor to be covered (phone in hand). */
+    PROXIMITY_UNCOVERED,
 }

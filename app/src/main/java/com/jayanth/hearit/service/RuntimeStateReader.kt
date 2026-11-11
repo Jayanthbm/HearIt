@@ -11,24 +11,7 @@ import com.jayanth.hearit.core.common.model.AudioOutputKind
 import com.jayanth.hearit.core.common.model.RuntimeState
 
 /**
- * Reads the device state the rules pipeline needs, without requesting any permission
- * (P06 decision: no dangerous permissions before the setup flow explains them).
- *
- * All readings are best-effort and never throw; each has a documented, safe fallback:
- *  - **screen** via [PowerManager.isInteractive];
- *  - **lock** via [KeyguardManager.isKeyguardLocked];
- *  - **call** via [AudioManager.getMode] `IN_CALL`/`IN_COMMUNICATION` — a permission-free
- *    proxy for "a call is in progress"; exact telephony state needs `READ_PHONE_STATE`,
- *    which is not requested in v1 (master prompt §6 only needs "never speak during a call");
- *  - **DND** via [NotificationManager.getCurrentInterruptionFilter] — anything other than
- *    `ALL` counts as DND; a silent channel is never treated as DND (ADR-017);
- *  - **mute** from [SessionStore] (P16 owns the control);
- *  - **active output** from connected output devices: Bluetooth first, then wired, then
- *    the phone speaker; an unclassifiable/absent output yields `null`, which the rules
- *    treat as allowed (ADR-017).
- *
- * Priority Announce state is passed in: its toggle + expiry belong to the service/feature
- * layer (P17). Not locally verified — cloud-agent restriction.
+ * Reads the device state the rules pipeline needs, without requesting any runtime permissions.
  */
 class RuntimeStateReader(
     context: Context,
@@ -41,11 +24,22 @@ class RuntimeStateReader(
     private val notificationManager = context.getSystemService(NotificationManager::class.java)
     private val batteryManager = context.getSystemService(android.os.BatteryManager::class.java)
 
+    /** Current battery percentage (1..100, fallback 100). */
+    fun readBatteryPercent(): Int =
+        batteryManager?.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY)
+            ?.takeIf { it in 1..100 }
+            ?: 100
+
     /** Snapshot of the current device state for one rules evaluation. */
-    fun read(priorityAnnounceActive: Boolean = false): RuntimeState {
-        val capacity = batteryManager?.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: 100
+    fun read(
+        priorityAnnounceActive: Boolean = false,
+        isProximityCovered: Boolean = true,
+        lowBatteryThresholdPercent: Int = 15,
+        pauseOnPowerSaver: Boolean = true,
+    ): RuntimeState {
+        val capacity = readBatteryPercent()
         val isPowerSave = powerManager?.isPowerSaveMode ?: false
-        val isLowBattery = (capacity in 1..15) || isPowerSave
+        val isLowBattery = (capacity in 1..lowBatteryThresholdPercent) || (isPowerSave && pauseOnPowerSaver)
 
         return RuntimeState(
             screenOn = powerManager?.isInteractive ?: true,
@@ -57,6 +51,9 @@ class RuntimeStateReader(
             isDndActive = (notificationManager?.currentInterruptionFilter ?: DND_OFF) != DND_OFF,
             activeOutput = readActiveOutput(),
             isBatteryLowOrSaver = isLowBattery,
+            isProximityCovered = isProximityCovered,
+            batteryPercent = capacity,
+            isPowerSave = isPowerSave,
         )
     }
 
@@ -93,7 +90,6 @@ class RuntimeStateReader(
     )
 
     private companion object {
-        /** `INTERRUPTION_FILTER_ALL` means "do not suppress anything" — DND is off. */
         const val DND_OFF = NotificationManager.INTERRUPTION_FILTER_ALL
     }
 }

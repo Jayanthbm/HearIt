@@ -45,7 +45,26 @@ data class EligibilitySettings(
     val audioOutput: AudioOutputSettings = AudioOutputSettings(),
     /** What the player does with other apps' audio focus (P08, per-app inheritable). */
     val audioFocus: AudioFocusPolicy = AudioFocusPolicy.DUCK,
+    // Global safeguards & breakthroughs (#23, #29, #30)
+    val criticalBreakthroughEnabled: Boolean = true,
+    val criticalKeywords: List<String> = DEFAULT_CRITICAL_KEYWORDS,
+    val criticalBreakthroughAllowDisabledApps: Boolean = false,
+    val lowBatterySafeguardEnabled: Boolean = true,
+    val lowBatteryThresholdPercent: Int = 15,
+    val lowBatteryPauseOnSaverEnabled: Boolean = true,
+    val lowBatteryWarningSpeechEnabled: Boolean = true,
+    val pocketDetectionEnabled: Boolean = false,
+    val pocketDetectionHeadphoneBypass: Boolean = false,
 ) {
+    companion object {
+        val DEFAULT_CRITICAL_KEYWORDS: List<String> = listOf(
+            "emergency",
+            "urgent",
+            "icu",
+            "hospital",
+            "server down",
+        )
+    }
     /**
      * Merges this app's override onto the global defaults. A null field in [override]
      * means "inherit the global value" (master prompt §5: app settings must clearly show

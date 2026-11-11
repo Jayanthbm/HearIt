@@ -383,6 +383,10 @@ class AnnouncementQueue(
      * first among equals so items that already waited are protected. Callers guarantee a
      * non-empty list (limits are always at least 1).
      */
+    /** Distinct display app names currently waiting in the pending queue, in arrival order. */
+    fun pendingAppNames(): List<String> =
+        pending.mapNotNull { it.snapshot.appName.trim().takeIf(String::isNotEmpty) }.distinct()
+
     private fun pickVictim(items: List<PendingItem>, policy: OverflowPolicy): PendingItem =
         when (policy) {
             OverflowPolicy.DISCARD_OLDEST -> items.minBy { it.seq }

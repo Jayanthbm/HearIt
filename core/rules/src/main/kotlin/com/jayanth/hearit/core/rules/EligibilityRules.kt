@@ -54,17 +54,22 @@ class EligibilityRules {
         settings: ResolvedSettings,
         state: RuntimeState,
     ): EligibilityDecision {
-        // 1. An app that the user never enabled is never announced (all disabled by default).
-        if (!settings.appEnabled) {
+        // Critical Breakthrough Check (Idea 21): custom emergency words bypass mute, DND, low battery, and proximity
+        val isCriticalBreakthrough = isCriticalBreakthrough(snapshot, settings.eligibility)
+
+        // 1. An app that the user never enabled is normally skipped unless critical breakthrough allows disabled apps.
+        if (!settings.appEnabled && !(isCriticalBreakthrough && settings.eligibility.criticalBreakthroughAllowDisabledApps)) {
             return EligibilityDecision.Skip(SkipReason.APP_DISABLED)
         }
 
-        // Critical Breakthrough Check (Idea 21): Emergency words break through temporary mute & DND
-        val isCriticalBreakthrough = isEmergencyBreakthrough(snapshot.messageText)
-
-        // Low Battery Auto-Mute (Idea 19)
-        if (state.isBatteryLowOrSaver && !state.priorityAnnounceActive && !isCriticalBreakthrough) {
-            return EligibilityDecision.Skip(SkipReason.MUTED)
+        // Low Battery Auto-Mute (Idea 5 / Idea 19)
+        val batteryTriggered = settings.eligibility.lowBatterySafeguardEnabled && (
+            state.isBatteryLowOrSaver ||
+                (state.batteryPercent in 1..settings.eligibility.lowBatteryThresholdPercent) ||
+                (state.isPowerSave && settings.eligibility.lowBatteryPauseOnSaverEnabled)
+            )
+        if (batteryTriggered && !state.priorityAnnounceActive && !isCriticalBreakthrough) {
+            return EligibilityDecision.Skip(SkipReason.LOW_BATTERY)
         }
 
         // 2. Temporary mute is a global override and also applies in Priority Announce mode
@@ -112,17 +117,20 @@ class EligibilityRules {
         //    snapshot keeps its full text, so truncation is impossible by construction.
         evaluateTextLength(snapshot, settings.eligibility.textLength)?.let { return skip(it) }
 
-        // 9. Screen/lock — normally required, but Priority Announce mode overrides exactly
-        //    these restrictions and only for apps in its separate list (master prompt §10,
-        //    ADR-006). Priority Announce does not bypass other rules (privacy, keywords,
-        //    length, output). Dedup: if app is in both lists, Priority takes precedence.
+        // 9. Screen/lock & Pocket Detection — Priority Announce mode overrides screen/lock and
+        //    pocket detection for listed apps only.
         val inPriorityList = settings.priorityAnnounceListed
         val priorityOverrideApplies = state.priorityAnnounceActive && inPriorityList
-        if (priorityOverrideApplies) {
-            // Priority Announce bypasses screen/lock for listed apps only.
-            // Other rules (privacy, keywords, length, output) still apply.
-        } else {
+        if (!priorityOverrideApplies) {
             evaluateScreenAndLock(settings.eligibility, state)?.let { return it }
+            if (settings.eligibility.pocketDetectionEnabled && !state.priorityAnnounceActive && !isCriticalBreakthrough) {
+                val hasHeadphoneOutput = state.activeOutput?.kind == AudioOutputKind.BLUETOOTH ||
+                    state.activeOutput?.kind == AudioOutputKind.WIRED
+                val bypassedByHeadphones = settings.eligibility.pocketDetectionHeadphoneBypass && hasHeadphoneOutput
+                if (!bypassedByHeadphones && !state.isProximityCovered) {
+                    return EligibilityDecision.Skip(SkipReason.PROXIMITY_UNCOVERED)
+                }
+            }
         }
 
         // 10. Allowed output — evaluated last, right before speech would start, and re-checked
@@ -211,9 +219,22 @@ class EligibilityRules {
         return null
     }
 
-    private fun isEmergencyBreakthrough(text: String?): Boolean {
-        if (text.isNullOrBlank()) return false
-        val lower = text.lowercase()
-        return lower.contains("emergency") || lower.contains("urgent") || lower.contains("icu") || lower.contains("hospital")
+    companion object {
+        fun isCriticalBreakthrough(
+            snapshot: NotificationSnapshot,
+            eligibility: EligibilitySettings,
+        ): Boolean {
+            if (!eligibility.criticalBreakthroughEnabled) return false
+            val keywords = eligibility.criticalKeywords.filter { it.isNotBlank() }
+            if (keywords.isEmpty()) return false
+            val haystack = buildString {
+                append(snapshot.messageText)
+                snapshot.sender?.let {
+                    append(' ')
+                    append(it)
+                }
+            }.lowercase()
+            return keywords.any { kw -> haystack.contains(kw.trim().lowercase()) }
+        }
     }
 }

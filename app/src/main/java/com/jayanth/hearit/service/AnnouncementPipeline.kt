@@ -212,17 +212,20 @@ class AnnouncementPipeline(
         }
     }
 
+    /** Distinct app names waiting in pending queue. */
+    fun pendingAppNames(): List<String> = queue.pendingAppNames()
+
     /**
      * Returns the next announcement to speak, or null when nothing is due, a group is
      * already speaking, or the device is silent.
-     *
-     * The selected group is marked started here (so a poll can never hand the same group
-     * twice); the service must call [onSpeechFinished] exactly once per returned action —
-     * including when the engine rejects it.
      */
     fun tick(
         state: RuntimeState,
         announcementFormat: AnnouncementFormat = format,
+        isAppNameDedupEnabled: Boolean = true,
+        appNameDedupWindowMs: Long = 45_000L,
+        isDelayedTimestampEnabled: Boolean = true,
+        delayedTimestampThresholdMs: Long = 120_000L,
         settingsOf: (String) -> ResolvedSettings,
     ): Action.Speak? {
         if (active != null) return null
@@ -232,27 +235,27 @@ class AnnouncementPipeline(
             poll.events.forEach { event -> onRecord(event.toHistoryRecord()) }
             val selection = poll.announcement ?: return null
             val now = clock()
+            val resolvedSettings = settingsOf(selection.packageName)
 
-            // 1. Contextual time-stamp for held/delayed messages (>2 mins)
-            val processedItems = selection.items.map { item ->
-                val delayMillis = now - item.postTimeMillis
-                if (delayMillis > 120_000L && item.postTimeMillis > 0L) {
-                    val minutes = (delayMillis / 60_000L).coerceAtLeast(1)
-                    val timeTag = "Sent $minutes minutes ago"
-                    val updatedText = if (item.messageText.isNotBlank()) {
-                        "($timeTag). ${item.messageText}"
+            // 1. Contextual time-stamp for held/delayed messages (#19 / Idea 40)
+            val delayedMinutesByKey = if (isDelayedTimestampEnabled) {
+                selection.items.mapNotNull { item ->
+                    val delayMillis = now - item.postTimeMillis
+                    if (item.postTimeMillis > 0L && delayMillis > delayedTimestampThresholdMs) {
+                        val minutes = (delayMillis / 60_000L).coerceAtLeast(1L)
+                        item.key to minutes
                     } else {
-                        item.messageText
+                        null
                     }
-                    item.copy(messageText = updatedText)
-                } else {
-                    item
-                }
+                }.toMap()
+            } else {
+                emptyMap()
             }
 
-            // 2. Intelligent App Name Deduplication (omit app name if rapid back-to-back within 45s from same app)
-            val isRapidSameApp = lastAnnouncedPackage == selection.packageName &&
-                (now - lastAnnouncedAtMillis < 45_000L)
+            // 2. Intelligent App Name Deduplication (#19 configurable window)
+            val isRapidSameApp = isAppNameDedupEnabled &&
+                lastAnnouncedPackage == selection.packageName &&
+                (now - lastAnnouncedAtMillis < appNameDedupWindowMs)
             lastAnnouncedPackage = selection.packageName
             lastAnnouncedAtMillis = now
 
@@ -262,18 +265,26 @@ class AnnouncementPipeline(
                 announcementFormat
             }
 
-            val built = AnnouncementTemplate.build(processedItems, effectiveFormat)
+            val isCritical = EligibilityRules.isCriticalBreakthrough(
+                snapshot = selection.items.first(),
+                eligibility = resolvedSettings.eligibility,
+            )
+
+            val built = AnnouncementTemplate.build(
+                snapshots = selection.items,
+                format = effectiveFormat,
+                isCritical = isCritical,
+                delayedMinutesByKey = delayedMinutesByKey,
+            )
             queue.markStarted(selection.id)
                 .forEach { event -> onRecord(event.toHistoryRecord(selection.priority)) }
             if (built.isEmpty) {
-                // Nothing speakable (every section disabled/empty): retire without speaking.
-                // The queue reports that completion as ANNOUNCED, which would be a lie here.
                 queue.markCompleted(selection.id).forEach { event ->
                     onRecord(event.toHistoryRecord(selection.priority, overrideStatus = HistoryStatus.SKIPPED))
                 }
                 return@repeat
             }
-            active = ActiveSpeech(selection, settingsOf(selection.packageName))
+            active = ActiveSpeech(selection, resolvedSettings)
             return Action.Speak(selection, built)
         }
         return null

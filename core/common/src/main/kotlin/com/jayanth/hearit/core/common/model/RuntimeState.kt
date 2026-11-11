@@ -39,4 +39,6 @@ data class RuntimeState(
     val activeOutput: AudioOutput?,
     val isBatteryLowOrSaver: Boolean = false,
     val isProximityCovered: Boolean = true,
+    val batteryPercent: Int = 100,
+    val isPowerSave: Boolean = false,
 )

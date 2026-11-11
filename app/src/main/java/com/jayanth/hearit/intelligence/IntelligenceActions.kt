@@ -2,6 +2,7 @@ package com.jayanth.hearit.intelligence
 
 import com.jayanth.hearit.core.common.model.AppCategory
 import com.jayanth.hearit.core.common.model.DigitGroupingStyle
+import com.jayanth.hearit.core.common.model.EligibilitySettings
 import com.jayanth.hearit.core.common.model.HeadsetButtonAction
 import com.jayanth.hearit.core.common.model.PronunciationRule
 import com.jayanth.hearit.core.common.model.ReactionFilterMode
@@ -54,6 +55,22 @@ data class IntelligenceActions(
     val onHeadsetSinglePressActionChanged: (HeadsetButtonAction) -> Unit = {},
     val onHeadsetDoublePressActionChanged: (HeadsetButtonAction) -> Unit = {},
     val onHeadsetTriplePressActionChanged: (HeadsetButtonAction) -> Unit = {},
+    val onToggleAppNameDedup: (Boolean) -> Unit = {},
+    val onAppNameDedupWindowChanged: (Long) -> Unit = {},
+    val onToggleDelayedTimestampTag: (Boolean) -> Unit = {},
+    val onDelayedTimestampThresholdChanged: (Long) -> Unit = {},
+    val onMusicPauseHoldDurationChanged: (Long) -> Unit = {},
+    val onToggleFlipToStop: (Boolean) -> Unit = {},
+    val onToggleShakeToRepeat: (Boolean) -> Unit = {},
+    val onShakeRepeatWindowChanged: (Long) -> Unit = {},
+    val onToggleCatchUpSummary: (Boolean) -> Unit = {},
+    val onCatchUpAbsenceWindowChanged: (Long) -> Unit = {},
+    val onToggleCatchUpIncludeApps: (Boolean) -> Unit = {},
+    val onToggleBluetoothAutoStop: (Boolean) -> Unit = {},
+    val onToggleBluetoothAutoOnlyAllowed: (Boolean) -> Unit = {},
+    val onTogglePeriodicCheckinEarphonesBattery: (Boolean) -> Unit = {},
+    val onTogglePeriodicCheckinSummary: (Boolean) -> Unit = {},
+    val onUpdateEligibility: (EligibilitySettings) -> Unit = {},
 ) {
     companion object {
         fun from(viewModel: GeneralSettingsViewModel): IntelligenceActions = IntelligenceActions(
@@ -98,6 +115,22 @@ data class IntelligenceActions(
             onHeadsetSinglePressActionChanged = viewModel::onHeadsetSinglePressActionChanged,
             onHeadsetDoublePressActionChanged = viewModel::onHeadsetDoublePressActionChanged,
             onHeadsetTriplePressActionChanged = viewModel::onHeadsetTriplePressActionChanged,
+            onToggleAppNameDedup = viewModel::onToggleAppNameDedup,
+            onAppNameDedupWindowChanged = viewModel::onAppNameDedupWindowChanged,
+            onToggleDelayedTimestampTag = viewModel::onToggleDelayedTimestampTag,
+            onDelayedTimestampThresholdChanged = viewModel::onDelayedTimestampThresholdChanged,
+            onMusicPauseHoldDurationChanged = viewModel::onMusicPauseHoldDurationChanged,
+            onToggleFlipToStop = viewModel::onToggleFlipToStop,
+            onToggleShakeToRepeat = viewModel::onToggleShakeToRepeat,
+            onShakeRepeatWindowChanged = viewModel::onShakeRepeatWindowChanged,
+            onToggleCatchUpSummary = viewModel::onToggleCatchUpSummary,
+            onCatchUpAbsenceWindowChanged = viewModel::onCatchUpAbsenceWindowChanged,
+            onToggleCatchUpIncludeApps = viewModel::onToggleCatchUpIncludeApps,
+            onToggleBluetoothAutoStop = viewModel::onToggleBluetoothAutoStop,
+            onToggleBluetoothAutoOnlyAllowed = viewModel::onToggleBluetoothAutoOnlyAllowed,
+            onTogglePeriodicCheckinEarphonesBattery = viewModel::onTogglePeriodicCheckinEarphonesBattery,
+            onTogglePeriodicCheckinSummary = viewModel::onTogglePeriodicCheckinSummary,
+            onUpdateEligibility = viewModel::onUpdateEligibility,
         )
     }
 }

@@ -255,10 +255,14 @@ fun GeneralSettingsScreen(
             intervalMinutes = state.periodicCheckinIntervalMinutes,
             announceTime = state.periodicCheckinAnnounceTime,
             announceBattery = state.periodicCheckinAnnounceBattery,
+            announceEarphonesBattery = state.periodicCheckinAnnounceEarphonesBattery,
+            announceSummary = state.periodicCheckinAnnounceSummary,
             onToggleEnabled = onTogglePeriodicCheckin,
             onIntervalChanged = onPeriodicCheckinIntervalChanged,
             onToggleTime = onTogglePeriodicCheckinTime,
             onToggleBattery = onTogglePeriodicCheckinBattery,
+            onToggleEarphonesBattery = intelligenceActions.onTogglePeriodicCheckinEarphonesBattery,
+            onToggleSummary = intelligenceActions.onTogglePeriodicCheckinSummary,
         )
 
         // Section 0C: Smart Content Cleaning (NLP) & Category Intelligence
@@ -1378,7 +1382,7 @@ internal fun GesturesAndControlsCard(
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
-            // Shake/Flip to Silence
+            // Flip Face-Down to Stop (#19)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -1386,12 +1390,37 @@ internal fun GesturesAndControlsCard(
             ) {
                 Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
                     Text(
-                        text = "Shake / Flip to Silence & Repeat",
+                        text = "Flip Face-Down to Silence",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
                     )
                     Text(
-                        text = "Shake or flip face-down to stop; shake within 10s to repeat",
+                        text = "Turning the phone face-down immediately stops speaking",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = state.isFlipToStopEnabled,
+                    onCheckedChange = intelligenceActions.onToggleFlipToStop,
+                )
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+            // Shake to Silence (#19)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                    Text(
+                        text = "Shake Phone to Silence",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = "Shaking while speaking stops the current announcement",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -1400,6 +1429,42 @@ internal fun GesturesAndControlsCard(
                     checked = isShakeToStopEnabled,
                     onCheckedChange = onToggleShakeToStop,
                 )
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+            // Shake After Speech to Repeat (#19 / Idea 41)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                    Text(
+                        text = "Shake After Speech to Repeat",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = "Shake gently within window after speech ends to replay",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = state.isShakeToRepeatEnabled,
+                    onCheckedChange = intelligenceActions.onToggleShakeToRepeat,
+                )
+            }
+            if (state.isShakeToRepeatEnabled) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(5_000L to "5s window", 10_000L to "10s window", 15_000L to "15s window").forEach { (ms, lbl) ->
+                        FilterChip(
+                            selected = state.shakeRepeatWindowMs == ms,
+                            onClick = { intelligenceActions.onShakeRepeatWindowChanged(ms) },
+                            label = { Text(lbl) },
+                        )
+                    }
+                }
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
@@ -1428,7 +1493,7 @@ internal fun GesturesAndControlsCard(
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
-            // Music Pause Hold
+            // Music Pause Hold (#19 configurable duration)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -1436,7 +1501,7 @@ internal fun GesturesAndControlsCard(
             ) {
                 Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
                     Text(
-                        text = "Music Paused Hold (60s)",
+                        text = "Music Paused Hold",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
                     )
@@ -1451,9 +1516,25 @@ internal fun GesturesAndControlsCard(
                     onCheckedChange = onToggleMusicPauseHold,
                 )
             }
+            if (isMusicPauseHoldEnabled) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(
+                        30_000L to "30s",
+                        60_000L to "60s",
+                        90_000L to "90s",
+                        120_000L to "2m",
+                    ).forEach { (ms, label) ->
+                        FilterChip(
+                            selected = state.musicPauseHoldDurationMs == ms,
+                            onClick = { intelligenceActions.onMusicPauseHoldDurationChanged(ms) },
+                            label = { Text(label) },
+                        )
+                    }
+                }
+            }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
-            // Bluetooth Auto-Start
+            // Bluetooth Auto-Start / Auto-Stop / Filter (#27)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -1461,12 +1542,12 @@ internal fun GesturesAndControlsCard(
             ) {
                 Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
                     Text(
-                        text = "Bluetooth Auto-Start / Stop",
+                        text = "Auto-Start on Earphones Connect",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
                     )
                     Text(
-                        text = "Starts HearIt when headphones connect; stops when disconnected",
+                        text = "Starts HearIt automatically when Bluetooth audio connects",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -1474,6 +1555,50 @@ internal fun GesturesAndControlsCard(
                 Switch(
                     checked = isBluetoothAutoStartEnabled,
                     onCheckedChange = onToggleBluetoothAutoStart,
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                    Text(
+                        text = "Auto-Stop on Disconnect",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = "Stops service cleanly when Bluetooth earphones disconnect",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = state.isBluetoothAutoStopEnabled,
+                    onCheckedChange = intelligenceActions.onToggleBluetoothAutoStop,
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                    Text(
+                        text = "Only Allowed Earphones",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = "Ignore unrecognized Bluetooth headsets unless allowed in Devices",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = state.isBluetoothAutoOnlyAllowedEnabled,
+                    onCheckedChange = intelligenceActions.onToggleBluetoothAutoOnlyAllowed,
                 )
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
@@ -1553,16 +1678,21 @@ private fun HeadsetTapMappingRow(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun PeriodicCheckinCard(
     isEnabled: Boolean,
     intervalMinutes: Int,
     announceTime: Boolean,
     announceBattery: Boolean,
+    announceEarphonesBattery: Boolean = true,
+    announceSummary: Boolean = true,
     onToggleEnabled: (Boolean) -> Unit,
     onIntervalChanged: (Int) -> Unit,
     onToggleTime: (Boolean) -> Unit,
     onToggleBattery: (Boolean) -> Unit,
+    onToggleEarphonesBattery: (Boolean) -> Unit = {},
+    onToggleSummary: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     SettingsCard(
@@ -1605,21 +1735,29 @@ internal fun PeriodicCheckinCard(
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Row(
+                FlowRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     FilterChip(
                         selected = announceTime,
                         onClick = { onToggleTime(!announceTime) },
-                        label = { Text("🕒 Time") },
-                        modifier = Modifier.weight(1f),
+                        label = { Text("Time") },
                     )
                     FilterChip(
                         selected = announceBattery,
                         onClick = { onToggleBattery(!announceBattery) },
-                        label = { Text("🔋 Battery") },
-                        modifier = Modifier.weight(1f),
+                        label = { Text("Phone Battery %") },
+                    )
+                    FilterChip(
+                        selected = announceEarphonesBattery,
+                        onClick = { onToggleEarphonesBattery(!announceEarphonesBattery) },
+                        label = { Text("Earphones Battery %") },
+                    )
+                    FilterChip(
+                        selected = announceSummary,
+                        onClick = { onToggleSummary(!announceSummary) },
+                        label = { Text("Summary Count") },
                     )
                 }
             }

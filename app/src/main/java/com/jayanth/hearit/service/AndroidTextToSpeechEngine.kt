@@ -120,7 +120,12 @@ class AndroidTextToSpeechEngine(context: Context) : TextToSpeechEngine {
         tts.setPitch(settings.pitch)
         applyVoice(tts, settings.voiceId)
 
-        if (sessionStore.isEarconEnabled) {
+        if (announcement.isCritical) {
+            try {
+                ToneGenerator(AudioManager.STREAM_NOTIFICATION, 85)
+                    .startTone(ToneGenerator.TONE_SUP_PIP, 320)
+            } catch (_: Throwable) {}
+        } else if (sessionStore.isEarconEnabled) {
             val earconMs = sessionStore.earconDurationMs
             try {
                 ToneGenerator(AudioManager.STREAM_NOTIFICATION, 45)

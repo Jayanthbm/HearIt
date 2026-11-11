@@ -314,4 +314,36 @@ class AnnouncementPipelineTest {
                 com.jayanth.hearit.core.common.model.ReactionFilterMode.CONDENSE
         }
     }
+
+    @Test
+    fun tick_respectsAppNameDedupToggleAndDelayedTimestampConfig() {
+        val clock = TestClock(now = 5 * 60_000L)
+        val pipeline = AnnouncementPipeline(
+            queue = AnnouncementQueue(clock = Clock { clock.now }),
+            clock = { clock.now },
+        )
+        val s1 = snapshot(key = "k1", messageText = "One").copy(postTimeMillis = 60_000L) // 4 mins old
+        val s2 = snapshot(key = "k2", messageText = "Two").copy(postTimeMillis = 60_000L)
+        pipeline.onNotification(s1, enabled, state())
+
+        val first = pipeline.tick(
+            state = state(),
+            isAppNameDedupEnabled = true,
+            appNameDedupWindowMs = 30_000L,
+            isDelayedTimestampEnabled = true,
+            delayedTimestampThresholdMs = 120_000L,
+        ) { enabled }
+        assertTrue(first!!.announcement.sections.any { it.text.contains("sent 4 minutes ago:") })
+        pipeline.onSpeechFinished(true)
+
+        // Rapid second notification within dedup window omits app name when enabled
+        pipeline.onNotification(s2, enabled, state())
+        val second = pipeline.tick(
+            state = state(),
+            isAppNameDedupEnabled = true,
+            appNameDedupWindowMs = 30_000L,
+            isDelayedTimestampEnabled = false,
+        ) { enabled }
+        assertFalse(second!!.announcement.sections.any { it.kind == com.jayanth.hearit.core.tts.SectionKind.APP_NAME })
+    }
 }

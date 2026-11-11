@@ -38,6 +38,7 @@ data class AnnouncementSection(
 data class BuiltAnnouncement(
     val sections: List<AnnouncementSection>,
     val pauseBetweenSectionsMillis: Long,
+    val isCritical: Boolean = false,
 ) {
     init {
         require(pauseBetweenSectionsMillis >= 0L) {
@@ -71,20 +72,22 @@ data class BuiltAnnouncement(
 object AnnouncementTemplate {
 
     /** Builds the announcement for [snapshot]; pure and deterministic. */
-    fun build(snapshot: NotificationSnapshot, format: AnnouncementFormat): BuiltAnnouncement =
-        build(listOf(snapshot), format)
+    fun build(
+        snapshot: NotificationSnapshot,
+        format: AnnouncementFormat,
+        isCritical: Boolean = false,
+        delayedMinutesByKey: Map<String, Long> = emptyMap(),
+    ): BuiltAnnouncement = build(listOf(snapshot), format, isCritical, delayedMinutesByKey)
 
     /**
-     * Builds the announcement for a grouped set of notifications from the same app
-     * (master prompt §8: "Announce app name and message count, followed by available
-     * sender/message content"): introduction, app name, "N messages." when more than one,
-     * then each notification's sender and message in arrival order.
-     *
-     * [snapshots] must be non-empty and all from one package — the queue guarantees both
-     * (ADR-019); a single-element list produces exactly the single-notification sections.
-     * Pure and deterministic like the single overload.
+     * Builds the announcement for a grouped set of notifications from the same app.
      */
-    fun build(snapshots: List<NotificationSnapshot>, format: AnnouncementFormat): BuiltAnnouncement {
+    fun build(
+        snapshots: List<NotificationSnapshot>,
+        format: AnnouncementFormat,
+        isCritical: Boolean = false,
+        delayedMinutesByKey: Map<String, Long> = emptyMap(),
+    ): BuiltAnnouncement {
         require(snapshots.isNotEmpty()) { "AnnouncementTemplate.build requires at least one snapshot" }
         val packageName = snapshots.first().packageName
         require(snapshots.all { it.packageName == packageName }) {
@@ -95,7 +98,7 @@ object AnnouncementTemplate {
             SmartContentCleaner.shouldSuppress(snapshot.messageText, packageName)
         }
         if (activeSnapshots.isEmpty()) {
-            return BuiltAnnouncement(emptyList(), format.pauseBetweenSectionsMillis)
+            return BuiltAnnouncement(emptyList(), format.pauseBetweenSectionsMillis, isCritical = isCritical)
         }
 
         val sections = mutableListOf<AnnouncementSection>()
@@ -121,20 +124,27 @@ object AnnouncementTemplate {
             val resolved = resolveGroupAndContent(snapshot, category)
             val sender = SmartContentCleaner.cleanSender(resolved.sender) ?: resolved.sender
             val message = SmartContentCleaner.cleanMessage(resolved.messageText, packageName).text
+            val delayedMins = delayedMinutesByKey[snapshot.key]?.coerceAtLeast(1L)
 
             if (format.includeSender && sender.isNotEmpty()) {
-                val text = if (!resolved.groupTitle.isNullOrBlank()) {
-                    if (format.includeMessage && message.isNotEmpty()) {
-                        "$sender in ${resolved.groupTitle} says,"
-                    } else {
-                        "$sender in ${resolved.groupTitle}."
-                    }
-                } else if (format.includeMessage && message.isNotEmpty()) {
-                    "$sender says,"
+                val senderSubject = if (!resolved.groupTitle.isNullOrBlank()) {
+                    "$sender in ${resolved.groupTitle}"
                 } else {
-                    "$sender."
+                    sender
+                }
+                val text = when {
+                    delayedMins != null && format.includeMessage && message.isNotEmpty() ->
+                        "$senderSubject sent $delayedMins minutes ago:"
+                    delayedMins != null ->
+                        "$senderSubject sent $delayedMins minutes ago."
+                    format.includeMessage && message.isNotEmpty() ->
+                        "$senderSubject says,"
+                    else ->
+                        "$senderSubject."
                 }
                 sections += AnnouncementSection(SectionKind.SENDER, text)
+            } else if (delayedMins != null && format.includeMessage && message.isNotEmpty()) {
+                sections += AnnouncementSection(SectionKind.SENDER, "Sent $delayedMins minutes ago:")
             }
 
             if (format.includeMessage && message.isNotEmpty()) {
@@ -142,7 +152,7 @@ object AnnouncementTemplate {
             }
         }
 
-        return BuiltAnnouncement(sections, format.pauseBetweenSectionsMillis)
+        return BuiltAnnouncement(sections, format.pauseBetweenSectionsMillis, isCritical = isCritical)
     }
 
     private data class ResolvedSnapshotContent(

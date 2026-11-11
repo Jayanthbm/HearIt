@@ -1,6 +1,7 @@
 package com.jayanth.hearit.applications
 
 import com.jayanth.hearit.core.common.model.AudioOutputSettings
+import com.jayanth.hearit.core.common.model.EligibilitySettings
 import com.jayanth.hearit.core.common.model.KeywordFilterSettings
 import com.jayanth.hearit.core.common.model.LockCondition
 import com.jayanth.hearit.core.common.model.PrivacySettings
@@ -9,10 +10,7 @@ import com.jayanth.hearit.core.common.model.TextLengthSettings
 import com.jayanth.hearit.core.datastore.HearItSettings
 
 /**
- * UiState for the global (not per-app) rules form (phase P15).
- *
- * A plain projection of the settings the screen edits; it holds no Compose or Android
- * types so it can be asserted in JVM tests.
+ * UiState for the global rules form (#2, #23, #29, #30).
  */
 data class GlobalSettingsUiState(
     val screenCondition: ScreenCondition = ScreenCondition.OFF,
@@ -21,11 +19,13 @@ data class GlobalSettingsUiState(
     val keywordFilter: KeywordFilterSettings = KeywordFilterSettings(),
     val privacy: PrivacySettings = PrivacySettings(),
     val audioOutput: AudioOutputSettings = AudioOutputSettings(),
+    val eligibility: EligibilitySettings = EligibilitySettings(),
 ) {
 
     /** True when at least one group differs from the documented defaults. */
     val hasOverrides: Boolean
-        get() = screenCondition != ScreenCondition.OFF ||
+        get() = eligibility != EligibilitySettings() ||
+            screenCondition != ScreenCondition.OFF ||
             lockCondition != LockCondition.LOCKED ||
             privacy != PrivacySettings()
 
@@ -39,6 +39,7 @@ data class GlobalSettingsUiState(
             keywordFilter = settings.eligibility.keywordFilter,
             privacy = settings.eligibility.privacy,
             audioOutput = settings.eligibility.audioOutput,
+            eligibility = settings.eligibility,
         )
     }
 }

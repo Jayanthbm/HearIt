@@ -64,6 +64,7 @@ class IntelligentSettingsSync @Inject constructor(
         }.toMap()
         SmartContentCleaner.replaceAppAliases(aliases)
         SmartContentCleaner.replaceAppCategories(categories)
+        sessionStore.cachedAllowedBluetoothIds = settings.eligibility.audioOutput.allowedBluetoothIds.orEmpty()
     }
 
     /** Hydrates synchronous flags immediately and begins observing DataStore settings in background. */

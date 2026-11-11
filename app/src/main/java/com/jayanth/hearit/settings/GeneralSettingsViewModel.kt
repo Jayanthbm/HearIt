@@ -11,6 +11,7 @@ import com.jayanth.hearit.core.common.model.AppCategory
 import com.jayanth.hearit.core.common.model.AppCategoryChoice
 import com.jayanth.hearit.core.common.model.AudioFocusPolicy
 import com.jayanth.hearit.core.common.model.DigitGroupingStyle
+import com.jayanth.hearit.core.common.model.EligibilitySettings
 import com.jayanth.hearit.core.common.model.HeadsetButtonAction
 import com.jayanth.hearit.core.common.model.IntelligencePresets
 import com.jayanth.hearit.core.common.model.OverflowPolicy
@@ -102,6 +103,21 @@ class GeneralSettingsViewModel @Inject constructor(
             headsetSinglePressAction = sessionStore.headsetSinglePressAction,
             headsetDoublePressAction = sessionStore.headsetDoublePressAction,
             headsetTriplePressAction = sessionStore.headsetTriplePressAction,
+            isAppNameDedupEnabled = sessionStore.isAppNameDedupEnabled,
+            appNameDedupWindowMs = sessionStore.appNameDedupWindowMs,
+            isDelayedTimestampTagEnabled = sessionStore.isDelayedTimestampTagEnabled,
+            delayedTimestampThresholdMs = sessionStore.delayedTimestampThresholdMs,
+            musicPauseHoldDurationMs = sessionStore.musicPauseHoldDurationMs,
+            isFlipToStopEnabled = sessionStore.isFlipToStopEnabled,
+            isShakeToRepeatEnabled = sessionStore.isShakeToRepeatEnabled,
+            shakeRepeatWindowMs = sessionStore.shakeRepeatWindowMs,
+            isCatchUpSummaryEnabled = sessionStore.isCatchUpSummaryEnabled,
+            catchUpAbsenceWindowMs = sessionStore.catchUpAbsenceWindowMs,
+            catchUpIncludeAppBreakdown = sessionStore.catchUpIncludeAppBreakdown,
+            isBluetoothAutoStopEnabled = sessionStore.isBluetoothAutoStopEnabled,
+            isBluetoothAutoOnlyAllowedEnabled = sessionStore.isBluetoothAutoOnlyAllowedEnabled,
+            periodicCheckinAnnounceEarphonesBattery = sessionStore.periodicCheckinAnnounceEarphonesBattery,
+            periodicCheckinAnnounceSummary = sessionStore.periodicCheckinAnnounceSummary,
         ),
     )
     val state: StateFlow<GeneralSettingsUiState> = _state.asStateFlow()
@@ -126,6 +142,7 @@ class GeneralSettingsViewModel @Inject constructor(
                     current.copy(
                         queue = settings.queue,
                         audioFocus = settings.eligibility.audioFocus,
+                        eligibility = settings.eligibility,
                         security = settings.security,
                         isBiometricAvailable = biometricAuthManager.canAuthenticate(),
                         appCategories = categories,
@@ -489,6 +506,87 @@ class GeneralSettingsViewModel @Inject constructor(
     fun onHeadsetTriplePressActionChanged(action: HeadsetButtonAction) {
         sessionStore.headsetTriplePressAction = action
         _state.update { it.copy(headsetTriplePressAction = action) }
+    }
+
+    fun onToggleAppNameDedup(enabled: Boolean) {
+        sessionStore.isAppNameDedupEnabled = enabled
+        _state.update { it.copy(isAppNameDedupEnabled = enabled) }
+    }
+
+    fun onAppNameDedupWindowChanged(windowMs: Long) {
+        sessionStore.appNameDedupWindowMs = windowMs
+        _state.update { it.copy(appNameDedupWindowMs = windowMs) }
+    }
+
+    fun onToggleDelayedTimestampTag(enabled: Boolean) {
+        sessionStore.isDelayedTimestampTagEnabled = enabled
+        _state.update { it.copy(isDelayedTimestampTagEnabled = enabled) }
+    }
+
+    fun onDelayedTimestampThresholdChanged(thresholdMs: Long) {
+        sessionStore.delayedTimestampThresholdMs = thresholdMs
+        _state.update { it.copy(delayedTimestampThresholdMs = thresholdMs) }
+    }
+
+    fun onMusicPauseHoldDurationChanged(durationMs: Long) {
+        sessionStore.musicPauseHoldDurationMs = durationMs
+        _state.update { it.copy(musicPauseHoldDurationMs = durationMs) }
+    }
+
+    fun onToggleFlipToStop(enabled: Boolean) {
+        sessionStore.isFlipToStopEnabled = enabled
+        _state.update { it.copy(isFlipToStopEnabled = enabled) }
+    }
+
+    fun onToggleShakeToRepeat(enabled: Boolean) {
+        sessionStore.isShakeToRepeatEnabled = enabled
+        _state.update { it.copy(isShakeToRepeatEnabled = enabled) }
+    }
+
+    fun onShakeRepeatWindowChanged(windowMs: Long) {
+        sessionStore.shakeRepeatWindowMs = windowMs
+        _state.update { it.copy(shakeRepeatWindowMs = windowMs) }
+    }
+
+    fun onToggleCatchUpSummary(enabled: Boolean) {
+        sessionStore.isCatchUpSummaryEnabled = enabled
+        _state.update { it.copy(isCatchUpSummaryEnabled = enabled) }
+    }
+
+    fun onCatchUpAbsenceWindowChanged(windowMs: Long) {
+        sessionStore.catchUpAbsenceWindowMs = windowMs
+        _state.update { it.copy(catchUpAbsenceWindowMs = windowMs) }
+    }
+
+    fun onToggleCatchUpIncludeApps(include: Boolean) {
+        sessionStore.catchUpIncludeAppBreakdown = include
+        _state.update { it.copy(catchUpIncludeAppBreakdown = include) }
+    }
+
+    fun onToggleBluetoothAutoStop(enabled: Boolean) {
+        sessionStore.isBluetoothAutoStopEnabled = enabled
+        _state.update { it.copy(isBluetoothAutoStopEnabled = enabled) }
+    }
+
+    fun onToggleBluetoothAutoOnlyAllowed(enabled: Boolean) {
+        sessionStore.isBluetoothAutoOnlyAllowedEnabled = enabled
+        _state.update { it.copy(isBluetoothAutoOnlyAllowedEnabled = enabled) }
+    }
+
+    fun onTogglePeriodicCheckinEarphonesBattery(enabled: Boolean) {
+        sessionStore.periodicCheckinAnnounceEarphonesBattery = enabled
+        _state.update { it.copy(periodicCheckinAnnounceEarphonesBattery = enabled) }
+    }
+
+    fun onTogglePeriodicCheckinSummary(enabled: Boolean) {
+        sessionStore.periodicCheckinAnnounceSummary = enabled
+        _state.update { it.copy(periodicCheckinAnnounceSummary = enabled) }
+    }
+
+    fun onUpdateEligibility(updated: EligibilitySettings) {
+        viewModelScope.launch {
+            settingsRepository.update { current -> current.copy(eligibility = updated) }
+        }
     }
 
     fun onGroupingWindowChanged(millis: Long) {
