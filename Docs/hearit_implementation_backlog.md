@@ -7,7 +7,7 @@ Once the review is completed, these items will be batched and implemented system
 ---
 
 ## 📋 Status Overview
-- Total Identified Backlog Items: 13
+- Total Identified Backlog Items: 14
 - In Discussion / Under Review
 
 ---
@@ -229,6 +229,33 @@ Once the review is completed, these items will be batched and implemented system
   - `app/src/main/java/com/jayanth/hearit/service/SessionStore.kt` (or `core/datastore`)
   - `app/src/main/java/com/jayanth/hearit/settings/GeneralSettingsUiState.kt` & `GeneralSettingsViewModel.kt`
   - `app/src/main/java/com/jayanth/hearit/intelligence/IntelligenceControlsScreen.kt` (or shared card in `GeneralSettingsScreen.kt`)
+
+### 14. Roadmap Item 9.2 B: Category Intelligence (Messaging, SMS/RCS, Email) & Configuration UI — ⚠️ PARTIALLY IMPLEMENTED (No UI)
+- **Priority / Effort**: High Value / Medium Effort
+- **Current State**:
+  - **WhatsApp & Messaging**: `SmartContentCleaner.normalizeMediaTags()` handles Photo, Voice message, Location, GIF, Sticker, bare Document; `AnnouncementTemplate.build()` formats `"$sender in $groupTitle says,"` only when notification metadata provides `groupTitle`; `cleanMessageText()` suppresses `"Checking for new messages..."` and `"WhatsApp Web is currently active..."` but misses `"Backup in progress..."` and doesn't skip the notification silently (if `APP_NAME` is emitted, it may still speak `"WhatsApp."`); missing `"🎥 Video"` $\to$ `"Sent a video"`, `"📄 Document: file.pdf"` $\to$ `"Sent a PDF document"`, `"Contact: Name"` $\to$ `"Shared a contact card"`, and colon-based group chat parsing (`"Family Group: Rahul: Hey"`).
+  - **Messages (SMS & RCS)**: **Not implemented** — no bank/transactional alert summarizer (`"Acct XX1234 debited INR 500 at Merchant..."` $\to$ `"500 rupees debited at Merchant"`), no `INR`/`USD` prefix currency handling, and no carrier promo/spam suppression (`"Recharge now"`, `"Dial *121#"`).
+  - **Email (Gmail, Outlook, Mail)**: **Bugged/Incomplete** — `cleanEmailContent()` currently **deletes** `Re:`/`Fwd:` instead of replacing with `"Reply:"`/`"Forward:"`; `EMAIL_SIGNOFF` handles some sign-offs (`Regards`, `Sincerely`, `Cheers`, `Sent from my...`) but misses `"Kind regards"`, `"Thanks & Regards"`, and **Legal Disclaimers** (`"Disclaimer: This email..."`, `"CONFIDENTIALITY NOTICE:..."`).
+  - **UI**: **Zero configuration UI exists** in **Active Intelligence** (`SmartContentCleaningCard` currently only has 6 global NLP toggles).
+- **Planned Implementation**:
+  - **1. Engine Upgrades (`SmartContentCleaner`, `AnnouncementTemplate`, `AnnouncementPipeline`)**:
+    - *Messaging Toggle (`isMediaAndMessagingIntelligenceEnabled`)*: Add Video, Document-with-extension (`PDF`, `Word`, `Spreadsheet`, generic document), and Contact card patterns; parse inline group patterns (`"Group: Sender"` / `"Group: Sender: Msg"`); expand sync noise filter (`"Backup in progress"`, `"Restoring..."`, `"Connecting..."`) and ensure noise-suppressed messages skip announcing the notification completely in `AnnouncementPipeline` instead of speaking only the app name.
+    - *SMS & Bank Toggle (`isSmsAndBankCleanerEnabled` / `isCarrierSpamFilterEnabled`)*: Parse `INR`/`Rs.`/`$`/`₹` debited/credited/UPI SMS patterns into crisp spoken summaries (`"500 rupees debited at Merchant"`), and filter/skip configurable carrier promo/spam SMS patterns (`Recharge now`, `Dial *`, `validity expires` + custom spam keywords if desired).
+    - *Email Toggle (`isEmailCleanupEnabled`)*: Replace `Re:` $\to$ `"Reply:"` and `Fwd:` / `Fw:` $\to$ `"Forward:"`; strip `"Kind regards"`, `"Thanks & Regards"`, `"Thanks and regards"`, `"Warm regards"`, and common legal/confidentiality disclaimer footers.
+  - **2. Configuration UI Inside Active Intelligence (`IntelligenceControlsScreen` + `GeneralSettingsViewModel` + `SessionStore`)**:
+    - Add a dedicated **"Category Intelligence"** card (or expandable subsections inside `IntelligenceControlsScreen`) with individual switches and details for:
+      - **Messaging & Media Polish** (Media attachments, group chat format, sync noise suppression)
+      - **Bank & Transactional SMS Cleaner** (Condenses debit/credit/UPI alerts into concise speech)
+      - **Carrier & Promo SMS Filter** (Auto-skips telecom/recharge ads, with optional View/Edit promo phrases)
+      - **Email Subject & Disclaimer Cleanup** (`Re:`/`Fwd:` replacement + sign-off & legal disclaimer stripping)
+  - **Unit Tests**: Expand `SmartContentCleanerTest` and `AnnouncementTemplateTest` covering Video/PDF/Contact, Group formats, Bank SMS, Carrier Promo, Email `Reply:`/`Forward:` and Legal Disclaimers.
+- **Files Likely Touched**:
+  - `core/tts/src/main/kotlin/com/jayanth/hearit/core/tts/SmartContentCleaner.kt`
+  - `core/tts/src/main/kotlin/com/jayanth/hearit/core/tts/AnnouncementTemplate.kt`
+  - `app/src/main/java/com/jayanth/hearit/service/AnnouncementPipeline.kt` & `SessionStore.kt`
+  - `app/src/main/java/com/jayanth/hearit/settings/GeneralSettingsUiState.kt` & `GeneralSettingsViewModel.kt`
+  - `app/src/main/java/com/jayanth/hearit/intelligence/IntelligenceControlsScreen.kt`
+  - `core/tts/src/test/kotlin/com/jayanth/hearit/core/tts/SmartContentCleanerTest.kt`
 
 ---
 
