@@ -7,7 +7,7 @@ Once the review is completed, these items will be batched and implemented system
 ---
 
 ## 📋 Status Overview
-- Total Identified Backlog Items: 28
+- Total Identified Backlog Items: 29
 - In Discussion / Under Review
 - **Mandatory Requirement (All Features)**: Every capability—including automatic intelligence rules and playback behaviors—MUST have a dedicated UI **Enable / Disable switch** and **configuration controls** (thresholds, patterns, presets, or timing options) persisted across restarts.
 
@@ -432,6 +432,20 @@ Once the review is completed, these items will be batched and implemented system
   - `app/src/main/java/com/jayanth/hearit/intelligence/IntelligenceControlsScreen.kt` / `GeneralSettingsViewModel.kt`
   - Unit tests in `AnnouncementPipelineTest.kt`
 
+### 29. Roadmap Item 15 (Idea 21): "Must-Hear" Critical Keyword Breakthrough — Custom Keywords, Alert Chime & Config UI — ⚠️ PARTIAL (Hardcoded Engine Only)
+- **Priority / Effort**: High Value / Low-Medium Effort
+- **Current State**:
+  - `EligibilityRules.isEmergencyBreakthrough()` (`core/rules`) hardcodes 4 keywords (`"emergency"`, `"urgent"`, `"icu"`, `"hospital"`) to bypass Low Battery Auto-Mute, Temporary Mute, and DND.
+  - **Missing**:
+    1. **UI Enable/Disable & Keyword Manager**: No toggle to enable/disable Critical Keyword Breakthrough, and no UI to add/remove custom keywords (e.g., `"Server Down"`, `"PagerDuty"`, `"SOS"`) or load starter defaults.
+    2. **Distinctive Chime / Alert Cue**: Critical breakthrough messages play the standard beep instead of a distinctive emergency double/triple alert chime (or `"Critical alert:"` prefix).
+    3. **Muted-App / Channel Config**: Currently skips breakthrough check if `appEnabled == false`; add toggle option (*"Allow breakthrough even if app is disabled/muted"* vs *"Enabled apps only"*).
+- **Files Likely Touched**:
+  - `core/common/.../EligibilitySettings.kt` & `core/datastore/.../SettingsCodec.kt`
+  - `core/rules/.../EligibilityRules.kt` & `core/rules/src/test/...`
+  - `app/src/main/java/com/jayanth/hearit/applications/GlobalSettingsUiState.kt` & `GlobalSettingsScreen.kt` (and/or `IntelligenceControlsScreen.kt`)
+  - `app/src/main/java/com/jayanth/hearit/service/AndroidTextToSpeechEngine.kt` & `AnnouncementService.kt`
+
 ---
 
 ## ✅ Already Verified / Implemented Features in this Audit
@@ -449,3 +463,4 @@ Once the review is completed, these items will be batched and implemented system
 11. **Item 11 Idea 1 & Idea 6 Engines**: Soft pre-speech earcon chime (`AndroidTextToSpeechEngine.kt` ToneGenerator `120ms`) and `Announcement Volume` slider (`0–100%` in `VoiceSpeechScreen.kt`) exist; wiring earcon/delay UI controls to persistence & engine (#18) and adding true boost >100% / balance (#24) are in the backlog.
 12. **Item 12 Idea 12 (Basic Quoted Tap-Back Reaction Filter)**: Implemented via `TAPBACK_PATTERN` in `SmartContentCleaner.kt` with toggle `isReactionFilterEnabled` in **Active Intelligence**. *(Unquoted patterns, Silence vs Condense mode, and `SessionStore` startup hydration fix are tracked in Backlog #26).*
 13. **Item 14 Idea 15 & Idea 19 Core Behavior**: `BluetoothDeviceReceiver` (`ACTION_ACL_CONNECTED`/`DISCONNECTED`) auto-starts/stops service via `SessionStore.isBluetoothAutoStartEnabled`, and `RuntimeStateReader` + `EligibilityRules` mute below 15% battery or Battery Saver. *(Designated audio device filtering & separate UI configs tracked in Backlog #27 & #23).*
+14. **Item 15 Idea 22 (Per-Device Sound Output Test)**: Implemented in `DevicesScreen.kt` — each connected Bluetooth accessory row has a 1-tap speaker `IconButton` playing a `ToneGenerator(STREAM_MUSIC, 70)` test beep. *(Note: plays on active media route without `ToneGenerator.release()` or device-specific TTS speech routing).*
