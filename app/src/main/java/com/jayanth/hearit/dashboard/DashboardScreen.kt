@@ -67,6 +67,7 @@ import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.rounded.VolumeOff
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Apps
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Backup
 import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.Cable
@@ -258,6 +259,11 @@ fun DashboardRoute(
         diagnosticsContent = { DiagnosticsRoute(viewModel = diagnosticsViewModel) },
         historyContent = { HistoryRoute(viewModel = historyViewModel) },
         devicesContent = { DevicesRoute(viewModel = devicesViewModel) },
+        intelligenceContent = {
+            com.jayanth.hearit.intelligence.IntelligenceControlsRoute(
+                viewModel = generalSettingsViewModel,
+            )
+        },
         modifier = modifier,
     )
 }
@@ -292,6 +298,7 @@ fun DashboardScreen(
     diagnosticsContent: @Composable () -> Unit = {},
     historyContent: @Composable () -> Unit,
     devicesContent: @Composable () -> Unit,
+    intelligenceContent: @Composable () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Scaffold(
@@ -370,6 +377,7 @@ fun DashboardScreen(
                         DashboardDestination.PREFERENCES -> settingsContent()
                         DashboardDestination.BACKUP_RESTORE -> backupRestoreContent()
                         DashboardDestination.DIAGNOSTICS -> diagnosticsContent()
+                        DashboardDestination.ACTIVE_INTELLIGENCE -> intelligenceContent()
                     }
                 }
             }
@@ -394,6 +402,7 @@ private fun getDestinationOrder(dest: DashboardDestination): Int = when (dest) {
     DashboardDestination.HISTORY -> 7
     DashboardDestination.BACKUP_RESTORE -> 8
     DashboardDestination.DIAGNOSTICS -> 9
+    DashboardDestination.ACTIVE_INTELLIGENCE -> 10
 }
 
 // ============================================================================
@@ -597,7 +606,6 @@ private fun DashboardHome(
 ) {
     val testAnnouncementText = stringResource(R.string.dashboard_test_announcement_spoken)
     var showMuteDurationDialog by rememberSaveable { mutableStateOf(false) }
-    var showIntelligenceFeaturesDialog by rememberSaveable { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -1093,7 +1101,7 @@ private fun DashboardHome(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { showIntelligenceFeaturesDialog = true },
+                .clickable { onSelectDestination(DashboardDestination.ACTIVE_INTELLIGENCE) },
             shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -1140,7 +1148,7 @@ private fun DashboardHome(
                                 color = MaterialTheme.colorScheme.onSurface,
                             )
                             Text(
-                                text = "Tap to view active features & shortcuts",
+                                text = "Tap to configure NLP, gestures & watch sync",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 11.sp,
@@ -1148,12 +1156,11 @@ private fun DashboardHome(
                         }
                     }
 
-                    // Settings Button - Clean rounded elevated pill
+                    // Configure Action Pill
                     Surface(
                         shape = RoundedCornerShape(10.dp),
                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
-                        modifier = Modifier.clickable { onSelectDestination(DashboardDestination.SETTINGS) },
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
@@ -1161,7 +1168,7 @@ private fun DashboardHome(
                             horizontalArrangement = Arrangement.spacedBy(3.dp),
                         ) {
                             Text(
-                                text = "Settings",
+                                text = "Configure",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary,
@@ -1189,9 +1196,7 @@ private fun DashboardHome(
                         Surface(
                             shape = RoundedCornerShape(8.dp),
                             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                            modifier = Modifier
-                                .weight(1f)
-                                .clickable { showIntelligenceFeaturesDialog = true },
+                            modifier = Modifier.weight(1f),
                         ) {
                             Box(
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 7.dp),
@@ -1386,155 +1391,6 @@ private fun DashboardHome(
             },
             shape = RoundedCornerShape(24.dp),
         )
-    }
-
-    // Active Intelligence & Controls Features Details Dialog
-    if (showIntelligenceFeaturesDialog) {
-        AlertDialog(
-            onDismissRequest = { showIntelligenceFeaturesDialog = false },
-            title = {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        modifier = Modifier.size(38.dp),
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Rounded.Tune,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp),
-                            )
-                        }
-                    }
-                    Column {
-                        Text(
-                            text = "Intelligence & Controls",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        Text(
-                            text = "Real-time speech & hardware enhancements",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 11.sp,
-                        )
-                    }
-                }
-            },
-            text = {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    IntelligenceFeatureItem(
-                        icon = "🧠",
-                        title = "Smart Content Cleaning & NLP",
-                        description = "Cleans lengthy URLs into short spoken links, collapses repeated emoji spam, expands currencies ($ -> dollars), and strips Markdown.",
-                    )
-                    HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-                    IntelligenceFeatureItem(
-                        icon = "📳",
-                        title = "Shake / Flip to Silence & Replay",
-                        description = "Gently shake or flip phone face-down to stop speaking immediately. Shake again within 10s to repeat the announcement.",
-                    )
-                    HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-                    IntelligenceFeatureItem(
-                        icon = "🧹",
-                        title = "Auto-Dismiss Spoken Alerts",
-                        description = "Clears spoken notifications automatically from the Android status bar shade so your notifications stay tidy.",
-                    )
-                    HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-                    IntelligenceFeatureItem(
-                        icon = "⌚",
-                        title = "Wear OS Companion Sync",
-                        description = "Synchronizes enabled apps and notifications in real-time to your paired Wear OS smartwatch.",
-                    )
-                    HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-                    IntelligenceFeatureItem(
-                        icon = "🕒",
-                        title = "Periodic Spoken Check-ins",
-                        description = "Hands-free time and battery percentage spoken updates periodically through your earphones.",
-                    )
-                    HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-                    IntelligenceFeatureItem(
-                        icon = "⚡",
-                        title = "Music Paused Hold",
-                        description = "Waits up to 60 seconds while music or media is paused so announcements don't startle you when you pause playback.",
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showIntelligenceFeaturesDialog = false
-                        onSelectDestination(DashboardDestination.SETTINGS)
-                    },
-                    shape = RoundedCornerShape(12.dp),
-                ) {
-                    Text("Open Settings")
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                    )
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showIntelligenceFeaturesDialog = false }) {
-                    Text("Close")
-                }
-            },
-            shape = RoundedCornerShape(24.dp),
-        )
-    }
-}
-
-@Composable
-private fun IntelligenceFeatureItem(
-    icon: String,
-    title: String,
-    description: String,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalAlignment = Alignment.Top,
-    ) {
-        Text(
-            text = icon,
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(top = 2.dp),
-        )
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 12.sp,
-                lineHeight = 16.sp,
-            )
-        }
     }
 }
 
@@ -2112,6 +1968,13 @@ private fun SettingsHubScreen(
                         title = "Global Eligibility Rules",
                         subtitle = "Screen, lock, OTP shield, character limit",
                         onClick = { onSelectDestination(DashboardDestination.GLOBAL_RULES) },
+                    )
+                    SettingsHubDivider()
+                    SettingsHubRow(
+                        icon = Icons.Rounded.AutoAwesome,
+                        title = "Intelligence & Controls",
+                        subtitle = "Smart NLP cleaning, gestures, check-in, smartwatch",
+                        onClick = { onSelectDestination(DashboardDestination.ACTIVE_INTELLIGENCE) },
                     )
                     SettingsHubDivider()
                     SettingsHubRow(

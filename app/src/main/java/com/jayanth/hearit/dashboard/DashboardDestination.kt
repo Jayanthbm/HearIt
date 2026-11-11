@@ -49,6 +49,9 @@ enum class DashboardDestination(
 
     /** Diagnostics (P19). */
     DIAGNOSTICS(R.string.nav_diagnostics, false),
+
+    /** Active Intelligence and Controls (Phase 2 & Phase 1). */
+    ACTIVE_INTELLIGENCE(R.string.nav_active_intelligence, false),
     ;
 
     /** Stable identifier persisted across process recreation. */

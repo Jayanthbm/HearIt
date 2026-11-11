@@ -1211,7 +1211,7 @@ private fun SecurityPrivacyCard(
  * Reusable M3 section card wrapper with squircle icon badge.
  */
 @Composable
-private fun SettingsCard(
+internal fun SettingsCard(
     title: String,
     subtitle: String,
     icon: ImageVector,
@@ -1270,7 +1270,7 @@ private fun SettingsCard(
 }
 
 @Composable
-private fun GesturesAndControlsCard(
+internal fun GesturesAndControlsCard(
     isAutoDismissEnabled: Boolean,
     isShakeToStopEnabled: Boolean,
     isVolumeKeyToStopEnabled: Boolean,
@@ -1418,7 +1418,7 @@ private fun GesturesAndControlsCard(
 }
 
 @Composable
-private fun PeriodicCheckinCard(
+internal fun PeriodicCheckinCard(
     isEnabled: Boolean,
     intervalMinutes: Int,
     announceTime: Boolean,
@@ -1498,7 +1498,7 @@ private fun PeriodicCheckinCard(
 }
 
 @Composable
-private fun SmartContentCleaningCard(
+internal fun SmartContentCleaningCard(
     isUrlSummarizerEnabled: Boolean,
     isCurrencyNormalizerEnabled: Boolean,
     isMarkdownStripperEnabled: Boolean,
