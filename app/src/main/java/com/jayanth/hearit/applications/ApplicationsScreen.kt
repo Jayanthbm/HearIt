@@ -975,74 +975,74 @@ private fun AppSettingsScreen(
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
-                    // Custom Spoken Name Card (Idea 33)
-                    var customSpokenName by remember(state.spokenName) { mutableStateOf(state.spokenName ?: "") }
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Tune,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(20.dp),
-                                )
-                                Column {
-                                    Text(
-                                        text = "Custom Spoken App Name",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                    )
-                                    Text(
-                                        text = "Spoken nickname (e.g. 'Teams' instead of 'Microsoft Teams')",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        fontSize = 11.sp,
-                                    )
-                                }
-                            }
-
-                            OutlinedTextField(
-                                value = customSpokenName,
-                                onValueChange = { customSpokenName = it },
-                                placeholder = { Text("Default: ${state.label}") },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth(),
-                                trailingIcon = {
-                                    if (customSpokenName.isNotBlank()) {
-                                        IconButton(onClick = {
-                                            customSpokenName = ""
-                                            onSpokenNameChanged(null)
-                                        }) {
-                                            Icon(Icons.Rounded.Close, contentDescription = "Clear")
-                                        }
-                                    }
-                                },
-                            )
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.End,
-                            ) {
-                                FilledTonalButton(
-                                    onClick = { onSpokenNameChanged(customSpokenName.ifBlank { null }) },
-                                    shape = RoundedCornerShape(10.dp),
+                    if (state.enabled) {
+                        // Custom Spoken Name Card (Idea 33)
+                        var customSpokenName by remember(state.spokenName) { mutableStateOf(state.spokenName ?: "") }
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 ) {
-                                    Text("Save Name")
+                                    Icon(
+                                        imageVector = Icons.Rounded.Tune,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp),
+                                    )
+                                    Column {
+                                        Text(
+                                            text = "Custom Spoken App Name",
+                                            style = MaterialTheme.typography.titleSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                        )
+                                        Text(
+                                            text = "Spoken nickname (e.g. 'Teams' instead of 'Microsoft Teams')",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            fontSize = 11.sp,
+                                        )
+                                    }
+                                }
+
+                                OutlinedTextField(
+                                    value = customSpokenName,
+                                    onValueChange = { customSpokenName = it },
+                                    placeholder = { Text("Default: ${state.label}") },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    trailingIcon = {
+                                        if (customSpokenName.isNotBlank()) {
+                                            IconButton(onClick = {
+                                                customSpokenName = ""
+                                                onSpokenNameChanged(null)
+                                            }) {
+                                                Icon(Icons.Rounded.Close, contentDescription = "Clear")
+                                            }
+                                        }
+                                    },
+                                )
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.End,
+                                ) {
+                                    FilledTonalButton(
+                                        onClick = { onSpokenNameChanged(customSpokenName.ifBlank { null }) },
+                                        shape = RoundedCornerShape(10.dp),
+                                    ) {
+                                        Text("Save Name")
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    if (state.enabled) {
                         // Content & Notification Filters Card
                         val filterSettings = state.keywordFilter.effective
                     Card(
