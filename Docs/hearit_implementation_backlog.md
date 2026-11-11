@@ -7,7 +7,7 @@ Once the review is completed, these items will be batched and implemented system
 ---
 
 ## 📋 Status Overview
-- Total Identified Backlog Items: 1
+- Total Identified Backlog Items: 2
 - In Discussion / Under Review
 
 ---
@@ -34,6 +34,23 @@ Once the review is completed, these items will be batched and implemented system
   - `app/src/main/java/com/jayanth/hearit/settings/GeneralSettingsUiState.kt`
   - `app/src/main/java/com/jayanth/hearit/settings/GeneralSettingsViewModel.kt`
   - `app/src/main/java/com/jayanth/hearit/settings/GeneralSettingsScreen.kt` (shared `GesturesAndControlsCard` used by `IntelligenceControlsScreen`)
+
+### 2. Roadmap Item 3.2: Global DND & Phone Call Handling Settings — ❌ UI NOT IMPLEMENTED (Engine Ready)
+- **Priority / Effort**: Medium Value / Low Effort
+- **Current State**:
+  - **Engine & Persistence Already Built**: `EligibilitySettings` (`core/common`), `SettingsCodec` (`core/datastore`), and `EligibilityRules` (`core/rules`) already support global `respectDnd: Boolean = true` and `queueDuringCall: Boolean = false`, and per-app inheritance (`AppEligibilityOverride`).
+  - **Missing UI**: `GlobalSettingsUiState`, `GlobalSettingsViewModel`, and `GlobalSettingsScreen` do **not** expose any controls for `respectDnd` or `queueDuringCall` (they are only editable per-app in `ApplicationsScreen`).
+- **What Needs to Be Implemented**:
+  - Add `respectDnd: Boolean = true` and `queueDuringCall: Boolean = false` to `GlobalSettingsUiState` (and update `hasOverrides` + `from()`).
+  - Add `onRespectDndChanged(Boolean)` and `onQueueDuringCallChanged(Boolean)` in `GlobalSettingsViewModel`.
+  - Add a **"Do Not Disturb & Phone Calls"** card (or section inside the Device Conditions card) in `GlobalSettingsScreen`:
+    - Toggle: **"Silence during Do Not Disturb"** (`respectDnd`).
+    - Call Handling Selector / Toggle: **"During active phone calls: Discard vs Queue until call ends"** (`queueDuringCall`).
+  - Update `GlobalSettingsUiStateTest` (if any) to verify mapping and `hasOverrides`.
+- **Files Likely Touched**:
+  - `app/src/main/java/com/jayanth/hearit/applications/GlobalSettingsUiState.kt`
+  - `app/src/main/java/com/jayanth/hearit/applications/GlobalSettingsScreen.kt`
+  - `app/src/main/res/values/strings.xml` (optional string resources)
 
 ---
 
