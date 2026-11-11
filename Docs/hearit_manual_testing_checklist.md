@@ -172,7 +172,7 @@ This document tracks all features implemented across Phases 1 through 5. You can
   - In **App Details Screen** (tap any app from the list $\to$ Rules & Filters tab):
   - Added **Custom Spoken App Name** card with input field, placeholder (*"e.g. Teams, WhatsApp, Gmail"*), and Save / Clear buttons.
   - Whenever an announcement for that app is generated, `SmartContentCleaner` speaks the custom spoken nickname instead of the official package label!
-- **Location**: Phone App $\to$ Applications Tab $\to$ Tap any app $\to$ Rules & Filters $\to$ **Custom Spoken App Name**.
+- **Location**: Phone App $\to$ Applications Tab $\to$ Tap any enabled app $\to$ Rules & Filters $\to$ **Custom Spoken App Name** (only shown when app announcements are enabled).
 
 ### [ ] Item 6.2: Hide / Show System Apps Filter in Applications List — 🚀 READY FOR TESTING
 - **User Request**: *"In App List filters for hide or show system apps"*.
