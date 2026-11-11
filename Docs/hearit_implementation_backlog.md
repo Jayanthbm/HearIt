@@ -7,7 +7,7 @@ Once the review is completed, these items will be batched and implemented system
 ---
 
 ## 📋 Status Overview
-- Total Identified Backlog Items: 3
+- Total Identified Backlog Items: 4
 - In Discussion / Under Review
 
 ---
@@ -71,6 +71,22 @@ Once the review is completed, these items will be batched and implemented system
   - `app/src/main/java/com/jayanth/hearit/intelligence/IntelligenceControlsScreen.kt`
   - `app/src/main/java/com/jayanth/hearit/settings/GeneralSettingsUiState.kt`
   - `app/src/main/java/com/jayanth/hearit/settings/GeneralSettingsViewModel.kt`
+
+### 4. Roadmap Item 4.1: Priority Announce Configurable Expiry Durations — ❌ NOT IMPLEMENTED
+- **Priority / Effort**: Medium Value / Low Effort
+- **Current State**:
+  - `AnnouncementService` hardcodes a fixed 24-hour expiry (`PRIORITY_ANNOUNCE_EXPIRY_MILLIS = 24 * 60 * 60 * 1000L`) when `ACTION_PRIORITY_ANNOUNCE_ON` or `ACTION_PRIORITY_ANNOUNCE_TOGGLE` turns Priority Announce on.
+  - `DashboardScreen` only has a plain on/off switch for Priority Announce and shows static status text (`"Bypassing lock rules"`), with no duration picker and no remaining time indicator (despite unused strings `priority_announce_no_expiry` / `priority_announce_remaining` already present in `strings.xml`).
+- **What Needs to Be Implemented**:
+  - Update `AnnouncementService` to accept an optional duration extra (e.g., `EXTRA_DURATION_MILLIS` / `EXTRA_DURATION_MINUTES`) for `ACTION_PRIORITY_ANNOUNCE_ON`, supporting **30 minutes**, **1 hour**, **2 hours**, **4 hours**, or **Until turned off** (`<= 0L` / no timer).
+  - Track Priority Announce expiry timestamp in `ServiceStatusMonitor` / `DashboardUiState` so the Home screen Priority Announce card can display the remaining time (or `"Until turned off"`).
+  - In `DashboardScreen`, show a duration selector dialog (matching the existing `showMuteDurationDialog` pattern for Temporary Mute) when enabling Priority Announce (or tapping/long-pressing the Priority Announce card), while keeping the switch / QS tile / notification action functional cleanly.
+- **Files Likely Touched**:
+  - `app/src/main/java/com/jayanth/hearit/service/AnnouncementService.kt`
+  - `app/src/main/java/com/jayanth/hearit/dashboard/ServiceStatusMonitor.kt` (or wherever `ServiceStatusMonitor` lives)
+  - `app/src/main/java/com/jayanth/hearit/dashboard/DashboardUiState.kt` / `DashboardViewModel.kt`
+  - `app/src/main/java/com/jayanth/hearit/dashboard/DashboardScreen.kt`
+  - `app/src/main/res/values/strings.xml`
 
 ---
 
