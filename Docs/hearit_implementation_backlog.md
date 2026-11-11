@@ -7,7 +7,7 @@ Once the review is completed, these items will be batched and implemented system
 ---
 
 ## 📋 Status Overview
-- Total Identified Backlog Items: 16
+- Total Identified Backlog Items: 18
 - In Discussion / Under Review
 
 ---
@@ -302,6 +302,32 @@ Once the review is completed, these items will be batched and implemented system
   - `core/tts/src/main/kotlin/com/jayanth/hearit/core/tts/SmartContentCleaner.kt` & `AnnouncementTemplate.kt`
   - `app/src/main/java/com/jayanth/hearit/applications/ApplicationsViewModel.kt` & `ApplicationsScreen.kt` (plus link from `IntelligenceControlsScreen.kt`)
 
+### 17. Roadmap Item 10 (Feature D): Background Audio Ducking Level Control — ❌ NOT IMPLEMENTED
+- **Priority / Effort**: Medium Value / Medium Effort
+- **Current State**:
+  - `AudioFocusCard` (`GeneralSettingsScreen.kt`) only offers the 3 OS focus policies: `DUCK` (`AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK`), `PAUSE` (`AUDIOFOCUS_GAIN_TRANSIENT`), and `NONE`.
+  - There is **no** Ducking Level Slider / selector (e.g., 20%, 50%, 80%, or Pause). When `DUCK` is chosen, the OS lets other media players duck to an unconfigurable default volume.
+- **What Needs to Be Implemented**:
+  - Add `duckingLevelPercent: Int` (or presets: 20%, 50%, 80% alongside Pause option) persisted in `SessionStore` / `SettingsRepository`.
+  - Add a **Ducking Level** slider / preset selector inside `AudioFocusCard` (`GeneralSettingsScreen.kt` when `AudioFocusPolicy.DUCK` is selected).
+  - In `AnnouncementService.requestAudioFocus()` / `abandonAudioFocus()`: when ducking level is custom (e.g., 20% / 50% / 80%), safely scale `AudioManager.STREAM_MUSIC` volume down proportionally while HearIt speaks via `USAGE_ASSISTANCE_ACCESSIBILITY` (tracking original volume index cleanly in memory/store and always restoring it on completion, interruption, `onDestroy`, and crash recovery — or note OS API limitations gracefully if `FLAG_FIXED_VOLUME` applies).
+- **Files Likely Touched**:
+  - `app/src/main/java/com/jayanth/hearit/settings/GeneralSettingsUiState.kt`, `GeneralSettingsViewModel.kt`, `GeneralSettingsScreen.kt`
+  - `app/src/main/java/com/jayanth/hearit/service/SessionStore.kt` & `AnnouncementService.kt`
+
+### 18. Roadmap Item 10 (Feature F) & `SmartAudioPolishCard` Wiring Fix — ⚠️ ENGINE ONLY / UI MOCKED
+- **Priority / Effort**: High Value (Bug Fix) / Low Effort
+- **Current State**:
+  - **Engine (`AndroidTextToSpeechEngine.kt`)**: Already implements adaptive speed (`effectiveRate = (settings.speechRate * 1.25f).coerceAtMost(2.5f)` when `totalWords > 30`), earcon beep (`ToneGenerator`), and `300L` anti-collision delay — **all hardcoded**!
+  - **Broken / Non-Persisted UI (`VoiceSpeechScreen.kt` $\to$ `SmartAudioPolishCard`)**: All 4 settings in `SmartAudioPolishCard` (`earconEnabled`, `antiCollisionMs` [0/300/500 ms], `adaptiveSpeedEnabled`, `monoFoldDownEnabled`) are **local `remember { mutableStateOf(...) }` state variables**! They do not persist across navigation/restarts and are never read by `AndroidTextToSpeechEngine`!
+- **What Needs to Be Implemented**:
+  - Move `isEarconEnabled`, `antiCollisionDelayMs`, `isAdaptiveSpeedEnabled`, and `isMonoFoldDownEnabled` into `SessionStore` (or `SpeechSettings` / `VoiceSpeechUiState`) and expose callbacks from `VoiceSpeechViewModel`.
+  - Wire `AndroidTextToSpeechEngine.speak()` to actually read those 4 settings (skip earcon if disabled, honor `0 ms` / `300 ms` / `500 ms` delay dynamically, only boost speed >30 words if `isAdaptiveSpeedEnabled == true`, and apply mono/balance preference if enabled).
+  - Remove hardcoded local `mutableStateOf` variables in `SmartAudioPolishCard`.
+- **Files Likely Touched**:
+  - `app/src/main/java/com/jayanth/hearit/service/SessionStore.kt` & `AndroidTextToSpeechEngine.kt`
+  - `app/src/main/java/com/jayanth/hearit/voicespeech/VoiceSpeechUiState.kt`, `VoiceSpeechViewModel.kt`, `VoiceSpeechScreen.kt`
+
 ---
 
 ## ✅ Already Verified / Implemented Features in this Audit
@@ -315,3 +341,4 @@ Once the review is completed, these items will be batched and implemented system
 7. **Item 9.2 A (Basic URL Summarization & Emoji Spam Reducer)**: Basic hardcoded `summarizeUrls` & `collapseEmojiSpam` implemented in `SmartContentCleaner.kt` with toggles in **Active Intelligence**. *(Upgrading URL rules to predefined/custom UI & adding Digit-by-Digit Number formatting are tracked in Backlog #12 & #13).*
 8. **Item 9.3 Intelligent App Name Deduplication (Back-to-Back Same App)**: Fully implemented in `AnnouncementPipeline.tick()` — automatically detects consecutive announcements from the same `packageName` within 45 seconds (`45_000L`) and omits repeating the app name (`includeAppName = false`) with zero configuration.
 9. **Item 9.5 Pipeline Hardening (Listener Watchdog, MessagingStyle/InboxStyle Parser & 1-Tap Battery Exemption)**: Implemented across `HearItNotificationListenerService.kt` + `AnnouncementService.kt` (periodic `requestRebindIfDisconnected()` watchdog every ~22.5s and `onListenerDisconnected()` rebind), `StatusBarNotificationMapper.kt` (`EXTRA_MESSAGES` & `EXTRA_TEXT_LINES` fallback parsing), and `SetupProbes.kt` (1-tap `ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`).
+10. **Item 10 Feature A (Shake or Flip Phone to Stop Speech)**: Fully implemented in `AnnouncementService.sensorEventListener` (`TYPE_ACCELEROMETER` shake > 15.5 m/s² or face-down `z < -8.5f`) calling `engine.stop()` without triggering temporary mute, with `SessionStore.isShakeToStopEnabled` toggle in **Active Intelligence**.
