@@ -7,7 +7,7 @@ Once the review is completed, these items will be batched and implemented system
 ---
 
 ## 📋 Status Overview
-- Total Identified Backlog Items: 12
+- Total Identified Backlog Items: 13
 - In Discussion / Under Review
 
 ---
@@ -206,6 +206,30 @@ Once the review is completed, these items will be batched and implemented system
   - `core/tts/src/test/kotlin/com/jayanth/hearit/core/tts/SmartContentCleanerTest.kt`
   - `app/src/main/java/com/jayanth/hearit/service/SessionStore.kt`, `GeneralSettingsViewModel.kt`, `GeneralSettingsScreen.kt` (if toggle added)
 
+### 13. Roadmap Item 9.2 A.1: Smart Link & URL Summarization — Configurable Predefined & Custom Rules UI (Inside Active Intelligence) — ⚠️ ENHANCEMENT / PARTIALLY IMPLEMENTED
+- **Priority / Effort**: High Value / Low-Medium Effort
+- **Current State**:
+  - `SmartContentCleaner.summarizeUrls()` (`core/tts`) currently uses a **hardcoded** `when` block for a few domains (`instagram.com/reel`, `instagram.com/p/`, `youtube.com`/`youtu.be`, `maps.google.com`, `facebook.com`, `twitter.com`/`x.com`, `linkedin.com`) plus generic `"link to <domain>"`.
+  - **Active Intelligence** (`IntelligenceControlsScreen` $\to$ `SmartContentCleaningCard`) only has an on/off toggle (`isUrlSummarizerEnabled`) — there is **no UI** to load/toggle predefined URL rules or add custom URL-pattern-to-spoken-phrase mappings.
+- **Planned Implementation**:
+  - **Data Model & Persistence**:
+    - Define `UrlSummaryRule(pattern: String, spokenPhrase: String, isPredefined: Boolean, enabled: Boolean)` stored in `SessionStore` / `SettingsRepository` and synced into `SmartContentCleaner` on startup and update.
+    - Provide a **Predefined Preset Pack** (e.g., YouTube video, Instagram Reel, Instagram Post, Google Maps location, Facebook post, X post, LinkedIn post, GitHub link, Zoom meeting, Google Meet, Spotify track, Reddit post).
+  - **Engine (`SmartContentCleaner.kt`)**:
+    - Match dynamic rules sorted by specificity (longest pattern / custom overrides before shorter/broader domains), using `Matcher.quoteReplacement()` safely, and fall back to `"link to <domain>"` for unmatched URLs.
+  - **UI Inside Active Intelligence (`IntelligenceControlsScreen` / `SmartContentCleaningCard`)**:
+    - Under *"Clean & Summarize URLs"* (shown when enabled), add a clean **URL Rules** manager section/sheet featuring:
+      - **"Load Predefined Rules"** one-tap action (restores/adds default domain presets without erasing custom rules).
+      - **"+ Add Custom URL Rule"** form (URL / domain pattern e.g. `notion.so` or `zoom.us/j` $\to$ spoken phrase e.g. `"Notion page"` / `"Zoom meeting"`).
+      - Toggle / edit / delete controls for each predefined and custom rule.
+  - **Unit Tests**: Verify precedence, custom rules, preset loading, and fallback behavior in `SmartContentCleanerTest`.
+- **Files Likely Touched**:
+  - `core/tts/src/main/kotlin/com/jayanth/hearit/core/tts/SmartContentCleaner.kt`
+  - `core/tts/src/test/kotlin/com/jayanth/hearit/core/tts/SmartContentCleanerTest.kt`
+  - `app/src/main/java/com/jayanth/hearit/service/SessionStore.kt` (or `core/datastore`)
+  - `app/src/main/java/com/jayanth/hearit/settings/GeneralSettingsUiState.kt` & `GeneralSettingsViewModel.kt`
+  - `app/src/main/java/com/jayanth/hearit/intelligence/IntelligenceControlsScreen.kt` (or shared card in `GeneralSettingsScreen.kt`)
+
 ---
 
 ## ✅ Already Verified / Implemented Features in this Audit
@@ -216,4 +240,4 @@ Once the review is completed, these items will be batched and implemented system
 4. **Item 5.1 System TTS Settings Direct Shortcut**: Fully implemented in `VoiceSpeechScreen.kt` (`SystemTtsSettingsCard` + Voice Picker shortcut) and `DiagnosticsScreen.kt` firing `Intent("com.android.settings.TTS_SETTINGS")`.
 5. **Item 6.1 System Apps vs User Apps Filter**: Implemented via `AppCatalog.kt` (`FLAG_SYSTEM` detection) and `FilterChip` (*"System Apps Hidden" / "System Apps Shown"*) in `ApplicationsScreen.kt`. *(Follow-up fix tracked in Item 6.2: ensure "Enable all visible" respects `showSystemApps` & filter tab).*
 6. **Item 7.1 Priority Ordering in Queue**: Fully implemented end-to-end — Per-app **Speech Priority** picker (`Low` / `Normal` / `High` / `Critical`) in `ApplicationsScreen.kt`, passed via `AnnouncementService` (`settingsSource.priorityFor`) to `AnnouncementQueue.pollReady()`, which orders by highest `priority.rank` then FIFO without interrupting active speech.
-7. **Item 9.2 A (URL Summarization & Emoji Spam Reducer)**: Implemented in `SmartContentCleaner.kt` (`summarizeUrls`, `collapseEmojiSpam`) with toggles in **Active Intelligence** (`isUrlSummarizerEnabled`, `isEmojiCollapsingEnabled`). *(Only Digit-by-Digit Number/OTP Formatting from 9.2 A remains in backlog #12).*
+7. **Item 9.2 A (Basic URL Summarization & Emoji Spam Reducer)**: Basic hardcoded `summarizeUrls` & `collapseEmojiSpam` implemented in `SmartContentCleaner.kt` with toggles in **Active Intelligence**. *(Upgrading URL rules to predefined/custom UI & adding Digit-by-Digit Number formatting are tracked in Backlog #12 & #13).*
