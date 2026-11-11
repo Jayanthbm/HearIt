@@ -7,7 +7,7 @@ Once the review is completed, these items will be batched and implemented system
 ---
 
 ## 📋 Status Overview
-- Total Identified Backlog Items: 2
+- Total Identified Backlog Items: 3
 - In Discussion / Under Review
 
 ---
@@ -51,6 +51,24 @@ Once the review is completed, these items will be batched and implemented system
   - `app/src/main/java/com/jayanth/hearit/applications/GlobalSettingsUiState.kt`
   - `app/src/main/java/com/jayanth/hearit/applications/GlobalSettingsScreen.kt`
   - `app/src/main/res/values/strings.xml` (optional string resources)
+
+### 3. Roadmap Item 3.3: Text Pronunciation & Acronym Dictionary — ❌ NOT IMPLEMENTED
+- **Priority / Effort**: Medium Value / Low Effort
+- **Current State**:
+  - `SmartContentCleaner` (`core/tts`) already does hardcoded normalization for currency symbols (`$`, `₹`, `€`, `£`) and basic units (`mins` $\to$ `minutes`, `hrs`, `secs`, `km/h`, `mph`, `GB`/`MB`/`KB`), plus per-app spoken aliases (`setAppAlias` / `resolveAppName`).
+  - There is **no** user-configurable **Pronunciation & Acronym Dictionary** (custom word/acronym replacements like `"OTP"` $\to$ `"O T P"`, `"Dr."` $\to$ `"Doctor"`, `"ETA"` $\to$ `"E T A"`), no persistence for custom replacements, and no dictionary management UI.
+- **What Needs to Be Implemented**:
+  - Add user-configurable pronunciation dictionary storage (e.g., `Map<String, String>` / list of `PronunciationRule(match, spokenAs, matchCase, wholeWord)` in `HearItSettings` + `SettingsCodec` or `SessionStore`).
+  - Apply dictionary replacements inside `SmartContentCleaner.cleanMessageText()` (and optionally `cleanSender()`), using whole-word / safe regex matching before text reaches the Android TTS engine, with optional starter presets (e.g., `OTP`, `ETA`, `ASAP`, `FYI`).
+  - Add a **Pronunciation Dictionary** management UI card/screen accessible from **Voice & Speech** (or **Active Intelligence**):
+    - List of configured word/acronym $\to$ spoken replacement rules.
+    - Add / edit / delete rule dialog + quick "Test Pronunciation" button via TTS engine.
+  - Add unit tests in `SmartContentCleanerTest` and `SettingsCodecTest`.
+- **Files Likely Touched**:
+  - `core/tts/src/main/kotlin/com/jayanth/hearit/core/tts/SmartContentCleaner.kt`
+  - `core/tts/src/test/kotlin/com/jayanth/hearit/core/tts/SmartContentCleanerTest.kt`
+  - `core/common/src/main/kotlin/com/jayanth/hearit/core/common/model/...` / `core/datastore/.../SettingsCodec.kt`
+  - `app/src/main/java/com/jayanth/hearit/voicespeech/VoiceSpeechScreen.kt` (or `VoiceSpeechViewModel.kt`)
 
 ---
 
