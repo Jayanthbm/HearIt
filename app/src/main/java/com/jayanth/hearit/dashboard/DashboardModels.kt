@@ -25,6 +25,8 @@ data class ServiceSnapshot(
     val isSpeaking: Boolean = false,
     val pendingCount: Int = 0,
     val isPriorityAnnounceActive: Boolean = false,
+    val priorityAnnounceExpiryMillis: Long? = null,
+    val hasLastAnnouncement: Boolean = false,
 )
 
 /**
@@ -103,6 +105,7 @@ data class DashboardUiState(
     val lockCondition: LockCondition = LockCondition.LOCKED,
     val testAnnouncement: TestAnnouncementState = TestAnnouncementState.IDLE,
     val testSpeechDismissed: Boolean = false,
+    val isRepeatShortcutEnabled: Boolean = true,
 ) {
 
     /** Master prompt §13 "Normal announcements ON/OFF": on exactly while the service runs. */

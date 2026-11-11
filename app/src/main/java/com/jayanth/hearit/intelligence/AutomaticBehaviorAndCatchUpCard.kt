@@ -115,6 +115,80 @@ internal fun AutomaticBehaviorAndCatchUpCard(
                     onCheckedChange = actions.onToggleCatchUpIncludeApps,
                 )
             }
+            DividerLine()
+
+            // 4. Chatty Group Flood Defense: Sender Burst Aggregator (#20)
+            NlpToggleRow(
+                title = "Sender Burst Aggregator",
+                subtitle = "Merges rapid back-to-back messages from the same contact ('Rahul sent 4 quick messages: ...')",
+                checked = state.isSenderBurstAggregatorEnabled,
+                onCheckedChange = actions.onToggleSenderBurstAggregator,
+            )
+            if (state.isSenderBurstAggregatorEnabled) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(2, 3, 4).forEach { count ->
+                        FilterChip(
+                            selected = state.senderBurstMinCount == count,
+                            onClick = { actions.onSenderBurstMinCountChanged(count) },
+                            label = { Text("$count+ msgs") },
+                        )
+                    }
+                    listOf(3_000L to "3s", 5_000L to "5s", 10_000L to "10s").forEach { (ms, lbl) ->
+                        FilterChip(
+                            selected = state.senderBurstWindowMs == ms,
+                            onClick = { actions.onSenderBurstWindowChanged(ms) },
+                            label = { Text(lbl) },
+                        )
+                    }
+                }
+            }
+            DividerLine()
+
+            // 5. Spam Cooldown Throttle (#28)
+            NlpToggleRow(
+                title = "Sender Spam Cooldown Throttle",
+                subtitle = "Prevents audio fatigue when a sender rapid-fires alerts, summarizing bursts",
+                checked = state.isSpamCooldownEnabled,
+                onCheckedChange = actions.onToggleSpamCooldown,
+            )
+            if (state.isSpamCooldownEnabled) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(2, 3, 5).forEach { maxMsgs ->
+                        FilterChip(
+                            selected = state.spamCooldownMaxMessages == maxMsgs,
+                            onClick = { actions.onSpamCooldownMaxMessagesChanged(maxMsgs) },
+                            label = { Text("Max $maxMsgs") },
+                        )
+                    }
+                    listOf(30_000L to "30s", 60_000L to "60s", 120_000L to "2m").forEach { (ms, lbl) ->
+                        FilterChip(
+                            selected = state.spamCooldownWindowMs == ms,
+                            onClick = { actions.onSpamCooldownWindowChanged(ms) },
+                            label = { Text(lbl) },
+                        )
+                    }
+                }
+            }
+            DividerLine()
+
+            // 6. Multi-App Smart Notification Batching Digest (#33)
+            NlpToggleRow(
+                title = "Multi-App Smart Digest",
+                subtitle = "Collects simultaneous alerts across apps into one spoken digest",
+                checked = state.isMultiAppDigestEnabled,
+                onCheckedChange = actions.onToggleMultiAppDigest,
+            )
+            if (state.isMultiAppDigestEnabled) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(2_000L to "2s collect", 3_000L to "3s collect", 5_000L to "5s collect").forEach { (ms, lbl) ->
+                        FilterChip(
+                            selected = state.multiAppDigestWindowMs == ms,
+                            onClick = { actions.onMultiAppDigestWindowChanged(ms) },
+                            label = { Text(lbl) },
+                        )
+                    }
+                }
+            }
         }
     }
 }

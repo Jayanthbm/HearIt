@@ -346,4 +346,35 @@ class AnnouncementPipelineTest {
         ) { enabled }
         assertFalse(second!!.announcement.sections.any { it.kind == com.jayanth.hearit.core.tts.SectionKind.APP_NAME })
     }
+
+    @Test
+    fun onNotification_spamCooldownThrottlesAndClearQueueFlushesPending() {
+        val clock = TestClock(now = 1_000L)
+        val recorded = mutableListOf<AnnouncementPipeline.HistoryRecord>()
+        val pipeline = AnnouncementPipeline(
+            queue = AnnouncementQueue(clock = Clock { clock.now }),
+            clock = { clock.now },
+            onRecord = { recorded += it },
+        )
+
+        repeat(8) { index ->
+            clock.now += 100L
+            pipeline.onNotification(
+                snapshot = snapshot(key = "k$index", sender = "Rahul", messageText = "Spam #$index"),
+                settings = enabled,
+                state = state(),
+                isSpamCooldownEnabled = true,
+                spamCooldownMaxMessages = 3,
+                spamCooldownWindowMs = 60_000L,
+            )
+        }
+
+        // First 3 queued directly + 1 summary emitted at 5th throttled item = 4 pending
+        assertEquals(4, pipeline.pendingCount)
+        assertTrue(recorded.any { it.reason == com.jayanth.hearit.core.common.model.SkipReason.SPAM_COOLDOWN })
+
+        val cleared = pipeline.clearQueue()
+        assertEquals(4, cleared)
+        assertEquals(0, pipeline.pendingCount)
+    }
 }

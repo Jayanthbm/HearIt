@@ -118,6 +118,15 @@ class GeneralSettingsViewModel @Inject constructor(
             isBluetoothAutoOnlyAllowedEnabled = sessionStore.isBluetoothAutoOnlyAllowedEnabled,
             periodicCheckinAnnounceEarphonesBattery = sessionStore.periodicCheckinAnnounceEarphonesBattery,
             periodicCheckinAnnounceSummary = sessionStore.periodicCheckinAnnounceSummary,
+            isSenderBurstAggregatorEnabled = sessionStore.isSenderBurstAggregatorEnabled,
+            senderBurstMinCount = sessionStore.senderBurstMinCount,
+            senderBurstWindowMs = sessionStore.senderBurstWindowMs,
+            isRepeatLastShortcutEnabled = sessionStore.isRepeatLastShortcutEnabled,
+            isSpamCooldownEnabled = sessionStore.isSpamCooldownEnabled,
+            spamCooldownMaxMessages = sessionStore.spamCooldownMaxMessages,
+            spamCooldownWindowMs = sessionStore.spamCooldownWindowMs,
+            isMultiAppDigestEnabled = sessionStore.isMultiAppDigestEnabled,
+            multiAppDigestWindowMs = sessionStore.multiAppDigestWindowMs,
         ),
     )
     val state: StateFlow<GeneralSettingsUiState> = _state.asStateFlow()
@@ -587,6 +596,51 @@ class GeneralSettingsViewModel @Inject constructor(
         viewModelScope.launch {
             settingsRepository.update { current -> current.copy(eligibility = updated) }
         }
+    }
+
+    fun onToggleSenderBurstAggregator(enabled: Boolean) {
+        sessionStore.isSenderBurstAggregatorEnabled = enabled
+        _state.update { it.copy(isSenderBurstAggregatorEnabled = enabled) }
+    }
+
+    fun onSenderBurstMinCountChanged(count: Int) {
+        sessionStore.senderBurstMinCount = count
+        _state.update { it.copy(senderBurstMinCount = count) }
+    }
+
+    fun onSenderBurstWindowChanged(windowMs: Long) {
+        sessionStore.senderBurstWindowMs = windowMs
+        _state.update { it.copy(senderBurstWindowMs = windowMs) }
+    }
+
+    fun onToggleRepeatLastShortcut(enabled: Boolean) {
+        sessionStore.isRepeatLastShortcutEnabled = enabled
+        _state.update { it.copy(isRepeatLastShortcutEnabled = enabled) }
+    }
+
+    fun onToggleSpamCooldown(enabled: Boolean) {
+        sessionStore.isSpamCooldownEnabled = enabled
+        _state.update { it.copy(isSpamCooldownEnabled = enabled) }
+    }
+
+    fun onSpamCooldownMaxMessagesChanged(maxMessages: Int) {
+        sessionStore.spamCooldownMaxMessages = maxMessages
+        _state.update { it.copy(spamCooldownMaxMessages = maxMessages) }
+    }
+
+    fun onSpamCooldownWindowChanged(windowMs: Long) {
+        sessionStore.spamCooldownWindowMs = windowMs
+        _state.update { it.copy(spamCooldownWindowMs = windowMs) }
+    }
+
+    fun onToggleMultiAppDigest(enabled: Boolean) {
+        sessionStore.isMultiAppDigestEnabled = enabled
+        _state.update { it.copy(isMultiAppDigestEnabled = enabled) }
+    }
+
+    fun onMultiAppDigestWindowChanged(windowMs: Long) {
+        sessionStore.multiAppDigestWindowMs = windowMs
+        _state.update { it.copy(multiAppDigestWindowMs = windowMs) }
     }
 
     fun onGroupingWindowChanged(millis: Long) {

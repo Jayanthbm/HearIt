@@ -1382,6 +1382,31 @@ internal fun GesturesAndControlsCard(
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
+            // Tap-to-Repeat Last Announcement Shortcut (#25)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                    Text(
+                        text = "Repeat Last Shortcut (Home & Notification)",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = "Shows 1-tap replay button on Home screen & ongoing notification",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = state.isRepeatLastShortcutEnabled,
+                    onCheckedChange = intelligenceActions.onToggleRepeatLastShortcut,
+                )
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
             // Flip Face-Down to Stop (#19)
             Row(
                 modifier = Modifier.fillMaxWidth(),

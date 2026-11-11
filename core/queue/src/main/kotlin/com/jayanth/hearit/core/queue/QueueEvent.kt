@@ -71,4 +71,12 @@ sealed interface QueueEvent {
         override val historyStatus: HistoryStatus = HistoryStatus.SKIPPED
         override val reason: SkipReason = SkipReason.OVERFLOW
     }
+
+    /** User manually cleared the queue from Home UI or service action. */
+    data class ManuallyCleared(
+        override val snapshot: NotificationSnapshot,
+    ) : QueueEvent {
+        override val historyStatus: HistoryStatus = HistoryStatus.SKIPPED
+        override val reason: SkipReason = SkipReason.MANUALLY_CLEARED
+    }
 }

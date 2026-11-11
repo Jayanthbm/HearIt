@@ -374,6 +374,8 @@
     <string name="history_reason_suppressed_intelligence">filtered by active intelligence</string>
     <string name="history_reason_low_battery">low battery or battery saver</string>
     <string name="history_reason_proximity_uncovered">phone in hand (proximity uncovered)</string>
+    <string name="history_reason_spam_cooldown">sender spam cooldown</string>
+    <string name="history_reason_manually_cleared">queue cleared manually</string>
 
     <!-- App icon / splash -->
     <string name="splash_icon_description">Hear It app icon</string>

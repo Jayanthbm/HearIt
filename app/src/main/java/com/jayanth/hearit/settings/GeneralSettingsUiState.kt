@@ -83,4 +83,14 @@ data class GeneralSettingsUiState(
     val periodicCheckinAnnounceEarphonesBattery: Boolean = true,
     val periodicCheckinAnnounceSummary: Boolean = true,
     val eligibility: EligibilitySettings = EligibilitySettings(),
+    // Batch 4: Bursts (#20), Repeat shortcut (#25), Spam cooldown (#28), Multi-app digest (#33)
+    val isSenderBurstAggregatorEnabled: Boolean = true,
+    val senderBurstMinCount: Int = 2,
+    val senderBurstWindowMs: Long = 5_000L,
+    val isRepeatLastShortcutEnabled: Boolean = true,
+    val isSpamCooldownEnabled: Boolean = true,
+    val spamCooldownMaxMessages: Int = 3,
+    val spamCooldownWindowMs: Long = 60_000L,
+    val isMultiAppDigestEnabled: Boolean = true,
+    val multiAppDigestWindowMs: Long = 2_500L,
 )

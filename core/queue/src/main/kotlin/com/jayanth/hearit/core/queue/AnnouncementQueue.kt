@@ -40,6 +40,21 @@ data class PollResult(
     val announcement: ReadyAnnouncement?,
 )
 
+/** Cross-package or single-package batch selected for speaking when Multi-App Digest may run. */
+data class ReadyBatch(
+    val id: Long,
+    val primaryPackageName: String,
+    val appName: String,
+    val priority: AppPriority,
+    val items: List<NotificationSnapshot>,
+    val isMultiApp: Boolean,
+)
+
+data class BatchPollResult(
+    val events: List<QueueEvent>,
+    val batch: ReadyBatch?,
+)
+
 /** One item released from the call-hold list for full-pipeline re-evaluation (ADR-006/ADR-004). */
 data class BlockedNotification(
     val snapshot: NotificationSnapshot,
@@ -386,6 +401,84 @@ class AnnouncementQueue(
     /** Distinct display app names currently waiting in the pending queue, in arrival order. */
     fun pendingAppNames(): List<String> =
         pending.mapNotNull { it.snapshot.appName.trim().takeIf(String::isNotEmpty) }.distinct()
+
+    /** Manually flushes every pending and call-held item from the queue (#8). */
+    fun clearPending(): List<QueueEvent> {
+        val clearedEvents = mutableListOf<QueueEvent>()
+        pending.forEach { clearedEvents += QueueEvent.ManuallyCleared(it.snapshot) }
+        held.forEach { clearedEvents += QueueEvent.ManuallyCleared(it.snapshot) }
+        pending.clear()
+        held.clear()
+        lastSelection = null
+        return clearedEvents
+    }
+
+    /**
+     * Polls either multi-app digest batches arriving within [digestWindowMillis] (#33)
+     * or delegates to single-app [pollReady] when [multiAppEnabled] is false.
+     */
+    fun pollReadyDigest(
+        multiAppEnabled: Boolean,
+        digestWindowMillis: Long = 2_500L,
+    ): BatchPollResult {
+        if (!multiAppEnabled) {
+            val poll = pollReady()
+            val mapped = poll.announcement?.let { ann ->
+                ReadyBatch(
+                    id = ann.id,
+                    primaryPackageName = ann.packageName,
+                    appName = ann.appName,
+                    priority = ann.priority,
+                    items = ann.items,
+                    isMultiApp = false,
+                )
+            }
+            return BatchPollResult(poll.events, mapped)
+        }
+
+        val events = sweepExpired()
+        if (speakingId != null || !canAnnounce) return BatchPollResult(events, null)
+
+        val now = clock.nowMillis()
+        val lastCompletedAt = lastCompletedAtMillis
+        if (lastCompletedAt != null && now - lastCompletedAt < settings.minGapBetweenAnnouncementsMillis) {
+            return BatchPollResult(events, null)
+        }
+
+        val ready = pending.filter { now >= it.enqueuedAt + settings.delayBeforeAnnouncementMillis }
+        val first = ready.minWithOrNull(
+            compareByDescending<PendingItem> { it.priority.rank }.thenBy { it.seq },
+        ) ?: return BatchPollResult(events, null)
+
+        // Hold briefly inside digest window if fewer than maxMessages have arrived yet
+        val digestEnd = first.enqueuedAt + digestWindowMillis.coerceAtLeast(0L)
+        if (now < digestEnd && ready.size < settings.maxMessagesPerAnnouncement) {
+            return BatchPollResult(events, null)
+        }
+
+        val group = ready
+            .filter { it.enqueuedAt <= digestEnd }
+            .sortedBy { it.seq }
+            .take(settings.maxMessagesPerAnnouncement)
+        if (group.isEmpty() || !canAnnounce) return BatchPollResult(events, null)
+
+        val previous = lastSelection
+        val id = if (previous != null && previous.second == group) previous.first else nextAnnouncementId++
+        lastSelection = id to group
+
+        val distinctPackages = group.map { it.snapshot.packageName }.distinct().size
+        return BatchPollResult(
+            events = events,
+            batch = ReadyBatch(
+                id = id,
+                primaryPackageName = first.snapshot.packageName,
+                appName = first.snapshot.appName,
+                priority = first.priority,
+                items = group.map { it.snapshot },
+                isMultiApp = distinctPackages > 1,
+            ),
+        )
+    }
 
     private fun pickVictim(items: List<PendingItem>, policy: OverflowPolicy): PendingItem =
         when (policy) {

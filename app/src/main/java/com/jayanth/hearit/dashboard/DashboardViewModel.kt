@@ -151,6 +151,7 @@ class DashboardViewModel @Inject constructor(
                 temporaryMuteMinutes = if (sessionStore.isTemporaryMuteActive) it.temporaryMuteMinutes else null,
                 outputLabel = resolveActiveOutput(currentAudioOutput, connected),
                 testSpeechDismissed = sessionStore.isTestSpeechDismissed,
+                isRepeatShortcutEnabled = sessionStore.isRepeatLastShortcutEnabled,
             )
         }
         loadRecentHistory()
@@ -185,6 +186,25 @@ class DashboardViewModel @Inject constructor(
                 AnnouncementService.ACTION_PRIORITY_ANNOUNCE_OFF
             },
         )
+    }
+
+    /** Turns Priority Announce ON for [durationMinutes] (`<= 0` = Until turned off) (#4). */
+    fun onPriorityAnnounceDurationSelected(durationMinutes: Int) {
+        val durationMs = if (durationMinutes > 0) durationMinutes * 60_000L else -1L
+        val intent = Intent(context, AnnouncementService::class.java)
+            .setAction(AnnouncementService.ACTION_PRIORITY_ANNOUNCE_ON)
+            .putExtra(AnnouncementService.EXTRA_PRIORITY_DURATION_MILLIS, durationMs)
+        context.startService(intent)
+    }
+
+    /** Clears pending and call-held notifications from the queue (#8). */
+    fun onClearQueue() {
+        sendServiceAction(AnnouncementService.ACTION_CLEAR_QUEUE)
+    }
+
+    /** Re-speaks the last spoken announcement if available (#25). */
+    fun onRepeatLastAnnouncement() {
+        sendServiceAction(AnnouncementService.ACTION_REPEAT)
     }
 
     /** Updates the global screen condition requirement. */

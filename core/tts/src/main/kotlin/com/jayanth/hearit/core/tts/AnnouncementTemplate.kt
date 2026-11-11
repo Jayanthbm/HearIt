@@ -87,6 +87,9 @@ object AnnouncementTemplate {
         format: AnnouncementFormat,
         isCritical: Boolean = false,
         delayedMinutesByKey: Map<String, Long> = emptyMap(),
+        mergeSenderBursts: Boolean = false,
+        senderBurstMinCount: Int = 2,
+        senderBurstWindowMs: Long = 5_000L,
     ): BuiltAnnouncement {
         require(snapshots.isNotEmpty()) { "AnnouncementTemplate.build requires at least one snapshot" }
         val packageName = snapshots.first().packageName
@@ -114,44 +117,152 @@ object AnnouncementTemplate {
         }
 
         // §8: always plural — grouped lists have at least two members when this is emitted.
-        if (activeSnapshots.size > 1) {
+        if (activeSnapshots.size > 1 && !mergeSenderBursts) {
             sections += AnnouncementSection(SectionKind.MESSAGE_COUNT, "${activeSnapshots.size} messages.")
         }
 
         val category = SmartContentCleaner.resolveCategory(packageName)
 
-        for (snapshot in activeSnapshots) {
+        data class PreparedItem(
+            val snapshot: NotificationSnapshot,
+            val sender: String,
+            val groupTitle: String?,
+            val message: String,
+            val delayedMins: Long?,
+        ) {
+            val senderSubject: String
+                get() = if (!groupTitle.isNullOrBlank()) "$sender in $groupTitle" else sender
+        }
+
+        val prepared = activeSnapshots.map { snapshot ->
             val resolved = resolveGroupAndContent(snapshot, category)
             val sender = SmartContentCleaner.cleanSender(resolved.sender) ?: resolved.sender
             val message = SmartContentCleaner.cleanMessage(resolved.messageText, packageName).text
             val delayedMins = delayedMinutesByKey[snapshot.key]?.coerceAtLeast(1L)
-
-            if (format.includeSender && sender.isNotEmpty()) {
-                val senderSubject = if (!resolved.groupTitle.isNullOrBlank()) {
-                    "$sender in ${resolved.groupTitle}"
-                } else {
-                    sender
-                }
-                val text = when {
-                    delayedMins != null && format.includeMessage && message.isNotEmpty() ->
-                        "$senderSubject sent $delayedMins minutes ago:"
-                    delayedMins != null ->
-                        "$senderSubject sent $delayedMins minutes ago."
-                    format.includeMessage && message.isNotEmpty() ->
-                        "$senderSubject says,"
-                    else ->
-                        "$senderSubject."
-                }
-                sections += AnnouncementSection(SectionKind.SENDER, text)
-            } else if (delayedMins != null && format.includeMessage && message.isNotEmpty()) {
-                sections += AnnouncementSection(SectionKind.SENDER, "Sent $delayedMins minutes ago:")
-            }
-
-            if (format.includeMessage && message.isNotEmpty()) {
-                sections += AnnouncementSection(SectionKind.MESSAGE, message)
-            }
+            PreparedItem(snapshot, sender, resolved.groupTitle, message, delayedMins)
         }
 
+        // Group consecutive same-sender bursts if enabled (#20), or emit flat if disabled
+        var idx = 0
+        while (idx < prepared.size) {
+            val first = prepared[idx]
+            if (mergeSenderBursts && first.sender.isNotEmpty()) {
+                val run = mutableListOf(first)
+                var nextIdx = idx + 1
+                while (nextIdx < prepared.size) {
+                    val candidate = prepared[nextIdx]
+                    val sameSubject = candidate.senderSubject.equals(first.senderSubject, ignoreCase = true)
+                    val spanOk = if (first.snapshot.postTimeMillis > 0L && candidate.snapshot.postTimeMillis > 0L) {
+                        kotlin.math.abs(candidate.snapshot.postTimeMillis - first.snapshot.postTimeMillis) <= senderBurstWindowMs
+                    } else {
+                        true
+                    }
+                    if (sameSubject && spanOk) {
+                        run += candidate
+                        nextIdx++
+                    } else {
+                        break
+                    }
+                }
+                if (run.size >= senderBurstMinCount) {
+                    val joinedMessages = run.mapNotNull { it.message.takeIf(String::isNotBlank) }.joinToString(", ")
+                    if (format.includeSender) {
+                        sections += AnnouncementSection(
+                            SectionKind.SENDER,
+                            if (format.includeMessage && joinedMessages.isNotEmpty()) {
+                                "${first.senderSubject} sent ${run.size} quick messages:"
+                            } else {
+                                "${first.senderSubject} sent ${run.size} quick messages."
+                            },
+                        )
+                    } else if (activeSnapshots.size > 1) {
+                        sections += AnnouncementSection(SectionKind.MESSAGE_COUNT, "${run.size} messages.")
+                    }
+                    if (format.includeMessage && joinedMessages.isNotEmpty()) {
+                        sections += AnnouncementSection(SectionKind.MESSAGE, joinedMessages)
+                    }
+                    idx = nextIdx
+                    continue
+                }
+            }
+
+            if (activeSnapshots.size > 1 && mergeSenderBursts && idx == 0) {
+                // Multi-sender grouped list still announces total count when not collapsed to one sender burst
+                sections += AnnouncementSection(SectionKind.MESSAGE_COUNT, "${activeSnapshots.size} messages.")
+            }
+
+            if (format.includeSender && first.sender.isNotEmpty()) {
+                val text = when {
+                    first.delayedMins != null && format.includeMessage && first.message.isNotEmpty() ->
+                        "${first.senderSubject} sent ${first.delayedMins} minutes ago:"
+                    first.delayedMins != null ->
+                        "${first.senderSubject} sent ${first.delayedMins} minutes ago."
+                    format.includeMessage && first.message.isNotEmpty() ->
+                        "${first.senderSubject} says,"
+                    else ->
+                        "${first.senderSubject}."
+                }
+                sections += AnnouncementSection(SectionKind.SENDER, text)
+            } else if (first.delayedMins != null && format.includeMessage && first.message.isNotEmpty()) {
+                sections += AnnouncementSection(SectionKind.SENDER, "Sent ${first.delayedMins} minutes ago:")
+            }
+
+            if (format.includeMessage && first.message.isNotEmpty()) {
+                sections += AnnouncementSection(SectionKind.MESSAGE, first.message)
+            }
+            idx++
+        }
+
+        return BuiltAnnouncement(sections, format.pauseBetweenSectionsMillis, isCritical = isCritical)
+    }
+
+    /**
+     * Builds a combined multi-app digest for items arriving within the digest burst window (#33).
+     *
+     * Example output sections:
+     * `"You have 2 notifications:"`, `"Rahul on WhatsApp says, Hey"`, `"Mom on Messages says, Call me back"`.
+     */
+    fun buildMultiAppDigest(
+        snapshots: List<NotificationSnapshot>,
+        format: AnnouncementFormat,
+        isCritical: Boolean = false,
+        delayedMinutesByKey: Map<String, Long> = emptyMap(),
+    ): BuiltAnnouncement {
+        val active = snapshots.filterNot { SmartContentCleaner.shouldSuppress(it.messageText, it.packageName) }
+        if (active.isEmpty()) {
+            return BuiltAnnouncement(emptyList(), format.pauseBetweenSectionsMillis, isCritical = isCritical)
+        }
+        val distinctPackages = active.map { it.packageName }.distinct()
+        if (distinctPackages.size <= 1) {
+            return build(active, format, isCritical, delayedMinutesByKey)
+        }
+
+        val sections = mutableListOf<AnnouncementSection>()
+        format.introduction?.trim()?.takeIf { it.isNotEmpty() }?.let {
+            sections += AnnouncementSection(SectionKind.INTRODUCTION, it)
+        }
+        sections += AnnouncementSection(SectionKind.MESSAGE_COUNT, "You have ${active.size} notifications:")
+
+        active.forEach { snapshot ->
+            val category = SmartContentCleaner.resolveCategory(snapshot.packageName)
+            val resolved = resolveGroupAndContent(snapshot, category)
+            val appName = SmartContentCleaner.resolveAppName(snapshot.packageName, snapshot.appName.trim())
+            val sender = SmartContentCleaner.cleanSender(resolved.sender) ?: resolved.sender
+            val message = SmartContentCleaner.cleanMessage(resolved.messageText, snapshot.packageName).text
+            val line = buildString {
+                if (format.includeSender && sender.isNotEmpty()) {
+                    append(sender)
+                    if (format.includeAppName && appName.isNotEmpty()) append(" on $appName")
+                    if (format.includeMessage && message.isNotEmpty()) append(" says, $message") else append(".")
+                } else {
+                    if (format.includeAppName && appName.isNotEmpty()) append("$appName: ")
+                    if (format.includeMessage && message.isNotEmpty()) append(message)
+                }
+            }.trim()
+            if (line.isNotEmpty()) {
+                sections += AnnouncementSection(SectionKind.MESSAGE, line)
+            }
+        }
         return BuiltAnnouncement(sections, format.pauseBetweenSectionsMillis, isCritical = isCritical)
     }
 

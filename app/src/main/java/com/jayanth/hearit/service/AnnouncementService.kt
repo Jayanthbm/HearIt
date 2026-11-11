@@ -389,7 +389,11 @@ class AnnouncementService : Service(), NotificationSink {
             }
 
             ACTION_PRIORITY_ANNOUNCE_ON -> {
-                setPriorityAnnounce(active = true)
+                val durationMs = intent?.getLongExtra(
+                    EXTRA_PRIORITY_DURATION_MILLIS,
+                    PRIORITY_ANNOUNCE_EXPIRY_MILLIS,
+                ) ?: PRIORITY_ANNOUNCE_EXPIRY_MILLIS
+                setPriorityAnnounce(active = true, durationMillis = durationMs)
                 return START_STICKY
             }
 
@@ -399,7 +403,16 @@ class AnnouncementService : Service(), NotificationSink {
             }
 
             ACTION_PRIORITY_ANNOUNCE_TOGGLE -> {
-                setPriorityAnnounce(active = !serviceStatus.state.value.isPriorityAnnounceActive)
+                setPriorityAnnounce(
+                    active = !serviceStatus.state.value.isPriorityAnnounceActive,
+                    durationMillis = PRIORITY_ANNOUNCE_EXPIRY_MILLIS,
+                )
+                return START_STICKY
+            }
+
+            ACTION_CLEAR_QUEUE -> {
+                pipeline.clearQueue()
+                publishStatus()
                 return START_STICKY
             }
 
@@ -464,6 +477,9 @@ class AnnouncementService : Service(), NotificationSink {
             settings = settingsSource.forApp(snapshot.packageName),
             state = currentState(),
             priority = settingsSource.priorityFor(snapshot.packageName),
+            isSpamCooldownEnabled = sessionStore.isSpamCooldownEnabled,
+            spamCooldownMaxMessages = sessionStore.spamCooldownMaxMessages,
+            spamCooldownWindowMs = sessionStore.spamCooldownWindowMs,
         )
         com.jayanth.hearit.wear.WearDataLayerSync.syncNotification(this, snapshot)
     }
@@ -697,6 +713,11 @@ class AnnouncementService : Service(), NotificationSink {
             appNameDedupWindowMs = sessionStore.appNameDedupWindowMs,
             isDelayedTimestampEnabled = sessionStore.isDelayedTimestampTagEnabled,
             delayedTimestampThresholdMs = sessionStore.delayedTimestampThresholdMs,
+            isSenderBurstAggregatorEnabled = sessionStore.isSenderBurstAggregatorEnabled,
+            senderBurstMinCount = sessionStore.senderBurstMinCount,
+            senderBurstWindowMs = sessionStore.senderBurstWindowMs,
+            isMultiAppDigestEnabled = sessionStore.isMultiAppDigestEnabled,
+            multiAppDigestWindowMs = sessionStore.multiAppDigestWindowMs,
             settingsOf = { packageName -> settingsSource.forApp(packageName) },
         )
         if (spoken != null) {
@@ -865,7 +886,7 @@ class AnnouncementService : Service(), NotificationSink {
             "Finished speech announcement: pkg=${action.selection.packageName}, spoken=$spoken",
         )
         if (spoken && sessionStore.isAutoDismissEnabled) {
-            action.selection.items.forEach { snapshot ->
+            action.spokenItems.forEach { snapshot ->
                 HearItNotificationListenerService.dismissNotification(
                     key = snapshot.key,
                     packageName = snapshot.packageName,
@@ -885,13 +906,19 @@ class AnnouncementService : Service(), NotificationSink {
         return START_STICKY
     }
 
-    /** Turns Priority Announce on/off; the 24-hour expiry is fixed for now (P17). */
-    private fun setPriorityAnnounce(active: Boolean) {
-        serviceStatus.markPriorityAnnounceActive(active)
+    /** Turns Priority Announce on/off with configurable expiry duration (#4: <=0 = No expiry). */
+    private fun setPriorityAnnounce(
+        active: Boolean,
+        durationMillis: Long = PRIORITY_ANNOUNCE_EXPIRY_MILLIS,
+    ) {
         handler.removeCallbacks(priorityAnnounceExpiryRunnable)
-        if (active) {
-            handler.postDelayed(priorityAnnounceExpiryRunnable, PRIORITY_ANNOUNCE_EXPIRY_MILLIS)
+        val expiryAt = if (active && durationMillis > 0L) {
+            handler.postDelayed(priorityAnnounceExpiryRunnable, durationMillis)
+            System.currentTimeMillis() + durationMillis
+        } else {
+            null
         }
+        serviceStatus.markPriorityAnnounceActive(active, expiryAt)
         publishStatus()
     }
 
@@ -919,6 +946,7 @@ class AnnouncementService : Service(), NotificationSink {
         serviceStatus.updateSpeech(
             isSpeaking = pipeline.isSpeaking,
             pendingCount = pipeline.pendingCount,
+            hasLastAnnouncement = lastAction != null,
         )
         updateNotification()
     }
@@ -929,6 +957,7 @@ class AnnouncementService : Service(), NotificationSink {
             speaking = currentAction != null,
             isPriorityAnnounce = serviceStatus.state.value.isPriorityAnnounceActive,
             isMuted = sessionStore.isTemporaryMuteActive,
+            showRepeatAction = sessionStore.isRepeatLastShortcutEnabled && lastAction != null,
         )
         startForeground(
             AnnouncementNotification.NOTIFICATION_ID,
@@ -943,6 +972,7 @@ class AnnouncementService : Service(), NotificationSink {
             speaking = currentAction != null,
             isPriorityAnnounce = serviceStatus.state.value.isPriorityAnnounceActive,
             isMuted = sessionStore.isTemporaryMuteActive,
+            showRepeatAction = sessionStore.isRepeatLastShortcutEnabled && lastAction != null,
         )
         val manager = getSystemService(NotificationManager::class.java)
         manager?.notify(AnnouncementNotification.NOTIFICATION_ID, notification)
@@ -991,6 +1021,8 @@ class AnnouncementService : Service(), NotificationSink {
         const val ACTION_RESUME = "com.jayanth.hearit.action.RESUME"
         const val ACTION_SKIP = "com.jayanth.hearit.action.SKIP"
         const val ACTION_REPEAT = "com.jayanth.hearit.action.REPEAT"
+        const val ACTION_CLEAR_QUEUE = "com.jayanth.hearit.action.CLEAR_QUEUE"
+        const val EXTRA_PRIORITY_DURATION_MILLIS = "com.jayanth.hearit.extra.PRIORITY_DURATION_MILLIS"
 
         /** Tick cadence: fast enough for ADR-011 stop-on-change, cheap enough to stay idle. */
         private const val TICK_INTERVAL_MILLIS = 750L

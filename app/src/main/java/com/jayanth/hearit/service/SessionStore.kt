@@ -494,6 +494,64 @@ class SessionStore(context: Context) {
             prefs.edit().putBoolean(KEY_PERIODIC_ANNOUNCE_SUMMARY, value).apply()
         }
 
+    /** Sender Burst Aggregator (#20 / Idea 2). */
+    var isSenderBurstAggregatorEnabled: Boolean
+        get() = prefs.getBoolean(KEY_SENDER_BURST_AGGREGATOR, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_SENDER_BURST_AGGREGATOR, value).apply()
+        }
+
+    var senderBurstMinCount: Int
+        get() = prefs.getInt(KEY_SENDER_BURST_MIN_COUNT, 2)
+        set(value) {
+            prefs.edit().putInt(KEY_SENDER_BURST_MIN_COUNT, value.coerceIn(2, 6)).apply()
+        }
+
+    var senderBurstWindowMs: Long
+        get() = prefs.getLong(KEY_SENDER_BURST_WINDOW_MS, 5_000L)
+        set(value) {
+            prefs.edit().putLong(KEY_SENDER_BURST_WINDOW_MS, value.coerceIn(2_000L, 15_000L)).apply()
+        }
+
+    /** Tap-to-Repeat Home & Notification shortcut (#25 / Idea 7). */
+    var isRepeatLastShortcutEnabled: Boolean
+        get() = prefs.getBoolean(KEY_REPEAT_LAST_SHORTCUT, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_REPEAT_LAST_SHORTCUT, value).apply()
+        }
+
+    /** Per-Sender Spam Cooldown Throttle (#28 / Idea 16). */
+    var isSpamCooldownEnabled: Boolean
+        get() = prefs.getBoolean(KEY_SPAM_COOLDOWN_ENABLED, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_SPAM_COOLDOWN_ENABLED, value).apply()
+        }
+
+    var spamCooldownMaxMessages: Int
+        get() = prefs.getInt(KEY_SPAM_COOLDOWN_MAX_MESSAGES, 3)
+        set(value) {
+            prefs.edit().putInt(KEY_SPAM_COOLDOWN_MAX_MESSAGES, value.coerceIn(2, 10)).apply()
+        }
+
+    var spamCooldownWindowMs: Long
+        get() = prefs.getLong(KEY_SPAM_COOLDOWN_WINDOW_MS, 60_000L)
+        set(value) {
+            prefs.edit().putLong(KEY_SPAM_COOLDOWN_WINDOW_MS, value.coerceIn(15_000L, 180_000L)).apply()
+        }
+
+    /** Multi-App Smart Batching Digest (#33 / Idea 53). */
+    var isMultiAppDigestEnabled: Boolean
+        get() = prefs.getBoolean(KEY_MULTI_APP_DIGEST_ENABLED, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_MULTI_APP_DIGEST_ENABLED, value).apply()
+        }
+
+    var multiAppDigestWindowMs: Long
+        get() = prefs.getLong(KEY_MULTI_APP_DIGEST_WINDOW_MS, 2_500L)
+        set(value) {
+            prefs.edit().putLong(KEY_MULTI_APP_DIGEST_WINDOW_MS, value.coerceIn(1_500L, 5_000L)).apply()
+        }
+
     /** True if user has permanent premium entitlement (Google Play IAP/Subscription). */
     var isPremiumEntitled: Boolean
         get() = prefs.getBoolean(KEY_PREMIUM_ENTITLED, false)
@@ -666,6 +724,15 @@ class SessionStore(context: Context) {
         const val KEY_CACHED_ALLOWED_BT_IDS = "cached_allowed_bt_ids"
         const val KEY_PERIODIC_ANNOUNCE_EARPHONES_BATTERY = "periodic_announce_earphones_battery"
         const val KEY_PERIODIC_ANNOUNCE_SUMMARY = "periodic_announce_summary"
+        const val KEY_SENDER_BURST_AGGREGATOR = "sender_burst_aggregator"
+        const val KEY_SENDER_BURST_MIN_COUNT = "sender_burst_min_count"
+        const val KEY_SENDER_BURST_WINDOW_MS = "sender_burst_window_ms"
+        const val KEY_REPEAT_LAST_SHORTCUT = "repeat_last_shortcut"
+        const val KEY_SPAM_COOLDOWN_ENABLED = "spam_cooldown_enabled"
+        const val KEY_SPAM_COOLDOWN_MAX_MESSAGES = "spam_cooldown_max_messages"
+        const val KEY_SPAM_COOLDOWN_WINDOW_MS = "spam_cooldown_window_ms"
+        const val KEY_MULTI_APP_DIGEST_ENABLED = "multi_app_digest_enabled"
+        const val KEY_MULTI_APP_DIGEST_WINDOW_MS = "multi_app_digest_window_ms"
         const val KEY_PREMIUM_ENTITLED = "premium_entitled"
         const val KEY_TEMPORARY_PREMIUM_EXPIRY = "temporary_premium_expiry_ts"
     }

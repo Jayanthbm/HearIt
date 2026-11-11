@@ -71,6 +71,15 @@ data class IntelligenceActions(
     val onTogglePeriodicCheckinEarphonesBattery: (Boolean) -> Unit = {},
     val onTogglePeriodicCheckinSummary: (Boolean) -> Unit = {},
     val onUpdateEligibility: (EligibilitySettings) -> Unit = {},
+    val onToggleSenderBurstAggregator: (Boolean) -> Unit = {},
+    val onSenderBurstMinCountChanged: (Int) -> Unit = {},
+    val onSenderBurstWindowChanged: (Long) -> Unit = {},
+    val onToggleRepeatLastShortcut: (Boolean) -> Unit = {},
+    val onToggleSpamCooldown: (Boolean) -> Unit = {},
+    val onSpamCooldownMaxMessagesChanged: (Int) -> Unit = {},
+    val onSpamCooldownWindowChanged: (Long) -> Unit = {},
+    val onToggleMultiAppDigest: (Boolean) -> Unit = {},
+    val onMultiAppDigestWindowChanged: (Long) -> Unit = {},
 ) {
     companion object {
         fun from(viewModel: GeneralSettingsViewModel): IntelligenceActions = IntelligenceActions(
@@ -131,6 +140,15 @@ data class IntelligenceActions(
             onTogglePeriodicCheckinEarphonesBattery = viewModel::onTogglePeriodicCheckinEarphonesBattery,
             onTogglePeriodicCheckinSummary = viewModel::onTogglePeriodicCheckinSummary,
             onUpdateEligibility = viewModel::onUpdateEligibility,
+            onToggleSenderBurstAggregator = viewModel::onToggleSenderBurstAggregator,
+            onSenderBurstMinCountChanged = viewModel::onSenderBurstMinCountChanged,
+            onSenderBurstWindowChanged = viewModel::onSenderBurstWindowChanged,
+            onToggleRepeatLastShortcut = viewModel::onToggleRepeatLastShortcut,
+            onToggleSpamCooldown = viewModel::onToggleSpamCooldown,
+            onSpamCooldownMaxMessagesChanged = viewModel::onSpamCooldownMaxMessagesChanged,
+            onSpamCooldownWindowChanged = viewModel::onSpamCooldownWindowChanged,
+            onToggleMultiAppDigest = viewModel::onToggleMultiAppDigest,
+            onMultiAppDigestWindowChanged = viewModel::onMultiAppDigestWindowChanged,
         )
     }
 }

@@ -72,6 +72,7 @@ import androidx.compose.material.icons.rounded.Backup
 import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.Cable
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.ClearAll
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DevicesOther
 import androidx.compose.material.icons.rounded.GraphicEq
@@ -88,6 +89,7 @@ import androidx.compose.material.icons.rounded.NotificationsNone
 import androidx.compose.material.icons.rounded.NotificationsOff
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.RecordVoiceOver
+import androidx.compose.material.icons.rounded.Replay
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Star
@@ -124,6 +126,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -250,6 +253,9 @@ fun DashboardRoute(
         onTemporaryMuteClicked = viewModel::onTemporaryMuteClicked,
         onTemporaryMuteCleared = viewModel::onTemporaryMuteCleared,
         onPriorityAnnounceToggled = viewModel::onPriorityAnnounceToggled,
+        onPriorityAnnounceDurationSelected = viewModel::onPriorityAnnounceDurationSelected,
+        onClearQueue = viewModel::onClearQueue,
+        onRepeatLastAnnouncement = viewModel::onRepeatLastAnnouncement,
         onScreenConditionChanged = viewModel::onScreenConditionChanged,
         onLockConditionChanged = viewModel::onLockConditionChanged,
         onHistorySearch = viewModel::onHistorySearch,
@@ -289,6 +295,9 @@ fun DashboardScreen(
     onTemporaryMuteClicked: (Int) -> Unit,
     onTemporaryMuteCleared: () -> Unit,
     onPriorityAnnounceToggled: (Boolean) -> Unit,
+    onPriorityAnnounceDurationSelected: (Int) -> Unit = {},
+    onClearQueue: () -> Unit = {},
+    onRepeatLastAnnouncement: () -> Unit = {},
     onScreenConditionChanged: (ScreenCondition) -> Unit = {},
     onLockConditionChanged: (LockCondition) -> Unit = {},
     onHistorySearch: (DashboardFilterState) -> Unit,
@@ -363,6 +372,9 @@ fun DashboardScreen(
                             onTemporaryMuteClicked = onTemporaryMuteClicked,
                             onTemporaryMuteCleared = onTemporaryMuteCleared,
                             onPriorityAnnounceToggled = onPriorityAnnounceToggled,
+                            onPriorityAnnounceDurationSelected = onPriorityAnnounceDurationSelected,
+                            onClearQueue = onClearQueue,
+                            onRepeatLastAnnouncement = onRepeatLastAnnouncement,
                             onScreenConditionChanged = onScreenConditionChanged,
                             onLockConditionChanged = onLockConditionChanged,
                             onHistorySearch = onHistorySearch,
@@ -600,6 +612,9 @@ private fun DashboardHome(
     onTemporaryMuteClicked: (Int) -> Unit,
     onTemporaryMuteCleared: () -> Unit,
     onPriorityAnnounceToggled: (Boolean) -> Unit,
+    onPriorityAnnounceDurationSelected: (Int) -> Unit = {},
+    onClearQueue: () -> Unit = {},
+    onRepeatLastAnnouncement: () -> Unit = {},
     onScreenConditionChanged: (ScreenCondition) -> Unit = {},
     onLockConditionChanged: (LockCondition) -> Unit = {},
     onHistorySearch: (DashboardFilterState) -> Unit,
@@ -609,6 +624,14 @@ private fun DashboardHome(
 ) {
     val testAnnouncementText = stringResource(R.string.dashboard_test_announcement_spoken)
     var showMuteDurationDialog by rememberSaveable { mutableStateOf(false) }
+    var showPriorityDurationDialog by rememberSaveable { mutableStateOf(false) }
+    var nowMillis by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(state.service.priorityAnnounceExpiryMillis) {
+        while (state.service.priorityAnnounceExpiryMillis != null) {
+            nowMillis = System.currentTimeMillis()
+            kotlinx.coroutines.delay(15_000L)
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -654,6 +677,8 @@ private fun DashboardHome(
             state = state,
             onStart = onStartService,
             onStop = onStopService,
+            onClearQueue = onClearQueue,
+            onRepeatLast = onRepeatLastAnnouncement,
             onSelectDestination = onSelectDestination,
         )
 
@@ -800,7 +825,13 @@ private fun DashboardHome(
                         enabled = priorityEnabled,
                         interactionSource = priorityInteractionSource,
                         indication = null,
-                    ) { onPriorityAnnounceToggled(!state.priorityAnnounceActive) },
+                    ) {
+                        if (state.priorityAnnounceActive) {
+                            onPriorityAnnounceToggled(false)
+                        } else {
+                            showPriorityDurationDialog = true
+                        }
+                    },
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = priorityCardBg),
                 border = BorderStroke(1.dp, priorityCardBorder),
@@ -832,7 +863,13 @@ private fun DashboardHome(
                         Switch(
                             checked = state.priorityAnnounceActive,
                             enabled = priorityEnabled,
-                            onCheckedChange = onPriorityAnnounceToggled,
+                            onCheckedChange = { wantEnable ->
+                                if (wantEnable) {
+                                    showPriorityDurationDialog = true
+                                } else {
+                                    onPriorityAnnounceToggled(false)
+                                }
+                            },
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
                                 checkedTrackColor = MaterialTheme.colorScheme.primary,
@@ -850,13 +887,22 @@ private fun DashboardHome(
                         overflow = TextOverflow.Ellipsis,
                     )
                     Spacer(modifier = Modifier.height(1.dp))
+                    val priorityRemainingLabel = remember(state.service.priorityAnnounceExpiryMillis, nowMillis) {
+                        val exp = state.service.priorityAnnounceExpiryMillis
+                        if (exp == null) {
+                            "Until turned off"
+                        } else {
+                            val remMin = ((exp - nowMillis) / 60_000L).coerceAtLeast(1L)
+                            if (remMin >= 60) "${remMin / 60}h ${remMin % 60}m left" else "${remMin}m left"
+                        }
+                    }
                     Text(
                         text = when {
                             !isRunning -> "Requires service"
                             muteActive && state.priorityAnnounceActive -> "Muted · Resumes on unmute"
                             muteActive -> "Muted by timer"
-                            state.priorityAnnounceActive -> "Bypassing lock rules"
-                            else -> "Normal rules active"
+                            state.priorityAnnounceActive -> priorityRemainingLabel
+                            else -> "Tap to set duration"
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (priorityEnabled) 1f else 0.5f),
@@ -1414,6 +1460,75 @@ private fun DashboardHome(
             shape = RoundedCornerShape(24.dp),
         )
     }
+
+    if (showPriorityDurationDialog) {
+        AlertDialog(
+            onDismissRequest = { showPriorityDurationDialog = false },
+            title = {
+                Text(
+                    text = "Priority Announce Duration",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Read Priority Apps even when screen or lock rules block normal alerts.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    val durations = listOf(
+                        30 to "30 minutes",
+                        60 to "1 hour",
+                        120 to "2 hours",
+                        240 to "4 hours",
+                        -1 to "Until turned off",
+                    )
+                    durations.forEach { (mins, label) ->
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onPriorityAnnounceDurationSelected(mins)
+                                    showPriorityDurationDialog = false
+                                },
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showPriorityDurationDialog = false }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            },
+            shape = RoundedCornerShape(24.dp),
+        )
+    }
 }
 
 @Composable
@@ -1635,6 +1750,8 @@ private fun HeroServiceCard(
     state: DashboardUiState,
     onStart: () -> Unit,
     onStop: () -> Unit,
+    onClearQueue: () -> Unit = {},
+    onRepeatLast: () -> Unit = {},
     onSelectDestination: (DashboardDestination) -> Unit,
 ) {
     val isRunning = state.service.isRunning
@@ -1692,15 +1809,56 @@ private fun HeroServiceCard(
 
                 if (state.service.pendingCount > 0) {
                     Surface(
+                        onClick = onClearQueue,
                         shape = RoundedCornerShape(8.dp),
                         color = MaterialTheme.colorScheme.primaryContainer,
                     ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.ClearAll,
+                                contentDescription = "Clear Queue",
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(13.dp),
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Clear Queue (${state.service.pendingCount})",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (isRunning && state.isRepeatShortcutEnabled && state.service.hasLastAnnouncement) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Surface(
+                    onClick = onRepeatLast,
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.65f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Replay,
+                            contentDescription = "Repeat Last Announcement",
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.size(15.dp),
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "${state.service.pendingCount} queued",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                            text = "Repeat Last Announcement",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
                         )
                     }
                 }

@@ -90,6 +90,7 @@ internal object AnnouncementNotification {
         speaking: Boolean,
         isPriorityAnnounce: Boolean = false,
         isMuted: Boolean = false,
+        showRepeatAction: Boolean = false,
     ): Notification {
         val openApp = PendingIntent.getActivity(
             context,
@@ -157,6 +158,12 @@ internal object AnnouncementNotification {
                 Intent(context, AnnouncementService::class.java).setAction(AnnouncementService.ACTION_TEMPORARY_MUTE_TOGGLE),
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )
+            val repeatLast = PendingIntent.getService(
+                context,
+                6,
+                Intent(context, AnnouncementService::class.java).setAction(AnnouncementService.ACTION_REPEAT),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
             val priorityLabel = if (isPriorityAnnounce) {
                 context.getString(R.string.notification_action_priority_off)
             } else {
@@ -167,8 +174,13 @@ internal object AnnouncementNotification {
             } else {
                 context.getString(R.string.notification_action_mute)
             }
-            builder.addAction(0, priorityLabel, priorityToggle)
-            builder.addAction(0, muteLabel, muteToggle)
+            if (showRepeatAction) {
+                builder.addAction(0, context.getString(R.string.notification_action_repeat), repeatLast)
+                builder.addAction(0, muteLabel, muteToggle)
+            } else {
+                builder.addAction(0, priorityLabel, priorityToggle)
+                builder.addAction(0, muteLabel, muteToggle)
+            }
         }
 
         builder.addAction(0, context.getString(R.string.notification_action_stop), stop)

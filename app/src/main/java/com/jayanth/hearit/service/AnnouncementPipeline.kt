@@ -59,6 +59,13 @@ class AnnouncementPipeline(
     private val recentSignatures = mutableMapOf<ContentSignature, Long>()
     private val dedupWindowMillis = 20_000L
 
+    private data class SenderCooldownBucket(
+        val acceptedTimestamps: MutableList<Long> = mutableListOf(),
+        var throttledSinceSummary: Int = 0,
+    )
+
+    private val senderCooldowns = mutableMapOf<Pair<String, String>, SenderCooldownBucket>()
+
     private fun isContentDuplicate(snapshot: NotificationSnapshot, now: Long): Boolean {
         val text = snapshot.messageText?.trim().orEmpty()
         val sender = snapshot.sender?.trim().orEmpty()
@@ -82,6 +89,7 @@ class AnnouncementPipeline(
         data class Speak(
             val selection: ReadyAnnouncement,
             val announcement: BuiltAnnouncement,
+            val spokenItems: List<NotificationSnapshot> = selection.items,
         ) : Action
 
         /** Stop the in-progress announcement immediately. */
@@ -151,6 +159,9 @@ class AnnouncementPipeline(
         settings: ResolvedSettings,
         state: RuntimeState,
         priority: AppPriority = AppPriority.NORMAL,
+        isSpamCooldownEnabled: Boolean = false,
+        spamCooldownMaxMessages: Int = 3,
+        spamCooldownWindowMs: Long = 60_000L,
     ): Processed {
         val decision = rules.evaluate(snapshot, settings, state)
         HearItLogger.info(
@@ -178,6 +189,38 @@ class AnnouncementPipeline(
             val skipDecision = EligibilityDecision.Skip(SkipReason.SUPPRESSED_INTELLIGENCE)
             onRecord(HistoryRecord(snapshot, HistoryStatus.SKIPPED, SkipReason.SUPPRESSED_INTELLIGENCE, priority))
             return Processed(skipDecision, emptyList())
+        }
+
+        // Per-Sender Spam Cooldown Throttle (#28 / Idea 16)
+        val isCritical = EligibilityRules.isCriticalBreakthrough(snapshot, settings.eligibility)
+        val cleanSenderKey = (SmartContentCleaner.cleanSender(snapshot.sender) ?: snapshot.sender)?.trim().orEmpty()
+        if (!isReplacingPending &&
+            isSpamCooldownEnabled &&
+            !isCritical &&
+            decision is EligibilityDecision.Announce &&
+            cleanSenderKey.isNotEmpty()
+        ) {
+            val key = snapshot.packageName to cleanSenderKey.lowercase()
+            val bucket = senderCooldowns.getOrPut(key) { SenderCooldownBucket() }
+            bucket.acceptedTimestamps.removeAll { now - it >= spamCooldownWindowMs }
+            if (bucket.acceptedTimestamps.size >= spamCooldownMaxMessages) {
+                bucket.throttledSinceSummary++
+                val skipDecision = EligibilityDecision.Skip(SkipReason.SPAM_COOLDOWN)
+                onRecord(HistoryRecord(snapshot, HistoryStatus.SKIPPED, SkipReason.SPAM_COOLDOWN, priority))
+                if (bucket.throttledSinceSummary % 5 == 0) {
+                    val summarySnap = snapshot.copy(
+                        key = "${snapshot.packageName}|spam_summary|$cleanSenderKey|$now",
+                        sender = null,
+                        messageText = "$cleanSenderKey sent ${bucket.throttledSinceSummary} more messages.",
+                    )
+                    val summaryEvents = queue.enqueue(summarySnap, priority)
+                    return Processed(skipDecision, summaryEvents)
+                }
+                return Processed(skipDecision, emptyList())
+            } else {
+                bucket.acceptedTimestamps += now
+                bucket.throttledSinceSummary = 0
+            }
         }
         val events = when (decision) {
             EligibilityDecision.Announce -> queue.enqueue(snapshot, priority)
@@ -215,6 +258,13 @@ class AnnouncementPipeline(
     /** Distinct app names waiting in pending queue. */
     fun pendingAppNames(): List<String> = queue.pendingAppNames()
 
+    /** Manually clears all queued & held announcements, recording clear facts in history (#8). */
+    fun clearQueue(): Int {
+        val events = queue.clearPending()
+        events.forEach { event -> onRecord(event.toHistoryRecord()) }
+        return events.size
+    }
+
     /**
      * Returns the next announcement to speak, or null when nothing is due, a group is
      * already speaking, or the device is silent.
@@ -226,20 +276,27 @@ class AnnouncementPipeline(
         appNameDedupWindowMs: Long = 45_000L,
         isDelayedTimestampEnabled: Boolean = true,
         delayedTimestampThresholdMs: Long = 120_000L,
+        isSenderBurstAggregatorEnabled: Boolean = false,
+        senderBurstMinCount: Int = 2,
+        senderBurstWindowMs: Long = 5_000L,
+        isMultiAppDigestEnabled: Boolean = false,
+        multiAppDigestWindowMs: Long = 2_500L,
         settingsOf: (String) -> ResolvedSettings,
     ): Action.Speak? {
         if (active != null) return null
 
         repeat(MAX_RETIRE_STEPS) {
-            val poll = queue.pollReady()
+            val poll = queue.pollReadyDigest(
+                multiAppEnabled = isMultiAppDigestEnabled,
+                digestWindowMillis = multiAppDigestWindowMs,
+            )
             poll.events.forEach { event -> onRecord(event.toHistoryRecord()) }
-            val selection = poll.announcement ?: return null
+            val batch = poll.batch ?: return null
             val now = clock()
-            val resolvedSettings = settingsOf(selection.packageName)
+            val resolvedSettings = settingsOf(batch.primaryPackageName)
 
-            // 1. Contextual time-stamp for held/delayed messages (#19 / Idea 40)
             val delayedMinutesByKey = if (isDelayedTimestampEnabled) {
-                selection.items.mapNotNull { item ->
+                batch.items.mapNotNull { item ->
                     val delayMillis = now - item.postTimeMillis
                     if (item.postTimeMillis > 0L && delayMillis > delayedTimestampThresholdMs) {
                         val minutes = (delayMillis / 60_000L).coerceAtLeast(1L)
@@ -252,11 +309,11 @@ class AnnouncementPipeline(
                 emptyMap()
             }
 
-            // 2. Intelligent App Name Deduplication (#19 configurable window)
-            val isRapidSameApp = isAppNameDedupEnabled &&
-                lastAnnouncedPackage == selection.packageName &&
+            val isRapidSameApp = !batch.isMultiApp &&
+                isAppNameDedupEnabled &&
+                lastAnnouncedPackage == batch.primaryPackageName &&
                 (now - lastAnnouncedAtMillis < appNameDedupWindowMs)
-            lastAnnouncedPackage = selection.packageName
+            lastAnnouncedPackage = if (batch.isMultiApp) null else batch.primaryPackageName
             lastAnnouncedAtMillis = now
 
             val effectiveFormat = if (isRapidSameApp) {
@@ -265,27 +322,49 @@ class AnnouncementPipeline(
                 announcementFormat
             }
 
-            val isCritical = EligibilityRules.isCriticalBreakthrough(
-                snapshot = selection.items.first(),
-                eligibility = resolvedSettings.eligibility,
-            )
+            val isCritical = batch.items.any { item ->
+                EligibilityRules.isCriticalBreakthrough(
+                    snapshot = item,
+                    eligibility = settingsOf(item.packageName).eligibility,
+                )
+            }
 
-            val built = AnnouncementTemplate.build(
-                snapshots = selection.items,
-                format = effectiveFormat,
-                isCritical = isCritical,
-                delayedMinutesByKey = delayedMinutesByKey,
+            val built = if (batch.isMultiApp) {
+                AnnouncementTemplate.buildMultiAppDigest(
+                    snapshots = batch.items,
+                    format = effectiveFormat,
+                    isCritical = isCritical,
+                    delayedMinutesByKey = delayedMinutesByKey,
+                )
+            } else {
+                AnnouncementTemplate.build(
+                    snapshots = batch.items,
+                    format = effectiveFormat,
+                    isCritical = isCritical,
+                    delayedMinutesByKey = delayedMinutesByKey,
+                    mergeSenderBursts = isSenderBurstAggregatorEnabled,
+                    senderBurstMinCount = senderBurstMinCount,
+                    senderBurstWindowMs = senderBurstWindowMs,
+                )
+            }
+
+            val selection = ReadyAnnouncement(
+                id = batch.id,
+                packageName = batch.primaryPackageName,
+                appName = batch.appName,
+                priority = batch.priority,
+                items = batch.items.filter { it.packageName == batch.primaryPackageName },
             )
-            queue.markStarted(selection.id)
-                .forEach { event -> onRecord(event.toHistoryRecord(selection.priority)) }
+            queue.markStarted(batch.id)
+                .forEach { event -> onRecord(event.toHistoryRecord(batch.priority)) }
             if (built.isEmpty) {
-                queue.markCompleted(selection.id).forEach { event ->
-                    onRecord(event.toHistoryRecord(selection.priority, overrideStatus = HistoryStatus.SKIPPED))
+                queue.markCompleted(batch.id).forEach { event ->
+                    onRecord(event.toHistoryRecord(batch.priority, overrideStatus = HistoryStatus.SKIPPED))
                 }
                 return@repeat
             }
             active = ActiveSpeech(selection, resolvedSettings)
-            return Action.Speak(selection, built)
+            return Action.Speak(selection, built, spokenItems = batch.items)
         }
         return null
     }

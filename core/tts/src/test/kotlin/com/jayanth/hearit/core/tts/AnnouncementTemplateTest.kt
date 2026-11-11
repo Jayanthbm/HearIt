@@ -224,4 +224,47 @@ class AnnouncementTemplateTest {
             texts(announcement),
         )
     }
+
+    @Test
+    fun build_mergesSenderBurstIntoQuickMessagesPhrase() {
+        val burst = listOf(
+            snapshot(sender = "Rahul", messageText = "Hey").copy(key = "k1", postTimeMillis = 1_000L),
+            snapshot(sender = "Rahul", messageText = "Where are you").copy(key = "k2", postTimeMillis = 2_000L),
+            snapshot(sender = "Rahul", messageText = "Check Slack").copy(key = "k3", postTimeMillis = 3_500L),
+        )
+        val built = AnnouncementTemplate.build(
+            snapshots = burst,
+            format = AnnouncementFormat(),
+            mergeSenderBursts = true,
+            senderBurstMinCount = 2,
+            senderBurstWindowMs = 5_000L,
+        )
+        assertEquals(
+            listOf("WhatsApp.", "Rahul sent 3 quick messages:", "Hey, Where are you, Check Slack"),
+            texts(built),
+        )
+    }
+
+    @Test
+    fun buildMultiAppDigest_formatsCombinedMultiAppSummary() {
+        val items = listOf(
+            snapshot(sender = "Rahul", messageText = "Hey", appName = "WhatsApp").copy(
+                key = "k1",
+                packageName = "com.whatsapp",
+            ),
+            snapshot(sender = "Mom", messageText = "Call me back", appName = "Messages").copy(
+                key = "k2",
+                packageName = "com.google.android.apps.messaging",
+            ),
+        )
+        val built = AnnouncementTemplate.buildMultiAppDigest(items, AnnouncementFormat())
+        assertEquals(
+            listOf(
+                "You have 2 notifications:",
+                "Rahul on WhatsApp says, Hey",
+                "Mom on Messages says, Call me back",
+            ),
+            texts(built),
+        )
+    }
 }

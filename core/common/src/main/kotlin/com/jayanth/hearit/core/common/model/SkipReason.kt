@@ -81,4 +81,10 @@ enum class SkipReason {
 
     /** Pocket detection requires the phone proximity sensor to be covered (phone in hand). */
     PROXIMITY_UNCOVERED,
+
+    /** Sender exceeded rapid message rate threshold and entered cooldown throttling. */
+    SPAM_COOLDOWN,
+
+    /** User manually cleared pending items from the queue. */
+    MANUALLY_CLEARED,
 }
