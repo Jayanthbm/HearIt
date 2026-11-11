@@ -7,7 +7,7 @@ Once the review is completed, these items will be batched and implemented system
 ---
 
 ## 📋 Status Overview
-- Total Identified Backlog Items: 14
+- Total Identified Backlog Items: 15
 - In Discussion / Under Review
 
 ---
@@ -256,6 +256,31 @@ Once the review is completed, these items will be batched and implemented system
   - `app/src/main/java/com/jayanth/hearit/settings/GeneralSettingsUiState.kt` & `GeneralSettingsViewModel.kt`
   - `app/src/main/java/com/jayanth/hearit/intelligence/IntelligenceControlsScreen.kt`
   - `core/tts/src/test/kotlin/com/jayanth/hearit/core/tts/SmartContentCleanerTest.kt`
+
+### 15. Roadmap Item 9.2 C: Local AI Strategy — Tier 2 (Android AICore & ML Kit Entity Extraction) + Device Support Status UI — ❌ TIER 2 NOT IMPLEMENTED (Tier 1 Active)
+- **Priority / Effort**: Medium Value / Medium Effort
+- **Current State**:
+  - **Tier 1 (Instant Regex & Pattern NLP)**: ✅ **Implemented** in `SmartContentCleaner` (`core/tts`, 0 MB added, runs on all Android devices).
+  - **Tier 2 (Android AICore / ML Kit Entity Extraction)**: ❌ **Not implemented** — no AICore or ML Kit libraries exist in `gradle/libs.versions.toml` or `app/build.gradle.kts`, and there is no device capability probing or status UI anywhere.
+  - **Tier 3 (Bundled Local LLMs)**: Intentionally **Skipped** (keeps APK lightweight & battery-friendly).
+- **Planned Implementation**:
+  - **1. Device AI Capability Probe (`IntelligenceCapabilityProbe.kt`)**:
+    - Detect hardware/OS support on the device cleanly:
+      - **Android AICore (System Gemini Nano)**: Check Android version (`>= Android 14 / API 34`), installed/enabled `com.google.android.aicore` system package, and AICore generative availability status (`Supported` vs `Unsupported on this device`).
+      - **ML Kit Entity Extraction**: Add lightweight `com.google.mlkit:entity-extraction` dependency (model downloaded on-demand via Google Play Services, negligible APK size), check model availability (`Ready` vs `Download Required` vs `Play Services Unavailable`), and support detecting entities (tracking numbers, IBAN/account numbers, flight codes, phone numbers, addresses, dates/times) asynchronously / with fast timeout fallback to Tier 1.
+  - **2. Hybrid Tier 1 + Tier 2 Enhancement Pipeline**:
+    - Use Tier 1 (`SmartContentCleaner`) instantaneously on every message, and when Tier 2 is supported + enabled, enhance structured entity pronunciation (tracking IDs, phone numbers, dates, or AICore smart long-email summarization) without blocking or slowing down standard short alerts.
+  - **3. Hardware Support & Control UI Inside Active Intelligence (`IntelligenceControlsScreen`)**:
+    - Add an **"On-Device AI Engines"** status & control card inside **Active Intelligence**:
+      - **Tier 1 · Instant Pattern NLP**: Green `"Active · On-Device"` badge.
+      - **Tier 2A · ML Kit Entity Extraction**: Live status badge (`"Supported · Ready"` / `"Model Not Downloaded"` / `"Not Supported"`) + Enable toggle / Download Model action when supported.
+      - **Tier 2B · Android AICore**: Live status badge (`"Supported (Hardware AI)"` vs `"Not Supported on this Device"`) + Enable toggle (disabled/greyed with explanation when unsupported on the phone).
+- **Files Likely Touched**:
+  - `gradle/libs.versions.toml` & `app/build.gradle.kts`
+  - `app/src/main/java/com/jayanth/hearit/intelligence/IntelligenceCapabilityProbe.kt` (new)
+  - `app/src/main/java/com/jayanth/hearit/intelligence/IntelligenceControlsScreen.kt`
+  - `app/src/main/java/com/jayanth/hearit/settings/GeneralSettingsUiState.kt` & `GeneralSettingsViewModel.kt`
+  - `app/src/main/java/com/jayanth/hearit/service/SessionStore.kt` & `AnnouncementService.kt`
 
 ---
 
