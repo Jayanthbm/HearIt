@@ -235,6 +235,8 @@ fun GeneralSettingsScreen(
         }
         // Section 0: Gestures & Playback Controls Card
         GesturesAndControlsCard(
+            state = state,
+            intelligenceActions = intelligenceActions,
             isAutoDismissEnabled = state.isAutoDismissEnabled,
             isShakeToStopEnabled = state.isShakeToStopEnabled,
             isVolumeKeyToStopEnabled = state.isVolumeKeyToStopEnabled,
@@ -274,6 +276,8 @@ fun GeneralSettingsScreen(
         AudioFocusCard(
             selectedPolicy = state.audioFocus,
             onPolicySelected = onAudioFocusPolicyChanged,
+            state = state,
+            intelligenceActions = intelligenceActions,
         )
 
         // Section 2: Grouping & Batching Card
@@ -473,6 +477,9 @@ fun GeneralSettingsScreen(
 private fun AudioFocusCard(
     selectedPolicy: AudioFocusPolicy,
     onPolicySelected: (AudioFocusPolicy) -> Unit,
+    state: GeneralSettingsUiState = GeneralSettingsUiState(),
+    intelligenceActions: com.jayanth.hearit.intelligence.IntelligenceActions =
+        com.jayanth.hearit.intelligence.IntelligenceActions(),
     modifier: Modifier = Modifier,
 ) {
     var showInfoDialog by remember { mutableStateOf(false) }
@@ -543,6 +550,69 @@ private fun AudioFocusCard(
                 fontSize = 11.sp,
                 lineHeight = 15.sp,
             )
+
+            if (selectedPolicy == AudioFocusPolicy.DUCK) {
+                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                        Text(
+                            text = "Custom Media Ducking Level",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            text = "Proportionally lower background music volume during speech",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(
+                        checked = state.isDuckingLevelControlEnabled,
+                        onCheckedChange = intelligenceActions.onToggleDuckingLevelControl,
+                    )
+                }
+
+                if (state.isDuckingLevelControlEnabled) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(
+                            20 to "Quiet (20%)",
+                            50 to "Half (50%)",
+                            80 to "Subtle (80%)",
+                            100 to "OS Default",
+                        ).forEach { (pct, label) ->
+                            FilterChip(
+                                selected = state.duckingVolumePercent == pct,
+                                onClick = { intelligenceActions.onDuckingVolumePercentChanged(pct) },
+                                label = { Text(label) },
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Smooth Audio Return Fade Delay",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(0L to "Instant", 300L to "300ms", 500L to "500ms Smooth").forEach { (delay, label) ->
+                        FilterChip(
+                            selected = state.audioFocusReturnDelayMs == delay,
+                            onClick = { intelligenceActions.onAudioFocusReturnDelayChanged(delay) },
+                            label = { Text(label) },
+                        )
+                    }
+                }
+            }
         }
     }
 
@@ -1258,8 +1328,12 @@ internal fun SettingsCard(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun GesturesAndControlsCard(
+    state: GeneralSettingsUiState = GeneralSettingsUiState(),
+    intelligenceActions: com.jayanth.hearit.intelligence.IntelligenceActions =
+        com.jayanth.hearit.intelligence.IntelligenceActions(),
     isAutoDismissEnabled: Boolean,
     isShakeToStopEnabled: Boolean,
     isVolumeKeyToStopEnabled: Boolean,
@@ -1400,6 +1474,79 @@ internal fun GesturesAndControlsCard(
                 Switch(
                     checked = isBluetoothAutoStartEnabled,
                     onCheckedChange = onToggleBluetoothAutoStart,
+                )
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+            // Bluetooth Headset Button Controls (#1 MediaSession)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                    Text(
+                        text = "Bluetooth Headset Button Controls",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = "Pause, skip, or repeat via headset buttons only while HearIt speaks",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = state.isHeadsetMediaControlsEnabled,
+                    onCheckedChange = intelligenceActions.onToggleHeadsetMediaControls,
+                )
+            }
+            if (state.isHeadsetMediaControlsEnabled) {
+                HeadsetTapMappingRow(
+                    tapLabel = "1× Tap",
+                    selected = state.headsetSinglePressAction,
+                    onSelect = intelligenceActions.onHeadsetSinglePressActionChanged,
+                )
+                HeadsetTapMappingRow(
+                    tapLabel = "2× Tap / Next",
+                    selected = state.headsetDoublePressAction,
+                    onSelect = intelligenceActions.onHeadsetDoublePressActionChanged,
+                )
+                HeadsetTapMappingRow(
+                    tapLabel = "3× Tap / Prev",
+                    selected = state.headsetTriplePressAction,
+                    onSelect = intelligenceActions.onHeadsetTriplePressActionChanged,
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun HeadsetTapMappingRow(
+    tapLabel: String,
+    selected: com.jayanth.hearit.core.common.model.HeadsetButtonAction,
+    onSelect: (com.jayanth.hearit.core.common.model.HeadsetButtonAction) -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = tapLabel,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            listOf(
+                com.jayanth.hearit.core.common.model.HeadsetButtonAction.PAUSE_RESUME to "Pause/Resume",
+                com.jayanth.hearit.core.common.model.HeadsetButtonAction.SKIP to "Skip",
+                com.jayanth.hearit.core.common.model.HeadsetButtonAction.REPEAT to "Repeat",
+                com.jayanth.hearit.core.common.model.HeadsetButtonAction.NONE to "Off",
+            ).forEach { (action, title) ->
+                FilterChip(
+                    selected = selected == action,
+                    onClick = { onSelect(action) },
+                    label = { Text(title, fontSize = 11.sp) },
                 )
             }
         }

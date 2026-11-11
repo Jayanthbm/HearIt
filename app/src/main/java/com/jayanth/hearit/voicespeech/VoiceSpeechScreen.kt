@@ -91,9 +91,11 @@ fun VoiceSpeechRoute(
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.state.collectAsState()
+    val audioPolishCallbacks = remember(viewModel) { AudioPolishCallbacks.from(viewModel) }
 
     VoiceSpeechScreen(
         state = state,
+        audioPolishCallbacks = audioPolishCallbacks,
         onSpeechRateChanged = viewModel::onSpeechRateChanged,
         onPitchChanged = viewModel::onPitchChanged,
         onVolumeChanged = viewModel::onVolumeChanged,
@@ -115,6 +117,7 @@ fun VoiceSpeechRoute(
 @Composable
 fun VoiceSpeechScreen(
     state: VoiceSpeechUiState,
+    audioPolishCallbacks: AudioPolishCallbacks = AudioPolishCallbacks(),
     onSpeechRateChanged: (Float) -> Unit,
     onPitchChanged: (Float) -> Unit,
     onVolumeChanged: (Float) -> Unit,
@@ -163,8 +166,11 @@ fun VoiceSpeechScreen(
             onPauseDurationChanged = onPauseDurationChanged,
         )
 
-        // Smart Audio Polish Card (Phase 3)
-        SmartAudioPolishCard()
+        // Smart Audio Polish Card (Persisted & Configurable)
+        PersistedSmartAudioPolishCard(
+            state = state,
+            callbacks = audioPolishCallbacks,
+        )
 
         // Android System TTS Settings Shortcut (Phase 4)
         SystemTtsSettingsCard()
@@ -1163,172 +1169,6 @@ private fun VoiceItemRow(
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onTertiaryContainer,
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SmartAudioPolishCard(
-    modifier: Modifier = Modifier,
-) {
-    var earconEnabled by remember { mutableStateOf(true) }
-    var antiCollisionMs by remember { mutableStateOf(300L) }
-    var adaptiveSpeedEnabled by remember { mutableStateOf(true) }
-    var monoFoldDownEnabled by remember { mutableStateOf(true) }
-
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-    ) {
-        Column(modifier = Modifier.padding(18.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(bottom = 16.dp),
-            ) {
-                Surface(
-                    modifier = Modifier.size(34.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Rounded.Tune,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(18.dp),
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.width(10.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Smart Audio Polish",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Text(
-                        text = "Audio ducking, earcon chimes, and channel balance",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 11.sp,
-                    )
-                }
-            }
-
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                // Soft Pre-speech earcon chime
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                        Text(
-                            text = "Soft Pre-Speech Earcon Chime",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        Text(
-                            text = "Plays a gentle tone before speaking so music ducks smoothly",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    Switch(
-                        checked = earconEnabled,
-                        onCheckedChange = { earconEnabled = it },
-                    )
-                }
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-                // Post-chime anti collision delay
-                Column {
-                    Text(
-                        text = "Anti-Collision Audio Delay",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        text = "Pause before speech so phone notification sounds don't clip words",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-                    val delayOptions = listOf(0L to "0 ms", 300L to "300 ms", 500L to "500 ms")
-                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                        delayOptions.forEachIndexed { index, (ms, label) ->
-                            val isSelected = antiCollisionMs == ms
-                            SegmentedButton(
-                                selected = isSelected,
-                                onClick = { antiCollisionMs = ms },
-                                shape = SegmentedButtonDefaults.itemShape(index = index, count = delayOptions.size),
-                            ) {
-                                Text(
-                                    text = label,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                )
-                            }
-                        }
-                    }
-                }
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-                // Adaptive speech speed
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                        Text(
-                            text = "Adaptive Speed (>30 words)",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        Text(
-                            text = "Automatically ramps to 1.25x for long messages",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    Switch(
-                        checked = adaptiveSpeedEnabled,
-                        onCheckedChange = { adaptiveSpeedEnabled = it },
-                    )
-                }
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-                // Mono audio fold-down
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                        Text(
-                            text = "Mono Audio Fold-Down",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        Text(
-                            text = "Optimized for single earbud listeners so voice is centered",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    Switch(
-                        checked = monoFoldDownEnabled,
-                        onCheckedChange = { monoFoldDownEnabled = it },
                     )
                 }
             }

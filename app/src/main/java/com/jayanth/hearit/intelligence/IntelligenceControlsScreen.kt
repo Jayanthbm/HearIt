@@ -151,6 +151,8 @@ fun IntelligenceControlsScreen(
 
         // Section 3: Gestures & Playback Controls
         GesturesAndControlsCard(
+            state = state,
+            intelligenceActions = intelligenceActions,
             isAutoDismissEnabled = state.isAutoDismissEnabled,
             isShakeToStopEnabled = state.isShakeToStopEnabled,
             isVolumeKeyToStopEnabled = state.isVolumeKeyToStopEnabled,

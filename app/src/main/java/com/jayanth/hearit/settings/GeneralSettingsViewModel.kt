@@ -11,6 +11,7 @@ import com.jayanth.hearit.core.common.model.AppCategory
 import com.jayanth.hearit.core.common.model.AppCategoryChoice
 import com.jayanth.hearit.core.common.model.AudioFocusPolicy
 import com.jayanth.hearit.core.common.model.DigitGroupingStyle
+import com.jayanth.hearit.core.common.model.HeadsetButtonAction
 import com.jayanth.hearit.core.common.model.IntelligencePresets
 import com.jayanth.hearit.core.common.model.OverflowPolicy
 import com.jayanth.hearit.core.common.model.PronunciationRule
@@ -94,6 +95,13 @@ class GeneralSettingsViewModel @Inject constructor(
             isContactSanitizerEnabled = sessionStore.isContactSanitizerEnabled,
             isStripSenderEmojisEnabled = sessionStore.isStripSenderEmojisEnabled,
             isStripSenderBracketsEnabled = sessionStore.isStripSenderBracketsEnabled,
+            isDuckingLevelControlEnabled = sessionStore.isDuckingLevelControlEnabled,
+            duckingVolumePercent = sessionStore.duckingVolumePercent,
+            audioFocusReturnDelayMs = sessionStore.audioFocusReturnDelayMs,
+            isHeadsetMediaControlsEnabled = sessionStore.isHeadsetMediaControlsEnabled,
+            headsetSinglePressAction = sessionStore.headsetSinglePressAction,
+            headsetDoublePressAction = sessionStore.headsetDoublePressAction,
+            headsetTriplePressAction = sessionStore.headsetTriplePressAction,
         ),
     )
     val state: StateFlow<GeneralSettingsUiState> = _state.asStateFlow()
@@ -446,6 +454,41 @@ class GeneralSettingsViewModel @Inject constructor(
                 AppSettingsEditor.setCategoryChoice(current, packageName, null)
             }
         }
+    }
+
+    fun onToggleDuckingLevelControl(enabled: Boolean) {
+        sessionStore.isDuckingLevelControlEnabled = enabled
+        _state.update { it.copy(isDuckingLevelControlEnabled = enabled) }
+    }
+
+    fun onDuckingVolumePercentChanged(percent: Int) {
+        sessionStore.duckingVolumePercent = percent
+        _state.update { it.copy(duckingVolumePercent = percent) }
+    }
+
+    fun onAudioFocusReturnDelayChanged(delayMs: Long) {
+        sessionStore.audioFocusReturnDelayMs = delayMs
+        _state.update { it.copy(audioFocusReturnDelayMs = delayMs) }
+    }
+
+    fun onToggleHeadsetMediaControls(enabled: Boolean) {
+        sessionStore.isHeadsetMediaControlsEnabled = enabled
+        _state.update { it.copy(isHeadsetMediaControlsEnabled = enabled) }
+    }
+
+    fun onHeadsetSinglePressActionChanged(action: HeadsetButtonAction) {
+        sessionStore.headsetSinglePressAction = action
+        _state.update { it.copy(headsetSinglePressAction = action) }
+    }
+
+    fun onHeadsetDoublePressActionChanged(action: HeadsetButtonAction) {
+        sessionStore.headsetDoublePressAction = action
+        _state.update { it.copy(headsetDoublePressAction = action) }
+    }
+
+    fun onHeadsetTriplePressActionChanged(action: HeadsetButtonAction) {
+        sessionStore.headsetTriplePressAction = action
+        _state.update { it.copy(headsetTriplePressAction = action) }
     }
 
     fun onGroupingWindowChanged(millis: Long) {

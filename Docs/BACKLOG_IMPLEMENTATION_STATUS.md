@@ -9,15 +9,15 @@ Master tracking document for all **38 backlog items** defined in [`hearit_implem
 ## Summary Progress
 
 - **Total Backlog Items**: 38
-- **Code & Unit Tests Done (Pending Device/Screenshot Verification)**: 7 / 38 (Batch 1: `#3, #12, #13, #14, #16, #21, #26`)
+- **Code & Unit Tests Done (Pending Device/Screenshot Verification)**: 12 / 38 (Batch 1 + Batch 2: `#1, #3, #12, #13, #14, #16, #17, #18, #21, #24, #26, #34`)
 - **Verified with Screenshots**: 0 / 38
-- **Pending**: 31 / 38
+- **Pending**: 26 / 38
 
 ## Status Table
 
 | # | Backlog Item | Batch | Status | Unit Tests | UI Toggle & Config | Device / Screenshot Proof |
 |---|---|---|---|---|---|---|
-| 1 | Bluetooth Headset Button Controls (`MediaSession`) | Batch 2 | Pending | — | — | — |
+| 1 | Bluetooth Headset Button Controls (`MediaSession`) | Batch 2 | Implemented (Tests Pass) | `GeneralSettingsUiStateTest` (compile + service integration) | Active Intelligence / Preferences Gestures Switch + 1×/2×/3× Tap Chips | Pending final verify |
 | 2 | Global DND & Phone Call Handling Settings UI | Batch 5 | Pending | — | — | — |
 | 3 | Text Pronunciation & Acronym Dictionary | Batch 1 | Implemented (Tests Pass) | `SmartContentCleanerTest` | Active Intelligence Switch + Dictionary Dialog + TTS Test | Pending final verify |
 | 4 | Priority Announce Configurable Expiry Durations | Batch 4 | Pending | — | — | — |
@@ -33,14 +33,14 @@ Master tracking document for all **38 backlog items** defined in [`hearit_implem
 | 14 | Category Intelligence (Messaging, SMS/RCS, Email) & Config UI | Batch 1 | Implemented (Tests Pass) | `SmartContentCleanerTest`, `AnnouncementTemplateTest`, `AnnouncementPipelineTest` | Active Intelligence `CategoryIntelligenceCard` + Promo Dialog | Pending final verify |
 | 15 | Local AI Strategy — Tier 2 (AICore & ML Kit) + Support Status UI | Batch 6 | Pending | — | — | — |
 | 16 | App Categories & Email / Messaging Grouping UI | Batch 1 | Implemented (Tests Pass) | `SettingsCodecTest`, `SmartContentCleanerTest` | `AppCategoriesDialog` in Active Intelligence & Applications | Pending final verify |
-| 17 | Background Audio Ducking Level Control | Batch 2 | Pending | — | — | — |
-| 18 | Voice Tuning Polish (`SmartAudioPolishCard` Real Wiring) | Batch 2 | Pending | — | — | — |
+| 17 | Background Audio Ducking Level Control | Batch 2 | Implemented (Tests Pass) | `AudioDuckingMathTest` | Audio Focus Card Custom Ducking Switch + 20%/50%/80%/OS + Return Delay Chips | Pending final verify |
+| 18 | Voice Tuning Polish (`SmartAudioPolishCard` Real Wiring) | Batch 2 | Implemented (Tests Pass) | Build + `AudioPolishCard` wired to `SessionStore` & `AndroidTextToSpeechEngine` | Voice & Speech Earcon Chime/Duration, Anti-Collision, Adaptive Speed, Mono Switch | Pending final verify |
 | 19 | Configuration UI for Built-In Automatic Features | Batch 3 | Pending | — | — | — |
 | 20 | Chatty Group Flood Defense (Sender Burst Aggregator + UI) | Batch 4 | Pending | — | — | — |
 | 21 | Sender Contact Name Sanitizer — UI Toggle & Config | Batch 1 | Implemented (Tests Pass) | `SmartContentCleanerTest` | Active Intelligence Switch + Emoji/Brackets Chips | Pending final verify |
 | 22 | "Catch-Up: What Did I Miss?" Summary on Connect | Batch 3 | Pending | — | — | — |
 | 23 | Low Battery / Battery Saver Speech Safeguard & Threshold UI | Batch 3 | Pending | — | — | — |
-| 24 | Speech Volume Boost & Media Balance Control | Batch 2 | Pending | — | — | — |
+| 24 | Speech Volume Boost & Media Balance Control | Batch 2 | Implemented (Tests Pass) | Build + `LoudnessEnhancer` session binding | Voice & Speech Speech Loudness Boost Switch + `+15%/+30%/+50%` Gain Chips | Pending final verify |
 | 25 | Tap-to-Repeat Last Spoken Announcement (Home & Notification UI) | Batch 4 | Pending | — | — | — |
 | 26 | Emoji Reaction Modes & `SmartContentCleaner` Startup Sync Fix | Batch 1 | Implemented (Tests Pass) | `SmartContentCleanerTest`, `AnnouncementPipelineTest` | Active Intelligence Switch + Condense/Silence Chips + `IntelligentSettingsSync` | Pending final verify |
 | 27 | Bluetooth Auto-Start/Stop Device Filtering & Separate Controls | Batch 3 | Pending | — | — | — |
@@ -50,7 +50,7 @@ Master tracking document for all **38 backlog items** defined in [`hearit_implem
 | 31 | Per-App Auto-Dismiss Override | Batch 5 | Pending | — | — | — |
 | 32 | Wire Periodic Spoken Check-in Scheduler & Missing Checkboxes | Batch 3 | Pending | — | — | — |
 | 33 | Multi-App Smart Notification Batching Digest (2–3s Burst Collector) | Batch 4 | Pending | — | — | — |
-| 34 | Ambient Noise Level Auto-Volume Boost (`>70 dB`) | Batch 2 | Pending | — | — | — |
+| 34 | Ambient Noise Level Auto-Volume Boost (`>70 dB`) | Batch 2 | Implemented (Tests Pass) | `AudioDuckingMathTest` (`computeDbSplFromRms`) | Voice & Speech Optional Mic Permission Flow + `65/70/75 dB` + `+15/+20/+30%` Boost | Pending final verify |
 | 35 | Wear OS Phone UI: Watch Forwarding Toggle & Max-4 Watch Apps Picker | Batch 7 | Pending | — | — | — |
 | 36 | Wear OS Option A Independent Forwarding & Persistent `DataClient` Icons Sync | Batch 7 | Pending | — | — | — |
 | 37 | Wear OS App UI Overhaul: Connection Green Dot, Max-4 Icons + ALL, Empty State | Batch 7 | Pending | — | — | — |
@@ -60,3 +60,4 @@ Master tracking document for all **38 backlog items** defined in [`hearit_implem
 
 - **Batch 0 (Baseline)**: `./gradlew test :app:assembleDebug :wear:assembleDebug` PASSED (0 failures).
 - **Batch 1 (`#3, #12, #13, #14, #16, #21, #26`)**: `./gradlew test :app:assembleDebug` PASSED across `:core:common`, `:core:datastore`, `:core:tts`, `:core:rules`, `:core:queue`, `:core:notifications`, `:core:database`, `:app`.
+- **Batch 2 (`#1, #17, #18, #24, #34`)**: `./gradlew test :app:assembleDebug` PASSED (0 failures).

@@ -19,6 +19,8 @@
          Both are optional for speaking; neither is required for wired output. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <!-- Optional runtime permission requested ONLY if user enables Ambient Noise Auto-Boost -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <!-- Biometric authentication (Master prompt §15, install-time normal permissions). -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />

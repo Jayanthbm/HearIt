@@ -16,12 +16,14 @@ import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
 import android.media.AudioFocusRequest
 import android.media.AudioManager
+import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.SystemClock
 import com.jayanth.hearit.core.common.logger.HearItLogger
 import com.jayanth.hearit.core.common.logger.LogCategory
+import com.jayanth.hearit.core.common.model.HeadsetButtonAction
 import com.jayanth.hearit.core.common.model.NotificationSnapshot
 import com.jayanth.hearit.core.common.time.Clock
 import com.jayanth.hearit.core.database.HistoryRepository
@@ -115,6 +117,16 @@ class AnnouncementService : Service(), NotificationSink {
 
     /** Active audio-focus request while an announcement is being spoken, or null. */
     private var focusRequest: AudioFocusRequest? = null
+    private var pendingAbandonFocusRequest: AudioFocusRequest? = null
+    private var savedMusicVolumeIndex: Int? = null
+    private var isPausedMidUtterance: Boolean = false
+    private lateinit var headsetMediaController: HeadsetMediaSessionController
+
+    private val abandonFocusRunnable = Runnable {
+        restoreSavedMusicVolume()
+        pendingAbandonFocusRequest?.let { audioManager.abandonAudioFocusRequest(it) }
+        pendingAbandonFocusRequest = null
+    }
 
     /**
      * Another app taking focus away ends the utterance: HearIt never talks over a caller
@@ -282,6 +294,9 @@ class AnnouncementService : Service(), NotificationSink {
             registerReceiver(volumeReceiver, filter)
         } catch (_: Throwable) {}
         HearItNotificationListenerService.requestRebindIfDisconnected(this)
+        headsetMediaController = HeadsetMediaSessionController(this, sessionStore) { buttonAction ->
+            handleHeadsetButtonAction(buttonAction)
+        }
 
         HearItLogger.info(LogCategory.SERVICE, "AnnouncementService created")
     }
@@ -332,9 +347,8 @@ class AnnouncementService : Service(), NotificationSink {
             }
 
             ACTION_PAUSE -> {
-                // Android TTS has no native pause; pausing stops the current utterance and
-                // Resume speaks it again from the start (documented limitation, P16).
                 if (currentAction != null) {
+                    isPausedMidUtterance = true
                     engine.stop()
                 }
                 publishStatus()
@@ -344,6 +358,7 @@ class AnnouncementService : Service(), NotificationSink {
             ACTION_RESUME -> {
                 val last = lastAction
                 if (currentAction == null && last != null) {
+                    isPausedMidUtterance = false
                     speak(last)
                 }
                 publishStatus()
@@ -411,7 +426,8 @@ class AnnouncementService : Service(), NotificationSink {
         } catch (_: Throwable) {}
         (getSystemService(Context.SENSOR_SERVICE) as? SensorManager)?.unregisterListener(sensorEventListener)
         NotificationRelay.sink = null
-        abandonAudioFocus()
+        headsetMediaController.release()
+        abandonAudioFocus(immediate = true)
         engine.shutdown()
         HearItLogger.info(LogCategory.SERVICE, "AnnouncementService destroyed")
         super.onDestroy()
@@ -430,11 +446,20 @@ class AnnouncementService : Service(), NotificationSink {
             AudioFocusGain.DUCK_OTHERS -> AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK
             AudioFocusGain.PAUSE_OTHERS -> AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
             AudioFocusGain.NONE -> {
-                abandonAudioFocus()
+                abandonAudioFocus(immediate = true)
                 return
             }
         }
-        abandonAudioFocus()
+        handler.removeCallbacks(abandonFocusRunnable)
+        pendingAbandonFocusRequest?.let {
+            audioManager.abandonAudioFocusRequest(it)
+            pendingAbandonFocusRequest = null
+        }
+        focusRequest?.let {
+            audioManager.abandonAudioFocusRequest(it)
+            focusRequest = null
+        }
+
         val request = AudioFocusRequest.Builder(gain)
             .setAudioAttributes(
                 AudioAttributes.Builder()
@@ -447,16 +472,97 @@ class AnnouncementService : Service(), NotificationSink {
             .build()
         audioManager.requestAudioFocus(request)
         focusRequest = request
+
+        if (gain == AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK &&
+            sessionStore.isDuckingLevelControlEnabled &&
+            sessionStore.duckingVolumePercent < 100 &&
+            !audioManager.isVolumeFixed &&
+            audioManager.isMusicActive
+        ) {
+            runCatching {
+                val currentVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+                if (savedMusicVolumeIndex == null) {
+                    savedMusicVolumeIndex = currentVol
+                }
+                val minVol = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    audioManager.getStreamMinVolume(AudioManager.STREAM_MUSIC)
+                } else {
+                    0
+                }
+                val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                val targetVol = AudioDuckingMath.calculateTargetVolume(
+                    currentVolume = currentVol,
+                    minVolume = minVol,
+                    maxVolume = maxVol,
+                    duckPercent = sessionStore.duckingVolumePercent,
+                )
+                if (targetVol < currentVol) {
+                    audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, targetVol, 0)
+                }
+            }
+        }
     }
 
-    /** Idempotent: releasing focus twice is a no-op, so every exit path can call it. */
-    private fun abandonAudioFocus() {
-        val request = focusRequest ?: return
+    /** Idempotent: releasing focus twice is a no-op, always restores any ducked volume. */
+    private fun abandonAudioFocus(immediate: Boolean = false) {
+        handler.removeCallbacks(abandonFocusRunnable)
+        val request = focusRequest ?: pendingAbandonFocusRequest
         focusRequest = null
-        // Smooth 500ms return fade back to full volume (Idea 46)
-        handler.postDelayed({
+        if (request == null) {
+            restoreSavedMusicVolume()
+            return
+        }
+        val returnDelay = if (immediate) 0L else sessionStore.audioFocusReturnDelayMs.coerceAtLeast(0L)
+        if (returnDelay == 0L) {
+            pendingAbandonFocusRequest = null
+            restoreSavedMusicVolume()
             audioManager.abandonAudioFocusRequest(request)
-        }, 500L)
+        } else {
+            pendingAbandonFocusRequest = request
+            handler.postDelayed(abandonFocusRunnable, returnDelay)
+        }
+    }
+
+    private fun restoreSavedMusicVolume() {
+        val original = savedMusicVolumeIndex ?: return
+        savedMusicVolumeIndex = null
+        runCatching {
+            if (!audioManager.isVolumeFixed) {
+                audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, original, 0)
+            }
+        }
+    }
+
+    private fun handleHeadsetButtonAction(action: HeadsetButtonAction) {
+        when (action) {
+            HeadsetButtonAction.PAUSE_RESUME -> {
+                if (currentAction != null) {
+                    isPausedMidUtterance = true
+                    engine.stop()
+                } else if (isPausedMidUtterance && lastAction != null) {
+                    isPausedMidUtterance = false
+                    lastAction?.let { speak(it) }
+                }
+                publishStatus()
+            }
+            HeadsetButtonAction.SKIP -> {
+                isPausedMidUtterance = false
+                currentAction?.let { finishSpeech(it, spoken = false) }
+                pipeline.tick(
+                    state = currentState(),
+                    settingsOf = { packageName -> settingsSource.forApp(packageName) },
+                    announcementFormat = settingsSource.format(),
+                )?.let { speak(it) }
+                publishStatus()
+            }
+            HeadsetButtonAction.REPEAT -> {
+                isPausedMidUtterance = false
+                val target = currentAction ?: lastAction
+                target?.let { speak(it) }
+                publishStatus()
+            }
+            HeadsetButtonAction.NONE -> Unit
+        }
     }
 
     private fun tickOnce() {
@@ -523,6 +629,7 @@ class AnnouncementService : Service(), NotificationSink {
     }
 
     private fun speak(action: AnnouncementPipeline.Action.Speak) {
+        isPausedMidUtterance = false
         currentAction = action
         lastAction = action
         requestAudioFocus(action)
@@ -560,6 +667,9 @@ class AnnouncementService : Service(), NotificationSink {
     private fun finishSpeech(action: AnnouncementPipeline.Action.Speak, spoken: Boolean = true) {
         if (currentAction !== action) return
         currentAction = null
+        if (spoken) {
+            isPausedMidUtterance = false
+        }
         lastSpeechEndTimeMillis = SystemClock.elapsedRealtime()
         abandonAudioFocus()
         pipeline.onSpeechFinished(spoken)
@@ -610,6 +720,12 @@ class AnnouncementService : Service(), NotificationSink {
      * announcements wait, never what they say (master prompt §17).
      */
     private fun publishStatus() {
+        if (::headsetMediaController.isInitialized) {
+            headsetMediaController.updateState(
+                isSpeaking = pipeline.isSpeaking,
+                isPausedMidUtterance = isPausedMidUtterance,
+            )
+        }
         serviceStatus.updateSpeech(
             isSpeaking = pipeline.isSpeaking,
             pendingCount = pipeline.pendingCount,

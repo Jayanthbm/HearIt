@@ -1,9 +1,9 @@
 package com.jayanth.hearit.voicespeech
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jayanth.hearit.core.common.model.NotificationSnapshot
-import com.jayanth.hearit.core.datastore.HearItSettings
 import com.jayanth.hearit.core.datastore.SettingsRepository
 import com.jayanth.hearit.core.tts.AnnouncementFormat
 import com.jayanth.hearit.core.tts.AnnouncementTemplate
@@ -12,7 +12,10 @@ import com.jayanth.hearit.core.tts.SpeechSettings
 import com.jayanth.hearit.core.tts.TextToSpeechEngine
 import com.jayanth.hearit.core.tts.TtsError
 import com.jayanth.hearit.core.tts.UtteranceListener
+import com.jayanth.hearit.service.AmbientNoiseSampler
+import com.jayanth.hearit.service.SessionStore
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,19 +25,34 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
- * ViewModel managing Voice & Speech settings (master prompt §7, phase P15).
- *
- * Persists all speech tuning and announcement format changes through [SettingsRepository].
- * Provides live speech preview testing directly via [TextToSpeechEngine] without polluting
- * the notification queue or announcement history (master prompt §14).
+ * ViewModel managing Voice & Speech settings (#18, #24, #34).
  */
 @HiltViewModel
 class VoiceSpeechViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val engine: TextToSpeechEngine,
+    private val sessionStore: SessionStore,
+    @param:ApplicationContext private val context: Context,
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(VoiceSpeechUiState())
+    private val _state = MutableStateFlow(
+        VoiceSpeechUiState(
+            isEarconEnabled = sessionStore.isEarconEnabled,
+            earconDurationMs = sessionStore.earconDurationMs,
+            antiCollisionDelayMs = sessionStore.antiCollisionDelayMs,
+            isAdaptiveSpeedEnabled = sessionStore.isAdaptiveSpeedEnabled,
+            adaptiveSpeedWordThreshold = sessionStore.adaptiveSpeedWordThreshold,
+            adaptiveSpeedMultiplier = sessionStore.adaptiveSpeedMultiplier,
+            isMonoFoldDownEnabled = sessionStore.isMonoFoldDownEnabled,
+            isVoiceBoostEnabled = sessionStore.isVoiceBoostEnabled,
+            voiceBoostPercent = sessionStore.voiceBoostPercent,
+            isAmbientNoiseBoostEnabled = sessionStore.isAmbientNoiseBoostEnabled &&
+                AmbientNoiseSampler.hasRecordAudioPermission(context),
+            ambientNoiseThresholdDb = sessionStore.ambientNoiseThresholdDb,
+            ambientNoiseBoostPercent = sessionStore.ambientNoiseBoostPercent,
+            hasRecordAudioPermission = AmbientNoiseSampler.hasRecordAudioPermission(context),
+        ),
+    )
     val state: StateFlow<VoiceSpeechUiState> = _state.asStateFlow()
 
     init {
@@ -116,6 +134,34 @@ class VoiceSpeechViewModel @Inject constructor(
         if (_state.value.isSpeaking) {
             engine.stop()
         }
+        sessionStore.isEarconEnabled = true
+        sessionStore.earconDurationMs = 120
+        sessionStore.antiCollisionDelayMs = 300L
+        sessionStore.isAdaptiveSpeedEnabled = true
+        sessionStore.adaptiveSpeedWordThreshold = 30
+        sessionStore.adaptiveSpeedMultiplier = 1.25f
+        sessionStore.isMonoFoldDownEnabled = true
+        sessionStore.isVoiceBoostEnabled = false
+        sessionStore.voiceBoostPercent = 20
+        sessionStore.isAmbientNoiseBoostEnabled = false
+        sessionStore.ambientNoiseThresholdDb = 70
+        sessionStore.ambientNoiseBoostPercent = 20
+        _state.update {
+            it.copy(
+                isEarconEnabled = true,
+                earconDurationMs = 120,
+                antiCollisionDelayMs = 300L,
+                isAdaptiveSpeedEnabled = true,
+                adaptiveSpeedWordThreshold = 30,
+                adaptiveSpeedMultiplier = 1.25f,
+                isMonoFoldDownEnabled = true,
+                isVoiceBoostEnabled = false,
+                voiceBoostPercent = 20,
+                isAmbientNoiseBoostEnabled = false,
+                ambientNoiseThresholdDb = 70,
+                ambientNoiseBoostPercent = 20,
+            )
+        }
         viewModelScope.launch {
             settingsRepository.update { current ->
                 current.copy(
@@ -175,6 +221,83 @@ class VoiceSpeechViewModel @Inject constructor(
     fun onStopVoice() {
         engine.stop()
         _state.update { it.copy(isSpeaking = false) }
+    }
+
+    fun onToggleEarcon(enabled: Boolean) {
+        sessionStore.isEarconEnabled = enabled
+        _state.update { it.copy(isEarconEnabled = enabled) }
+    }
+
+    fun onEarconDurationChanged(durationMs: Int) {
+        sessionStore.earconDurationMs = durationMs
+        _state.update { it.copy(earconDurationMs = durationMs) }
+    }
+
+    fun onAntiCollisionDelayChanged(delayMs: Long) {
+        sessionStore.antiCollisionDelayMs = delayMs
+        _state.update { it.copy(antiCollisionDelayMs = delayMs) }
+    }
+
+    fun onToggleAdaptiveSpeed(enabled: Boolean) {
+        sessionStore.isAdaptiveSpeedEnabled = enabled
+        _state.update { it.copy(isAdaptiveSpeedEnabled = enabled) }
+    }
+
+    fun onAdaptiveSpeedWordThresholdChanged(words: Int) {
+        sessionStore.adaptiveSpeedWordThreshold = words
+        _state.update { it.copy(adaptiveSpeedWordThreshold = words) }
+    }
+
+    fun onAdaptiveSpeedMultiplierChanged(multiplier: Float) {
+        sessionStore.adaptiveSpeedMultiplier = multiplier
+        _state.update { it.copy(adaptiveSpeedMultiplier = multiplier) }
+    }
+
+    fun onToggleMonoFoldDown(enabled: Boolean) {
+        sessionStore.isMonoFoldDownEnabled = enabled
+        _state.update { it.copy(isMonoFoldDownEnabled = enabled) }
+    }
+
+    fun onToggleVoiceBoost(enabled: Boolean) {
+        sessionStore.isVoiceBoostEnabled = enabled
+        _state.update { it.copy(isVoiceBoostEnabled = enabled) }
+    }
+
+    fun onVoiceBoostPercentChanged(percent: Int) {
+        sessionStore.voiceBoostPercent = percent
+        _state.update { it.copy(voiceBoostPercent = percent) }
+    }
+
+    fun refreshRecordAudioPermission() {
+        val granted = AmbientNoiseSampler.hasRecordAudioPermission(context)
+        _state.update { current ->
+            current.copy(
+                hasRecordAudioPermission = granted,
+                isAmbientNoiseBoostEnabled = current.isAmbientNoiseBoostEnabled && granted,
+            )
+        }
+    }
+
+    fun onToggleAmbientNoiseBoost(enabled: Boolean) {
+        val hasPerm = AmbientNoiseSampler.hasRecordAudioPermission(context)
+        val effective = enabled && hasPerm
+        sessionStore.isAmbientNoiseBoostEnabled = effective
+        _state.update {
+            it.copy(
+                hasRecordAudioPermission = hasPerm,
+                isAmbientNoiseBoostEnabled = effective,
+            )
+        }
+    }
+
+    fun onAmbientNoiseThresholdChanged(db: Int) {
+        sessionStore.ambientNoiseThresholdDb = db
+        _state.update { it.copy(ambientNoiseThresholdDb = db) }
+    }
+
+    fun onAmbientNoiseBoostPercentChanged(percent: Int) {
+        sessionStore.ambientNoiseBoostPercent = percent
+        _state.update { it.copy(ambientNoiseBoostPercent = percent) }
     }
 
     override fun onCleared() {

@@ -3,6 +3,7 @@ package com.jayanth.hearit.service
 import android.content.Context
 import android.media.AudioManager
 import android.media.ToneGenerator
+import android.media.audiofx.LoudnessEnhancer
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -19,32 +20,21 @@ import java.util.Locale
 
 /**
  * Android `TextToSpeech` wrapper satisfying the P04 [TextToSpeechEngine] contract
- * (ADR-018: native TTS only, no translation, no network services of our own).
- *
- * Section handling mirrors [BuiltAnnouncement]: sections are spoken one at a time in order
- * with [BuiltAnnouncement.pauseBetweenSectionsMillis] of silence between them, because the
- * template's structure (not one flat string) is what the format settings control.
- *
- * Contract fidelity:
- *  - at most one request is in flight; [speak] or [stop] ends the previous one with
- *    `INTERRUPTED` before anything new starts;
- *  - every accepted request delivers exactly one terminal callback (`onComplete` or
- *    `onError`) on the main thread;
- *  - an unavailable engine or an empty announcement returns `false` **without** calling the
- *    listener (the caller retries on a later tick);
- *  - a missing language for the system locale is reported as
- *    [TtsErrorCode.LANGUAGE_DATA_MISSING], never silently substituted.
- *
- * Not locally verified — written under the cloud-agent restriction (no build/test run).
+ * and applying persisted Smart Audio Polish, Voice Boost, and optional Ambient Noise boost.
  */
 class AndroidTextToSpeechEngine(context: Context) : TextToSpeechEngine {
 
+    private val appContext = context.applicationContext
+    private val sessionStore = SessionStore(appContext)
+    private val audioManager = appContext.getSystemService(AudioManager::class.java)
     private val mainHandler = Handler(Looper.getMainLooper())
 
     private var engine: TextToSpeech? = null
     private var ready = false
     private var request: Request? = null
     private var sessionToken = 0L
+    private var loudnessEnhancer: LoudnessEnhancer? = null
+    private var currentAudioSessionId: Int = AudioManager.AUDIO_SESSION_ID_GENERATE
 
     private data class Request(
         val announcement: BuiltAnnouncement,
@@ -53,10 +43,11 @@ class AndroidTextToSpeechEngine(context: Context) : TextToSpeechEngine {
         val settings: SpeechSettings = SpeechSettings(),
         var sectionIndex: Int = 0,
         var startNotified: Boolean = false,
+        var ambientBoostPercent: Int = 0,
     )
 
     init {
-        val created = TextToSpeech(context.applicationContext) { status ->
+        val created = TextToSpeech(appContext) { status ->
             ready = status == TextToSpeech.SUCCESS
         }
         created.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
@@ -107,7 +98,6 @@ class AndroidTextToSpeechEngine(context: Context) : TextToSpeechEngine {
         val tts = engine?.takeIf { ready } ?: return false
         if (announcement.isEmpty) return false
 
-        // One announcement at a time: end the previous request explicitly.
         finishCurrent(TtsErrorCode.INTERRUPTED, notify = true)
 
         if (!supportsLocale(Locale.getDefault())) {
@@ -118,8 +108,11 @@ class AndroidTextToSpeechEngine(context: Context) : TextToSpeechEngine {
         val totalWords = announcement.sections.sumOf {
             it.text.split(Regex("\\s+")).count { word -> word.isNotBlank() }
         }
-        val effectiveRate = if (totalWords > 30) {
-            (settings.speechRate * 1.25f).coerceAtMost(2.5f)
+        val effectiveRate = if (
+            sessionStore.isAdaptiveSpeedEnabled &&
+            totalWords > sessionStore.adaptiveSpeedWordThreshold
+        ) {
+            (settings.speechRate * sessionStore.adaptiveSpeedMultiplier).coerceAtMost(2.5f)
         } else {
             settings.speechRate
         }
@@ -127,30 +120,62 @@ class AndroidTextToSpeechEngine(context: Context) : TextToSpeechEngine {
         tts.setPitch(settings.pitch)
         applyVoice(tts, settings.voiceId)
 
-        // Soft Pre-Speech Earcon Chime (Idea 1)
-        try {
-            ToneGenerator(AudioManager.STREAM_NOTIFICATION, 45)
-                .startTone(ToneGenerator.TONE_PROP_BEEP2, 120)
-        } catch (_: Throwable) {}
+        if (sessionStore.isEarconEnabled) {
+            val earconMs = sessionStore.earconDurationMs
+            try {
+                ToneGenerator(AudioManager.STREAM_NOTIFICATION, 45)
+                    .startTone(ToneGenerator.TONE_PROP_BEEP2, earconMs)
+            } catch (_: Throwable) {}
+        }
 
         val newRequest = Request(announcement, listener, token = ++sessionToken, settings = settings)
         request = newRequest
 
-        // Post-chime audio delay (300ms anti-collision with system notification tone, Idea 38)
-        mainHandler.postDelayed({
-            if (request === newRequest) {
-                speakCurrentSection(tts, newRequest)
+        val delayMs = sessionStore.antiCollisionDelayMs.coerceAtLeast(0L)
+        val shouldCheckAmbient = sessionStore.isAmbientNoiseBoostEnabled &&
+            AmbientNoiseSampler.hasRecordAudioPermission(appContext)
+
+        if (shouldCheckAmbient) {
+            val thresholdDb = sessionStore.ambientNoiseThresholdDb
+            val boostAmt = sessionStore.ambientNoiseBoostPercent
+            val startAt = System.currentTimeMillis()
+            Thread {
+                val measuredDb = AmbientNoiseSampler.measureAmbientDb(appContext)
+                if (measuredDb != null && measuredDb >= thresholdDb) {
+                    newRequest.ambientBoostPercent = boostAmt
+                }
+                val elapsed = System.currentTimeMillis() - startAt
+                val remainingDelay = (delayMs - elapsed).coerceAtLeast(0L)
+                mainHandler.postDelayed({
+                    if (request === newRequest) {
+                        speakCurrentSection(tts, newRequest)
+                    }
+                }, remainingDelay)
+            }.apply {
+                name = "hearit-ambient-sample"
+                isDaemon = true
+                start()
             }
-        }, 300L)
+        } else if (delayMs > 0L) {
+            mainHandler.postDelayed({
+                if (request === newRequest) {
+                    speakCurrentSection(tts, newRequest)
+                }
+            }, delayMs)
+        } else {
+            speakCurrentSection(tts, newRequest)
+        }
         return true
     }
 
     override fun stop() {
+        releaseLoudnessEnhancer()
         engine?.stop()
         finishCurrent(TtsErrorCode.INTERRUPTED, notify = true)
     }
 
     override fun shutdown() {
+        releaseLoudnessEnhancer()
         finishCurrent(TtsErrorCode.INTERRUPTED, notify = true)
         engine?.shutdown()
         engine = null
@@ -165,14 +190,51 @@ class AndroidTextToSpeechEngine(context: Context) : TextToSpeechEngine {
     private fun speakCurrentSection(tts: TextToSpeech, active: Request) {
         val section = active.announcement.sections[active.sectionIndex]
         val utteranceId = utteranceId(active, active.sectionIndex)
+
+        val totalBoostPercent = (if (sessionStore.isVoiceBoostEnabled) sessionStore.voiceBoostPercent else 0) +
+            active.ambientBoostPercent
+        val effectiveVolume = (active.settings.volumeLevel + (totalBoostPercent / 100f)).coerceIn(0f, 1f)
+
         val params = Bundle().apply {
-            putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, active.settings.volumeLevel)
-            putFloat(TextToSpeech.Engine.KEY_PARAM_PAN, 0.0f) // Mono fold-down for single-earbud users (Idea 49)
+            putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, effectiveVolume)
+            if (sessionStore.isMonoFoldDownEnabled) {
+                putFloat(TextToSpeech.Engine.KEY_PARAM_PAN, 0.0f)
+            }
+            if (totalBoostPercent > 0) {
+                prepareLoudnessEnhancer(totalBoostPercent)?.let { sessionId ->
+                    putInt(TextToSpeech.Engine.KEY_PARAM_SESSION_ID, sessionId)
+                }
+            } else {
+                releaseLoudnessEnhancer()
+            }
         }
         val result = tts.speak(section.text, TextToSpeech.QUEUE_FLUSH, params, utteranceId)
         if (result != TextToSpeech.SUCCESS) {
             finishCurrent(TtsErrorCode.SYNTHESIS_FAILED, notify = true)
         }
+    }
+
+    private fun prepareLoudnessEnhancer(boostPercent: Int): Int? {
+        return runCatching {
+            val sessionId = currentAudioSessionId.takeIf { it > 0 }
+                ?: audioManager?.generateAudioSessionId()?.takeIf { it > 0 }
+                ?: return null
+            currentAudioSessionId = sessionId
+            val targetGainMb = (boostPercent * 30).coerceIn(100, 1800)
+            val enhancer = loudnessEnhancer ?: LoudnessEnhancer(sessionId).also { loudnessEnhancer = it }
+            enhancer.setTargetGain(targetGainMb)
+            enhancer.enabled = true
+            sessionId
+        }.getOrNull()
+    }
+
+    private fun releaseLoudnessEnhancer() {
+        runCatching {
+            loudnessEnhancer?.enabled = false
+            loudnessEnhancer?.release()
+        }
+        loudnessEnhancer = null
+        currentAudioSessionId = AudioManager.AUDIO_SESSION_ID_GENERATE
     }
 
     private fun onSectionStarted(utteranceId: String?) {
@@ -190,6 +252,7 @@ class AndroidTextToSpeechEngine(context: Context) : TextToSpeechEngine {
 
         val nextIndex = active.sectionIndex + 1
         if (nextIndex >= active.announcement.sections.size) {
+            releaseLoudnessEnhancer()
             request = null
             active.listener.onComplete(active.announcement)
             return
@@ -214,8 +277,8 @@ class AndroidTextToSpeechEngine(context: Context) : TextToSpeechEngine {
         finishCurrent(TtsErrorCode.SYNTHESIS_FAILED, notify = true)
     }
 
-    /** Ends the in-flight request exactly once, optionally notifying its listener. */
     private fun finishCurrent(code: TtsErrorCode, notify: Boolean) {
+        releaseLoudnessEnhancer()
         val active = request ?: return
         request = null
         if (notify) {

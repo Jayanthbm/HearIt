@@ -2,6 +2,7 @@ package com.jayanth.hearit.service
 
 import android.content.Context
 import com.jayanth.hearit.core.common.model.DigitGroupingStyle
+import com.jayanth.hearit.core.common.model.HeadsetButtonAction
 import com.jayanth.hearit.core.common.model.IntelligencePresets
 import com.jayanth.hearit.core.common.model.PronunciationRule
 import com.jayanth.hearit.core.common.model.ReactionFilterMode
@@ -264,6 +265,129 @@ class SessionStore(context: Context) {
             prefs.edit().putBoolean(KEY_STRIP_SENDER_BRACKETS, value).apply()
         }
 
+    /** Smart Audio Polish & Voice Boost settings (#17, #18, #24, #34). */
+    var isEarconEnabled: Boolean
+        get() = prefs.getBoolean(KEY_EARCON_ENABLED, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_EARCON_ENABLED, value).apply()
+        }
+
+    var earconDurationMs: Int
+        get() = prefs.getInt(KEY_EARCON_DURATION_MS, 120)
+        set(value) {
+            prefs.edit().putInt(KEY_EARCON_DURATION_MS, value.coerceIn(50, 500)).apply()
+        }
+
+    var antiCollisionDelayMs: Long
+        get() = prefs.getLong(KEY_ANTI_COLLISION_DELAY_MS, 300L)
+        set(value) {
+            prefs.edit().putLong(KEY_ANTI_COLLISION_DELAY_MS, value.coerceIn(0L, 1500L)).apply()
+        }
+
+    var isAdaptiveSpeedEnabled: Boolean
+        get() = prefs.getBoolean(KEY_ADAPTIVE_SPEED_ENABLED, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_ADAPTIVE_SPEED_ENABLED, value).apply()
+        }
+
+    var adaptiveSpeedWordThreshold: Int
+        get() = prefs.getInt(KEY_ADAPTIVE_SPEED_WORD_THRESHOLD, 30)
+        set(value) {
+            prefs.edit().putInt(KEY_ADAPTIVE_SPEED_WORD_THRESHOLD, value.coerceIn(10, 200)).apply()
+        }
+
+    var adaptiveSpeedMultiplier: Float
+        get() = prefs.getFloat(KEY_ADAPTIVE_SPEED_MULTIPLIER, 1.25f)
+        set(value) {
+            prefs.edit().putFloat(KEY_ADAPTIVE_SPEED_MULTIPLIER, value.coerceIn(1.0f, 2.0f)).apply()
+        }
+
+    var isMonoFoldDownEnabled: Boolean
+        get() = prefs.getBoolean(KEY_MONO_FOLD_DOWN, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_MONO_FOLD_DOWN, value).apply()
+        }
+
+    var isVoiceBoostEnabled: Boolean
+        get() = prefs.getBoolean(KEY_VOICE_BOOST_ENABLED, false)
+        set(value) {
+            prefs.edit().putBoolean(KEY_VOICE_BOOST_ENABLED, value).apply()
+        }
+
+    var voiceBoostPercent: Int
+        get() = prefs.getInt(KEY_VOICE_BOOST_PERCENT, 20)
+        set(value) {
+            prefs.edit().putInt(KEY_VOICE_BOOST_PERCENT, value.coerceIn(5, 50)).apply()
+        }
+
+    var isAmbientNoiseBoostEnabled: Boolean
+        get() = prefs.getBoolean(KEY_AMBIENT_NOISE_BOOST_ENABLED, false)
+        set(value) {
+            prefs.edit().putBoolean(KEY_AMBIENT_NOISE_BOOST_ENABLED, value).apply()
+        }
+
+    var ambientNoiseThresholdDb: Int
+        get() = prefs.getInt(KEY_AMBIENT_NOISE_THRESHOLD_DB, 70)
+        set(value) {
+            prefs.edit().putInt(KEY_AMBIENT_NOISE_THRESHOLD_DB, value.coerceIn(55, 85)).apply()
+        }
+
+    var ambientNoiseBoostPercent: Int
+        get() = prefs.getInt(KEY_AMBIENT_NOISE_BOOST_PERCENT, 20)
+        set(value) {
+            prefs.edit().putInt(KEY_AMBIENT_NOISE_BOOST_PERCENT, value.coerceIn(5, 50)).apply()
+        }
+
+    /** Audio Ducking Level & Return Delay (#17). */
+    var isDuckingLevelControlEnabled: Boolean
+        get() = prefs.getBoolean(KEY_DUCKING_LEVEL_ENABLED, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_DUCKING_LEVEL_ENABLED, value).apply()
+        }
+
+    var duckingVolumePercent: Int
+        get() = prefs.getInt(KEY_DUCKING_VOLUME_PERCENT, 50)
+        set(value) {
+            prefs.edit().putInt(KEY_DUCKING_VOLUME_PERCENT, value.coerceIn(10, 100)).apply()
+        }
+
+    var audioFocusReturnDelayMs: Long
+        get() = prefs.getLong(KEY_AUDIO_FOCUS_RETURN_DELAY_MS, 500L)
+        set(value) {
+            prefs.edit().putLong(KEY_AUDIO_FOCUS_RETURN_DELAY_MS, value.coerceIn(0L, 1500L)).apply()
+        }
+
+    /** Bluetooth Headset MediaSession Button Controls (#1). */
+    var isHeadsetMediaControlsEnabled: Boolean
+        get() = prefs.getBoolean(KEY_HEADSET_MEDIA_CONTROLS, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_HEADSET_MEDIA_CONTROLS, value).apply()
+        }
+
+    var headsetSinglePressAction: HeadsetButtonAction
+        get() = prefs.getString(KEY_HEADSET_SINGLE_ACTION, HeadsetButtonAction.PAUSE_RESUME.name)
+            ?.let { raw -> HeadsetButtonAction.entries.firstOrNull { it.name == raw } }
+            ?: HeadsetButtonAction.PAUSE_RESUME
+        set(value) {
+            prefs.edit().putString(KEY_HEADSET_SINGLE_ACTION, value.name).apply()
+        }
+
+    var headsetDoublePressAction: HeadsetButtonAction
+        get() = prefs.getString(KEY_HEADSET_DOUBLE_ACTION, HeadsetButtonAction.SKIP.name)
+            ?.let { raw -> HeadsetButtonAction.entries.firstOrNull { it.name == raw } }
+            ?: HeadsetButtonAction.SKIP
+        set(value) {
+            prefs.edit().putString(KEY_HEADSET_DOUBLE_ACTION, value.name).apply()
+        }
+
+    var headsetTriplePressAction: HeadsetButtonAction
+        get() = prefs.getString(KEY_HEADSET_TRIPLE_ACTION, HeadsetButtonAction.REPEAT.name)
+            ?.let { raw -> HeadsetButtonAction.entries.firstOrNull { it.name == raw } }
+            ?: HeadsetButtonAction.REPEAT
+        set(value) {
+            prefs.edit().putString(KEY_HEADSET_TRIPLE_ACTION, value.name).apply()
+        }
+
     /** True if user has permanent premium entitlement (Google Play IAP/Subscription). */
     var isPremiumEntitled: Boolean
         get() = prefs.getBoolean(KEY_PREMIUM_ENTITLED, false)
@@ -400,6 +524,25 @@ class SessionStore(context: Context) {
         const val KEY_CONTACT_SANITIZER = "contact_sanitizer"
         const val KEY_STRIP_SENDER_EMOJIS = "strip_sender_emojis"
         const val KEY_STRIP_SENDER_BRACKETS = "strip_sender_brackets"
+        const val KEY_EARCON_ENABLED = "earcon_enabled"
+        const val KEY_EARCON_DURATION_MS = "earcon_duration_ms"
+        const val KEY_ANTI_COLLISION_DELAY_MS = "anti_collision_delay_ms"
+        const val KEY_ADAPTIVE_SPEED_ENABLED = "adaptive_speed_enabled"
+        const val KEY_ADAPTIVE_SPEED_WORD_THRESHOLD = "adaptive_speed_word_threshold"
+        const val KEY_ADAPTIVE_SPEED_MULTIPLIER = "adaptive_speed_multiplier"
+        const val KEY_MONO_FOLD_DOWN = "mono_fold_down"
+        const val KEY_VOICE_BOOST_ENABLED = "voice_boost_enabled"
+        const val KEY_VOICE_BOOST_PERCENT = "voice_boost_percent"
+        const val KEY_AMBIENT_NOISE_BOOST_ENABLED = "ambient_noise_boost_enabled"
+        const val KEY_AMBIENT_NOISE_THRESHOLD_DB = "ambient_noise_threshold_db"
+        const val KEY_AMBIENT_NOISE_BOOST_PERCENT = "ambient_noise_boost_percent"
+        const val KEY_DUCKING_LEVEL_ENABLED = "ducking_level_enabled"
+        const val KEY_DUCKING_VOLUME_PERCENT = "ducking_volume_percent"
+        const val KEY_AUDIO_FOCUS_RETURN_DELAY_MS = "audio_focus_return_delay_ms"
+        const val KEY_HEADSET_MEDIA_CONTROLS = "headset_media_controls"
+        const val KEY_HEADSET_SINGLE_ACTION = "headset_single_action"
+        const val KEY_HEADSET_DOUBLE_ACTION = "headset_double_action"
+        const val KEY_HEADSET_TRIPLE_ACTION = "headset_triple_action"
         const val KEY_PREMIUM_ENTITLED = "premium_entitled"
         const val KEY_TEMPORARY_PREMIUM_EXPIRY = "temporary_premium_expiry_ts"
     }
