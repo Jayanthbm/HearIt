@@ -139,12 +139,12 @@ internal fun PersistedSmartAudioPolishCard(
                     onCheckedChange = callbacks.onToggleEarcon,
                 )
                 if (state.isEarconEnabled) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         listOf(120, 200, 300).forEach { ms ->
                             FilterChip(
                                 selected = state.earconDurationMs == ms,
                                 onClick = { callbacks.onEarconDurationChanged(ms) },
-                                label = { Text("${ms}ms chime") },
+                                label = { Text("${ms}ms chime", maxLines = 1, softWrap = false) },
                             )
                         }
                     }
@@ -232,12 +232,12 @@ internal fun PersistedSmartAudioPolishCard(
                     onCheckedChange = callbacks.onToggleVoiceBoost,
                 )
                 if (state.isVoiceBoostEnabled) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         listOf(15, 30, 50).forEach { pct ->
                             FilterChip(
                                 selected = state.voiceBoostPercent == pct,
                                 onClick = { callbacks.onVoiceBoostPercentChanged(pct) },
-                                label = { Text("+$pct% gain") },
+                                label = { Text("+$pct% gain", maxLines = 1, softWrap = false) },
                             )
                         }
                     }

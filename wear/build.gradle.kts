@@ -10,7 +10,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.jayanth.hearit.wear"
+        applicationId = "com.jayanth.hearit"
         minSdk = 30
         targetSdk = 34
         versionCode = 1

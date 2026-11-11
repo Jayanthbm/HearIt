@@ -12,6 +12,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -48,17 +49,17 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
+import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
+import androidx.wear.compose.foundation.lazy.items
+import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material.AppCard
 import androidx.wear.compose.material.CompactChip
 import androidx.wear.compose.material.Icon
 import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.PositionIndicator
 import androidx.wear.compose.material.Scaffold
-import androidx.wear.compose.material.ScalingLazyColumn
 import androidx.wear.compose.material.Text
 import androidx.wear.compose.material.TimeText
-import androidx.wear.compose.material.items
-import androidx.wear.compose.material.rememberScalingLazyListState
 import com.google.android.gms.tasks.Tasks
 import com.google.android.gms.wearable.Asset
 import com.google.android.gms.wearable.DataMapItem
@@ -185,6 +186,8 @@ fun WearApp() {
                 .fillMaxSize()
                 .background(Color.Black),
             state = listState,
+            contentPadding = PaddingValues(top = 34.dp, bottom = 28.dp),
+            autoCentering = null,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             // Top Header with Phone Connection Green/Offline Dot (#37)
@@ -192,7 +195,7 @@ fun WearApp() {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 12.dp, bottom = 4.dp)
+                        .padding(top = 2.dp, bottom = 4.dp)
                         .clickable { syncTrigger++ },
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {

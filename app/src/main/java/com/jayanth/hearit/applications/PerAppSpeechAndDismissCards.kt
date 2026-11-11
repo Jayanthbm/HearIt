@@ -75,7 +75,7 @@ fun ApplicationsBatchActionBar(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 92.dp),
         shape = RoundedCornerShape(22.dp),
         color = MaterialTheme.colorScheme.surfaceContainerHighest,
         tonalElevation = 6.dp,
