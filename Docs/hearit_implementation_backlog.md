@@ -7,7 +7,7 @@ Once the review is completed, these items will be batched and implemented system
 ---
 
 ## 📋 Status Overview
-- Total Identified Backlog Items: 26
+- Total Identified Backlog Items: 28
 - In Discussion / Under Review
 - **Mandatory Requirement (All Features)**: Every capability—including automatic intelligence rules and playback behaviors—MUST have a dedicated UI **Enable / Disable switch** and **configuration controls** (thresholds, patterns, presets, or timing options) persisted across restarts.
 
@@ -374,7 +374,7 @@ Once the review is completed, these items will be batched and implemented system
   - When headphones connect after the configured absence window (`5m` / `15m` / `30m`), read pending + recently missed (`NO_ALLOWED_OUTPUT` / `SCREEN_ON`) items grouped by app name into `"Connected. You have 3 unread messages from WhatsApp and Gmail."`
   - **UI Enable/Disable & Config**: Add persisted *"Catch-Up Summary on Connect"* toggle + absence threshold chips (`Always` / `5m` / `15m` / `30m`) + *"Include App Breakdown"* toggle inside **Devices & Audio Routing** and/or **Active Intelligence**.
 
-### 23. Roadmap Item 11 (Idea 5): Low Battery Speech Safeguard Warning & Threshold UI — ⚠️ PARTIAL
+### 23. Roadmap Item 11 (Idea 5) & Item 14 (Idea 19): Low Battery / Battery Saver Speech Safeguard Warning & Threshold UI — ⚠️ PARTIAL
 - **Priority / Effort**: Medium Value / Low Effort
 - **Current State**:
   - `RuntimeStateReader` (`capacity in 1..15 || isPowerSave`) and `EligibilityRules` (`SkipReason.MUTED`) pause speech below 15% battery **hardcoded**, with **no gentle spoken warning**, **no UI enable/disable switch**, and **no threshold selector** (and uses `SkipReason.MUTED` rather than distinct low-battery feedback).
@@ -410,6 +410,28 @@ Once the review is completed, these items will be batched and implemented system
   - Add Reaction Filter Mode UI inside **Active Intelligence $\to$ Smart Content Cleaning & NLP**: **Condense** vs **Silence** (skip speaking completely in `AnnouncementPipeline`).
   - Hydrate ALL `SmartContentCleaner` flags (from `SessionStore`) and `appAliases` (from `SettingsSource` / `HearItSettings`) on service startup in `AnnouncementService.onCreate()` and on DataStore updates!
 
+### 27. Roadmap Item 14 (Idea 15 Enhancements): Bluetooth Auto-Start/Stop Device Filtering & Separate Controls — ⚠️ PARTIAL
+- **Priority / Effort**: High Value / Low Effort
+- **Current State**:
+  - `BluetoothDeviceReceiver` (`ACTION_ACL_CONNECTED` / `ACTION_ACL_DISCONNECTED`) already starts and stops `AnnouncementService` when `sessionStore.isBluetoothAutoStartEnabled` is true (with toggle in **Active Intelligence**).
+  - **Gap 1 — Triggers on Non-Audio Bluetooth Devices**: Does not check whether the connected Bluetooth device is an audio/headset profile (`BluetoothClass` audio/A2DP/HFP) or in `allowedBluetoothIds` — so connecting a smartwatch, car OBD, or fitness band triggers HearIt!
+  - **Gap 2 — Combined Toggle**: Auto-Start and Auto-Stop share one toggle with no option to configure separately or restrict only to designated allowed earphones.
+- **What Needs to Be Implemented**:
+  - Verify `BluetoothDevice` audio class / active `AudioManager` audio output (or check `AudioOutputSettings.allowedBluetoothIds` when non-empty / configured) before starting or stopping on ACL events.
+  - **UI Enable/Disable & Config**: Split/expand in **Active Intelligence** / **Devices**: *Auto-Start on Earphones Connect* toggle, *Auto-Stop on Disconnect* toggle, and *"Only Designated / Allowed Earphones"* toggle.
+
+### 28. Roadmap Item 14 (Idea 16): Spam Cooldown Throttle per Sender / Chat — ❌ NOT IMPLEMENTED
+- **Priority / Effort**: High Value / Low-Medium Effort
+- **Current State**:
+  - `AnnouncementPipeline` currently only deduplicates **identical** text (`isContentDuplicate`, 20s) — if one contact/chat rapid-fires 10–20 *different* messages within 1 minute, HearIt announces every message!
+- **What Needs to Be Implemented**:
+  - Track sliding-window per `(packageName, sender/conversation)` message counts in `AnnouncementPipeline`: once more than N announcements (default `3`) occur within the cooldown window (default `60s`), throttle remaining rapid messages and emit a brief periodic summary (e.g., `"Rahul sent 5 more messages"`) or cooldown skip (`SkipReason.DUPLICATE_UPDATE` / new reason).
+  - **UI Enable/Disable & Config**: Add *"Spam Cooldown Throttle"* toggle + max messages threshold (`2` / `3` / `5`) & cooldown window (`30s` / `60s` / `120s`) in **Active Intelligence** / **Preferences**.
+- **Files Likely Touched**:
+  - `app/src/main/java/com/jayanth/hearit/service/AnnouncementPipeline.kt` & `SessionStore.kt`
+  - `app/src/main/java/com/jayanth/hearit/intelligence/IntelligenceControlsScreen.kt` / `GeneralSettingsViewModel.kt`
+  - Unit tests in `AnnouncementPipelineTest.kt`
+
 ---
 
 ## ✅ Already Verified / Implemented Features in this Audit
@@ -426,3 +448,4 @@ Once the review is completed, these items will be batched and implemented system
 10. **Item 10 Feature A (Shake or Flip Phone to Stop Speech)**: Fully implemented in `AnnouncementService.sensorEventListener` (`TYPE_ACCELEROMETER` shake > 15.5 m/s² or face-down `z < -8.5f`) calling `engine.stop()` without triggering temporary mute, with `SessionStore.isShakeToStopEnabled` toggle in **Active Intelligence**.
 11. **Item 11 Idea 1 & Idea 6 Engines**: Soft pre-speech earcon chime (`AndroidTextToSpeechEngine.kt` ToneGenerator `120ms`) and `Announcement Volume` slider (`0–100%` in `VoiceSpeechScreen.kt`) exist; wiring earcon/delay UI controls to persistence & engine (#18) and adding true boost >100% / balance (#24) are in the backlog.
 12. **Item 12 Idea 12 (Basic Quoted Tap-Back Reaction Filter)**: Implemented via `TAPBACK_PATTERN` in `SmartContentCleaner.kt` with toggle `isReactionFilterEnabled` in **Active Intelligence**. *(Unquoted patterns, Silence vs Condense mode, and `SessionStore` startup hydration fix are tracked in Backlog #26).*
+13. **Item 14 Idea 15 & Idea 19 Core Behavior**: `BluetoothDeviceReceiver` (`ACTION_ACL_CONNECTED`/`DISCONNECTED`) auto-starts/stops service via `SessionStore.isBluetoothAutoStartEnabled`, and `RuntimeStateReader` + `EligibilityRules` mute below 15% battery or Battery Saver. *(Designated audio device filtering & separate UI configs tracked in Backlog #27 & #23).*
