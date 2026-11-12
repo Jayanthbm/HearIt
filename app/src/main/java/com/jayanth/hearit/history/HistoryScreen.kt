@@ -116,7 +116,11 @@ import com.jayanth.hearit.ui.components.verticalScrollbar
  * Entry point of the History feature (master prompt §12, phase P18).
  */
 @Composable
-fun HistoryRoute(viewModel: HistoryViewModel, modifier: Modifier = Modifier) {
+fun HistoryRoute(
+    viewModel: HistoryViewModel,
+    onOpenAppSettings: (String) -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
     val lifecycleOwner = context as? LifecycleOwner
@@ -172,6 +176,7 @@ fun HistoryRoute(viewModel: HistoryViewModel, modifier: Modifier = Modifier) {
             txtExportLauncher.launch("hearit_history_$stamp.txt")
         },
         onAppFilterChanged = viewModel::onAppFilterChanged,
+        onOpenAppSettings = onOpenAppSettings,
         onPlayEntry = viewModel::onPlayEntry,
         onStopPlaying = viewModel::onStopPlaying,
         onAddFilter = viewModel::onAddFilter,
@@ -201,6 +206,7 @@ fun HistoryScreen(
     onRequestExportCsv: () -> Unit = {},
     onRequestExportTxt: () -> Unit = {},
     onAppFilterChanged: (String?, String?) -> Unit,
+    onOpenAppSettings: (String) -> Unit = {},
     onPlayEntry: (HistoryItem) -> Unit,
     onStopPlaying: () -> Unit,
     onAddFilter: (String, KeywordMatchMode, Boolean, String?) -> Unit,
@@ -584,6 +590,7 @@ fun HistoryScreen(
                                 selectedIds = if (isSelected) selectedIds - item.id else selectedIds + item.id
                             },
                             onPlay = { onPlayEntry(item) },
+                            onAppClick = { onOpenAppSettings(item.packageName) },
                             onCardClick = {
                                 if (isSelectionMode) {
                                     selectedIds = if (isSelected) selectedIds - item.id else selectedIds + item.id
@@ -863,6 +870,7 @@ private fun ModernHistoryCard(
     isSelected: Boolean = false,
     onToggleSelect: () -> Unit = {},
     onPlay: () -> Unit,
+    onAppClick: () -> Unit,
     onCardClick: () -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -895,7 +903,15 @@ private fun ModernHistoryCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Row(
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable(
+                            enabled = !isSelectionMode,
+                            role = Role.Button,
+                            onClickLabel = "Open ${item.appName} settings",
+                            onClick = onAppClick,
+                        ),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     if (isSelectionMode) {

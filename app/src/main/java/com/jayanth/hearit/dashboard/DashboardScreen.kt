@@ -230,6 +230,33 @@ fun DashboardRoute(
         backStack = backStack + DashboardDestination.HISTORY.id
     }
 
+    // Per-app settings opened from another screen (currently History) remember where to return to.
+    var appSettingsOriginId by rememberSaveable { mutableStateOf<String?>(null) }
+
+    val onOpenAppSettings = { packageName: String ->
+        appSettingsOriginId = currentDestinationId
+        applicationsViewModel.onOpenApp(packageName)
+        backStack = backStack + DashboardDestination.APPS.id
+    }
+
+    val onBackFromAppSettings = {
+        val originId = appSettingsOriginId
+        appSettingsOriginId = null
+        applicationsViewModel.onCloseApp()
+        if (originId != null) {
+            // Drop the Applications entry pushed for this detail so back returns to the origin screen.
+            backStack = backStack.dropLastWhile { it == DashboardDestination.APPS.id }
+        }
+    }
+
+    // Leaving the Applications section discards a per-app settings screen opened from elsewhere.
+    LaunchedEffect(destination) {
+        if (destination != DashboardDestination.APPS && appSettingsOriginId != null) {
+            appSettingsOriginId = null
+            applicationsViewModel.onCloseApp()
+        }
+    }
+
     BackHandler(enabled = backStack.size > 1 || destination != DashboardDestination.HOME) {
         onNavigateBack()
     }
@@ -260,13 +287,23 @@ fun DashboardRoute(
         onLockConditionChanged = viewModel::onLockConditionChanged,
         onHistorySearch = viewModel::onHistorySearch,
         onHistoryClearAll = viewModel::onHistoryClearAll,
-        appsContent = { ApplicationsRoute(viewModel = applicationsViewModel) },
+        appsContent = {
+            ApplicationsRoute(
+                viewModel = applicationsViewModel,
+                onDetailBack = onBackFromAppSettings,
+            )
+        },
         globalRulesContent = { GlobalSettingsRoute(viewModel = globalSettingsViewModel) },
         voiceSpeechContent = { VoiceSpeechRoute(viewModel = voiceSpeechViewModel) },
         settingsContent = { GeneralSettingsRoute(viewModel = generalSettingsViewModel) },
         backupRestoreContent = { BackupRestoreRoute(viewModel = backupRestoreViewModel) },
         diagnosticsContent = { DiagnosticsRoute(viewModel = diagnosticsViewModel) },
-        historyContent = { HistoryRoute(viewModel = historyViewModel) },
+        historyContent = {
+            HistoryRoute(
+                viewModel = historyViewModel,
+                onOpenAppSettings = onOpenAppSettings,
+            )
+        },
         devicesContent = { DevicesRoute(viewModel = devicesViewModel) },
         intelligenceContent = {
             com.jayanth.hearit.intelligence.IntelligenceControlsRoute(

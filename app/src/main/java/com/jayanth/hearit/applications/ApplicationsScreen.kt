@@ -143,7 +143,11 @@ import com.jayanth.hearit.ui.components.verticalScrollbar
  * Entry point of the Applications feature (master prompt §5, phase P13).
  */
 @Composable
-fun ApplicationsRoute(viewModel: ApplicationsViewModel, modifier: Modifier = Modifier) {
+fun ApplicationsRoute(
+    viewModel: ApplicationsViewModel,
+    onDetailBack: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
+) {
     val state by viewModel.state.collectAsState()
     val settings = state.settings
     val snackbarHostState = remember { SnackbarHostState() }
@@ -155,7 +159,9 @@ fun ApplicationsRoute(viewModel: ApplicationsViewModel, modifier: Modifier = Mod
         }
     }
 
-    BackHandler(enabled = settings != null) { viewModel.onCloseApp() }
+    BackHandler(enabled = settings != null) {
+        if (onDetailBack != null) onDetailBack() else viewModel.onCloseApp()
+    }
     BackHandler(enabled = settings == null && state.isSelectionMode) { viewModel.onClearSelection() }
 
     Box(modifier = modifier.fillMaxSize()) {
