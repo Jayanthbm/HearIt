@@ -280,7 +280,8 @@ object AnnouncementTemplate {
         val rawGroup = if (snapshot.isGroup) snapshot.groupTitle?.trim()?.takeIf { it.isNotEmpty() } else null
         val rawMessage = snapshot.messageText.trim()
 
-        if (!SmartContentCleaner.isMessagingIntelligenceEnabled) {
+        val messagingPolishEnabled = SmartContentCleaner.isMessagingPolishEnabled(snapshot.packageName, category)
+        if (!messagingPolishEnabled) {
             return ResolvedSnapshotContent(rawSender, rawGroup, rawMessage)
         }
 

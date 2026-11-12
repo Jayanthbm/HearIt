@@ -126,6 +126,8 @@ data class AppOverride(
     val priorityAnnounceOverride: PriorityAnnounceOverride = PriorityAnnounceOverride(),
     val spokenName: String? = null,
     val categoryOverride: AppCategoryChoice? = null,
+    val messagingPolish: com.jayanth.hearit.core.common.model.MessagingPolishConfig =
+        com.jayanth.hearit.core.common.model.MessagingPolishConfig(),
 ) {
 
     /** True when nothing is overridden for this app. */
@@ -138,5 +140,6 @@ data class AppOverride(
             priorityAnnounceOverride.inheritsEveryValue &&
             priority == null &&
             spokenName.isNullOrBlank() &&
-            categoryOverride == null
+            categoryOverride == null &&
+            messagingPolish.inheritsEveryValue
 }

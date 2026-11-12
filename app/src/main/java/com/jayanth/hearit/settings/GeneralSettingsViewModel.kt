@@ -85,7 +85,6 @@ class GeneralSettingsViewModel @Inject constructor(
             isDigitFormattingEnabled = sessionStore.isDigitFormattingEnabled,
             isFormatPhoneNumbersEnabled = sessionStore.isFormatPhoneNumbersEnabled,
             isFormatOtpCodesEnabled = sessionStore.isFormatOtpCodesEnabled,
-            isMessagingIntelligenceEnabled = sessionStore.isMessagingIntelligenceEnabled,
             isSmsBankCleanerEnabled = sessionStore.isSmsBankCleanerEnabled,
             isCarrierSpamFilterEnabled = sessionStore.isCarrierSpamFilterEnabled,
             carrierSpamPhrases = sessionStore.carrierSpamPhrases,
@@ -382,11 +381,6 @@ class GeneralSettingsViewModel @Inject constructor(
         _state.update { it.copy(isFormatOtpCodesEnabled = enabled) }
     }
 
-    fun onToggleMessagingIntelligence(enabled: Boolean) {
-        sessionStore.isMessagingIntelligenceEnabled = enabled
-        SmartContentCleaner.isMessagingIntelligenceEnabled = enabled
-        _state.update { it.copy(isMessagingIntelligenceEnabled = enabled) }
-    }
 
     fun onToggleSmsBankCleaner(enabled: Boolean) {
         sessionStore.isSmsBankCleanerEnabled = enabled

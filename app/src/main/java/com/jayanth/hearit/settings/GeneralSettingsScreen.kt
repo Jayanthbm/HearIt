@@ -1366,6 +1366,8 @@ internal fun SettingsCard(
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                     )
                     Text(
                         text = subtitle,
@@ -1373,6 +1375,7 @@ internal fun SettingsCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 11.sp,
                         lineHeight = 15.sp,
+                        maxLines = 2,
                     )
                 }
                 if (action != null) {

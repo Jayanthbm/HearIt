@@ -8,6 +8,7 @@ import com.jayanth.hearit.core.common.model.AppPriority
 import com.jayanth.hearit.core.common.model.AudioFocusPolicy
 import com.jayanth.hearit.core.common.model.HistoryStorageMode
 import com.jayanth.hearit.core.common.model.HistoryUpdateHandling
+import com.jayanth.hearit.core.common.model.MediaReplacementRule
 import com.jayanth.hearit.core.common.model.KeywordMatchMode
 import com.jayanth.hearit.core.database.HistoryQuery
 import com.jayanth.hearit.core.database.HistoryRepository
@@ -80,8 +81,12 @@ class ApplicationsViewModel @Inject constructor(
                 val categoryOverrides = settings.appOverrides.mapNotNull { (pkg, override) ->
                     override.categoryOverride?.let { pkg to it }
                 }.toMap()
+                val messagingConfigs = settings.appOverrides.mapNotNull { (pkg, override) ->
+                    if (override.messagingPolish.inheritsEveryValue) null else pkg to override.messagingPolish
+                }.toMap()
                 com.jayanth.hearit.core.tts.SmartContentCleaner.replaceAppAliases(aliases)
                 com.jayanth.hearit.core.tts.SmartContentCleaner.replaceAppCategories(categoryOverrides)
+                com.jayanth.hearit.core.tts.SmartContentCleaner.replaceMessagingPolishConfigs(messagingConfigs)
                 publish()
             }
         }
@@ -312,6 +317,41 @@ class ApplicationsViewModel @Inject constructor(
         super.onCleared()
         historyObservationJob?.cancel()
         engine.stop()
+    }
+
+    fun onMessagingPolishEnabledChanged(enabled: Boolean?) {
+        updateSelected { settings, packageName ->
+            AppSettingsEditor.setMessagingPolishEnabled(settings, packageName, enabled)
+        }
+    }
+
+    fun onAddMessagingNoisePhrase(phrase: String) {
+        updateSelected { settings, packageName ->
+            AppSettingsEditor.addMessagingNoisePhrase(settings, packageName, phrase)
+        }
+    }
+
+    fun onRemoveMessagingNoisePhrase(phrase: String) {
+        updateSelected { settings, packageName ->
+            AppSettingsEditor.removeMessagingNoisePhrase(settings, packageName, phrase)
+        }
+    }
+
+    fun onSetMessagingMediaMapping(oldMatch: String?, match: String, spokenPhrase: String) {
+        updateSelected { settings, packageName ->
+            AppSettingsEditor.setMessagingMediaMapping(
+                settings,
+                packageName,
+                oldMatch,
+                MediaReplacementRule(match, spokenPhrase),
+            )
+        }
+    }
+
+    fun onRemoveMessagingMediaMapping(match: String) {
+        updateSelected { settings, packageName ->
+            AppSettingsEditor.removeMessagingMediaMapping(settings, packageName, match)
+        }
     }
 
     fun onAddFilter(keyword: String, mode: KeywordMatchMode, isSender: Boolean = false) {

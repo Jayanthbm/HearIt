@@ -42,7 +42,6 @@ class IntelligentSettingsSync @Inject constructor(
         SmartContentCleaner.isDigitFormattingEnabled = sessionStore.isDigitFormattingEnabled
         SmartContentCleaner.isFormatPhoneNumbersEnabled = sessionStore.isFormatPhoneNumbersEnabled
         SmartContentCleaner.isFormatOtpCodesEnabled = sessionStore.isFormatOtpCodesEnabled
-        SmartContentCleaner.isMessagingIntelligenceEnabled = sessionStore.isMessagingIntelligenceEnabled
         SmartContentCleaner.isSmsBankCleanerEnabled = sessionStore.isSmsBankCleanerEnabled
         SmartContentCleaner.isCarrierSpamFilterEnabled = sessionStore.isCarrierSpamFilterEnabled
         SmartContentCleaner.carrierSpamPhrases = sessionStore.carrierSpamPhrases
@@ -50,7 +49,7 @@ class IntelligentSettingsSync @Inject constructor(
         SmartContentCleaner.isContactSanitizerEnabled = sessionStore.isContactSanitizerEnabled
     }
 
-    /** Atomically applies per-app spoken aliases and category overrides from [settings]. */
+    /** Atomically applies per-app spoken aliases, categories, and messaging polish from [settings]. */
     fun applySettings(settings: HearItSettings) {
         val aliases = settings.appOverrides.mapNotNull { (pkg, override) ->
             override.spokenName?.takeIf { it.isNotBlank() }?.let { pkg to it }
@@ -58,8 +57,12 @@ class IntelligentSettingsSync @Inject constructor(
         val categories = settings.appOverrides.mapNotNull { (pkg, override) ->
             override.categoryOverride?.let { pkg to it }
         }.toMap()
+        val messagingConfigs = settings.appOverrides.mapNotNull { (pkg, override) ->
+            if (override.messagingPolish.inheritsEveryValue) null else pkg to override.messagingPolish
+        }.toMap()
         SmartContentCleaner.replaceAppAliases(aliases)
         SmartContentCleaner.replaceAppCategories(categories)
+        SmartContentCleaner.replaceMessagingPolishConfigs(messagingConfigs)
         sessionStore.cachedAllowedBluetoothIds = settings.eligibility.audioOutput.allowedBluetoothIds.orEmpty()
     }
 

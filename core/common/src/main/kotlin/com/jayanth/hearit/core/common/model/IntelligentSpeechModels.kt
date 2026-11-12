@@ -121,6 +121,26 @@ enum class DigitGroupingStyle {
     CHUNKS_OF_3,
 }
 
+/** One spoken replacement for a matched media placeholder token. */
+data class MediaReplacementRule(
+    val match: String,
+    val spokenPhrase: String,
+)
+
+/**
+ * Per-app messaging/content cleanup configuration.
+ *
+ * [enabled] == null means inherit the default behavior (enabled for messaging apps).
+ */
+data class MessagingPolishConfig(
+    val enabled: Boolean? = null,
+    val extraNoisePhrases: List<String> = emptyList(),
+    val mediaMappings: List<MediaReplacementRule> = emptyList(),
+) {
+    val inheritsEveryValue: Boolean
+        get() = enabled == null && extraNoisePhrases.isEmpty() && mediaMappings.isEmpty()
+}
+
 /** Built-in starter presets for active intelligence features. */
 object IntelligencePresets {
     val DEFAULT_PRONUNCIATION_RULES: List<PronunciationRule> = listOf(

@@ -198,11 +198,6 @@ class SessionStore(context: Context) {
             prefs.edit().putBoolean(KEY_FORMAT_OTP_CODES, value).apply()
         }
 
-    var isMessagingIntelligenceEnabled: Boolean
-        get() = prefs.getBoolean(KEY_MESSAGING_INTELLIGENCE, true)
-        set(value) {
-            prefs.edit().putBoolean(KEY_MESSAGING_INTELLIGENCE, value).apply()
-        }
 
     var isSmsBankCleanerEnabled: Boolean
         get() = prefs.getBoolean(KEY_SMS_BANK_CLEANER, true)
@@ -689,7 +684,6 @@ class SessionStore(context: Context) {
         const val KEY_DIGIT_FORMATTING_ENABLED = "digit_formatting_enabled"
         const val KEY_FORMAT_PHONE_NUMBERS = "format_phone_numbers"
         const val KEY_FORMAT_OTP_CODES = "format_otp_codes"
-        const val KEY_MESSAGING_INTELLIGENCE = "messaging_intelligence"
         const val KEY_SMS_BANK_CLEANER = "sms_bank_cleaner"
         const val KEY_CARRIER_SPAM_FILTER = "carrier_spam_filter"
         const val KEY_CARRIER_SPAM_PHRASES = "carrier_spam_phrases_json"

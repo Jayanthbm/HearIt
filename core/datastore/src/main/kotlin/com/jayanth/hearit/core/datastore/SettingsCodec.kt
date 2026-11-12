@@ -8,6 +8,8 @@ import com.jayanth.hearit.core.common.model.AppQueueOverride
 import com.jayanth.hearit.core.common.model.AudioFocusPolicy
 import com.jayanth.hearit.core.common.model.AudioOutputSettings
 import com.jayanth.hearit.core.common.model.EligibilitySettings
+import com.jayanth.hearit.core.common.model.MediaReplacementRule
+import com.jayanth.hearit.core.common.model.MessagingPolishConfig
 import com.jayanth.hearit.core.common.model.HistorySettings
 import com.jayanth.hearit.core.common.model.HistoryStorageMode
 import com.jayanth.hearit.core.common.model.HistoryUpdateHandling
@@ -129,6 +131,9 @@ object SettingsCodec {
     private const val APP_PRIORITY = "priority"
     private const val APP_SPOKEN_NAME = "spokenName"
     private const val APP_CATEGORY = "category"
+    private const val APP_MSG_ENABLED = "intel.msg.enabled"
+    private const val APP_MSG_NOISE = "intel.msg.noise"
+    private const val APP_MSG_MEDIA = "intel.msg.media"
     private const val APP_AUTO_DISMISS = "elig.autoDismiss"
     private const val APP_SPEECH_RATE = "speech.rate"
     private const val APP_SPEECH_PITCH = "speech.pitch"
@@ -309,6 +314,19 @@ object SettingsCodec {
         override.priority?.let { values[prefix + APP_PRIORITY] = it.name }
         override.spokenName?.let { values[prefix + APP_SPOKEN_NAME] = it }
         override.categoryOverride?.let { values[prefix + APP_CATEGORY] = it.name }
+
+        val messaging = override.messagingPolish
+        messaging.enabled?.let { values[prefix + APP_MSG_ENABLED] = it.toString() }
+        if (messaging.extraNoisePhrases.isNotEmpty()) {
+            values[prefix + APP_MSG_NOISE] = encodeList(messaging.extraNoisePhrases)
+        }
+        if (messaging.mediaMappings.isNotEmpty()) {
+            val encoded = messaging.mediaMappings.map { rule ->
+                rule.match.replace(LIST_SEPARATOR, " ").replace(FIELD_SEPARATOR, " ") + FIELD_SEPARATOR +
+                    rule.spokenPhrase.replace(LIST_SEPARATOR, " ").replace(FIELD_SEPARATOR, " ")
+            }
+            values[prefix + APP_MSG_MEDIA] = encoded.joinToString(LIST_SEPARATOR)
+        }
     }
 
     private fun decodeEligibility(values: Map<String, String>): EligibilitySettings {
@@ -545,6 +563,17 @@ object SettingsCodec {
             priority = string(APP_PRIORITY)?.enumOrNull<AppPriority>(),
             spokenName = string(APP_SPOKEN_NAME)?.takeIf { it.isNotBlank() },
             categoryOverride = string(APP_CATEGORY)?.enumOrNull<AppCategoryChoice>(),
+            messagingPolish = MessagingPolishConfig(
+                enabled = string(APP_MSG_ENABLED)?.toBooleanStrictOrNull(),
+                extraNoisePhrases = splitList(string(APP_MSG_NOISE)).map { it.trim() }.filter { it.isNotBlank() },
+                mediaMappings = splitList(string(APP_MSG_MEDIA)).mapNotNull { entry ->
+                    val parts = entry.split(FIELD_SEPARATOR, limit = 2)
+                    if (parts.size != 2) return@mapNotNull null
+                    val match = parts[0].trim()
+                    val spoken = parts[1].trim()
+                    if (match.isBlank() || spoken.isBlank()) null else MediaReplacementRule(match, spoken)
+                },
+            ),
         )
     }
 

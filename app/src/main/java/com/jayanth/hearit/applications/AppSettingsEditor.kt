@@ -1,6 +1,8 @@
 package com.jayanth.hearit.applications
 
 import com.jayanth.hearit.core.common.model.AppCategoryChoice
+import com.jayanth.hearit.core.common.model.MediaReplacementRule
+import com.jayanth.hearit.core.common.model.MessagingPolishConfig
 import com.jayanth.hearit.core.common.model.AppPriority
 import com.jayanth.hearit.core.common.model.AudioFocusPolicy
 import com.jayanth.hearit.core.common.model.HistoryStorageMode
@@ -364,12 +366,78 @@ object AppSettingsEditor {
                 Inherited(override.eligibility.queueDuringCall, settings.eligibility.queueDuringCall),
             audioFocus = Inherited(override.eligibility.audioFocus, settings.eligibility.audioFocus),
             keywordFilter = Inherited(override.eligibility.keywordFilter, settings.eligibility.keywordFilter),
+            messagingPolish = Inherited(
+                override = if (override.messagingPolish.inheritsEveryValue) null else override.messagingPolish,
+                global = MessagingPolishConfig(),
+            ),
             enabledAppCount = settings.enabledApps.size,
             hasOverrides = !override.inheritsEveryValue,
             spokenName = override.spokenName,
             category = settings.categoryFor(packageName),
             categoryOverride = override.categoryOverride,
         )
+    }
+
+    /** Sets per-app messaging polish enabled state (null = inherit default/on). */
+    fun setMessagingPolishEnabled(
+        settings: HearItSettings,
+        packageName: String,
+        enabled: Boolean?,
+    ): HearItSettings = updateOverride(settings, packageName) { override ->
+        override.copy(messagingPolish = override.messagingPolish.copy(enabled = enabled))
+    }
+
+    fun addMessagingNoisePhrase(
+        settings: HearItSettings,
+        packageName: String,
+        phrase: String,
+    ): HearItSettings {
+        val clean = phrase.trim()
+        if (clean.isEmpty()) return settings
+        return updateOverride(settings, packageName) { override ->
+            val updated = override.messagingPolish.extraNoisePhrases
+                .filterNot { it.equals(clean, ignoreCase = true) } + clean
+            override.copy(messagingPolish = override.messagingPolish.copy(extraNoisePhrases = updated))
+        }
+    }
+
+    fun removeMessagingNoisePhrase(
+        settings: HearItSettings,
+        packageName: String,
+        phrase: String,
+    ): HearItSettings = updateOverride(settings, packageName) { override ->
+        val updated = override.messagingPolish.extraNoisePhrases
+            .filterNot { it.equals(phrase, ignoreCase = true) }
+        override.copy(messagingPolish = override.messagingPolish.copy(extraNoisePhrases = updated))
+    }
+
+    fun setMessagingMediaMapping(
+        settings: HearItSettings,
+        packageName: String,
+        oldMatch: String?,
+        rule: MediaReplacementRule,
+    ): HearItSettings {
+        val match = rule.match.trim()
+        val spoken = rule.spokenPhrase.trim()
+        if (match.isEmpty() || spoken.isEmpty()) return settings
+        val normalized = MediaReplacementRule(match, spoken)
+        return updateOverride(settings, packageName) { override ->
+            val filtered = override.messagingPolish.mediaMappings.filterNot { existing ->
+                existing.match.equals(oldMatch ?: match, ignoreCase = true) ||
+                    existing.match.equals(match, ignoreCase = true)
+            } + normalized
+            override.copy(messagingPolish = override.messagingPolish.copy(mediaMappings = filtered))
+        }
+    }
+
+    fun removeMessagingMediaMapping(
+        settings: HearItSettings,
+        packageName: String,
+        match: String,
+    ): HearItSettings = updateOverride(settings, packageName) { override ->
+        val updated = override.messagingPolish.mediaMappings
+            .filterNot { it.match.equals(match, ignoreCase = true) }
+        override.copy(messagingPolish = override.messagingPolish.copy(mediaMappings = updated))
     }
 
     /**

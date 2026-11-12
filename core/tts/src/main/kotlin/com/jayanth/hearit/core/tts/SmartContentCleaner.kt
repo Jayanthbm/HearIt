@@ -5,6 +5,8 @@ import com.jayanth.hearit.core.common.model.AppCategoryChoice
 import com.jayanth.hearit.core.common.model.DefaultAppCategories
 import com.jayanth.hearit.core.common.model.DigitGroupingStyle
 import com.jayanth.hearit.core.common.model.IntelligencePresets
+import com.jayanth.hearit.core.common.model.MediaReplacementRule
+import com.jayanth.hearit.core.common.model.MessagingPolishConfig
 import com.jayanth.hearit.core.common.model.PronunciationRule
 import com.jayanth.hearit.core.common.model.ReactionFilterMode
 import com.jayanth.hearit.core.common.model.UrlSummaryRule
@@ -91,6 +93,7 @@ object SmartContentCleaner {
 
     private val appAliases = ConcurrentHashMap<String, String>()
     private val appCategoryOverrides = ConcurrentHashMap<String, AppCategoryChoice>()
+    private val messagingPolishConfigs = ConcurrentHashMap<String, MessagingPolishConfig>()
 
     @Volatile var isUrlSummarizerEnabled: Boolean = true
     @Volatile var isCurrencyNormalizerEnabled: Boolean = true
@@ -109,7 +112,6 @@ object SmartContentCleaner {
     @Volatile var isFormatPhoneNumbersEnabled: Boolean = true
     @Volatile var isFormatOtpCodesEnabled: Boolean = true
 
-    @Volatile var isMessagingIntelligenceEnabled: Boolean = true
     @Volatile var isSmsBankCleanerEnabled: Boolean = true
     @Volatile var isCarrierSpamFilterEnabled: Boolean = true
     @Volatile var carrierSpamPhrases: List<String> = IntelligencePresets.DEFAULT_CARRIER_SPAM_PHRASES
@@ -137,6 +139,25 @@ object SmartContentCleaner {
     fun replaceAppCategories(overrides: Map<String, AppCategoryChoice>) {
         appCategoryOverrides.clear()
         appCategoryOverrides.putAll(overrides)
+    }
+
+    /** Atomically replaces per-app messaging polish configs from persisted settings. */
+    fun replaceMessagingPolishConfigs(configs: Map<String, MessagingPolishConfig>) {
+        messagingPolishConfigs.clear()
+        configs.forEach { (pkg, config) ->
+            if (!config.inheritsEveryValue) messagingPolishConfigs[pkg] = config
+        }
+    }
+
+    fun messagingPolishConfigFor(packageName: String?): MessagingPolishConfig {
+        if (packageName.isNullOrBlank()) return MessagingPolishConfig()
+        return messagingPolishConfigs[packageName] ?: MessagingPolishConfig()
+    }
+
+    fun isMessagingPolishEnabled(packageName: String?, category: AppCategory? = resolveCategory(packageName)): Boolean {
+        if (packageName != null && category != null && category != AppCategory.MESSAGING) return false
+        val config = messagingPolishConfigFor(packageName)
+        return config.enabled ?: true
     }
 
     fun resolveCategory(packageName: String?): AppCategory? {
@@ -189,10 +210,12 @@ object SmartContentCleaner {
         if (text.isNullOrBlank()) return CleanedMessage("")
         var result = text.trim()
         val category = resolveCategory(packageName)
+        val messagingConfig = messagingPolishConfigFor(packageName)
+        val messagingPolishEnabled = isMessagingPolishEnabled(packageName, category)
 
         // 1. Messaging sync/background noise suppression
-        if (isMessagingIntelligenceEnabled && (packageName == null || category == AppCategory.MESSAGING)) {
-            if (isSyncBackgroundNoise(result)) {
+        if (messagingPolishEnabled) {
+            if (isSyncBackgroundNoise(result, messagingConfig)) {
                 return CleanedMessage("", suppress = true)
             }
         }
@@ -214,8 +237,8 @@ object SmartContentCleaner {
         }
 
         // 4. Media tags normalization
-        if (isMessagingIntelligenceEnabled && (packageName == null || category == AppCategory.MESSAGING)) {
-            result = normalizeMediaTags(result)
+        if (messagingPolishEnabled) {
+            result = normalizeMediaTags(result, messagingConfig)
         }
 
         // 5. Bank & transactional SMS condensation
@@ -265,15 +288,20 @@ object SmartContentCleaner {
     fun cleanMessageText(text: String?, packageName: String? = null): String =
         cleanMessage(text, packageName).text
 
-    private fun isSyncBackgroundNoise(text: String): Boolean {
-        val lower = text.lowercase()
-        return lower == "checking for new messages…" ||
+    private fun isSyncBackgroundNoise(text: String, config: MessagingPolishConfig = MessagingPolishConfig()): Boolean {
+        val lower = text.lowercase().trim()
+        val builtIn = lower == "checking for new messages…" ||
             lower == "checking for new messages..." ||
             lower.startsWith("whatsapp web is currently active") ||
             lower.startsWith("backup in progress") ||
             lower.startsWith("restoring messages") ||
             lower == "connecting..." ||
             lower == "connecting…"
+        if (builtIn) return true
+        return config.extraNoisePhrases.any { phrase ->
+            val p = phrase.trim().lowercase()
+            p.isNotEmpty() && (lower == p || lower.contains(p))
+        }
     }
 
     private fun matchesCarrierSpam(text: String): Boolean {
@@ -288,7 +316,12 @@ object SmartContentCleaner {
         QUOTED_TAPBACK_PATTERN.matcher(text).matches() ||
             UNQUOTED_REACTION_PATTERN.matcher(text).matches()
 
-    private fun normalizeMediaTags(input: String): String {
+    private fun normalizeMediaTags(input: String, config: MessagingPolishConfig = MessagingPolishConfig()): String {
+        val trimmed = input.trim()
+        config.mediaMappings.firstOrNull { rule ->
+            rule.match.isNotBlank() && trimmed.equals(rule.match.trim(), ignoreCase = true)
+        }?.let { return it.spokenPhrase }
+
         var text = input
         text = text.replace(Regex("(?i)^(?:📷\\s*)?(?:Photo|\\[Photo\\])$"), "Sent a photo")
         text = text.replace(Regex("(?i)^(?:🎥\\s*|🎬\\s*|📹\\s*)?(?:Video|\\[Video\\])$"), "Sent a video")

@@ -2,6 +2,7 @@ package com.jayanth.hearit.applications
 
 import com.jayanth.hearit.core.common.model.AppCategory
 import com.jayanth.hearit.core.common.model.AppCategoryChoice
+import com.jayanth.hearit.core.common.model.MessagingPolishConfig
 import com.jayanth.hearit.core.common.model.AppPriority
 import com.jayanth.hearit.core.common.model.AudioFocusPolicy
 import com.jayanth.hearit.core.common.model.HistoryStorageMode
@@ -97,6 +98,8 @@ data class AppSettingsUiState(
     val audioFocus: Inherited<AudioFocusPolicy> = Inherited(null, AudioFocusPolicy.DUCK),
     val keywordFilter: Inherited<KeywordFilterSettings> =
         Inherited(null, KeywordFilterSettings()),
+    val messagingPolish: Inherited<MessagingPolishConfig> =
+        Inherited(null, MessagingPolishConfig()),
     val recentHistory: List<HistoryEntry> = emptyList(),
     val historyLoading: Boolean = false,
     val playingHistoryId: Long? = null,

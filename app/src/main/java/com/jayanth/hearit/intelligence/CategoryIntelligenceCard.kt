@@ -37,31 +37,23 @@ internal fun CategoryIntelligenceCard(
     val smsCount = state.appCategories.count { it.value == AppCategory.SMS }
 
     SettingsCard(
-        title = "Category Intelligence",
-        subtitle = "Tailored rules for Messaging, SMS/Bank Alerts, and Email apps",
+        title = "Category intelligence",
+        subtitle = "Rules for chat, SMS, and email apps",
         icon = Icons.Rounded.Category,
         modifier = modifier,
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             NlpToggleRow(
-                title = "Messaging & Media Polish",
-                subtitle = "Converts videos, PDFs, contacts, group prefixes & silences sync noise",
-                checked = state.isMessagingIntelligenceEnabled,
-                onCheckedChange = actions.onToggleMessagingIntelligence,
-            )
-            DividerLine()
-
-            NlpToggleRow(
-                title = "Bank & Transactional SMS Cleaner",
-                subtitle = "Condenses INR/card debit alerts to crisp spoken summaries",
+                title = "Bank SMS cleaner",
+                subtitle = "Summarize transaction alerts clearly",
                 checked = state.isSmsBankCleanerEnabled,
                 onCheckedChange = actions.onToggleSmsBankCleaner,
             )
             DividerLine()
 
             NlpToggleRow(
-                title = "Carrier & Promo SMS Filter",
-                subtitle = "Skips recharge promos, dial ads, and configurable spam phrases",
+                title = "Carrier promo filter",
+                subtitle = "Skip promos and configurable spam phrases",
                 checked = state.isCarrierSpamFilterEnabled,
                 onCheckedChange = actions.onToggleCarrierSpamFilter,
             )
@@ -78,8 +70,8 @@ internal fun CategoryIntelligenceCard(
             DividerLine()
 
             NlpToggleRow(
-                title = "Email Subject & Disclaimer Cleanup",
-                subtitle = "Speaks 'Reply:'/'Forward:' and strips sign-offs & legal disclaimers",
+                title = "Email cleanup",
+                subtitle = "Speak subjects and trim disclaimers",
                 checked = state.isEmailCleanupEnabled,
                 onCheckedChange = actions.onToggleEmailCleanup,
             )

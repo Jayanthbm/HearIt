@@ -129,6 +129,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.jayanth.hearit.R
+import com.jayanth.hearit.core.common.model.AppCategory
 import com.jayanth.hearit.core.common.model.AppPriority
 import com.jayanth.hearit.core.common.model.AudioFocusPolicy
 import com.jayanth.hearit.core.common.model.HistoryStatus
@@ -235,6 +236,11 @@ fun ApplicationsRoute(
                     onDeleteHistoryEntry = viewModel::onDeleteHistoryEntry,
                     onClearAppHistory = viewModel::onClearAppHistory,
                     onSpokenNameChanged = viewModel::onSpokenNameChanged,
+                    onMessagingPolishEnabledChanged = viewModel::onMessagingPolishEnabledChanged,
+                    onAddMessagingNoisePhrase = viewModel::onAddMessagingNoisePhrase,
+                    onRemoveMessagingNoisePhrase = viewModel::onRemoveMessagingNoisePhrase,
+                    onSetMessagingMediaMapping = viewModel::onSetMessagingMediaMapping,
+                    onRemoveMessagingMediaMapping = viewModel::onRemoveMessagingMediaMapping,
                     modifier = Modifier.fillMaxSize(),
                 )
             }
@@ -905,9 +911,14 @@ private fun AppSettingsScreen(
     onDeleteHistoryEntry: (Long) -> Unit,
     onClearAppHistory: (Int?) -> Unit,
     onSpokenNameChanged: (String?) -> Unit = {},
+    onMessagingPolishEnabledChanged: (Boolean?) -> Unit = {},
+    onAddMessagingNoisePhrase: (String) -> Unit = {},
+    onRemoveMessagingNoisePhrase: (String) -> Unit = {},
+    onSetMessagingMediaMapping: (String?, String, String) -> Unit = { _, _, _ -> },
+    onRemoveMessagingMediaMapping: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    var selectedTab by remember { mutableStateOf(0) } // 0 = Rules & Filters, 1 = App History
+    var selectedTabKey by remember(state.packageName) { mutableStateOf("rules") }
     var showAddFilterDialog by remember { mutableStateOf(false) }
     var showClearHistoryDialog by remember { mutableStateOf(false) }
     var filterTargetHistoryItem by remember { mutableStateOf<HistoryEntry?>(null) }
@@ -1029,7 +1040,22 @@ private fun AppSettingsScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Two-Tab Capsule Segmented Selector
+        val tabs = buildList {
+            add("rules" to "Rules")
+            if (state.enabled) {
+                add("filters" to "Filters")
+                if (state.category == AppCategory.MESSAGING) add("intel" to "Intel")
+            }
+            add("history" to "History")
+        }
+        val selectedTab = tabs.indexOfFirst { it.first == selectedTabKey }.takeIf { it >= 0 } ?: 0
+        LaunchedEffect(tabs.map { it.first }, selectedTabKey) {
+            if (tabs.none { it.first == selectedTabKey }) {
+                selectedTabKey = tabs.firstOrNull()?.first ?: "rules"
+            }
+        }
+
+        // App details tabs
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1044,11 +1070,7 @@ private fun AppSettingsScreen(
                     .padding(3.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                val tabs = listOf(
-                    0 to "Rules & Filters",
-                    1 to "App History (${state.recentHistory.size})",
-                )
-                tabs.forEach { (index, title) ->
+                tabs.forEachIndexed { index, (_, title) ->
                     val isSelected = selectedTab == index
                     val tabBg by animateColorAsState(
                         targetValue = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
@@ -1066,7 +1088,7 @@ private fun AppSettingsScreen(
                             .fillMaxHeight()
                             .clip(RoundedCornerShape(11.dp))
                             .background(tabBg)
-                            .clickable { selectedTab = index },
+                            .clickable { selectedTabKey = tabs[index].first },
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
@@ -1103,7 +1125,9 @@ private fun AppSettingsScreen(
                 label = "AppSettingsTabContentTransition",
                 modifier = Modifier.fillMaxSize(),
             ) { tab ->
-                if (tab == 0) {
+                when (tabs.getOrNull(tab)?.first ?: "rules") {
+                    "rules" -> {
+                // Tab 0: Rules
                 // Tab 0: Rules & Filters
                 Column(
                     modifier = Modifier
@@ -1178,226 +1202,6 @@ private fun AppSettingsScreen(
                                 }
                             }
                         }
-
-                        // Content & Notification Filters Card
-                        val filterSettings = state.keywordFilter.effective
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.FilterList,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(20.dp),
-                                    )
-                                    Text(
-                                        text = "Notification Filters",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                    )
-                                }
-                                Switch(
-                                    checked = filterSettings.enabled,
-                                    onCheckedChange = onToggleFilterEnabled,
-                                    colors = SwitchDefaults.colors(
-                                        checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                    ),
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "Mute alerts matching specific blocked words, phrases, wildcard patterns, or senders.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-
-                            if (filterSettings.enabled) {
-                                Spacer(modifier = Modifier.height(12.dp))
-
-                                // Active Filter Chips
-                                Text(
-                                    text = "Active Filtered Items (${filterSettings.keywords.size})",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary,
-                                )
-                                Spacer(modifier = Modifier.height(6.dp))
-
-                                if (filterSettings.keywords.isEmpty()) {
-                                    Surface(
-                                        shape = RoundedCornerShape(12.dp),
-                                        color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
-                                        modifier = Modifier.fillMaxWidth(),
-                                    ) {
-                                        Text(
-                                            text = "No custom filter rules yet. Tap 'Add Filter Word / Pattern' below or filter past alerts directly from the App History tab.",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.padding(12.dp),
-                                        )
-                                    }
-                                } else {
-                                    FlowRow(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                                    ) {
-                                        filterSettings.keywords.forEach { keyword ->
-                                            val parsed = AppSettingsEditor.parseFilterItem(keyword)
-                                            Surface(
-                                                shape = RoundedCornerShape(10.dp),
-                                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f),
-                                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
-                                            ) {
-                                                Row(
-                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                                ) {
-                                                    Surface(
-                                                        shape = RoundedCornerShape(5.dp),
-                                                        color = MaterialTheme.colorScheme.primary,
-                                                    ) {
-                                                        Text(
-                                                            text = parsed.type.uppercase(),
-                                                            style = MaterialTheme.typography.labelSmall,
-                                                            fontSize = 9.sp,
-                                                            fontWeight = FontWeight.Bold,
-                                                            color = MaterialTheme.colorScheme.onPrimary,
-                                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
-                                                        )
-                                                    }
-                                                    Text(
-                                                        text = parsed.text,
-                                                        style = MaterialTheme.typography.labelMedium,
-                                                        fontWeight = FontWeight.SemiBold,
-                                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                                    )
-                                                    Icon(
-                                                        imageVector = Icons.Rounded.Close,
-                                                        contentDescription = "Remove filter",
-                                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                                        modifier = Modifier
-                                                            .size(16.dp)
-                                                            .clip(CircleShape)
-                                                            .clickable { onRemoveFilter(keyword) },
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-
-                                Spacer(modifier = Modifier.height(12.dp))
-
-                                OutlinedButton(
-                                    onClick = { showAddFilterDialog = true },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(12.dp),
-                                ) {
-                                    Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Add Filter Word / Pattern", fontWeight = FontWeight.SemiBold)
-                                }
-
-                                if (filterSettings.keywords.isNotEmpty()) {
-                                    Spacer(modifier = Modifier.height(14.dp))
-                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-                                    Spacer(modifier = Modifier.height(10.dp))
-
-                                    var testInput by rememberSaveable { mutableStateOf("") }
-                                    val isMatch = remember(testInput, filterSettings.keywords, filterSettings.mode) {
-                                        if (testInput.isBlank()) null
-                                        else KeywordMatcher.matchesNotification(
-                                            messageText = testInput,
-                                            sender = null,
-                                            keywords = filterSettings.keywords,
-                                            mode = filterSettings.mode,
-                                        )
-                                    }
-
-                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically,
-                                        ) {
-                                            Text(
-                                                text = "Test Your Filters",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                fontWeight = FontWeight.Bold,
-                                                color = MaterialTheme.colorScheme.primary,
-                                            )
-                                            if (isMatch != null) {
-                                                Surface(
-                                                    shape = RoundedCornerShape(6.dp),
-                                                    color = if (isMatch) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer,
-                                                ) {
-                                                    Text(
-                                                        text = if (isMatch) "Filtered (Will Skip)" else "Passes (Will Speak)",
-                                                        style = MaterialTheme.typography.labelSmall,
-                                                        fontWeight = FontWeight.Bold,
-                                                        color = if (isMatch) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer,
-                                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                                    )
-                                                }
-                                            }
-                                        }
-
-                                        OutlinedTextField(
-                                            value = testInput,
-                                            onValueChange = { testInput = it },
-                                            placeholder = {
-                                                Text(
-                                                    "Type sample message to test filter matching…",
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                                )
-                                            },
-                                            modifier = Modifier.fillMaxWidth(),
-                                            singleLine = true,
-                                            shape = RoundedCornerShape(12.dp),
-                                            textStyle = MaterialTheme.typography.bodyMedium,
-                                            colors = TextFieldDefaults.colors(
-                                                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                                disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                                focusedIndicatorColor = Color.Transparent,
-                                                unfocusedIndicatorColor = Color.Transparent,
-                                            ),
-                                            trailingIcon = {
-                                                if (testInput.isNotEmpty()) {
-                                                    IconButton(onClick = { testInput = "" }) {
-                                                        Icon(
-                                                            imageVector = Icons.Rounded.Close,
-                                                            contentDescription = "Clear",
-                                                            modifier = Modifier.size(16.dp),
-                                                        )
-                                                    }
-                                                }
-                                            },
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
 
                     // Announcement Priority Card
                     Card(
@@ -1948,8 +1752,277 @@ private fun AppSettingsScreen(
 
                     Spacer(modifier = Modifier.height(130.dp))
                 }
-            } else {
-                // Tab 1: App History
+                    }
+                    "filters" -> {
+                // Filters
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    if (state.enabled) {
+                        // Content & Notification Filters Card
+                        val filterSettings = state.keywordFilter.effective
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.FilterList,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp),
+                                    )
+                                    Text(
+                                        text = "Notification Filters",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                }
+                                Switch(
+                                    checked = filterSettings.enabled,
+                                    onCheckedChange = onToggleFilterEnabled,
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                    ),
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Mute alerts matching specific blocked words, phrases, wildcard patterns, or senders.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+
+                            if (filterSettings.enabled) {
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                // Active Filter Chips
+                                Text(
+                                    text = "Active Filtered Items (${filterSettings.keywords.size})",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+
+                                if (filterSettings.keywords.isEmpty()) {
+                                    Surface(
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
+                                        modifier = Modifier.fillMaxWidth(),
+                                    ) {
+                                        Text(
+                                            text = "No custom filter rules yet. Tap 'Add Filter Word / Pattern' below or filter past alerts directly from the History tab.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(12.dp),
+                                        )
+                                    }
+                                } else {
+                                    FlowRow(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                                    ) {
+                                        filterSettings.keywords.forEach { keyword ->
+                                            val parsed = AppSettingsEditor.parseFilterItem(keyword)
+                                            Surface(
+                                                shape = RoundedCornerShape(10.dp),
+                                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f),
+                                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                                ) {
+                                                    Surface(
+                                                        shape = RoundedCornerShape(5.dp),
+                                                        color = MaterialTheme.colorScheme.primary,
+                                                    ) {
+                                                        Text(
+                                                            text = parsed.type.uppercase(),
+                                                            style = MaterialTheme.typography.labelSmall,
+                                                            fontSize = 9.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = MaterialTheme.colorScheme.onPrimary,
+                                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                                                        )
+                                                    }
+                                                    Text(
+                                                        text = parsed.text,
+                                                        style = MaterialTheme.typography.labelMedium,
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                    )
+                                                    Icon(
+                                                        imageVector = Icons.Rounded.Close,
+                                                        contentDescription = "Remove filter",
+                                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                        modifier = Modifier
+                                                            .size(16.dp)
+                                                            .clip(CircleShape)
+                                                            .clickable { onRemoveFilter(keyword) },
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                OutlinedButton(
+                                    onClick = { showAddFilterDialog = true },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp),
+                                ) {
+                                    Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Add Filter Word / Pattern", fontWeight = FontWeight.SemiBold)
+                                }
+
+                                if (filterSettings.keywords.isNotEmpty()) {
+                                    Spacer(modifier = Modifier.height(14.dp))
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                                    Spacer(modifier = Modifier.height(10.dp))
+
+                                    var testInput by rememberSaveable { mutableStateOf("") }
+                                    val isMatch = remember(testInput, filterSettings.keywords, filterSettings.mode) {
+                                        if (testInput.isBlank()) null
+                                        else KeywordMatcher.matchesNotification(
+                                            messageText = testInput,
+                                            sender = null,
+                                            keywords = filterSettings.keywords,
+                                            mode = filterSettings.mode,
+                                        )
+                                    }
+
+                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            Text(
+                                                text = "Test Your Filters",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.primary,
+                                            )
+                                            if (isMatch != null) {
+                                                Surface(
+                                                    shape = RoundedCornerShape(6.dp),
+                                                    color = if (isMatch) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer,
+                                                ) {
+                                                    Text(
+                                                        text = if (isMatch) "Filtered (Will Skip)" else "Passes (Will Speak)",
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = if (isMatch) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer,
+                                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                                    )
+                                                }
+                                            }
+                                        }
+
+                                        OutlinedTextField(
+                                            value = testInput,
+                                            onValueChange = { testInput = it },
+                                            placeholder = {
+                                                Text(
+                                                    "Type sample message to test filter matching…",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                                )
+                                            },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            singleLine = true,
+                                            shape = RoundedCornerShape(12.dp),
+                                            textStyle = MaterialTheme.typography.bodyMedium,
+                                            colors = TextFieldDefaults.colors(
+                                                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                                disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                                focusedIndicatorColor = Color.Transparent,
+                                                unfocusedIndicatorColor = Color.Transparent,
+                                            ),
+                                            trailingIcon = {
+                                                if (testInput.isNotEmpty()) {
+                                                    IconButton(onClick = { testInput = "" }) {
+                                                        Icon(
+                                                            imageVector = Icons.Rounded.Close,
+                                                            contentDescription = "Clear",
+                                                            modifier = Modifier.size(16.dp),
+                                                        )
+                                                    }
+                                                }
+                                            },
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    } else {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("Filters unavailable", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                                Text(
+                                    "Enable announcements for this app to configure notification filters.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(130.dp))
+                }
+                    }
+                    "intel" -> {
+                // Intelligence
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    PerAppMessagingPolishCard(
+                        state = state,
+                        onMessagingPolishEnabledChanged = onMessagingPolishEnabledChanged,
+                        onAddMessagingNoisePhrase = onAddMessagingNoisePhrase,
+                        onRemoveMessagingNoisePhrase = onRemoveMessagingNoisePhrase,
+                        onSetMessagingMediaMapping = onSetMessagingMediaMapping,
+                        onRemoveMessagingMediaMapping = onRemoveMessagingMediaMapping,
+                    )
+                    Spacer(modifier = Modifier.height(130.dp))
+                }
+                    }
+                    "history" -> {
+                // History
                 Column(
                     modifier = Modifier.fillMaxSize(),
                 ) {
@@ -2072,8 +2145,8 @@ private fun AppSettingsScreen(
                     }
                 }
             }
+            }
         }
-    }
     }
 
     // Dialog: Full History Notification Details
@@ -2161,6 +2234,7 @@ private fun AppSettingsScreen(
             },
         )
     }
+}
 }
 
 @Composable
@@ -3107,5 +3181,234 @@ fun FilterTypeInfoRow(type: String, description: String) {
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.weight(1f),
         )
+    }
+}
+
+
+@Composable
+private fun PerAppMessagingPolishCard(
+    state: AppSettingsUiState,
+    onMessagingPolishEnabledChanged: (Boolean?) -> Unit,
+    onAddMessagingNoisePhrase: (String) -> Unit,
+    onRemoveMessagingNoisePhrase: (String) -> Unit,
+    onSetMessagingMediaMapping: (String?, String, String) -> Unit,
+    onRemoveMessagingMediaMapping: (String) -> Unit,
+) {
+    val isMessagingApp = state.category == AppCategory.MESSAGING
+    val config = state.messagingPolish.effective
+    val effectiveEnabled = config.enabled ?: true
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Messaging polish",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = if (isMessagingApp) {
+                            "Clean media placeholders, sync noise, and group labels for this app."
+                        } else {
+                            "Applies to chat and messaging notifications. This app is not categorized as messaging."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = effectiveEnabled,
+                    onCheckedChange = { onMessagingPolishEnabledChanged(it) },
+                    enabled = isMessagingApp,
+                )
+            }
+
+            if (!isMessagingApp) {
+                Text(
+                    text = "Change the app category to Messaging in Intelligence settings to use messaging polish.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                return@Column
+            }
+
+            if (!state.messagingPolish.isInherited) {
+                TextButton(onClick = { onMessagingPolishEnabledChanged(null) }) {
+                    Text("Use default (On)", style = MaterialTheme.typography.labelSmall)
+                }
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+            Text(
+                text = "Extra noise phrases",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = "Messages matching these phrases are treated as sync noise.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            var noiseInput by remember(state.packageName) { mutableStateOf("") }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                OutlinedTextField(
+                    value = noiseInput,
+                    onValueChange = { noiseInput = it },
+                    modifier = Modifier.weight(1f),
+                    label = { Text("Phrase") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(14.dp),
+                )
+                FilledTonalButton(
+                    onClick = {
+                        onAddMessagingNoisePhrase(noiseInput)
+                        noiseInput = ""
+                    },
+                    enabled = noiseInput.trim().isNotEmpty(),
+                ) {
+                    Text("Add")
+                }
+            }
+
+            if (config.extraNoisePhrases.isEmpty()) {
+                Text(
+                    text = "No custom noise phrases.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    config.extraNoisePhrases.forEach { phrase ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = phrase,
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            IconButton(onClick = { onRemoveMessagingNoisePhrase(phrase) }) {
+                                Icon(
+                                    imageVector = Icons.Rounded.DeleteOutline,
+                                    contentDescription = "Remove phrase",
+                                    tint = MaterialTheme.colorScheme.error,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+            Text(
+                text = "Media placeholder mappings",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = "When a message is exactly the match text, HearIt speaks the replacement.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            var mediaMatch by remember(state.packageName) { mutableStateOf("") }
+            var mediaSpoken by remember(state.packageName) { mutableStateOf("") }
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = mediaMatch,
+                    onValueChange = { mediaMatch = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Match text (exact)") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(14.dp),
+                )
+                OutlinedTextField(
+                    value = mediaSpoken,
+                    onValueChange = { mediaSpoken = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Speak as") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(14.dp),
+                )
+                FilledTonalButton(
+                    onClick = {
+                        onSetMessagingMediaMapping(null, mediaMatch, mediaSpoken)
+                        mediaMatch = ""
+                        mediaSpoken = ""
+                    },
+                    enabled = mediaMatch.trim().isNotEmpty() && mediaSpoken.trim().isNotEmpty(),
+                ) {
+                    Text("Add mapping")
+                }
+            }
+
+            if (config.mediaMappings.isEmpty()) {
+                Text(
+                    text = "No custom media mappings.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    config.mediaMappings.forEach { rule ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = rule.match,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                Text(
+                                    text = "→ ${rule.spokenPhrase}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            IconButton(onClick = { onRemoveMessagingMediaMapping(rule.match) }) {
+                                Icon(
+                                    imageVector = Icons.Rounded.DeleteOutline,
+                                    contentDescription = "Remove mapping",
+                                    tint = MaterialTheme.colorScheme.error,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }

@@ -31,7 +31,6 @@ class SmartContentCleanerTest {
         SmartContentCleaner.isDigitFormattingEnabled = true
         SmartContentCleaner.isFormatPhoneNumbersEnabled = true
         SmartContentCleaner.isFormatOtpCodesEnabled = true
-        SmartContentCleaner.isMessagingIntelligenceEnabled = true
         SmartContentCleaner.isSmsBankCleanerEnabled = true
         SmartContentCleaner.isCarrierSpamFilterEnabled = true
         SmartContentCleaner.carrierSpamPhrases = IntelligencePresets.DEFAULT_CARRIER_SPAM_PHRASES
@@ -39,6 +38,7 @@ class SmartContentCleanerTest {
         SmartContentCleaner.isContactSanitizerEnabled = true
         SmartContentCleaner.replaceAppAliases(emptyMap())
         SmartContentCleaner.replaceAppCategories(emptyMap())
+        SmartContentCleaner.replaceMessagingPolishConfigs(emptyMap())
     }
 
     @Test

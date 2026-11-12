@@ -43,7 +43,6 @@ data class GeneralSettingsUiState(
     val isDigitFormattingEnabled: Boolean = true,
     val isFormatPhoneNumbersEnabled: Boolean = true,
     val isFormatOtpCodesEnabled: Boolean = true,
-    val isMessagingIntelligenceEnabled: Boolean = true,
     val isSmsBankCleanerEnabled: Boolean = true,
     val isCarrierSpamFilterEnabled: Boolean = true,
     val carrierSpamPhrases: List<String> = IntelligencePresets.DEFAULT_CARRIER_SPAM_PHRASES,
