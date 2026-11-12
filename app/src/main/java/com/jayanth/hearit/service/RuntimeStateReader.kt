@@ -5,6 +5,7 @@ import android.app.NotificationManager
 import android.content.Context
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
+import android.os.Build
 import android.os.PowerManager
 import com.jayanth.hearit.core.common.model.AudioOutput
 import com.jayanth.hearit.core.common.model.AudioOutputKind
@@ -64,10 +65,21 @@ class RuntimeStateReader(
         fun firstOf(vararg types: Int): AudioDeviceInfo? =
             devices.firstOrNull { device -> types.any { it == device.type } }
 
-        firstOf(
-            AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
-            AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
-        )?.let { return it.toOutput(AudioOutputKind.BLUETOOTH) }
+        val bluetoothOutput = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            firstOf(
+                AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
+                AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
+                AudioDeviceInfo.TYPE_BLE_HEADSET,
+                AudioDeviceInfo.TYPE_BLE_SPEAKER,
+                AudioDeviceInfo.TYPE_HEARING_AID,
+            )
+        } else {
+            firstOf(
+                AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
+                AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
+            )
+        }
+        bluetoothOutput?.let { return it.toOutput(AudioOutputKind.BLUETOOTH) }
 
         firstOf(
             AudioDeviceInfo.TYPE_WIRED_HEADSET,
@@ -79,6 +91,10 @@ class RuntimeStateReader(
             AudioDeviceInfo.TYPE_BUILTIN_SPEAKER,
             AudioDeviceInfo.TYPE_BUILTIN_EARPIECE,
         )?.let { return it.toOutput(AudioOutputKind.PHONE_SPEAKER) }
+
+        // Anything else the platform exposes as a sink (OEM routes, remote submix, cast
+        // endpoints) so the "Unrecognised outputs" switch is actually enforced.
+        devices.firstOrNull { it.isSink }?.let { return it.toOutput(AudioOutputKind.OTHER) }
 
         return null
     }

@@ -7,6 +7,8 @@ import android.graphics.drawable.BitmapDrawable
 import android.util.Base64
 import com.google.android.gms.tasks.Tasks
 import com.google.android.gms.wearable.Asset
+import com.google.android.gms.wearable.CapabilityClient
+import com.google.android.gms.wearable.Node
 import com.google.android.gms.wearable.PutDataMapRequest
 import com.google.android.gms.wearable.Wearable
 import com.jayanth.hearit.core.common.model.NotificationSnapshot
@@ -20,6 +22,8 @@ import org.json.JSONObject
 
 data class WearCompanionState(
     val isConnected: Boolean = false,
+    /** True when a paired watch advertises the Hear It watch app capability. */
+    val watchAppInstalled: Boolean = false,
     val deviceName: String = "No watch connected",
     val lastSyncTimestamp: Long = 0L,
     val watchFilterApps: List<String> = emptyList(),
@@ -34,6 +38,7 @@ object WearDataLayerSync {
     private const val PREFS_NAME = "wear_companion_prefs"
     private const val KEY_LAST_SYNC = "last_sync_timestamp"
     private const val ICON_SIZE_PX = 48
+    private const val WATCH_APP_CAPABILITY = "hearit_watch_app"
 
     fun checkCompanionStatus(context: Context, callback: (WearCompanionState) -> Unit) {
         val appContext = context.applicationContext
@@ -45,48 +50,42 @@ object WearDataLayerSync {
             val prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             val lastSync = prefs.getLong(KEY_LAST_SYNC, 0L)
 
-            try {
-                val nodeClient = Wearable.getNodeClient(appContext)
-                val nodes = Tasks.await(nodeClient.connectedNodes)
+            val nodes = runCatching {
+                Tasks.await(Wearable.getNodeClient(appContext).connectedNodes)
+            }.getOrNull().orEmpty()
 
-                if (!nodes.isNullOrEmpty()) {
-                    val node = nodes.first()
-                    callback(
-                        WearCompanionState(
-                            isConnected = true,
-                            deviceName = node.displayName.ifBlank { "Wear OS Watch" },
-                            lastSyncTimestamp = lastSync,
-                            watchFilterApps = watchApps,
-                            isForwardingEnabled = forwarding,
-                            isHapticsEnabled = haptics,
-                        ),
-                    )
-                } else {
-                    callback(
-                        WearCompanionState(
-                            isConnected = false,
-                            deviceName = "No watch connected",
-                            lastSyncTimestamp = lastSync,
-                            watchFilterApps = watchApps,
-                            isForwardingEnabled = forwarding,
-                            isHapticsEnabled = haptics,
-                        ),
-                    )
-                }
-            } catch (_: Exception) {
-                callback(
-                    WearCompanionState(
-                        isConnected = false,
-                        deviceName = "Wear OS unavailable",
-                        lastSyncTimestamp = lastSync,
-                        watchFilterApps = watchApps,
-                        isForwardingEnabled = forwarding,
-                        isHapticsEnabled = haptics,
-                    ),
-                )
-            }
+            // FILTER_REACHABLE proves the watch app is installed and online right now;
+            // FILTER_ALL also reports a paired watch that is simply out of range.
+            val reachableWatchAppNodes = watchAppNodes(appContext, CapabilityClient.FILTER_REACHABLE)
+            val knownWatchAppNodes = watchAppNodes(appContext, CapabilityClient.FILTER_ALL)
+            val watchAppInstalled = reachableWatchAppNodes.isNotEmpty() || knownWatchAppNodes.isNotEmpty()
+
+            val deviceName = (reachableWatchAppNodes.firstOrNull()
+                ?: knownWatchAppNodes.firstOrNull()
+                ?: nodes.firstOrNull())
+                ?.displayName
+                ?.takeIf { it.isNotBlank() }
+                ?: "No watch connected"
+
+            callback(
+                WearCompanionState(
+                    isConnected = nodes.isNotEmpty(),
+                    watchAppInstalled = watchAppInstalled,
+                    deviceName = deviceName,
+                    lastSyncTimestamp = lastSync,
+                    watchFilterApps = watchApps,
+                    isForwardingEnabled = forwarding,
+                    isHapticsEnabled = haptics,
+                ),
+            )
         }
     }
+
+    private fun watchAppNodes(context: Context, filterType: Int): Set<Node> = runCatching {
+        Tasks.await(
+            Wearable.getCapabilityClient(context).getCapability(WATCH_APP_CAPABILITY, filterType),
+        ).nodes
+    }.getOrDefault(emptySet())
 
     /**
      * Syncs persistent Watch configuration (`/config/sync` via DataClient + real 48x48 PNG app icons)

@@ -1,5 +1,7 @@
 package com.jayanth.hearit.devices
 
+import android.content.Intent
+import android.net.Uri
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -27,6 +29,7 @@ import androidx.compose.material.icons.rounded.BluetoothConnected
 import androidx.compose.material.icons.rounded.Cable
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.DevicesOther
+import androidx.compose.material.icons.rounded.GetApp
 import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Tune
@@ -35,6 +38,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -290,9 +294,9 @@ fun DevicesScreen(
             }
         }
 
-        // Section: Remembered Devices
+        // Section: Previously Connected
         Text(
-            text = "Remembered Devices",
+            text = "Previously Connected",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onBackground,
@@ -329,7 +333,7 @@ fun DevicesScreen(
                     }
                     Spacer(modifier = Modifier.height(10.dp))
                     Text(
-                        text = "No Remembered Devices",
+                        text = "No Previously Connected Devices",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
@@ -346,11 +350,11 @@ fun DevicesScreen(
             }
         } else {
             state.remembered.forEach { row ->
-                RememberedDeviceCard(
+                PreviouslyConnectedDeviceCard(
                     row = row,
                     bluetoothEnabled = state.audioOutput.allowBluetooth,
                     onAllowedChanged = { onDeviceAllowed(row.id, it) },
-                    onForget = { onForgetDevice(row.id) },
+                    onRemove = { onForgetDevice(row.id) },
                 )
             }
         }
@@ -591,11 +595,11 @@ private fun ConnectedDeviceCard(
 }
 
 @Composable
-private fun RememberedDeviceCard(
+private fun PreviouslyConnectedDeviceCard(
     row: DeviceRow,
     bluetoothEnabled: Boolean,
     onAllowedChanged: (Boolean) -> Unit,
-    onForget: () -> Unit,
+    onRemove: () -> Unit,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -675,28 +679,20 @@ private fun RememberedDeviceCard(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = "Previously paired",
+                    text = "Not connected",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                 )
 
-                TextButton(
-                    onClick = onForget,
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                    modifier = Modifier.height(30.dp),
+                IconButton(
+                    onClick = onRemove,
+                    modifier = Modifier.size(34.dp),
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.DeleteOutline,
-                        contentDescription = null,
+                        contentDescription = "Remove ${row.label}",
                         tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(16.dp),
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "Forget",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.error,
-                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.size(18.dp),
                     )
                 }
             }
@@ -745,20 +741,43 @@ fun WearOsCompanionCard(
         refreshStatus()
     }
 
+    val green = Color(0xFF10B981)
+    val amber = Color(0xFFF59E0B)
+    val statusColor = when {
+        !companionState.isConnected -> MaterialTheme.colorScheme.onSurfaceVariant
+        !companionState.watchAppInstalled -> amber
+        else -> green
+    }
+    val statusLabel = when {
+        !companionState.isConnected -> "No watch connected"
+        !companionState.watchAppInstalled -> "Watch app not installed"
+        else -> "Connected"
+    }
+
+    val openWatchAppStore: () -> Unit = {
+        val packageName = "com.jayanth.hearit"
+        val market = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$packageName"))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val browser = Intent(
+            Intent.ACTION_VIEW,
+            Uri.parse("https://play.google.com/store/apps/details?id=$packageName"),
+        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { context.startActivity(market) }
+            .onFailure { runCatching { context.startActivity(browser) } }
+    }
+
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer
-        ),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
-            if (companionState.isConnected) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-            else MaterialTheme.colorScheme.outlineVariant
+            if (companionState.isConnected && companionState.watchAppInstalled) green.copy(alpha = 0.45f)
+            else MaterialTheme.colorScheme.outlineVariant,
         ),
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Row(
@@ -766,92 +785,79 @@ fun WearOsCompanionCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                Text(
+                    text = "Wear Companion",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
-                ) {
-                    Surface(
-                        modifier = Modifier.size(40.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        color = if (companionState.isConnected)
-                            MaterialTheme.colorScheme.primaryContainer
-                        else MaterialTheme.colorScheme.surfaceVariant,
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Rounded.DevicesOther,
-                                contentDescription = null,
-                                tint = if (companionState.isConnected)
-                                    MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(22.dp),
-                            )
-                        }
-                    }
-
-                    Column {
-                        Text(
-                            text = "Wear OS Companion",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .clip(CircleShape)
-                                    .background(
-                                        if (companionState.isConnected) Color(0xFF4CAF50)
-                                        else Color(0xFF9E9E9E)
-                                    )
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = if (companionState.isConnected)
-                                    "Connected"
-                                else "No watch connected",
-                                style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.Medium,
-                                color = if (companionState.isConnected)
-                                    Color(0xFF2E7D32)
-                                else MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                }
-
+                )
                 IconButton(
-                    onClick = { refreshStatus() },
-                    modifier = Modifier.size(36.dp)
+                    onClick = refreshStatus,
+                    modifier = Modifier.size(32.dp),
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Refresh,
-                        contentDescription = "Check connection",
+                        contentDescription = "Check watch connection",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(19.dp),
                     )
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(statusColor),
+                )
+                Spacer(modifier = Modifier.width(7.dp))
+                Text(
+                    text = statusLabel,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = if (companionState.isConnected) statusColor else MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+            }
+
+            if (!companionState.watchAppInstalled) {
+                FilledTonalButton(
+                    onClick = openWatchAppStore,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
+                ) {
+                    Icon(Icons.Rounded.GetApp, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Install Wear OS App")
                 }
             }
 
             HorizontalDivider(
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                thickness = 0.5.dp
+                thickness = 0.5.dp,
             )
 
-            // Status details
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Column {
                     Text(
-                        text = "Last Synced",
+                        text = "Last synced",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = if (companionState.lastSyncTimestamp > 0L) {
                             val diff = System.currentTimeMillis() - companionState.lastSyncTimestamp
@@ -860,7 +866,9 @@ fun WearOsCompanionCard(
                                 diff < 3600_000 -> "${diff / 60_000}m ago"
                                 else -> "${diff / 3600_000}h ago"
                             }
-                        } else "Never",
+                        } else {
+                            "Never"
+                        },
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
                     )
@@ -868,12 +876,13 @@ fun WearOsCompanionCard(
 
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = "Watch Apps Selected",
+                        text = "Apps selected",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "${companionState.watchFilterApps.size} / 4 apps",
+                        text = "${companionState.watchFilterApps.size} / ${com.jayanth.hearit.wear.WearConfigHelper.MAX_WATCH_APPS}",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
                     )
@@ -881,11 +890,10 @@ fun WearOsCompanionCard(
             }
 
             HorizontalDivider(
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
                 thickness = 0.5.dp,
             )
 
-            // Master Forwarding Switch (#35 Option A)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -893,18 +901,19 @@ fun WearOsCompanionCard(
             ) {
                 Column(modifier = Modifier.weight(1f).padding(end = 10.dp)) {
                     Text(
-                        text = "Watch Notification Forwarding",
+                        text = "Notification Forwarding",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
                     )
                     Text(
-                        text = "Forward up to 4 selected apps independently of phone speech",
+                        text = "Mirror up to 4 apps to the watch, independent of phone speech",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 Switch(
                     checked = companionState.isForwardingEnabled,
+                    enabled = companionState.watchAppInstalled,
                     onCheckedChange = { checked ->
                         sessionStore.isWatchForwardingEnabled = checked
                         companionState = companionState.copy(isForwardingEnabled = checked)
@@ -913,7 +922,6 @@ fun WearOsCompanionCard(
                 )
             }
 
-            // Watch Haptic Pulse Switch (#35)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -921,19 +929,19 @@ fun WearOsCompanionCard(
             ) {
                 Column(modifier = Modifier.weight(1f).padding(end = 10.dp)) {
                     Text(
-                        text = "Watch Haptic Pulse",
+                        text = "Haptic pulse",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
                     )
                     Text(
-                        text = "Gently vibrate watch when a mirrored alert arrives",
+                        text = "Vibrate the watch when a mirrored alert arrives",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 Switch(
                     checked = companionState.isHapticsEnabled,
-                    enabled = companionState.isForwardingEnabled,
+                    enabled = companionState.watchAppInstalled && companionState.isForwardingEnabled,
                     onCheckedChange = { checked ->
                         sessionStore.isWatchHapticsEnabled = checked
                         companionState = companionState.copy(isHapticsEnabled = checked)
@@ -942,20 +950,33 @@ fun WearOsCompanionCard(
                 )
             }
 
-            // Max-4 Watch Apps Config Button (#35)
             OutlinedButton(
                 onClick = { showWatchAppsPicker = true },
-                enabled = companionState.isForwardingEnabled,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
             ) {
-                Icon(
-                    imageVector = Icons.Rounded.Tune,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                )
+                Icon(Icons.Rounded.Tune, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Configure Watch Apps (${companionState.watchFilterApps.size} / 4)")
+                Text("Configure", maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+
+            FilledTonalButton(
+                onClick = triggerConfigSync,
+                enabled = companionState.watchAppInstalled && !isSyncing,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
+            ) {
+                if (isSyncing) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Syncing…")
+                } else {
+                    Icon(Icons.Rounded.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Sync Config and Icons")
+                }
             }
 
             if (syncMessage != null) {
@@ -974,42 +995,18 @@ fun WearOsCompanionCard(
                     )
                 }
             }
-
-            // Sync button
-            OutlinedButton(
-                onClick = triggerConfigSync,
-                enabled = !isSyncing,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-            ) {
-                if (isSyncing) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        strokeWidth = 2.dp,
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Syncing to Watch...")
-                } else {
-                    Icon(
-                        imageVector = Icons.Rounded.Refresh,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Sync Watch Config & Icons")
-                }
-            }
         }
     }
 
     if (showWatchAppsPicker) {
         WearWatchAppsPickerDialog(
             initialSelected = companionState.watchFilterApps,
+            watchAppInstalled = companionState.watchAppInstalled,
             onSave = { picked ->
                 sessionStore.watchFilterApps = picked
                 companionState = companionState.copy(watchFilterApps = picked)
                 showWatchAppsPicker = false
-                triggerConfigSync()
+                if (companionState.watchAppInstalled) triggerConfigSync()
             },
             onDismiss = { showWatchAppsPicker = false },
         )

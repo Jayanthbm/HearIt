@@ -894,9 +894,18 @@ class AnnouncementService : Service(), NotificationSink {
         // Eligibility guard for check-ins
         if (state.isCallActive || state.temporaryMuteActive || state.isBatteryLowOrSaver) return
         if (state.isDndActive && eligibility.respectDnd) return
-        val hasAllowedOutput = state.activeOutput?.kind == AudioOutputKind.BLUETOOTH ||
-            state.activeOutput?.kind == AudioOutputKind.WIRED ||
-            eligibility.audioOutput.allowPhoneSpeaker
+        val audioSettings = eligibility.audioOutput
+        val activeOutput = state.activeOutput
+        val allowedBluetoothIds = audioSettings.allowedBluetoothIds
+        val hasAllowedOutput = when (activeOutput?.kind) {
+            null -> false
+            AudioOutputKind.BLUETOOTH -> audioSettings.allowBluetooth &&
+                (allowedBluetoothIds == null ||
+                    (activeOutput.id != null && activeOutput.id in allowedBluetoothIds))
+            AudioOutputKind.WIRED -> audioSettings.allowWired
+            AudioOutputKind.PHONE_SPEAKER -> audioSettings.allowPhoneSpeaker
+            AudioOutputKind.OTHER -> audioSettings.allowUnidentifiedOutput
+        }
         if (!hasAllowedOutput) return
 
         lastPeriodicCheckinElapsed = nowElapsed

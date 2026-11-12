@@ -32,7 +32,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -64,6 +63,7 @@ private data class WatchPickerAppItem(
 @Composable
 fun WearWatchAppsPickerDialog(
     initialSelected: List<String>,
+    watchAppInstalled: Boolean,
     onSave: (List<String>) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -108,34 +108,29 @@ fun WearWatchAppsPickerDialog(
         loading = false
     }
 
-    val filtered = remember(catalog, query) {
+    val filtered = remember(catalog, query, selected) {
         val q = query.trim().lowercase()
-        if (q.isEmpty()) catalog
-        else catalog.filter { it.label.lowercase().contains(q) || it.packageName.lowercase().contains(q) }
+        val matches = if (q.isEmpty()) {
+            catalog
+        } else {
+            catalog.filter { it.label.lowercase().contains(q) || it.packageName.lowercase().contains(q) }
+        }
+        // Selected apps are always listed first.
+        matches.sortedWith(
+            compareByDescending<WatchPickerAppItem> { it.packageName in selected }
+                .thenBy { it.label.lowercase() },
+        )
     }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text("Select Watch Apps", fontWeight = FontWeight.Bold)
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                ) {
-                    Text(
-                        text = "${selected.size} / ${WearConfigHelper.MAX_WATCH_APPS}",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                    )
-                }
-            }
+            Text(
+                text = "Select Apps (${selected.size}/${WearConfigHelper.MAX_WATCH_APPS})",
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         },
         text = {
             Column(
@@ -143,7 +138,7 @@ fun WearWatchAppsPickerDialog(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(
-                    text = "Choose up to 4 apps whose notifications mirror to your watch (even when phone speech is stopped).",
+                    text = "Pick up to 4 apps to mirror to your watch.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -242,19 +237,7 @@ fun WearWatchAppsPickerDialog(
         },
         confirmButton = {
             Button(onClick = { onSave(selected) }) {
-                Text("Save & Sync")
-            }
-        },
-        dismissButton = {
-            Row {
-                if (selected.isNotEmpty()) {
-                    TextButton(onClick = { selected = emptyList() }) {
-                        Text("Clear")
-                    }
-                }
-                TextButton(onClick = onDismiss) {
-                    Text("Cancel")
-                }
+                Text(if (watchAppInstalled) "Save & Sync" else "Save")
             }
         },
     )

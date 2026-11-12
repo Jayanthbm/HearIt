@@ -119,6 +119,19 @@ class DevicesViewModel @Inject constructor(
         }
     }
 
+    /** Case/whitespace-insensitive key so two rows never show the same visible name. */
+    private fun normalizedLabel(label: String): String =
+        label.trim().lowercase().replace(Regex("\\s+"), " ")
+
+    /**
+     * Collapses rows that would render with the same name. When several ids share a label the
+     * allowed row wins so the switch does not claim a device is muted while a twin is allowed.
+     */
+    private fun distinctByLabel(rows: List<DeviceRow>): List<DeviceRow> =
+        rows.groupBy { normalizedLabel(it.label) }
+            .values
+            .map { group -> group.firstOrNull { it.allowed } ?: group.first() }
+
     /** Rebuilds both lists from the cached connected outputs and the latest settings. */
     private fun publish(settings: HearItSettings) {
         val audio = settings.eligibility.audioOutput
@@ -130,32 +143,42 @@ class DevicesViewModel @Inject constructor(
                 label = output.label,
                 isBluetooth = output.isBluetooth,
                 connected = true,
-                allowed = id == null || !output.isBluetooth ||
-                    DeviceSelectionEditor.isDeviceAllowed(audio, id),
+                allowed = when {
+                    id == null -> true
+                    output.isBluetooth -> DeviceSelectionEditor.isDeviceAllowed(audio, id)
+                    else -> audio.allowWired
+                },
                 canToggle = id != null && output.isBluetooth,
             )
         }
+        val uniqueConnectedRows = distinctByLabel(connectedRows)
         val connectedIds = connectedRows.map { it.id }.toSet()
+        val connectedLabels = uniqueConnectedRows.map { normalizedLabel(it.label) }.toSet()
 
-        val rememberedRows = settings.knownDevices
-            .filterNot { it.id in connectedIds }
-            .map { device ->
-                DeviceRow(
-                    id = device.id,
-                    label = device.label,
-                    isBluetooth = device.isBluetooth,
-                    connected = false,
-                    allowed = !device.isBluetooth ||
-                        DeviceSelectionEditor.isDeviceAllowed(audio, device.id),
-                    canToggle = device.isBluetooth,
-                )
-            }
+        val rememberedRows = distinctByLabel(
+            settings.knownDevices
+                .filterNot { it.id in connectedIds }
+                .map { device ->
+                    DeviceRow(
+                        id = device.id,
+                        label = device.label,
+                        isBluetooth = device.isBluetooth,
+                        connected = false,
+                        allowed = if (device.isBluetooth) {
+                            DeviceSelectionEditor.isDeviceAllowed(audio, device.id)
+                        } else {
+                            audio.allowWired
+                        },
+                        canToggle = device.isBluetooth,
+                    )
+                },
+        ).filterNot { normalizedLabel(it.label) in connectedLabels }
 
         _state.update { current ->
             current.copy(
                 loaded = true,
                 audioOutput = audio,
-                connected = connectedRows,
+                connected = uniqueConnectedRows,
                 remembered = rememberedRows,
             )
         }

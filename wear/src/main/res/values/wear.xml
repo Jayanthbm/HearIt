@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Advertised to the phone app so it can tell whether the Wear app is installed. -->
+    <string-array name="android_wear_capabilities">
+        <item>hearit_watch_app</item>
+    </string-array>
+</resources>

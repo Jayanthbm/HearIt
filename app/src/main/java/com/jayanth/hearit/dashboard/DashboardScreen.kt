@@ -26,6 +26,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -377,6 +378,8 @@ fun DashboardScreen(
                     CircularProgressIndicator(modifier = Modifier.size(36.dp))
                 }
             } else {
+                val settingsHubScrollState = rememberSaveable(saver = ScrollState.Saver) { ScrollState(0) }
+
                 AnimatedContent(
                     targetState = destination,
                     transitionSpec = {
@@ -422,7 +425,10 @@ fun DashboardScreen(
 
                         DashboardDestination.DEVICES -> devicesContent()
                         DashboardDestination.APPS -> appsContent()
-                        DashboardDestination.SETTINGS -> SettingsHubScreen(onSelectDestination = onSelectDestination)
+                        DashboardDestination.SETTINGS -> SettingsHubScreen(
+                            onSelectDestination = onSelectDestination,
+                            scrollState = settingsHubScrollState,
+                        )
                         DashboardDestination.HISTORY -> historyContent()
                         DashboardDestination.GLOBAL_RULES -> globalRulesContent()
                         DashboardDestination.VOICE_SPEECH -> voiceSpeechContent()
@@ -2097,12 +2103,13 @@ private fun ServiceStatusPill(
 @Composable
 private fun SettingsHubScreen(
     onSelectDestination: (DashboardDestination) -> Unit,
+    scrollState: ScrollState,
     modifier: Modifier = Modifier,
 ) {
     Column(
         modifier = modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
             .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
@@ -2120,7 +2127,7 @@ private fun SettingsHubScreen(
                 Column {
                     SettingsHubRow(
                         icon = Icons.Rounded.Headphones,
-                        title = "Devices & Audio Routing",
+                        title = "Devices & Audio",
                         subtitle = "Bluetooth, wired, speaker & Wear OS watch",
                         onClick = { onSelectDestination(DashboardDestination.DEVICES) },
                     )
