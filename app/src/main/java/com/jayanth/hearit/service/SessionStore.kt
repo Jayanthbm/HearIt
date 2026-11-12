@@ -1,7 +1,6 @@
 package com.jayanth.hearit.service
 
 import android.content.Context
-import com.jayanth.hearit.core.common.model.DigitGroupingStyle
 import com.jayanth.hearit.core.common.model.IntelligencePresets
 import com.jayanth.hearit.core.common.model.PronunciationRule
 import com.jayanth.hearit.core.common.model.ReactionFilterMode
@@ -161,11 +160,6 @@ class SessionStore(context: Context) {
             prefs.edit().putBoolean(KEY_PRONUNCIATION_ENABLED, value).apply()
         }
 
-    var isPronunciationOnSenderEnabled: Boolean
-        get() = prefs.getBoolean(KEY_PRONUNCIATION_ON_SENDER, false)
-        set(value) {
-            prefs.edit().putBoolean(KEY_PRONUNCIATION_ON_SENDER, value).apply()
-        }
 
     var pronunciationRules: List<PronunciationRule>
         get() {
@@ -202,14 +196,6 @@ class SessionStore(context: Context) {
         get() = prefs.getBoolean(KEY_FORMAT_OTP_CODES, true)
         set(value) {
             prefs.edit().putBoolean(KEY_FORMAT_OTP_CODES, value).apply()
-        }
-
-    var digitGroupingStyle: DigitGroupingStyle
-        get() = prefs.getString(KEY_DIGIT_GROUPING_STYLE, DigitGroupingStyle.CHUNKS_OF_3.name)
-            ?.let { raw -> DigitGroupingStyle.entries.firstOrNull { it.name == raw } }
-            ?: DigitGroupingStyle.CHUNKS_OF_3
-        set(value) {
-            prefs.edit().putString(KEY_DIGIT_GROUPING_STYLE, value.name).apply()
         }
 
     var isMessagingIntelligenceEnabled: Boolean
@@ -250,18 +236,6 @@ class SessionStore(context: Context) {
         get() = prefs.getBoolean(KEY_CONTACT_SANITIZER, true)
         set(value) {
             prefs.edit().putBoolean(KEY_CONTACT_SANITIZER, value).apply()
-        }
-
-    var isStripSenderEmojisEnabled: Boolean
-        get() = prefs.getBoolean(KEY_STRIP_SENDER_EMOJIS, true)
-        set(value) {
-            prefs.edit().putBoolean(KEY_STRIP_SENDER_EMOJIS, value).apply()
-        }
-
-    var isStripSenderBracketsEnabled: Boolean
-        get() = prefs.getBoolean(KEY_STRIP_SENDER_BRACKETS, true)
-        set(value) {
-            prefs.edit().putBoolean(KEY_STRIP_SENDER_BRACKETS, value).apply()
         }
 
     /** Smart Audio Polish & Voice Boost settings (#17, #18, #24, #34). */
@@ -620,6 +594,7 @@ class SessionStore(context: Context) {
                         put("matchCase", r.matchCase)
                         put("wholeWord", r.wholeWord)
                         put("enabled", r.enabled)
+                        put("applyToSender", r.applyToSender)
                     },
                 )
             }
@@ -627,6 +602,7 @@ class SessionStore(context: Context) {
 
     private fun decodePronunciationRules(raw: String): List<PronunciationRule> = try {
         val arr = JSONArray(raw)
+        val legacyApplyToSender = prefs.getBoolean(KEY_PRONUNCIATION_ON_SENDER, false)
         List(arr.length()) { i ->
             val o = arr.getJSONObject(i)
             PronunciationRule(
@@ -635,6 +611,11 @@ class SessionStore(context: Context) {
                 matchCase = o.optBoolean("matchCase", false),
                 wholeWord = o.optBoolean("wholeWord", true),
                 enabled = o.optBoolean("enabled", true),
+                applyToSender = if (o.has("applyToSender")) {
+                    o.optBoolean("applyToSender", true)
+                } else {
+                    legacyApplyToSender
+                },
             )
         }.filter { it.match.isNotBlank() }
     } catch (_: Throwable) {
@@ -708,15 +689,12 @@ class SessionStore(context: Context) {
         const val KEY_DIGIT_FORMATTING_ENABLED = "digit_formatting_enabled"
         const val KEY_FORMAT_PHONE_NUMBERS = "format_phone_numbers"
         const val KEY_FORMAT_OTP_CODES = "format_otp_codes"
-        const val KEY_DIGIT_GROUPING_STYLE = "digit_grouping_style"
         const val KEY_MESSAGING_INTELLIGENCE = "messaging_intelligence"
         const val KEY_SMS_BANK_CLEANER = "sms_bank_cleaner"
         const val KEY_CARRIER_SPAM_FILTER = "carrier_spam_filter"
         const val KEY_CARRIER_SPAM_PHRASES = "carrier_spam_phrases_json"
         const val KEY_EMAIL_CLEANUP = "email_cleanup"
         const val KEY_CONTACT_SANITIZER = "contact_sanitizer"
-        const val KEY_STRIP_SENDER_EMOJIS = "strip_sender_emojis"
-        const val KEY_STRIP_SENDER_BRACKETS = "strip_sender_brackets"
         const val KEY_EARCON_ENABLED = "earcon_enabled"
         const val KEY_EARCON_DURATION_MS = "earcon_duration_ms"
         const val KEY_ANTI_COLLISION_DELAY_MS = "anti_collision_delay_ms"

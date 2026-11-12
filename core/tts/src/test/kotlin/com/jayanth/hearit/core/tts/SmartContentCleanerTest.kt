@@ -1,7 +1,6 @@
 package com.jayanth.hearit.core.tts
 
 import com.jayanth.hearit.core.common.model.AppCategoryChoice
-import com.jayanth.hearit.core.common.model.DigitGroupingStyle
 import com.jayanth.hearit.core.common.model.IntelligencePresets
 import com.jayanth.hearit.core.common.model.PronunciationRule
 import com.jayanth.hearit.core.common.model.ReactionFilterMode
@@ -27,43 +26,37 @@ class SmartContentCleanerTest {
         SmartContentCleaner.reactionFilterMode = ReactionFilterMode.CONDENSE
         SmartContentCleaner.isBotSenderCleaningEnabled = true
         SmartContentCleaner.isPronunciationDictionaryEnabled = true
-        SmartContentCleaner.isPronunciationOnSenderEnabled = false
         SmartContentCleaner.pronunciationRules = emptyList()
         SmartContentCleaner.urlSummaryRules = IntelligencePresets.DEFAULT_URL_SUMMARY_RULES
         SmartContentCleaner.isDigitFormattingEnabled = true
         SmartContentCleaner.isFormatPhoneNumbersEnabled = true
         SmartContentCleaner.isFormatOtpCodesEnabled = true
-        SmartContentCleaner.digitGroupingStyle = DigitGroupingStyle.CHUNKS_OF_3
         SmartContentCleaner.isMessagingIntelligenceEnabled = true
         SmartContentCleaner.isSmsBankCleanerEnabled = true
         SmartContentCleaner.isCarrierSpamFilterEnabled = true
         SmartContentCleaner.carrierSpamPhrases = IntelligencePresets.DEFAULT_CARRIER_SPAM_PHRASES
         SmartContentCleaner.isEmailCleanupEnabled = true
         SmartContentCleaner.isContactSanitizerEnabled = true
-        SmartContentCleaner.isStripSenderEmojisEnabled = true
-        SmartContentCleaner.isStripSenderBracketsEnabled = true
         SmartContentCleaner.replaceAppAliases(emptyMap())
         SmartContentCleaner.replaceAppCategories(emptyMap())
     }
 
     @Test
-    fun cleanSender_sanitizesContactNameEmojisAndBrackets() {
+    fun cleanSender_sanitizesContactNameEmojisAndKeepsNotes() {
         assertEquals("Rahul", SmartContentCleaner.cleanSender("Rahul 🏏🔥"))
-        assertEquals("Dr. Sharma", SmartContentCleaner.cleanSender("Dr. Sharma (Cardio)"))
-        assertEquals("Ananya", SmartContentCleaner.cleanSender("Ananya (Work)"))
+        assertEquals("Dr. Sharma (Cardio)", SmartContentCleaner.cleanSender("Dr. Sharma (Cardio)"))
+        assertEquals("Ananya (Work)", SmartContentCleaner.cleanSender("Ananya (Work)"))
     }
 
     @Test
-    fun cleanSender_respectsContactSanitizerSubToggles() {
-        SmartContentCleaner.isStripSenderEmojisEnabled = false
-        assertEquals("Rahul 🏏🔥", SmartContentCleaner.cleanSender("Rahul 🏏🔥"))
-
-        SmartContentCleaner.isStripSenderEmojisEnabled = true
-        SmartContentCleaner.isStripSenderBracketsEnabled = false
-        assertEquals("Ananya (Work)", SmartContentCleaner.cleanSender("Ananya (Work) 🌟"))
-
+    fun cleanSender_respectsContactSanitizerToggle() {
         SmartContentCleaner.isContactSanitizerEnabled = false
+        assertEquals("Rahul 🏏🔥", SmartContentCleaner.cleanSender("Rahul 🏏🔥"))
         assertEquals("Ananya (Work) 🌟", SmartContentCleaner.cleanSender("Ananya (Work) 🌟"))
+
+        SmartContentCleaner.isContactSanitizerEnabled = true
+        assertEquals("Rahul", SmartContentCleaner.cleanSender("Rahul 🏏🔥"))
+        assertEquals("Ananya (Work)", SmartContentCleaner.cleanSender("Ananya (Work) 🌟"))
     }
 
     @Test
@@ -126,8 +119,6 @@ class SmartContentCleanerTest {
             "Call plus 9 1, 9 8 7, 6 5 4, 3 2 1 0 at 10:30",
             SmartContentCleaner.cleanMessageText("Call +91 9876543210 at 10:30"),
         )
-        SmartContentCleaner.digitGroupingStyle = DigitGroupingStyle.INDIVIDUAL
-        assertEquals("Code 4 8 2 9 1 0", SmartContentCleaner.cleanMessageText("Code 482910"))
     }
 
     @Test

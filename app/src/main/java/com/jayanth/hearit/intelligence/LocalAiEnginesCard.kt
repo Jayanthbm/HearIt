@@ -82,12 +82,12 @@ fun LocalAiEnginesCard(
                     }
                     Column {
                         Text(
-                            text = "On-Device AI Engines",
+                            text = "On Device AI",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
                         )
                         Text(
-                            text = "Tier 1 pattern NLP & Tier 2 system AI capabilities",
+                            text = "Pattern cleanup and optional system AI",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -102,9 +102,9 @@ fun LocalAiEnginesCard(
                 }
             }
 
-            // Tier 1: Instant Pattern NLP
+            // Instant Pattern NLP
             EngineStatusRow(
-                title = "Tier 1 · Instant Pattern NLP",
+                title = "Instant Pattern NLP",
                 subtitle = "0 MB overhead · Runs locally on every Android device",
                 badgeText = "Active · On-Device",
                 badgeContainer = Color(0xFF1B5E20).copy(alpha = 0.2f),
@@ -114,10 +114,10 @@ fun LocalAiEnginesCard(
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 
-            // Tier 2A: ML Kit Entity Extraction
+            // ML Kit Entity Extraction
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 EngineStatusRow(
-                    title = "Tier 2A · ML Kit Entity Extraction",
+                    title = "ML Kit Entity Extraction",
                     subtitle = "Detects tracking IDs, flight numbers, and IBAN codes cleanly before TTS",
                     badgeText = state.mlKitStatusLabel,
                     badgeContainer = if (state.mlKitModelReady) {
@@ -167,13 +167,13 @@ fun LocalAiEnginesCard(
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 
-            // Tier 2B: Android AICore (System Gemini Nano)
+            // Android AICore (System Gemini Nano)
             EngineStatusRow(
-                title = "Tier 2B · Android AICore",
+                title = "Android AICore",
                 subtitle = if (state.aiCoreSupported) {
                     "System Gemini Nano hardware acceleration available for long notification summaries"
                 } else {
-                    "Not available in OS on this phone; Tier 1 instant cleaning handles all messages seamlessly"
+                    "Not available on this device; instant cleaning still works"
                 },
                 badgeText = state.aiCoreStatusLabel,
                 badgeContainer = if (state.aiCoreSupported) {

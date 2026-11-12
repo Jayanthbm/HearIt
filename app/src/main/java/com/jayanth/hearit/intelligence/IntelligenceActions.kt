@@ -1,7 +1,6 @@
 package com.jayanth.hearit.intelligence
 
 import com.jayanth.hearit.core.common.model.AppCategory
-import com.jayanth.hearit.core.common.model.DigitGroupingStyle
 import com.jayanth.hearit.core.common.model.EligibilitySettings
 import com.jayanth.hearit.core.common.model.PronunciationRule
 import com.jayanth.hearit.core.common.model.ReactionFilterMode
@@ -25,7 +24,6 @@ data class IntelligenceActions(
     val onReactionFilterModeChanged: (ReactionFilterMode) -> Unit = {},
     val onToggleBotSenderCleaning: (Boolean) -> Unit = {},
     val onTogglePronunciationDictionary: (Boolean) -> Unit = {},
-    val onTogglePronunciationOnSender: (Boolean) -> Unit = {},
     val onSavePronunciationRule: (oldMatch: String?, rule: PronunciationRule) -> Unit = { _, _ -> },
     val onTogglePronunciationRule: (match: String, enabled: Boolean) -> Unit = { _, _ -> },
     val onDeletePronunciationRule: (match: String) -> Unit = {},
@@ -34,7 +32,6 @@ data class IntelligenceActions(
     val onToggleDigitFormatting: (Boolean) -> Unit = {},
     val onToggleFormatPhoneNumbers: (Boolean) -> Unit = {},
     val onToggleFormatOtpCodes: (Boolean) -> Unit = {},
-    val onDigitGroupingStyleChanged: (DigitGroupingStyle) -> Unit = {},
     val onToggleMessagingIntelligence: (Boolean) -> Unit = {},
     val onToggleSmsBankCleaner: (Boolean) -> Unit = {},
     val onToggleCarrierSpamFilter: (Boolean) -> Unit = {},
@@ -43,8 +40,6 @@ data class IntelligenceActions(
     val onLoadDefaultCarrierSpamPhrases: () -> Unit = {},
     val onToggleEmailCleanup: (Boolean) -> Unit = {},
     val onToggleContactSanitizer: (Boolean) -> Unit = {},
-    val onToggleStripSenderEmojis: (Boolean) -> Unit = {},
-    val onToggleStripSenderBrackets: (Boolean) -> Unit = {},
     val onSetAppCategory: (packageName: String, category: AppCategory?) -> Unit = { _, _ -> },
     val onResetAppCategory: (packageName: String) -> Unit = {},
     val onToggleDuckingLevelControl: (Boolean) -> Unit = {},
@@ -97,7 +92,6 @@ data class IntelligenceActions(
             onReactionFilterModeChanged = viewModel::onReactionFilterModeChanged,
             onToggleBotSenderCleaning = viewModel::onToggleBotSenderCleaning,
             onTogglePronunciationDictionary = viewModel::onTogglePronunciationDictionary,
-            onTogglePronunciationOnSender = viewModel::onTogglePronunciationOnSender,
             onSavePronunciationRule = viewModel::onSavePronunciationRule,
             onTogglePronunciationRule = viewModel::onTogglePronunciationRule,
             onDeletePronunciationRule = viewModel::onDeletePronunciationRule,
@@ -106,7 +100,6 @@ data class IntelligenceActions(
             onToggleDigitFormatting = viewModel::onToggleDigitFormatting,
             onToggleFormatPhoneNumbers = viewModel::onToggleFormatPhoneNumbers,
             onToggleFormatOtpCodes = viewModel::onToggleFormatOtpCodes,
-            onDigitGroupingStyleChanged = viewModel::onDigitGroupingStyleChanged,
             onToggleMessagingIntelligence = viewModel::onToggleMessagingIntelligence,
             onToggleSmsBankCleaner = viewModel::onToggleSmsBankCleaner,
             onToggleCarrierSpamFilter = viewModel::onToggleCarrierSpamFilter,
@@ -115,8 +108,6 @@ data class IntelligenceActions(
             onLoadDefaultCarrierSpamPhrases = viewModel::onLoadDefaultCarrierSpamPhrases,
             onToggleEmailCleanup = viewModel::onToggleEmailCleanup,
             onToggleContactSanitizer = viewModel::onToggleContactSanitizer,
-            onToggleStripSenderEmojis = viewModel::onToggleStripSenderEmojis,
-            onToggleStripSenderBrackets = viewModel::onToggleStripSenderBrackets,
             onSetAppCategory = viewModel::onSetAppCategory,
             onResetAppCategory = viewModel::onResetAppCategory,
             onToggleDuckingLevelControl = viewModel::onToggleDuckingLevelControl,

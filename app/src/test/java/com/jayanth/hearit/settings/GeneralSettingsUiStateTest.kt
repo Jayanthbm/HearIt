@@ -62,9 +62,5 @@ class GeneralSettingsUiStateTest {
             com.jayanth.hearit.core.common.model.ReactionFilterMode.CONDENSE,
             state.reactionFilterMode,
         )
-        assertEquals(
-            com.jayanth.hearit.core.common.model.DigitGroupingStyle.CHUNKS_OF_3,
-            state.digitGroupingStyle,
-        )
     }
 }

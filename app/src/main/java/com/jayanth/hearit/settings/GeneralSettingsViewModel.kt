@@ -10,7 +10,6 @@ import com.jayanth.hearit.applications.ApplicationCatalog
 import com.jayanth.hearit.core.common.model.AppCategory
 import com.jayanth.hearit.core.common.model.AppCategoryChoice
 import com.jayanth.hearit.core.common.model.AudioFocusPolicy
-import com.jayanth.hearit.core.common.model.DigitGroupingStyle
 import com.jayanth.hearit.core.common.model.EligibilitySettings
 import com.jayanth.hearit.core.common.model.IntelligencePresets
 import com.jayanth.hearit.core.common.model.OverflowPolicy
@@ -82,20 +81,16 @@ class GeneralSettingsViewModel @Inject constructor(
             reactionFilterMode = sessionStore.reactionFilterMode,
             isBotSenderCleaningEnabled = sessionStore.isBotSenderCleaningEnabled,
             isPronunciationDictionaryEnabled = sessionStore.isPronunciationDictionaryEnabled,
-            isPronunciationOnSenderEnabled = sessionStore.isPronunciationOnSenderEnabled,
             pronunciationRules = sessionStore.pronunciationRules,
             isDigitFormattingEnabled = sessionStore.isDigitFormattingEnabled,
             isFormatPhoneNumbersEnabled = sessionStore.isFormatPhoneNumbersEnabled,
             isFormatOtpCodesEnabled = sessionStore.isFormatOtpCodesEnabled,
-            digitGroupingStyle = sessionStore.digitGroupingStyle,
             isMessagingIntelligenceEnabled = sessionStore.isMessagingIntelligenceEnabled,
             isSmsBankCleanerEnabled = sessionStore.isSmsBankCleanerEnabled,
             isCarrierSpamFilterEnabled = sessionStore.isCarrierSpamFilterEnabled,
             carrierSpamPhrases = sessionStore.carrierSpamPhrases,
             isEmailCleanupEnabled = sessionStore.isEmailCleanupEnabled,
             isContactSanitizerEnabled = sessionStore.isContactSanitizerEnabled,
-            isStripSenderEmojisEnabled = sessionStore.isStripSenderEmojisEnabled,
-            isStripSenderBracketsEnabled = sessionStore.isStripSenderBracketsEnabled,
             isDuckingLevelControlEnabled = sessionStore.isDuckingLevelControlEnabled,
             duckingVolumePercent = sessionStore.duckingVolumePercent,
             audioFocusReturnDelayMs = sessionStore.audioFocusReturnDelayMs,
@@ -271,12 +266,6 @@ class GeneralSettingsViewModel @Inject constructor(
         _state.update { it.copy(isPronunciationDictionaryEnabled = enabled) }
     }
 
-    fun onTogglePronunciationOnSender(enabled: Boolean) {
-        sessionStore.isPronunciationOnSenderEnabled = enabled
-        SmartContentCleaner.isPronunciationOnSenderEnabled = enabled
-        _state.update { it.copy(isPronunciationOnSenderEnabled = enabled) }
-    }
-
     fun onSavePronunciationRule(oldMatch: String?, rule: PronunciationRule) {
         val cleanMatch = rule.match.trim()
         val cleanSpoken = rule.spokenAs.trim()
@@ -393,12 +382,6 @@ class GeneralSettingsViewModel @Inject constructor(
         _state.update { it.copy(isFormatOtpCodesEnabled = enabled) }
     }
 
-    fun onDigitGroupingStyleChanged(style: DigitGroupingStyle) {
-        sessionStore.digitGroupingStyle = style
-        SmartContentCleaner.digitGroupingStyle = style
-        _state.update { it.copy(digitGroupingStyle = style) }
-    }
-
     fun onToggleMessagingIntelligence(enabled: Boolean) {
         sessionStore.isMessagingIntelligenceEnabled = enabled
         SmartContentCleaner.isMessagingIntelligenceEnabled = enabled
@@ -453,18 +436,6 @@ class GeneralSettingsViewModel @Inject constructor(
         sessionStore.isContactSanitizerEnabled = enabled
         SmartContentCleaner.isContactSanitizerEnabled = enabled
         _state.update { it.copy(isContactSanitizerEnabled = enabled) }
-    }
-
-    fun onToggleStripSenderEmojis(enabled: Boolean) {
-        sessionStore.isStripSenderEmojisEnabled = enabled
-        SmartContentCleaner.isStripSenderEmojisEnabled = enabled
-        _state.update { it.copy(isStripSenderEmojisEnabled = enabled) }
-    }
-
-    fun onToggleStripSenderBrackets(enabled: Boolean) {
-        sessionStore.isStripSenderBracketsEnabled = enabled
-        SmartContentCleaner.isStripSenderBracketsEnabled = enabled
-        _state.update { it.copy(isStripSenderBracketsEnabled = enabled) }
     }
 
     fun onSetAppCategory(packageName: String, category: AppCategory?) {

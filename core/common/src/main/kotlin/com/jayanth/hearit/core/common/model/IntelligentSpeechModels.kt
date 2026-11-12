@@ -98,6 +98,7 @@ data class PronunciationRule(
     val matchCase: Boolean = false,
     val wholeWord: Boolean = true,
     val enabled: Boolean = true,
+    val applyToSender: Boolean = true,
 )
 
 /** User-configurable URL domain/path summary rule. */
@@ -123,12 +124,12 @@ enum class DigitGroupingStyle {
 /** Built-in starter presets for active intelligence features. */
 object IntelligencePresets {
     val DEFAULT_PRONUNCIATION_RULES: List<PronunciationRule> = listOf(
-        PronunciationRule(match = "OTP", spokenAs = "O T P", matchCase = false, wholeWord = true),
-        PronunciationRule(match = "ETA", spokenAs = "E T A", matchCase = false, wholeWord = true),
-        PronunciationRule(match = "FYI", spokenAs = "F Y I", matchCase = false, wholeWord = true),
-        PronunciationRule(match = "ASAP", spokenAs = "A S A P", matchCase = false, wholeWord = true),
-        PronunciationRule(match = "Dr.", spokenAs = "Doctor", matchCase = false, wholeWord = false),
-        PronunciationRule(match = "vs.", spokenAs = "versus", matchCase = false, wholeWord = false),
+        PronunciationRule(match = "OTP", spokenAs = "O T P", matchCase = false, wholeWord = true, applyToSender = false),
+        PronunciationRule(match = "ETA", spokenAs = "E T A", matchCase = false, wholeWord = true, applyToSender = false),
+        PronunciationRule(match = "FYI", spokenAs = "F Y I", matchCase = false, wholeWord = true, applyToSender = false),
+        PronunciationRule(match = "ASAP", spokenAs = "A S A P", matchCase = false, wholeWord = true, applyToSender = false),
+        PronunciationRule(match = "Dr.", spokenAs = "Doctor", matchCase = false, wholeWord = false, applyToSender = true),
+        PronunciationRule(match = "vs.", spokenAs = "versus", matchCase = false, wholeWord = false, applyToSender = true),
     )
 
     val DEFAULT_URL_SUMMARY_RULES: List<UrlSummaryRule> = listOf(
@@ -140,7 +141,6 @@ object IntelligencePresets {
         UrlSummaryRule("goo.gl/maps", "Google Maps location", isPredefined = true),
         UrlSummaryRule("facebook.com", "Facebook post", isPredefined = true),
         UrlSummaryRule("fb.watch", "Facebook video", isPredefined = true),
-        UrlSummaryRule("twitter.com", "X post", isPredefined = true),
         UrlSummaryRule("x.com", "X post", isPredefined = true),
         UrlSummaryRule("linkedin.com", "LinkedIn post", isPredefined = true),
         UrlSummaryRule("github.com", "GitHub link", isPredefined = true),

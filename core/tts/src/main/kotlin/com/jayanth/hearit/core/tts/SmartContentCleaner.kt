@@ -101,7 +101,6 @@ object SmartContentCleaner {
     @Volatile var isBotSenderCleaningEnabled: Boolean = true
 
     @Volatile var isPronunciationDictionaryEnabled: Boolean = true
-    @Volatile var isPronunciationOnSenderEnabled: Boolean = false
     @Volatile var pronunciationRules: List<PronunciationRule> = emptyList()
 
     @Volatile var urlSummaryRules: List<UrlSummaryRule> = IntelligencePresets.DEFAULT_URL_SUMMARY_RULES
@@ -109,7 +108,6 @@ object SmartContentCleaner {
     @Volatile var isDigitFormattingEnabled: Boolean = true
     @Volatile var isFormatPhoneNumbersEnabled: Boolean = true
     @Volatile var isFormatOtpCodesEnabled: Boolean = true
-    @Volatile var digitGroupingStyle: DigitGroupingStyle = DigitGroupingStyle.CHUNKS_OF_3
 
     @Volatile var isMessagingIntelligenceEnabled: Boolean = true
     @Volatile var isSmsBankCleanerEnabled: Boolean = true
@@ -118,8 +116,6 @@ object SmartContentCleaner {
     @Volatile var isEmailCleanupEnabled: Boolean = true
 
     @Volatile var isContactSanitizerEnabled: Boolean = true
-    @Volatile var isStripSenderEmojisEnabled: Boolean = true
-    @Volatile var isStripSenderBracketsEnabled: Boolean = true
 
     fun setAppAlias(packageName: String, alias: String?) {
         if (alias.isNullOrBlank()) {
@@ -174,16 +170,11 @@ object SmartContentCleaner {
 
         var clean = trimmed
         if (isContactSanitizerEnabled) {
-            if (isStripSenderBracketsEnabled) {
-                clean = clean.replace(Regex("\\s*\\([^)]*\\)"), "")
-            }
-            if (isStripSenderEmojisEnabled) {
-                clean = clean.replace(Regex("[\\p{So}\\p{Cn}\\uFE0F\\u200D]"), "").trim()
-            }
+            clean = clean.replace(Regex("[\\p{So}\\p{Cn}\\uFE0F\\u200D]"), "").trim()
         }
 
-        if (isPronunciationDictionaryEnabled && isPronunciationOnSenderEnabled) {
-            clean = applyPronunciationRules(clean)
+        if (isPronunciationDictionaryEnabled) {
+            clean = applyPronunciationRules(clean, forSender = true)
         }
 
         return clean.takeIf { it.isNotBlank() } ?: trimmed
@@ -254,7 +245,7 @@ object SmartContentCleaner {
 
         // 10. Pronunciation & Acronym Dictionary (Item 3.3)
         if (isPronunciationDictionaryEnabled) {
-            result = applyPronunciationRules(result)
+            result = applyPronunciationRules(result, forSender = false)
         }
 
         // 11. OTP & Phone digit-by-digit formatting (Item 9.2 A.3)
@@ -465,8 +456,10 @@ object SmartContentCleaner {
         return text.trimEnd()
     }
 
-    private fun applyPronunciationRules(input: String): String {
-        val active = pronunciationRules.filter { it.enabled && it.match.isNotBlank() }
+    private fun applyPronunciationRules(input: String, forSender: Boolean): String {
+        val active = pronunciationRules.filter {
+            it.enabled && it.match.isNotBlank() && (!forSender || it.applyToSender)
+        }
         if (active.isEmpty()) return input
         var text = input
         for (rule in active.sortedByDescending { it.match.length }) {
@@ -510,13 +503,13 @@ object SmartContentCleaner {
                         if (countryMatch != null) {
                             val cc = countryMatch.groupValues[1].toCharArray().joinToString(" ")
                             val restDigits = countryMatch.groupValues[2].filter { it.isDigit() }
-                            val spokenRest = formatDigitGroups(restDigits, digitGroupingStyle)
+                            val spokenRest = formatDigitGroups(restDigits, DigitGroupingStyle.CHUNKS_OF_3)
                             "plus $cc, $spokenRest"
                         } else {
-                            "plus ${formatDigitGroups(digitsOnly, digitGroupingStyle)}"
+                            "plus ${formatDigitGroups(digitsOnly, DigitGroupingStyle.CHUNKS_OF_3)}"
                         }
                     } else {
-                        formatDigitGroups(digitsOnly, digitGroupingStyle)
+                        formatDigitGroups(digitsOnly, DigitGroupingStyle.CHUNKS_OF_3)
                     }
                     matcher.appendReplacement(sb, Matcher.quoteReplacement(spoken))
                 } else {
@@ -557,7 +550,7 @@ object SmartContentCleaner {
                     trailingWord.startsWith("pm") ||
                     trailingWord.startsWith("%")
                 if (!inUrl && !followedByUnitOrTime) {
-                    val spoken = formatDigitGroups(digits, digitGroupingStyle)
+                    val spoken = formatDigitGroups(digits, DigitGroupingStyle.CHUNKS_OF_3)
                     matcher.appendReplacement(sb, Matcher.quoteReplacement(spoken))
                 } else {
                     matcher.appendReplacement(sb, Matcher.quoteReplacement(digits))

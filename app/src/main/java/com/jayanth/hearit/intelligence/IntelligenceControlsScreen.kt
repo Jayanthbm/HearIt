@@ -111,7 +111,6 @@ fun IntelligenceControlsScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }

@@ -37,21 +37,17 @@ class IntelligentSettingsSync @Inject constructor(
         SmartContentCleaner.reactionFilterMode = sessionStore.reactionFilterMode
         SmartContentCleaner.isBotSenderCleaningEnabled = sessionStore.isBotSenderCleaningEnabled
         SmartContentCleaner.isPronunciationDictionaryEnabled = sessionStore.isPronunciationDictionaryEnabled
-        SmartContentCleaner.isPronunciationOnSenderEnabled = sessionStore.isPronunciationOnSenderEnabled
         SmartContentCleaner.pronunciationRules = sessionStore.pronunciationRules
         SmartContentCleaner.urlSummaryRules = sessionStore.urlSummaryRules
         SmartContentCleaner.isDigitFormattingEnabled = sessionStore.isDigitFormattingEnabled
         SmartContentCleaner.isFormatPhoneNumbersEnabled = sessionStore.isFormatPhoneNumbersEnabled
         SmartContentCleaner.isFormatOtpCodesEnabled = sessionStore.isFormatOtpCodesEnabled
-        SmartContentCleaner.digitGroupingStyle = sessionStore.digitGroupingStyle
         SmartContentCleaner.isMessagingIntelligenceEnabled = sessionStore.isMessagingIntelligenceEnabled
         SmartContentCleaner.isSmsBankCleanerEnabled = sessionStore.isSmsBankCleanerEnabled
         SmartContentCleaner.isCarrierSpamFilterEnabled = sessionStore.isCarrierSpamFilterEnabled
         SmartContentCleaner.carrierSpamPhrases = sessionStore.carrierSpamPhrases
         SmartContentCleaner.isEmailCleanupEnabled = sessionStore.isEmailCleanupEnabled
         SmartContentCleaner.isContactSanitizerEnabled = sessionStore.isContactSanitizerEnabled
-        SmartContentCleaner.isStripSenderEmojisEnabled = sessionStore.isStripSenderEmojisEnabled
-        SmartContentCleaner.isStripSenderBracketsEnabled = sessionStore.isStripSenderBracketsEnabled
     }
 
     /** Atomically applies per-app spoken aliases and category overrides from [settings]. */

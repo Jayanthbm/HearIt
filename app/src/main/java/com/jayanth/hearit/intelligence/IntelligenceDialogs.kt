@@ -24,8 +24,7 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AutoFixHigh
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DeleteOutline
-import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
@@ -59,6 +58,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.jayanth.hearit.applications.AppEntry
 import com.jayanth.hearit.core.common.model.AppCategory
+import com.jayanth.hearit.core.common.model.IntelligencePresets
 import com.jayanth.hearit.core.common.model.PronunciationRule
 import com.jayanth.hearit.core.common.model.UrlSummaryRule
 
@@ -67,6 +67,7 @@ private fun IntelligenceConfigModal(
     title: String,
     subtitle: String? = null,
     onDismiss: () -> Unit,
+    showDone: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Dialog(
@@ -108,8 +109,7 @@ private fun IntelligenceConfigModal(
                                 text = subtitle,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
+                                maxLines = 2,
                             )
                         }
                     }
@@ -133,15 +133,17 @@ private fun IntelligenceConfigModal(
                     content()
                 }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                ) {
-                    Button(
-                        onClick = onDismiss,
-                        shape = RoundedCornerShape(12.dp),
+                if (showDone) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
                     ) {
-                        Text("Done")
+                        Button(
+                            onClick = onDismiss,
+                            shape = RoundedCornerShape(12.dp),
+                        ) {
+                            Text("Done")
+                        }
                     }
                 }
             }
@@ -153,8 +155,6 @@ private fun IntelligenceConfigModal(
 @Composable
 fun PronunciationDictionaryDialog(
     rules: List<PronunciationRule>,
-    applyOnSender: Boolean,
-    onToggleApplyOnSender: (Boolean) -> Unit,
     onSaveRule: (oldMatch: String?, rule: PronunciationRule) -> Unit,
     onToggleRule: (match: String, enabled: Boolean) -> Unit,
     onDeleteRule: (match: String) -> Unit,
@@ -167,238 +167,305 @@ fun PronunciationDictionaryDialog(
     var spokenText by remember { mutableStateOf("") }
     var matchCase by remember { mutableStateOf(false) }
     var wholeWord by remember { mutableStateOf(true) }
-    var sampleTestText by remember { mutableStateOf("OTP 482910 ETA 15 mins from Dr. Sharma") }
+    var applyToSender by remember { mutableStateOf(true) }
+    var showForm by remember { mutableStateOf(false) }
+    var showWordMatchInfo by remember { mutableStateOf(false) }
+    var matchError by remember { mutableStateOf<String?>(null) }
+    var spokenError by remember { mutableStateOf<String?>(null) }
+    val defaultsLoaded = IntelligencePresets.DEFAULT_PRONUNCIATION_RULES.all { preset ->
+        rules.any { it.match.equals(preset.match, ignoreCase = true) }
+    }
+    val isFormOpen = showForm || editingOriginalMatch != null
+
+    fun clearForm(hide: Boolean = true) {
+        editingOriginalMatch = null
+        matchText = ""
+        spokenText = ""
+        matchCase = false
+        wholeWord = true
+        applyToSender = true
+        showWordMatchInfo = false
+        matchError = null
+        spokenError = null
+        if (hide) showForm = false
+    }
 
     IntelligenceConfigModal(
-        title = "Pronunciation Dictionary",
-        subtitle = "Customize how acronyms, brands, and shorthand sound when spoken",
+        title = "User Dictionary",
+        subtitle = "Set how words and acronyms are spoken",
         onDismiss = onDismiss,
+        showDone = false,
     ) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(14.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        ) {
+        if (!isFormOpen) {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = "Also apply to sender names",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.weight(1f),
-                )
-                Switch(checked = applyOnSender, onCheckedChange = onToggleApplyOnSender)
-            }
-        }
-
-        // Structured Add / Edit Rule Form
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(14.dp),
-            color = MaterialTheme.colorScheme.surfaceContainer,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    OutlinedTextField(
-                        value = matchText,
-                        onValueChange = { matchText = it },
-                        label = { Text("Word") },
-                        placeholder = { Text("e.g. ETA") },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f),
-                    )
-                    OutlinedTextField(
-                        value = spokenText,
-                        onValueChange = { spokenText = it },
-                        label = { Text("Speak as") },
-                        placeholder = { Text("e.g. E T A") },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f),
-                    )
+                FilledTonalButton(onClick = { showForm = true }) {
+                    Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Rule")
                 }
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    FilterChip(
-                        selected = wholeWord,
-                        onClick = { wholeWord = !wholeWord },
-                        label = { Text("Whole word") },
-                    )
-                    FilterChip(
-                        selected = matchCase,
-                        onClick = { matchCase = !matchCase },
-                        label = { Text("Match case") },
-                    )
-                    if (editingOriginalMatch != null) {
-                        TextButton(
-                            onClick = {
-                                editingOriginalMatch = null
-                                matchText = ""
-                                spokenText = ""
-                            },
-                        ) {
-                            Text("Cancel Edit")
-                        }
-                    }
-                    FilledTonalButton(
-                        onClick = {
-                            if (matchText.isNotBlank() && spokenText.isNotBlank()) {
-                                onSaveRule(
-                                    editingOriginalMatch,
-                                    PronunciationRule(
-                                        match = matchText.trim(),
-                                        spokenAs = spokenText.trim(),
-                                        matchCase = matchCase,
-                                        wholeWord = wholeWord,
-                                    ),
-                                )
-                                editingOriginalMatch = null
-                                matchText = ""
-                                spokenText = ""
-                            }
-                        },
-                        enabled = matchText.isNotBlank() && spokenText.isNotBlank(),
-                    ) {
-                        Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                if (!defaultsLoaded) {
+                    TextButton(onClick = onLoadPresets) {
+                        Icon(Icons.Rounded.AutoFixHigh, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text(if (editingOriginalMatch != null) "Update" else "Add")
+                        Text("Defaults")
                     }
                 }
             }
-        }
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
             Text(
                 text = "Active Rules (${rules.size})",
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.SemiBold,
             )
-            TextButton(onClick = onLoadPresets) {
-                Icon(Icons.Rounded.AutoFixHigh, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Load Presets")
-            }
-        }
 
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f, fill = false)
-                .heightIn(min = 100.dp, max = 180.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            if (rules.isEmpty()) {
-                item {
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    ) {
-                        Text(
-                            text = "No custom rules yet. Tap 'Load Presets' or add your own above.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(14.dp),
-                        )
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f, fill = false),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                if (rules.isEmpty()) {
+                    item {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        ) {
+                            Text(
+                                text = "No rules yet.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(14.dp),
+                            )
+                        }
                     }
-                }
-            } else {
-                items(rules, key = { it.match.lowercase() }) { rule ->
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-                    ) {
-                        Row(
+                } else {
+                    items(rules, key = { it.match.lowercase() }) { rule ->
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "${rule.match} → ${rule.spokenAs}",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                                Text(
-                                    text = buildString {
-                                        append(if (rule.wholeWord) "Whole word" else "Partial")
-                                        append(if (rule.matchCase) " · Case-sensitive" else " · Ignore case")
-                                    },
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                            Switch(
-                                checked = rule.enabled,
-                                onCheckedChange = { onToggleRule(rule.match, it) },
-                                modifier = Modifier.scale(0.85f),
-                            )
-                            IconButton(
-                                onClick = {
+                                .clickable {
                                     editingOriginalMatch = rule.match
                                     matchText = rule.match
                                     spokenText = rule.spokenAs
                                     matchCase = rule.matchCase
                                     wholeWord = rule.wholeWord
+                                    applyToSender = rule.applyToSender
+                                    matchError = null
+                                    spokenError = null
+                                    showForm = true
                                 },
-                                modifier = Modifier.size(34.dp),
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Icon(Icons.Rounded.Edit, contentDescription = "Edit rule", modifier = Modifier.size(17.dp))
-                            }
-                            IconButton(
-                                onClick = { onDeleteRule(rule.match) },
-                                modifier = Modifier.size(34.dp),
-                            ) {
-                                Icon(Icons.Rounded.DeleteOutline, contentDescription = "Delete rule", modifier = Modifier.size(17.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "${rule.match} → ${rule.spokenAs}",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    Text(
+                                        text = buildString {
+                                            append(if (rule.wholeWord) "Whole word" else "Partial")
+                                            append(if (rule.matchCase) " · Case-sensitive" else " · Ignore case")
+                                            append(if (rule.applyToSender) " · Senders" else " · No senders")
+                                        },
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                Switch(
+                                    checked = rule.enabled,
+                                    onCheckedChange = { onToggleRule(rule.match, it) },
+                                    modifier = Modifier.scale(0.85f),
+                                )
+                                IconButton(
+                                    onClick = { onDeleteRule(rule.match) },
+                                    modifier = Modifier.size(34.dp),
+                                ) {
+                                    Icon(
+                                        Icons.Rounded.DeleteOutline,
+                                        contentDescription = "Delete rule",
+                                        modifier = Modifier.size(17.dp),
+                                        tint = MaterialTheme.colorScheme.error,
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
-        }
-
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            OutlinedTextField(
-                value = sampleTestText,
-                onValueChange = { sampleTestText = it },
-                label = { Text("Quick Test Sample") },
-                singleLine = true,
-                modifier = Modifier.weight(1f),
-            )
-            FilledTonalButton(onClick = { onTestPronunciation(sampleTestText) }) {
-                Icon(Icons.Rounded.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Test")
+        } else {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                color = MaterialTheme.colorScheme.surfaceContainer,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            FilterChip(
+                                selected = wholeWord,
+                                onClick = { wholeWord = !wholeWord },
+                                label = { Text("Word") },
+                            )
+                            FilterChip(
+                                selected = matchCase,
+                                onClick = { matchCase = !matchCase },
+                                label = { Text("Match Case") },
+                            )
+                        }
+                        IconButton(onClick = { showWordMatchInfo = !showWordMatchInfo }) {
+                            Icon(
+                                Icons.Rounded.Info,
+                                contentDescription = "Word and Match Case info",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                    if (showWordMatchInfo) {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                        ) {
+                            Text(
+                                text = "Word on: matches whole words only. Word off: can match inside other words.\n" +
+                                    "Match Case on: case must match exactly. Match Case off: ignores case.\n" +
+                                    "Both off: case-insensitive partial match (e.g. “app” can match inside “apple”).",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(12.dp),
+                            )
+                        }
+                    }
+                    OutlinedTextField(
+                        value = matchText,
+                        onValueChange = {
+                            matchText = it
+                            matchError = null
+                        },
+                        label = { Text("Word") },
+                        placeholder = { Text("e.g. ETA") },
+                        singleLine = true,
+                        isError = matchError != null,
+                        supportingText = matchError?.let { err -> { Text(err) } },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    OutlinedTextField(
+                        value = spokenText,
+                        onValueChange = {
+                            spokenText = it
+                            spokenError = null
+                        },
+                        label = { Text("Speak as") },
+                        placeholder = { Text("e.g. E T A") },
+                        singleLine = true,
+                        isError = spokenError != null,
+                        supportingText = spokenError?.let { err -> { Text(err) } },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            text = "Apply to senders",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Switch(checked = applyToSender, onCheckedChange = { applyToSender = it })
+                    }
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        if (!defaultsLoaded) {
+                            TextButton(onClick = onLoadPresets) {
+                                Icon(Icons.Rounded.AutoFixHigh, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Defaults")
+                            }
+                        }
+                        OutlinedButton(onClick = { clearForm() }) {
+                            Text(if (editingOriginalMatch != null) "Cancel" else "Close")
+                        }
+                        FilledTonalButton(
+                            onClick = {
+                                val cleanMatch = matchText.trim()
+                                val cleanSpoken = spokenText.trim()
+                                var hasError = false
+                                if (cleanMatch.isBlank()) {
+                                    matchError = "Enter a word"
+                                    hasError = true
+                                } else {
+                                    val isDuplicate = rules.any { existing ->
+                                        existing.match.equals(cleanMatch, ignoreCase = true) &&
+                                            !existing.match.equals(editingOriginalMatch ?: "", ignoreCase = true)
+                                    }
+                                    if (isDuplicate) {
+                                        matchError = "Rule already exists"
+                                        hasError = true
+                                    }
+                                }
+                                if (cleanSpoken.isBlank()) {
+                                    spokenError = "Enter spoken text"
+                                    hasError = true
+                                }
+                                if (!hasError) {
+                                    onSaveRule(
+                                        editingOriginalMatch,
+                                        PronunciationRule(
+                                            match = cleanMatch,
+                                            spokenAs = cleanSpoken,
+                                            matchCase = matchCase,
+                                            wholeWord = wholeWord,
+                                            applyToSender = applyToSender,
+                                        ),
+                                    )
+                                    clearForm()
+                                }
+                            },
+                            enabled = matchText.isNotBlank() && spokenText.isNotBlank(),
+                        ) {
+                            Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(if (editingOriginalMatch != null) "Update" else "Add")
+                        }
+                    }
+                }
             }
         }
     }
@@ -416,160 +483,233 @@ fun UrlSummaryRulesDialog(
     var editingOriginalPattern by remember { mutableStateOf<String?>(null) }
     var pattern by remember { mutableStateOf("") }
     var spokenPhrase by remember { mutableStateOf("") }
+    var showForm by remember { mutableStateOf(false) }
+    var patternError by remember { mutableStateOf<String?>(null) }
+    var spokenPhraseError by remember { mutableStateOf<String?>(null) }
+    val domainPatternRegex = remember {
+        Regex("^(?=.{1,253}$)(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\\.)+[A-Za-z0-9-]{2,}(?:/[^\\s]*)?$")
+    }
+    val defaultsLoaded = IntelligencePresets.DEFAULT_URL_SUMMARY_RULES.all { preset ->
+        rules.any { it.pattern.equals(preset.pattern, ignoreCase = true) }
+    }
+    val isFormOpen = showForm || editingOriginalPattern != null
+
+    fun clearForm(hide: Boolean = true) {
+        editingOriginalPattern = null
+        pattern = ""
+        spokenPhrase = ""
+        patternError = null
+        spokenPhraseError = null
+        if (hide) showForm = false
+    }
 
     IntelligenceConfigModal(
-        title = "Smart URL Summary Rules",
-        subtitle = "Replace verbose pasted web links with friendly spoken descriptions",
+        title = "URL Rules",
+        subtitle = "Speak friendly names instead of raw links",
         onDismiss = onDismiss,
+        showDone = false,
     ) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(14.dp),
-            color = MaterialTheme.colorScheme.surfaceContainer,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+        if (!isFormOpen) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                OutlinedTextField(
-                    value = pattern,
-                    onValueChange = { pattern = it },
-                    label = { Text("Domain or Path (e.g. notion.so)") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                OutlinedTextField(
-                    value = spokenPhrase,
-                    onValueChange = { spokenPhrase = it },
-                    label = { Text("Spoken Phrase (e.g. Notion page)") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
+                FilledTonalButton(onClick = { showForm = true }) {
+                    Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Rule")
+                }
+                if (!defaultsLoaded) {
                     TextButton(onClick = onLoadPredefined) {
                         Icon(Icons.Rounded.AutoFixHigh, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Load Predefined")
+                        Text("Defaults")
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        if (editingOriginalPattern != null) {
-                            TextButton(
-                                onClick = {
-                                    editingOriginalPattern = null
-                                    pattern = ""
-                                    spokenPhrase = ""
+                }
+            }
+
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f, fill = false),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                if (rules.isEmpty()) {
+                    item {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        ) {
+                            Text(
+                                text = "No URL rules yet.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(14.dp),
+                            )
+                        }
+                    }
+                } else {
+                    items(rules, key = { it.pattern.lowercase() }) { rule ->
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    editingOriginalPattern = rule.pattern
+                                    pattern = rule.pattern
+                                    spokenPhrase = rule.spokenPhrase
+                                    patternError = null
+                                    spokenPhraseError = null
+                                    showForm = true
                                 },
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text("Cancel")
+                                Column(
+                                    modifier = Modifier
+                                        .weight(1f),
+                                ) {
+                                    Text(
+                                        text = rule.pattern,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    Text(
+                                        text = "${rule.spokenPhrase} · ${if (rule.isPredefined) "Preset" else "Custom"}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                                Switch(
+                                    checked = rule.enabled,
+                                    onCheckedChange = { onToggleRule(rule.pattern, it) },
+                                    modifier = Modifier.scale(0.85f),
+                                )
+                                IconButton(
+                                    onClick = { onDeleteRule(rule.pattern) },
+                                    modifier = Modifier.size(34.dp),
+                                ) {
+                                    Icon(
+                                        Icons.Rounded.DeleteOutline,
+                                        contentDescription = "Delete URL rule",
+                                        modifier = Modifier.size(17.dp),
+                                        tint = MaterialTheme.colorScheme.error,
+                                    )
+                                }
                             }
+                        }
+                    }
+                }
+            }
+        } else {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                color = MaterialTheme.colorScheme.surfaceContainer,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    OutlinedTextField(
+                        value = pattern,
+                        onValueChange = {
+                            pattern = it
+                            patternError = null
+                        },
+                        label = { Text("Domain or path") },
+                        placeholder = { Text("e.g. notion.so") },
+                        singleLine = true,
+                        isError = patternError != null,
+                        supportingText = patternError?.let { err -> { Text(err) } },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    OutlinedTextField(
+                        value = spokenPhrase,
+                        onValueChange = {
+                            spokenPhrase = it
+                            spokenPhraseError = null
+                        },
+                        label = { Text("Spoken phrase") },
+                        placeholder = { Text("e.g. Notion page") },
+                        singleLine = true,
+                        isError = spokenPhraseError != null,
+                        supportingText = spokenPhraseError?.let { err -> { Text(err) } },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        if (!defaultsLoaded) {
+                            TextButton(onClick = onLoadPredefined) {
+                                Icon(Icons.Rounded.AutoFixHigh, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Defaults")
+                            }
+                        }
+                        OutlinedButton(onClick = { clearForm() }) {
+                            Text(if (editingOriginalPattern != null) "Cancel" else "Close")
                         }
                         FilledTonalButton(
                             onClick = {
-                                if (pattern.isNotBlank() && spokenPhrase.isNotBlank()) {
+                                val cleanPattern = pattern.trim()
+                                val cleanPhrase = spokenPhrase.trim()
+                                var hasError = false
+                                if (cleanPattern.isBlank()) {
+                                    patternError = "Enter a domain or path"
+                                    hasError = true
+                                } else if (!domainPatternRegex.matches(cleanPattern)) {
+                                    patternError = "Enter a valid domain or path"
+                                    hasError = true
+                                } else {
+                                    val isDuplicate = rules.any { existing ->
+                                        existing.pattern.equals(cleanPattern, ignoreCase = true) &&
+                                            !existing.pattern.equals(editingOriginalPattern ?: "", ignoreCase = true)
+                                    }
+                                    if (isDuplicate) {
+                                        patternError = "Rule already exists"
+                                        hasError = true
+                                    }
+                                }
+                                if (cleanPhrase.isBlank()) {
+                                    spokenPhraseError = "Enter a spoken phrase"
+                                    hasError = true
+                                }
+                                if (!hasError) {
                                     onSaveRule(
                                         editingOriginalPattern,
                                         UrlSummaryRule(
-                                            pattern = pattern.trim(),
-                                            spokenPhrase = spokenPhrase.trim(),
+                                            pattern = cleanPattern,
+                                            spokenPhrase = cleanPhrase,
                                             isPredefined = false,
                                             enabled = true,
                                         ),
                                     )
-                                    editingOriginalPattern = null
-                                    pattern = ""
-                                    spokenPhrase = ""
+                                    clearForm()
                                 }
                             },
                             enabled = pattern.isNotBlank() && spokenPhrase.isNotBlank(),
                         ) {
                             Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text(if (editingOriginalPattern != null) "Update" else "Add Rule")
-                        }
-                    }
-                }
-            }
-        }
-
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f, fill = false)
-                .heightIn(min = 120.dp, max = 260.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            if (rules.isEmpty()) {
-                item {
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    ) {
-                        Text(
-                            text = "No URL summary rules configured. Tap 'Load Predefined' or add a mapping above.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(14.dp),
-                        )
-                    }
-                }
-            } else {
-                items(rules, key = { it.pattern.lowercase() }) { rule ->
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = rule.pattern,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                                Text(
-                                    text = "${rule.spokenPhrase} · ${if (rule.isPredefined) "Preset" else "Custom"}",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            }
-                            Switch(
-                                checked = rule.enabled,
-                                onCheckedChange = { onToggleRule(rule.pattern, it) },
-                                modifier = Modifier.scale(0.85f),
-                            )
-                            IconButton(
-                                onClick = {
-                                    editingOriginalPattern = rule.pattern
-                                    pattern = rule.pattern
-                                    spokenPhrase = rule.spokenPhrase
-                                },
-                                modifier = Modifier.size(34.dp),
-                            ) {
-                                Icon(Icons.Rounded.Edit, contentDescription = "Edit URL rule", modifier = Modifier.size(17.dp))
-                            }
-                            IconButton(
-                                onClick = { onDeleteRule(rule.pattern) },
-                                modifier = Modifier.size(34.dp),
-                            ) {
-                                Icon(Icons.Rounded.DeleteOutline, contentDescription = "Delete URL rule", modifier = Modifier.size(17.dp))
-                            }
+                            Text(if (editingOriginalPattern != null) "Update" else "Add")
                         }
                     }
                 }

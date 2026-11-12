@@ -28,7 +28,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.jayanth.hearit.core.common.model.DigitGroupingStyle
 import com.jayanth.hearit.core.common.model.ReactionFilterMode
 import com.jayanth.hearit.settings.GeneralSettingsUiState
 import com.jayanth.hearit.settings.SettingsCard
@@ -43,16 +42,16 @@ internal fun SmartContentCleaningCard(
     var showUrlRulesDialog by remember { mutableStateOf(false) }
 
     SettingsCard(
-        title = "Smart Content Cleaning & NLP",
-        subtitle = "Intelligent cleaning of message text before text-to-speech",
+        title = "Intelligent cleanup",
+        subtitle = "Intelligently cleans up the message text before speech",
         icon = Icons.Rounded.GraphicEq,
         modifier = modifier,
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             // 1. URL Summarizer (#13)
             NlpToggleRow(
-                title = "Clean & Summarize URLs",
-                subtitle = "Speaks 'YouTube video' or 'Link to domain.com' instead of raw URLs",
+                title = "URL Detection",
+                subtitle = "Speaks in natural words instead of raw URLs",
                 checked = state.isUrlSummarizerEnabled,
                 onCheckedChange = actions.onToggleUrlSummarizer,
             )
@@ -64,15 +63,15 @@ internal fun SmartContentCleaningCard(
                 ) {
                     Icon(Icons.Rounded.Link, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Configure URL Rules ($activeUrlCount active)")
+                    Text("URL Rules ($activeUrlCount)")
                 }
             }
             DividerLine()
 
             // 2. Pronunciation & Acronym Dictionary (#3)
             NlpToggleRow(
-                title = "Pronunciation & Acronym Dictionary",
-                subtitle = "Replaces words & acronyms (e.g. ETA → E T A) before speech",
+                title = "User Dictionary",
+                subtitle = "Replaces words & acronyms before speech",
                 checked = state.isPronunciationDictionaryEnabled,
                 onCheckedChange = actions.onTogglePronunciationDictionary,
             )
@@ -84,15 +83,15 @@ internal fun SmartContentCleaningCard(
                 ) {
                     Icon(Icons.Rounded.RecordVoiceOver, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Manage Dictionary ($activeRulesCount rules)")
+                    Text("User Dictionary ($activeRulesCount)")
                 }
             }
             DividerLine()
 
             // 3. OTP & Phone Number Digit-by-Digit Formatting (#12)
             NlpToggleRow(
-                title = "Speak Codes & Phones Digit-by-Digit",
-                subtitle = "Breaks OTPs (4 8 2, 9 1 0) and phone numbers into clear digits",
+                title = "Read codes clearly",
+                subtitle = "Reads OTPs and phone numbers digit by digit",
                 checked = state.isDigitFormattingEnabled,
                 onCheckedChange = actions.onToggleDigitFormatting,
             )
@@ -100,31 +99,17 @@ internal fun SmartContentCleaningCard(
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     FilterChip(
                         selected = state.isFormatOtpCodesEnabled,
                         onClick = { actions.onToggleFormatOtpCodes(!state.isFormatOtpCodesEnabled) },
-                        label = { Text("OTP / PINs") },
+                        label = { Text("OTP & PIN") },
                     )
                     FilterChip(
                         selected = state.isFormatPhoneNumbersEnabled,
                         onClick = { actions.onToggleFormatPhoneNumbers(!state.isFormatPhoneNumbersEnabled) },
-                        label = { Text("Phone Numbers") },
-                    )
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    FilterChip(
-                        selected = state.digitGroupingStyle == DigitGroupingStyle.CHUNKS_OF_3,
-                        onClick = { actions.onDigitGroupingStyleChanged(DigitGroupingStyle.CHUNKS_OF_3) },
-                        label = { Text("Pause chunks (4 8 2, 9 1 0)") },
-                    )
-                    FilterChip(
-                        selected = state.digitGroupingStyle == DigitGroupingStyle.INDIVIDUAL,
-                        onClick = { actions.onDigitGroupingStyleChanged(DigitGroupingStyle.INDIVIDUAL) },
-                        label = { Text("Single digits") },
+                        label = { Text("Ph. Numbers") },
                     )
                 }
             }
@@ -132,8 +117,8 @@ internal fun SmartContentCleaningCard(
 
             // 4. Currency & Units
             NlpToggleRow(
-                title = "Currency & Unit Normalization",
-                subtitle = "Converts '$50' → '50 dollars', '₹100' → '100 rupees', 'km/h', 'GB'",
+                title = "Currency & units",
+                subtitle = "Speaks symbols and units as words",
                 checked = state.isCurrencyNormalizerEnabled,
                 onCheckedChange = actions.onToggleCurrencyNormalizer,
             )
@@ -141,8 +126,8 @@ internal fun SmartContentCleaningCard(
 
             // 5. Markdown Stripper
             NlpToggleRow(
-                title = "Strip Markdown & Markup",
-                subtitle = "Removes bold/italic asterisks (*bold*), backticks, and bullet markers",
+                title = "Remove formatting",
+                subtitle = "Skips markdown symbols when speaking",
                 checked = state.isMarkdownStripperEnabled,
                 onCheckedChange = actions.onToggleMarkdownStripper,
             )
@@ -150,8 +135,8 @@ internal fun SmartContentCleaningCard(
 
             // 6. Emoji Spam Collapsing
             NlpToggleRow(
-                title = "Collapse Repeated Emojis",
-                subtitle = "Prevents repetitive emoji reading on 3+ consecutive emojis",
+                title = "Repeated emojis",
+                subtitle = "Avoids reading long emoji streaks",
                 checked = state.isEmojiCollapsingEnabled,
                 onCheckedChange = actions.onToggleEmojiCollapsing,
             )
@@ -159,8 +144,8 @@ internal fun SmartContentCleaningCard(
 
             // 7. Tapback Reaction Filter & Mode (#26)
             NlpToggleRow(
-                title = "Filter Tapback Reactions",
-                subtitle = "Handles 'Liked a photo' or 'Reacted ❤️ to your message'",
+                title = "Reactions",
+                subtitle = "Shortens or silences reaction alerts",
                 checked = state.isReactionFilterEnabled,
                 onCheckedChange = actions.onToggleReactionFilter,
             )
@@ -172,12 +157,12 @@ internal fun SmartContentCleaningCard(
                     FilterChip(
                         selected = state.reactionFilterMode == ReactionFilterMode.CONDENSE,
                         onClick = { actions.onReactionFilterModeChanged(ReactionFilterMode.CONDENSE) },
-                        label = { Text("Condense ('Reacted')") },
+                        label = { Text("Condense") },
                     )
                     FilterChip(
                         selected = state.reactionFilterMode == ReactionFilterMode.SILENCE,
                         onClick = { actions.onReactionFilterModeChanged(ReactionFilterMode.SILENCE) },
-                        label = { Text("Silence completely") },
+                        label = { Text("Silence") },
                     )
                 }
             }
@@ -185,34 +170,17 @@ internal fun SmartContentCleaningCard(
 
             // 8. Contact Name Sanitizer (#21)
             NlpToggleRow(
-                title = "Sanitize Contact & Sender Names",
-                subtitle = "Cleans emojis and bracketed notes like 'Rahul (Work)'",
+                title = "Remove sender emojis",
+                subtitle = "Removes emojis from sender names",
                 checked = state.isContactSanitizerEnabled,
                 onCheckedChange = actions.onToggleContactSanitizer,
             )
-            if (state.isContactSanitizerEnabled) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    FilterChip(
-                        selected = state.isStripSenderEmojisEnabled,
-                        onClick = { actions.onToggleStripSenderEmojis(!state.isStripSenderEmojisEnabled) },
-                        label = { Text("Strip Emojis") },
-                    )
-                    FilterChip(
-                        selected = state.isStripSenderBracketsEnabled,
-                        onClick = { actions.onToggleStripSenderBrackets(!state.isStripSenderBracketsEnabled) },
-                        label = { Text("Strip Brackets (Note)") },
-                    )
-                }
-            }
             DividerLine()
 
             // 9. Bot & Shortcode Cleaning
             NlpToggleRow(
-                title = "Clean Bot & SMS Sender Headers",
-                subtitle = "Converts SMS shortcodes ('VK-HDFCBK' → 'HDFCBK') and bot emails",
+                title = "Bot & SMS senders",
+                subtitle = "Shortens SMS codes and bot sender names",
                 checked = state.isBotSenderCleaningEnabled,
                 onCheckedChange = actions.onToggleBotSenderCleaning,
             )
@@ -222,8 +190,6 @@ internal fun SmartContentCleaningCard(
     if (showPronunciationDialog) {
         PronunciationDictionaryDialog(
             rules = state.pronunciationRules,
-            applyOnSender = state.isPronunciationOnSenderEnabled,
-            onToggleApplyOnSender = actions.onTogglePronunciationOnSender,
             onSaveRule = actions.onSavePronunciationRule,
             onToggleRule = actions.onTogglePronunciationRule,
             onDeleteRule = actions.onDeletePronunciationRule,
