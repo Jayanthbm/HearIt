@@ -59,6 +59,7 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.FilterAlt
 import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.material.icons.rounded.History
@@ -278,10 +279,13 @@ private fun ApplicationsListScreen(
 ) {
     var showSystemApps by rememberSaveable { mutableStateOf(false) }
     var showCategoriesDialog by rememberSaveable { mutableStateOf(false) }
+    // "Priority" tab removed; keep star toggle on rows. Coerce any persisted priority filter.
+    LaunchedEffect(filterType) {
+        if (filterType !in 0..2) onFilterTypeChange(0)
+    }
     val displayedApps = remember(
         state.visibleApps,
         state.enabledApps,
-        state.priorityAnnounceApps,
         filterType,
         showSystemApps,
     ) {
@@ -289,7 +293,6 @@ private fun ApplicationsListScreen(
         when (filterType) {
             1 -> base.filter { it.packageName in state.enabledApps }
             2 -> base.filter { it.packageName !in state.enabledApps }
-            3 -> base.filter { it.packageName in state.priorityAnnounceApps }
             else -> base
         }
     }
@@ -391,7 +394,6 @@ private fun ApplicationsListScreen(
                     0 to "All",
                     1 to "Enabled (${state.enabledApps.size})",
                     2 to "Off",
-                    3 to "Priority (${state.priorityAnnounceApps.size})",
                 )
                 filters.forEach { (type, label) ->
                     val isSelected = filterType == type
@@ -450,25 +452,6 @@ private fun ApplicationsListScreen(
                 shape = RoundedCornerShape(10.dp),
             )
             FilterChip(
-                selected = state.isSelectionMode,
-                onClick = { onToggleSelectionMode(null) },
-                leadingIcon = {
-                    Icon(
-                        imageVector = if (state.isSelectionMode) Icons.Rounded.Check else Icons.Rounded.CheckCircle,
-                        contentDescription = null,
-                        modifier = Modifier.size(15.dp),
-                    )
-                },
-                label = {
-                    Text(
-                        text = if (state.isSelectionMode) "Selecting (${state.selectedPackages.size})" else "Select",
-                        fontSize = 11.5.sp,
-                        maxLines = 1,
-                    )
-                },
-                shape = RoundedCornerShape(10.dp),
-            )
-            FilterChip(
                 selected = false,
                 onClick = { showCategoriesDialog = true },
                 leadingIcon = {
@@ -491,7 +474,7 @@ private fun ApplicationsListScreen(
 
         if (showCategoriesDialog) {
             com.jayanth.hearit.intelligence.AppCategoriesDialog(
-                apps = state.apps,
+                apps = state.apps.filter { it.packageName in state.enabledApps },
                 appCategories = state.appCategories,
                 onSetAppCategory = onSetAppCategory,
                 onResetAppCategory = onResetAppCategory,
@@ -516,33 +499,35 @@ private fun ApplicationsListScreen(
                     fontWeight = FontWeight.SemiBold,
                 )
 
-                val anyUnselected = displayedApps.any { it.packageName !in state.enabledApps }
-                val displayedPackageNames = remember(displayedApps) { displayedApps.map { it.packageName } }
-                Surface(
-                    onClick = {
-                        if (anyUnselected) onSelectAllVisible(displayedPackageNames)
-                        else onDeselectAllVisible(displayedPackageNames)
-                    },
-                    shape = RoundedCornerShape(8.dp),
-                    color = Color.Transparent,
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                if (displayedApps.size > 25) {
+                    val anyUnselected = displayedApps.any { it.packageName !in state.enabledApps }
+                    val displayedPackageNames = remember(displayedApps) { displayedApps.map { it.packageName } }
+                    Surface(
+                        onClick = {
+                            if (anyUnselected) onSelectAllVisible(displayedPackageNames)
+                            else onDeselectAllVisible(displayedPackageNames)
+                        },
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color.Transparent,
                     ) {
-                        Icon(
-                            imageVector = if (anyUnselected) Icons.Rounded.CheckCircle else Icons.Rounded.Close,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(15.dp),
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = if (anyUnselected) "Enable all visible" else "Disable all visible",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                        ) {
+                            Icon(
+                                imageVector = if (anyUnselected) Icons.Rounded.CheckCircle else Icons.Rounded.Close,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(15.dp),
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = if (anyUnselected) "Enable all visible" else "Disable all visible",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
                     }
                 }
             }
@@ -660,7 +645,6 @@ private fun ApplicationsEmptyCard(
                         query.isNotBlank() -> Icons.Rounded.SearchOff
                         filterType == 1 -> Icons.Rounded.NotificationsOff
                         filterType == 2 -> Icons.Rounded.CheckCircle
-                        filterType == 3 -> Icons.Rounded.Star
                         else -> Icons.Rounded.Apps
                     }
                     Icon(
@@ -678,7 +662,6 @@ private fun ApplicationsEmptyCard(
                 query.isNotBlank() -> "No matching apps found"
                 filterType == 1 -> "No enabled apps"
                 filterType == 2 -> "All apps enabled"
-                filterType == 3 -> "No priority apps yet"
                 else -> "No applications available"
             }
 
@@ -696,7 +679,6 @@ private fun ApplicationsEmptyCard(
                 query.isNotBlank() -> "No installed apps match \"${query.trim()}\". Try another term or clear the search query."
                 filterType == 1 -> "You haven't enabled speech announcements for any apps yet. Switch to 'All' or 'Off' to turn them on."
                 filterType == 2 -> "Every installed application currently has announcement permissions enabled."
-                filterType == 3 -> "Tap the star button on any app to add it to your Priority Announce quick-access list."
                 else -> "No installed apps were detected on this device."
             }
 
@@ -804,35 +786,14 @@ private fun ApplicationRow(
             Column(
                 modifier = Modifier.weight(1f),
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    Text(
-                        text = app.label,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = if (enabled) FontWeight.SemiBold else FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false),
-                    )
-                    if (hasCustomRules) {
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                        ) {
-                            Text(
-                                text = "Custom",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontSize = 9.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp),
-                            )
-                        }
-                    }
-                }
+                Text(
+                    text = app.label,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = if (enabled) FontWeight.SemiBold else FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = app.packageName,
@@ -852,18 +813,32 @@ private fun ApplicationRow(
                     onCheckedChange = { onToggleSelect() },
                 )
             } else {
-                // 1-tap Priority Star (#5)
-                IconButton(
-                    onClick = onTogglePriority,
-                    modifier = Modifier.size(34.dp),
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Icon(
-                        imageVector = if (isPriorityListed) Icons.Rounded.Star else Icons.Rounded.StarBorder,
-                        contentDescription = if (isPriorityListed) "Remove from Priority List" else "Add to Priority List",
-                        tint = if (isPriorityListed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(19.dp),
-                    )
+                    // 1-tap Priority Star (#5)
+                    IconButton(
+                        onClick = onTogglePriority,
+                        modifier = Modifier.size(34.dp),
+                    ) {
+                        Icon(
+                            imageVector = if (isPriorityListed) Icons.Rounded.Star else Icons.Rounded.StarBorder,
+                            contentDescription = if (isPriorityListed) "Remove from Priority List" else "Add to Priority List",
+                            tint = if (isPriorityListed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(19.dp),
+                        )
+                    }
+                    if (hasCustomRules) {
+                        Icon(
+                            imageVector = Icons.Rounded.Edit,
+                            contentDescription = "Custom rules",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(14.dp),
+                        )
+                    }
                 }
+
+                Spacer(modifier = Modifier.width(2.dp))
 
                 // Switch (ONLY toggles enable / disable)
                 Switch(
@@ -874,19 +849,6 @@ private fun ApplicationRow(
                         checkedTrackColor = MaterialTheme.colorScheme.primary,
                     ),
                 )
-
-                // Settings button
-                IconButton(
-                    onClick = onOpenSettings,
-                    modifier = Modifier.size(34.dp),
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Tune,
-                        contentDescription = stringResource(R.string.applications_open_settings),
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(19.dp),
-                    )
-                }
             }
         }
     }

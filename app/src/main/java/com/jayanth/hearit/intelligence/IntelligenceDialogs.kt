@@ -96,9 +96,11 @@ private fun IntelligenceConfigModal(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = title,
-                            style = MaterialTheme.typography.titleMedium,
+                            style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                         if (!subtitle.isNullOrBlank()) {
                             Spacer(modifier = Modifier.height(2.dp))
@@ -106,6 +108,8 @@ private fun IntelligenceConfigModal(
                                 text = subtitle,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
                         }
                     }
@@ -713,18 +717,17 @@ fun AppCategoriesDialog(
     }
 
     IntelligenceConfigModal(
-        title = "App Categories Grouping",
-        subtitle = "Assign apps to Email, Messaging, or SMS groups for smart category rules",
+        title = "App categories",
+        subtitle = "Group enabled apps for Email, Chat, or SMS rules",
         onDismiss = onDismiss,
     ) {
         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
             val categories = AppCategory.entries
             categories.forEachIndexed { index, category ->
-                val count = appCategories.count { it.value == category }
-                val title = when (category) {
-                    AppCategory.EMAIL -> "Email ($count)"
-                    AppCategory.MESSAGING -> "Messaging ($count)"
-                    AppCategory.SMS -> "SMS ($count)"
+                val label = when (category) {
+                    AppCategory.EMAIL -> "Email"
+                    AppCategory.MESSAGING -> "Chat"
+                    AppCategory.SMS -> "SMS"
                 }
                 val isSelected = selectedTab == category
                 SegmentedButton(
@@ -734,12 +737,11 @@ fun AppCategoriesDialog(
                     icon = {},
                 ) {
                     Text(
-                        text = title,
-                        style = MaterialTheme.typography.labelSmall,
+                        text = label,
+                        style = MaterialTheme.typography.labelMedium,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                         maxLines = 1,
                         softWrap = false,
-                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }

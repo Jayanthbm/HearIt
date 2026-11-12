@@ -1236,38 +1236,12 @@ private fun DashboardHome(
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = "NLP text cleaning & AI rules",
+                                text = "Text cleanup & AI rules",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 11.sp,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                    }
-
-                    // Configure Action Pill
-                    Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(3.dp),
-                        ) {
-                            Text(
-                                text = "Configure",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(14.dp),
                             )
                         }
                     }
