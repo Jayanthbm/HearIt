@@ -19,7 +19,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.jayanth.hearit.core.common.model.AppCategory
 import com.jayanth.hearit.settings.GeneralSettingsUiState
 import com.jayanth.hearit.settings.SettingsCard
 
@@ -30,11 +29,6 @@ internal fun CategoryIntelligenceCard(
     modifier: Modifier = Modifier,
 ) {
     var showCarrierPhrasesDialog by remember { mutableStateOf(false) }
-    var showAppCategoriesDialog by remember { mutableStateOf(false) }
-
-    val emailCount = state.appCategories.count { it.value == AppCategory.EMAIL }
-    val msgCount = state.appCategories.count { it.value == AppCategory.MESSAGING }
-    val smsCount = state.appCategories.count { it.value == AppCategory.SMS }
 
     SettingsCard(
         title = "Category intelligence",
@@ -64,7 +58,7 @@ internal fun CategoryIntelligenceCard(
                 ) {
                     Icon(Icons.Rounded.FilterList, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Configure Promo Phrases (${state.carrierSpamPhrases.size})")
+                    Text("Promo Phrases (${state.carrierSpamPhrases.size})")
                 }
             }
             DividerLine()
@@ -75,16 +69,6 @@ internal fun CategoryIntelligenceCard(
                 checked = state.isEmailCleanupEnabled,
                 onCheckedChange = actions.onToggleEmailCleanup,
             )
-            DividerLine()
-
-            OutlinedButton(
-                onClick = { showAppCategoriesDialog = true },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Icon(Icons.Rounded.Category, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("App Categories (Email $emailCount · Msg $msgCount · SMS $smsCount)")
-            }
         }
     }
 
@@ -95,16 +79,6 @@ internal fun CategoryIntelligenceCard(
             onRemovePhrase = actions.onRemoveCarrierSpamPhrase,
             onRestoreDefaults = actions.onLoadDefaultCarrierSpamPhrases,
             onDismiss = { showCarrierPhrasesDialog = false },
-        )
-    }
-
-    if (showAppCategoriesDialog) {
-        AppCategoriesDialog(
-            apps = state.installedApps,
-            appCategories = state.appCategories,
-            onSetAppCategory = actions.onSetAppCategory,
-            onResetAppCategory = actions.onResetAppCategory,
-            onDismiss = { showAppCategoriesDialog = false },
         )
     }
 }

@@ -718,6 +718,7 @@ fun UrlSummaryRulesDialog(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun CarrierSpamPhrasesDialog(
     phrases: List<String>,
@@ -727,103 +728,169 @@ fun CarrierSpamPhrasesDialog(
     onDismiss: () -> Unit,
 ) {
     var newPhrase by remember { mutableStateOf("") }
+    var showForm by remember { mutableStateOf(false) }
+    var phraseError by remember { mutableStateOf<String?>(null) }
+    val defaultsLoaded = IntelligencePresets.DEFAULT_CARRIER_SPAM_PHRASES.all { preset ->
+        phrases.any { it.equals(preset, ignoreCase = true) }
+    }
+    val normalize: (String) -> String = { it.trim().replace(Regex("\\s+"), " ") }
+
+    fun clearForm() {
+        newPhrase = ""
+        phraseError = null
+        showForm = false
+    }
 
     IntelligenceConfigModal(
-        title = "Carrier & Promo SMS Phrases",
-        subtitle = "Skip annoying carrier upsells, loan promos, and marketing SMS blasts",
+        title = "Promo Phrases",
+        subtitle = "Skip carrier upsells, loan promos, and marketing SMS blasts",
         onDismiss = onDismiss,
+        showDone = false,
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            OutlinedTextField(
-                value = newPhrase,
-                onValueChange = { newPhrase = it },
-                label = { Text("Promo phrase") },
-                placeholder = { Text("e.g. recharge now") },
-                singleLine = true,
-                modifier = Modifier.weight(1f),
-            )
-            FilledTonalButton(
-                onClick = {
-                    if (newPhrase.isNotBlank()) {
-                        onAddPhrase(newPhrase.trim())
-                        newPhrase = ""
-                    }
-                },
-                enabled = newPhrase.isNotBlank(),
+        if (!showForm) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Add")
+                FilledTonalButton(onClick = { showForm = true }) {
+                    Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Phrase")
+                }
+                if (!defaultsLoaded) {
+                    TextButton(onClick = onRestoreDefaults) {
+                        Icon(Icons.Rounded.AutoFixHigh, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Defaults")
+                    }
+                }
             }
-        }
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
             Text(
-                text = "${phrases.size} blocked phrases",
+                text = "Blocked Phrases (${phrases.size})",
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.SemiBold,
             )
-            TextButton(onClick = onRestoreDefaults) {
-                Icon(Icons.Rounded.AutoFixHigh, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Load Defaults")
-            }
-        }
 
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f, fill = false)
-                .heightIn(min = 120.dp, max = 260.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            if (phrases.isEmpty()) {
-                item {
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    ) {
-                        Text(
-                            text = "No blocked promo phrases. Add phrases above or tap 'Load Defaults'.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(14.dp),
-                        )
-                    }
-                }
-            } else {
-                items(phrases, key = { it.lowercase() }) { phrase ->
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 14.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f, fill = false),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                if (phrases.isEmpty()) {
+                    item {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
                         ) {
                             Text(
-                                text = phrase,
-                                style = MaterialTheme.typography.bodyMedium,
-                                modifier = Modifier.weight(1f),
+                                text = "No blocked promo phrases. Add a phrase or tap 'Defaults'.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(14.dp),
                             )
-                            IconButton(
-                                onClick = { onRemovePhrase(phrase) },
-                                modifier = Modifier.size(32.dp),
+                        }
+                    }
+                } else {
+                    items(phrases, key = { it.lowercase() }) { phrase ->
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Icon(Icons.Rounded.DeleteOutline, contentDescription = "Remove phrase", modifier = Modifier.size(17.dp))
+                                Text(
+                                    text = phrase,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                IconButton(
+                                    onClick = { onRemovePhrase(phrase) },
+                                    modifier = Modifier.size(34.dp),
+                                ) {
+                                    Icon(
+                                        Icons.Rounded.DeleteOutline,
+                                        contentDescription = "Delete promo phrase",
+                                        modifier = Modifier.size(17.dp),
+                                        tint = MaterialTheme.colorScheme.error,
+                                    )
+                                }
                             }
+                        }
+                    }
+                }
+            }
+        } else {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                color = MaterialTheme.colorScheme.surfaceContainer,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    OutlinedTextField(
+                        value = newPhrase,
+                        onValueChange = {
+                            newPhrase = it
+                            phraseError = null
+                        },
+                        label = { Text("Promo phrase") },
+                        placeholder = { Text("e.g. recharge now") },
+                        singleLine = true,
+                        isError = phraseError != null,
+                        supportingText = phraseError?.let { err -> { Text(err) } },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        if (!defaultsLoaded) {
+                            TextButton(onClick = onRestoreDefaults) {
+                                Icon(Icons.Rounded.AutoFixHigh, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Defaults")
+                            }
+                        }
+                        OutlinedButton(onClick = { clearForm() }) {
+                            Text("Cancel")
+                        }
+                        FilledTonalButton(
+                            onClick = {
+                                val cleanPhrase = normalize(newPhrase)
+                                when {
+                                    cleanPhrase.isBlank() -> phraseError = "Enter a promo phrase"
+                                    phrases.any { normalize(it).equals(cleanPhrase, ignoreCase = true) } ->
+                                        phraseError = "Phrase already exists"
+                                    else -> {
+                                        onAddPhrase(cleanPhrase)
+                                        clearForm()
+                                    }
+                                }
+                            },
+                            enabled = newPhrase.isNotBlank(),
+                        ) {
+                            Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Add")
                         }
                     }
                 }
