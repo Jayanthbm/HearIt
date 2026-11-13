@@ -1,8 +1,5 @@
 package com.jayanth.hearit.voicespeech
 
-import android.Manifest
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -49,10 +46,6 @@ data class AudioPolishCallbacks(
     val onToggleMonoFoldDown: (Boolean) -> Unit = {},
     val onToggleVoiceBoost: (Boolean) -> Unit = {},
     val onVoiceBoostPercentChanged: (Int) -> Unit = {},
-    val onToggleAmbientNoiseBoost: (Boolean) -> Unit = {},
-    val onAmbientNoiseThresholdChanged: (Int) -> Unit = {},
-    val onAmbientNoiseBoostPercentChanged: (Int) -> Unit = {},
-    val onRefreshMicPermission: () -> Unit = {},
 ) {
     companion object {
         fun from(viewModel: VoiceSpeechViewModel): AudioPolishCallbacks = AudioPolishCallbacks(
@@ -66,10 +59,6 @@ data class AudioPolishCallbacks(
             onToggleMonoFoldDown = viewModel::onToggleMonoFoldDown,
             onToggleVoiceBoost = viewModel::onToggleVoiceBoost,
             onVoiceBoostPercentChanged = viewModel::onVoiceBoostPercentChanged,
-            onToggleAmbientNoiseBoost = viewModel::onToggleAmbientNoiseBoost,
-            onAmbientNoiseThresholdChanged = viewModel::onAmbientNoiseThresholdChanged,
-            onAmbientNoiseBoostPercentChanged = viewModel::onAmbientNoiseBoostPercentChanged,
-            onRefreshMicPermission = viewModel::refreshRecordAudioPermission,
         )
     }
 }
@@ -81,15 +70,6 @@ internal fun PersistedSmartAudioPolishCard(
     callbacks: AudioPolishCallbacks,
     modifier: Modifier = Modifier,
 ) {
-    val micPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-    ) { granted ->
-        callbacks.onRefreshMicPermission()
-        if (granted) {
-            callbacks.onToggleAmbientNoiseBoost(true)
-        }
-    }
-
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
@@ -118,13 +98,13 @@ internal fun PersistedSmartAudioPolishCard(
                 Spacer(modifier = Modifier.width(10.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Smart Audio Polish & Boost",
+                        text = "Smart Audio",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                     Text(
-                        text = "Earcon chimes, adaptive speed, voice boost, and ambient noise gain",
+                        text = "Chime, speed and loudness tuning",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 11.sp,
@@ -135,19 +115,29 @@ internal fun PersistedSmartAudioPolishCard(
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 // 1. Soft Pre-Speech Earcon Chime (#18)
                 PolishSwitchRow(
-                    title = "Soft Pre-Speech Earcon Chime",
+                    title = "Soft Pre Chime",
                     subtitle = "Plays a gentle tone before speaking so music ducks smoothly",
                     checked = state.isEarconEnabled,
                     onCheckedChange = callbacks.onToggleEarcon,
                 )
                 if (state.isEarconEnabled) {
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf(120, 200, 300).forEach { ms ->
-                            FilterChip(
-                                selected = state.earconDurationMs == ms,
+                    val chimeOptions = listOf(120, 200, 300)
+                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                        chimeOptions.forEachIndexed { index, ms ->
+                            val isSelected = state.earconDurationMs == ms
+                            SegmentedButton(
+                                selected = isSelected,
                                 onClick = { callbacks.onEarconDurationChanged(ms) },
-                                label = { Text("${ms}ms chime", maxLines = 1, softWrap = false) },
-                            )
+                                shape = SegmentedButtonDefaults.itemShape(index = index, count = chimeOptions.size),
+                            ) {
+                                Text(
+                                    text = "$ms ms",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    maxLines = 1,
+                                    softWrap = false,
+                                )
+                            }
                         }
                     }
                 }
@@ -190,7 +180,7 @@ internal fun PersistedSmartAudioPolishCard(
 
                 // 3. Adaptive Speech Speed (#18)
                 PolishSwitchRow(
-                    title = "Adaptive Speed for Long Messages",
+                    title = "Adaptive Speed",
                     subtitle = "Automatically scales reading speed across word-count brackets",
                     checked = state.isAdaptiveSpeedEnabled,
                     onCheckedChange = callbacks.onToggleAdaptiveSpeed,
@@ -291,39 +281,6 @@ internal fun PersistedSmartAudioPolishCard(
                     }
                 }
 
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-                // 6. Ambient Noise Auto-Volume Boost (#34)
-                PolishSwitchRow(
-                    title = "Ambient Noise Auto-Volume Boost",
-                    subtitle = "120ms instantaneous room loudness check before speaking (never recorded or stored)",
-                    checked = state.isAmbientNoiseBoostEnabled,
-                    onCheckedChange = { wantEnable ->
-                        if (wantEnable && !state.hasRecordAudioPermission) {
-                            micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                        } else {
-                            callbacks.onToggleAmbientNoiseBoost(wantEnable)
-                        }
-                    },
-                )
-                if (state.isAmbientNoiseBoostEnabled) {
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf(65, 70, 75).forEach { db ->
-                            FilterChip(
-                                selected = state.ambientNoiseThresholdDb == db,
-                                onClick = { callbacks.onAmbientNoiseThresholdChanged(db) },
-                                label = { Text(">$db dB") },
-                            )
-                        }
-                        listOf(15, 20, 30).forEach { boost ->
-                            FilterChip(
-                                selected = state.ambientNoiseBoostPercent == boost,
-                                onClick = { callbacks.onAmbientNoiseBoostPercentChanged(boost) },
-                                label = { Text("+$boost% boost") },
-                            )
-                        }
-                    }
-                }
             }
         }
     }

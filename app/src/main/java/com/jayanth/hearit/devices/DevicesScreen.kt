@@ -1,13 +1,18 @@
 package com.jayanth.hearit.devices
 
+import android.Manifest
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -30,6 +35,8 @@ import androidx.compose.material.icons.rounded.Cable
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.DevicesOther
 import androidx.compose.material.icons.rounded.GetApp
+import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Tune
@@ -39,6 +46,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -121,6 +129,10 @@ fun DevicesRoute(viewModel: DevicesViewModel, modifier: Modifier = Modifier) {
         onCategoryAllowed = viewModel::onCategoryAllowed,
         onDeviceAllowed = viewModel::onDeviceAllowed,
         onForgetDevice = viewModel::onForgetDevice,
+        onToggleAmbientNoiseBoost = viewModel::onToggleAmbientNoiseBoost,
+        onAmbientNoiseThresholdChanged = viewModel::onAmbientNoiseThresholdChanged,
+        onAmbientNoiseBoostPercentChanged = viewModel::onAmbientNoiseBoostPercentChanged,
+        onRefreshMicPermission = viewModel::refreshRecordAudioPermission,
         modifier = modifier,
     )
 }
@@ -135,14 +147,18 @@ fun DevicesScreen(
     onCategoryAllowed: (AudioOutputKind, Boolean) -> Unit,
     onDeviceAllowed: (String, Boolean) -> Unit,
     onForgetDevice: (String) -> Unit,
+    onToggleAmbientNoiseBoost: (Boolean) -> Unit = {},
+    onAmbientNoiseThresholdChanged: (Int) -> Unit = {},
+    onAmbientNoiseBoostPercentChanged: (Int) -> Unit = {},
+    onRefreshMicPermission: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Column(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         if (state.unavailable) {
             Surface(
@@ -163,15 +179,21 @@ fun DevicesScreen(
             }
         }
 
-        // Section: Wear OS Smartwatch Companion
-        WearOsCompanionCard()
-
         // Section: Allowed Output Types
-        Text(
-            text = "Allowed Output Types",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground,
+        SectionHeader(
+            icon = Icons.Rounded.Headphones,
+            title = "Allowed Output Types",
+            subtitle = "Which outputs may play announcements",
+            trailing = {
+                IconButton(onClick = onRefresh, modifier = Modifier.size(32.dp)) {
+                    Icon(
+                        imageVector = Icons.Rounded.Refresh,
+                        contentDescription = stringResource(R.string.devices_refresh),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            },
         )
 
         OutputCategoryCard(
@@ -193,7 +215,7 @@ fun DevicesScreen(
         OutputCategoryCard(
             icon = Icons.AutoMirrored.Rounded.VolumeUp,
             title = stringResource(R.string.devices_allow_speaker),
-            subtitle = "Phone loudspeaker (Disabled by default)",
+            subtitle = "Built-in loudspeaker and earpiece",
             checked = state.audioOutput.allowPhoneSpeaker,
             onCheckedChange = { onCategoryAllowed(AudioOutputKind.PHONE_SPEAKER, it) },
         )
@@ -220,12 +242,14 @@ fun DevicesScreen(
             }
         }
 
+        // Section: Wear OS Smartwatch Companion
+        WearOsCompanionCard()
+
         // Section: Connected Now
-        Text(
-            text = "Connected Now",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground,
+        SectionHeader(
+            icon = Icons.Rounded.GraphicEq,
+            title = "Connected Now",
+            subtitle = "Outputs the phone can route audio to",
         )
 
         when {
@@ -266,7 +290,7 @@ fun DevicesScreen(
                         }
                         Spacer(modifier = Modifier.height(10.dp))
                         Text(
-                            text = "No Audio Output Connected",
+                            text = "No Headphones Connected",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface,
@@ -288,18 +312,41 @@ fun DevicesScreen(
                     ConnectedDeviceCard(
                         row = row,
                         bluetoothEnabled = state.audioOutput.allowBluetooth,
-                        onAllowedChanged = { onDeviceAllowed(row.id, it) },
+                        onAllowedChanged = { allowed ->
+                            if (row.isBluetooth) {
+                                onDeviceAllowed(row.id, allowed)
+                            } else {
+                                onCategoryAllowed(AudioOutputKind.WIRED, allowed)
+                            }
+                        },
                     )
                 }
             }
         }
 
+        // The built-in speaker is always present, so it is shown separately from the probe.
+        ThisDeviceOutputCard(
+            allowed = state.audioOutput.allowPhoneSpeaker,
+            onAllowedChanged = { onCategoryAllowed(AudioOutputKind.PHONE_SPEAKER, it) },
+        )
+
+        // Section: Ambient Auto Volume (room loudness check before speaking)
+        AmbientAutoVolumeCard(
+            enabled = state.isAmbientNoiseBoostEnabled,
+            thresholdDb = state.ambientNoiseThresholdDb,
+            boostPercent = state.ambientNoiseBoostPercent,
+            hasPermission = state.hasRecordAudioPermission,
+            onToggle = onToggleAmbientNoiseBoost,
+            onThresholdChanged = onAmbientNoiseThresholdChanged,
+            onBoostChanged = onAmbientNoiseBoostPercentChanged,
+            onPermissionResult = onRefreshMicPermission,
+        )
+
         // Section: Previously Connected
-        Text(
-            text = "Previously Connected",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground,
+        SectionHeader(
+            icon = Icons.Rounded.History,
+            title = "Previously Connected",
+            subtitle = "Seen before, not connected right now",
         )
 
         if (state.remembered.isEmpty()) {
@@ -353,22 +400,16 @@ fun DevicesScreen(
                 PreviouslyConnectedDeviceCard(
                     row = row,
                     bluetoothEnabled = state.audioOutput.allowBluetooth,
-                    onAllowedChanged = { onDeviceAllowed(row.id, it) },
+                    onAllowedChanged = { allowed ->
+                        if (row.isBluetooth) {
+                            onDeviceAllowed(row.id, allowed)
+                        } else {
+                            onCategoryAllowed(AudioOutputKind.WIRED, allowed)
+                        }
+                    },
                     onRemove = { onForgetDevice(row.id) },
                 )
             }
-        }
-
-        // Refresh Action Button
-        OutlinedButton(
-            onClick = onRefresh,
-            modifier = Modifier.fillMaxWidth().height(48.dp),
-            shape = RoundedCornerShape(16.dp),
-            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-        ) {
-            Icon(Icons.Rounded.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(stringResource(R.string.devices_refresh), fontWeight = FontWeight.SemiBold)
         }
 
         Text(
@@ -475,6 +516,57 @@ private fun getAudioDeviceIcon(label: String, isBluetooth: Boolean): ImageVector
 }
 
 @Composable
+private fun SectionHeader(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    trailing: (@Composable () -> Unit)? = null,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Surface(
+            modifier = Modifier.size(28.dp),
+            shape = RoundedCornerShape(9.dp),
+            color = MaterialTheme.colorScheme.primaryContainer,
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(16.dp),
+                )
+            }
+        }
+        Spacer(modifier = Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 11.sp,
+                lineHeight = 14.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        trailing?.invoke()
+    }
+}
+
+@Composable
 private fun ConnectedDeviceCard(
     row: DeviceRow,
     bluetoothEnabled: Boolean,
@@ -495,13 +587,13 @@ private fun ConnectedDeviceCard(
             Surface(
                 modifier = Modifier.size(40.dp),
                 shape = RoundedCornerShape(12.dp),
-                color = Color(0xFF064E3B),
+                color = MaterialTheme.colorScheme.primaryContainer,
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = getAudioDeviceIcon(row.label, row.isBluetooth),
                         contentDescription = null,
-                        tint = Color(0xFF34D399),
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(22.dp),
                     )
                 }
@@ -526,7 +618,7 @@ private fun ConnectedDeviceCard(
                     )
                     Surface(
                         shape = RoundedCornerShape(6.dp),
-                        color = Color(0xFF10B981).copy(alpha = 0.15f),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
@@ -536,13 +628,13 @@ private fun ConnectedDeviceCard(
                                 modifier = Modifier
                                     .size(6.dp)
                                     .clip(CircleShape)
-                                    .background(Color(0xFF10B981)),
+                                    .background(MaterialTheme.colorScheme.primary),
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 text = "Active",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = Color(0xFF10B981),
+                                color = MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 10.sp,
                             )
@@ -579,10 +671,13 @@ private fun ConnectedDeviceCard(
                         modifier = Modifier.size(20.dp),
                     )
                 }
+            }
+
+            if (row.canToggle || !row.isBluetooth) {
                 Spacer(modifier = Modifier.width(4.dp))
                 Switch(
                     checked = row.allowed,
-                    enabled = bluetoothEnabled,
+                    enabled = if (row.isBluetooth) bluetoothEnabled else true,
                     onCheckedChange = onAllowedChanged,
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
@@ -590,6 +685,82 @@ private fun ConnectedDeviceCard(
                     ),
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun ThisDeviceOutputCard(
+    allowed: Boolean,
+    onAllowedChanged: (Boolean) -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Surface(
+                modifier = Modifier.size(40.dp),
+                shape = RoundedCornerShape(12.dp),
+                color = if (allowed) {
+                    MaterialTheme.colorScheme.primaryContainer
+                } else {
+                    MaterialTheme.colorScheme.surfaceVariant
+                },
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.VolumeUp,
+                        contentDescription = null,
+                        tint = if (allowed) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        modifier = Modifier.size(22.dp),
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Speaker",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = if (allowed) "Allowed for announcements" else "Muted for announcements",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+
+            Spacer(modifier = Modifier.width(4.dp))
+            Switch(
+                checked = allowed,
+                onCheckedChange = onAllowedChanged,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                    checkedTrackColor = MaterialTheme.colorScheme.primary,
+                ),
+            )
         }
     }
 }
@@ -653,11 +824,11 @@ private fun PreviouslyConnectedDeviceCard(
                     )
                 }
 
-                if (row.isBluetooth && row.canToggle) {
+                if (row.canToggle || !row.isBluetooth) {
                     Spacer(modifier = Modifier.width(8.dp))
                     Switch(
                         checked = row.allowed,
-                        enabled = bluetoothEnabled,
+                        enabled = if (row.isBluetooth) bluetoothEnabled else true,
                         onCheckedChange = onAllowedChanged,
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
@@ -741,12 +912,10 @@ fun WearOsCompanionCard(
         refreshStatus()
     }
 
-    val green = Color(0xFF10B981)
-    val amber = Color(0xFFF59E0B)
     val statusColor = when {
         !companionState.isConnected -> MaterialTheme.colorScheme.onSurfaceVariant
-        !companionState.watchAppInstalled -> amber
-        else -> green
+        !companionState.watchAppInstalled -> MaterialTheme.colorScheme.tertiary
+        else -> MaterialTheme.colorScheme.primary
     }
     val statusLabel = when {
         !companionState.isConnected -> "No watch connected"
@@ -772,8 +941,11 @@ fun WearOsCompanionCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
-            if (companionState.isConnected && companionState.watchAppInstalled) green.copy(alpha = 0.45f)
-            else MaterialTheme.colorScheme.outlineVariant,
+            if (companionState.isConnected && companionState.watchAppInstalled) {
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
+            } else {
+                MaterialTheme.colorScheme.outlineVariant
+            },
         ),
     ) {
         Column(
@@ -1010,5 +1182,129 @@ fun WearOsCompanionCard(
             },
             onDismiss = { showWatchAppsPicker = false },
         )
+    }
+}
+
+/**
+ * Ambient Auto Volume: measures how loud the room is before speaking and adds gain when it is
+ * noisy. Moved here from Voice & Speech because it is an output-volume behaviour.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun AmbientAutoVolumeCard(
+    enabled: Boolean,
+    thresholdDb: Int,
+    boostPercent: Int,
+    hasPermission: Boolean,
+    onToggle: (Boolean) -> Unit,
+    onThresholdChanged: (Int) -> Unit,
+    onBoostChanged: (Int) -> Unit,
+    onPermissionResult: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val micPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        onPermissionResult()
+        if (granted) onToggle(true)
+    }
+
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Surface(
+                    modifier = Modifier.size(40.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (enabled) {
+                        MaterialTheme.colorScheme.tertiaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.surfaceVariant
+                    },
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Rounded.GraphicEq,
+                            contentDescription = null,
+                            tint = if (enabled) {
+                                MaterialTheme.colorScheme.tertiary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                            modifier = Modifier.size(22.dp),
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Ambient Volume",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = "Adds gain when the room is loud",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(4.dp))
+                Switch(
+                    checked = enabled,
+                    onCheckedChange = { wantEnable ->
+                        if (wantEnable && !hasPermission) {
+                            micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                        } else {
+                            onToggle(wantEnable)
+                        }
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                        checkedTrackColor = MaterialTheme.colorScheme.primary,
+                    ),
+                )
+            }
+
+            if (enabled) {
+                Spacer(modifier = Modifier.height(10.dp))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(65, 70, 75).forEach { db ->
+                        FilterChip(
+                            selected = thresholdDb == db,
+                            onClick = { onThresholdChanged(db) },
+                            label = { Text(">$db dB", maxLines = 1, softWrap = false) },
+                        )
+                    }
+                    listOf(15, 20, 30).forEach { boost ->
+                        FilterChip(
+                            selected = boostPercent == boost,
+                            onClick = { onBoostChanged(boost) },
+                            label = { Text("+$boost%", maxLines = 1, softWrap = false) },
+                        )
+                    }
+                }
+            }
+        }
     }
 }

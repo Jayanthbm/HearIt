@@ -52,6 +52,12 @@ enum class DashboardDestination(
 
     /** Active Intelligence and Controls (Phase 2 & Phase 1). */
     ACTIVE_INTELLIGENCE(R.string.nav_active_intelligence, false),
+
+    /** Automation: earphone connect actions, catch-up and check-in. */
+    AUTOMATION(R.string.nav_automation, false),
+
+    /** App Security: app lock and screenshot protection. */
+    APP_SECURITY(R.string.nav_app_security, false),
     ;
 
     /** Stable identifier persisted across process recreation. */

@@ -281,7 +281,7 @@ class AnnouncementPipeline(
         senderBurstMinCount: Int = 2,
         senderBurstWindowMs: Long = 5_000L,
         isMultiAppDigestEnabled: Boolean = false,
-        multiAppDigestWindowMs: Long = 2_500L,
+        multiAppDigestWindowMs: Long = 2_000L,
         settingsOf: (String) -> ResolvedSettings,
     ): Action.Speak? {
         if (active != null) return null

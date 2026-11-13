@@ -47,6 +47,10 @@ class IntelligentSettingsSync @Inject constructor(
         SmartContentCleaner.carrierSpamPhrases = sessionStore.carrierSpamPhrases
         SmartContentCleaner.isEmailCleanupEnabled = sessionStore.isEmailCleanupEnabled
         SmartContentCleaner.isContactSanitizerEnabled = sessionStore.isContactSanitizerEnabled
+
+        // "Only allowed earphones" now lives in Devices & Audio as the per-device allow-list, so
+        // the old global filter is retired; clear it instead of honouring an unreachable flag.
+        sessionStore.isBluetoothAutoOnlyAllowedEnabled = false
     }
 
     /** Atomically applies per-app spoken aliases, categories, and messaging polish from [settings]. */

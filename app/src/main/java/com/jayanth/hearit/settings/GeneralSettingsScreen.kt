@@ -63,6 +63,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -118,6 +119,7 @@ fun GeneralSettingsRoute(
         onMaxMessagesChanged = viewModel::onMaxMessagesChanged,
         onDelayChanged = viewModel::onDelayChanged,
         onMinGapChanged = viewModel::onMinGapChanged,
+        onPauseBetweenSectionsChanged = viewModel::onPauseBetweenSectionsChanged,
         onExpiryChanged = viewModel::onExpiryChanged,
         onGlobalMaxSizeChanged = viewModel::onGlobalMaxSizeChanged,
         onPerAppMaxSizeChanged = viewModel::onPerAppMaxSizeChanged,
@@ -157,6 +159,7 @@ fun GeneralSettingsScreen(
     onMaxMessagesChanged: (Int) -> Unit,
     onDelayChanged: (Long) -> Unit,
     onMinGapChanged: (Long) -> Unit,
+    onPauseBetweenSectionsChanged: (Long) -> Unit = {},
     onExpiryChanged: (Long) -> Unit,
     onGlobalMaxSizeChanged: (Int) -> Unit,
     onPerAppMaxSizeChanged: (Int) -> Unit,
@@ -182,7 +185,6 @@ fun GeneralSettingsScreen(
     modifier: Modifier = Modifier,
 ) {
     var showResetDialog by remember { mutableStateOf(false) }
-    var showNotificationDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -233,45 +235,35 @@ fun GeneralSettingsScreen(
                 }
             }
         }
-        // Section 0: Gestures & Playback Controls Card
-        GesturesAndControlsCard(
-            state = state,
-            intelligenceActions = intelligenceActions,
-            isAutoDismissEnabled = state.isAutoDismissEnabled,
-            isShakeToStopEnabled = state.isShakeToStopEnabled,
-            isVolumeKeyToStopEnabled = state.isVolumeKeyToStopEnabled,
-            isMusicPauseHoldEnabled = state.isMusicPauseHoldEnabled,
-            isBluetoothAutoStartEnabled = state.isBluetoothAutoStartEnabled,
-            onToggleAutoDismiss = onToggleAutoDismiss,
-            onToggleShakeToStop = onToggleShakeToStop,
-            onToggleVolumeKeyToStop = onToggleVolumeKeyToStop,
+        // Section 1: Delivery - grouping, pacing, queue limits and update handling
+        DeliveryCard(
+            groupingWindowMillis = state.queue.groupingWindowMillis,
+            maxMessagesPerAnnouncement = state.queue.maxMessagesPerAnnouncement,
+            delayMillis = state.queue.delayBeforeAnnouncementMillis,
+            minGapMillis = state.queue.minGapBetweenAnnouncementsMillis,
+            pauseBetweenSectionsMillis = state.pauseBetweenSectionsMillis,
+            globalMaxSize = state.queue.globalMaxSize,
+            perAppMaxSize = state.queue.perAppMaxSize,
+            expiryMillis = state.queue.expiryMillis,
+            overflowPolicy = state.queue.overflowPolicy,
+            repeatUpdates = state.queue.repeatNotificationUpdates,
+            musicPauseHoldEnabled = state.isMusicPauseHoldEnabled,
+            musicPauseHoldDurationMs = state.musicPauseHoldDurationMs,
+            onGroupingWindowChanged = onGroupingWindowChanged,
+            onMaxMessagesChanged = onMaxMessagesChanged,
+            onDelayChanged = onDelayChanged,
+            onMinGapChanged = onMinGapChanged,
+            onPauseBetweenSectionsChanged = onPauseBetweenSectionsChanged,
+            onGlobalMaxSizeChanged = onGlobalMaxSizeChanged,
+            onPerAppMaxSizeChanged = onPerAppMaxSizeChanged,
+            onExpiryChanged = onExpiryChanged,
+            onOverflowPolicyChanged = onOverflowPolicyChanged,
+            onRepeatUpdatesChanged = onRepeatNotificationUpdatesChanged,
             onToggleMusicPauseHold = onToggleMusicPauseHold,
-            onToggleBluetoothAutoStart = onToggleBluetoothAutoStart,
+            onMusicPauseHoldDurationChanged = intelligenceActions.onMusicPauseHoldDurationChanged,
         )
 
-        // Section 0B: Timing, Catch-Up & Cooldown Automation (#19, #22)
-        com.jayanth.hearit.intelligence.AutomaticBehaviorAndCatchUpCard(
-            state = state,
-            actions = intelligenceActions,
-        )
-
-        // Section 0C: Periodic Spoken Check-in Card (Idea 43)
-        PeriodicCheckinCard(
-            isEnabled = state.isPeriodicCheckinEnabled,
-            intervalMinutes = state.periodicCheckinIntervalMinutes,
-            announceTime = state.periodicCheckinAnnounceTime,
-            announceBattery = state.periodicCheckinAnnounceBattery,
-            announceEarphonesBattery = state.periodicCheckinAnnounceEarphonesBattery,
-            announceSummary = state.periodicCheckinAnnounceSummary,
-            onToggleEnabled = onTogglePeriodicCheckin,
-            onIntervalChanged = onPeriodicCheckinIntervalChanged,
-            onToggleTime = onTogglePeriodicCheckinTime,
-            onToggleBattery = onTogglePeriodicCheckinBattery,
-            onToggleEarphonesBattery = intelligenceActions.onTogglePeriodicCheckinEarphonesBattery,
-            onToggleSummary = intelligenceActions.onTogglePeriodicCheckinSummary,
-        )
-
-        // Section 1: Audio Focus & Maps Navigation Yield
+        // Section 2: Audio Focus & Maps Navigation Yield
         AudioFocusCard(
             selectedPolicy = state.audioFocus,
             onPolicySelected = onAudioFocusPolicyChanged,
@@ -279,54 +271,16 @@ fun GeneralSettingsScreen(
             intelligenceActions = intelligenceActions,
         )
 
-        // Section 2: Grouping & Batching Card
-        GroupingCard(
-            groupingWindowMillis = state.queue.groupingWindowMillis,
-            maxMessagesPerAnnouncement = state.queue.maxMessagesPerAnnouncement,
-            onGroupingWindowChanged = onGroupingWindowChanged,
-            onMaxMessagesChanged = onMaxMessagesChanged,
-        )
-
-        // Section 3: Delivery Pacing Card
-        PacingCard(
-            delayMillis = state.queue.delayBeforeAnnouncementMillis,
-            minGapMillis = state.queue.minGapBetweenAnnouncementsMillis,
-            onDelayChanged = onDelayChanged,
-            onMinGapChanged = onMinGapChanged,
-        )
-
-        // Section 4: Queue Capacity & Expiry Card
-        QueueCapacityCard(
-            globalMaxSize = state.queue.globalMaxSize,
-            perAppMaxSize = state.queue.perAppMaxSize,
-            expiryMillis = state.queue.expiryMillis,
-            overflowPolicy = state.queue.overflowPolicy,
-            onGlobalMaxSizeChanged = onGlobalMaxSizeChanged,
-            onPerAppMaxSizeChanged = onPerAppMaxSizeChanged,
-            onExpiryChanged = onExpiryChanged,
-            onOverflowPolicyChanged = onOverflowPolicyChanged,
-        )
-
-        // Section 5: Notification Updates Card
-        NotificationUpdatesCard(
-            repeatUpdates = state.queue.repeatNotificationUpdates,
-            onRepeatUpdatesChanged = onRepeatNotificationUpdatesChanged,
-        )
-
-        // Section 6: Persistent Service Notification Card
-        ServiceNotificationCard(
-            isVisible = state.isServiceNotificationVisible,
-            onToggleClicked = { showNotificationDialog = true },
-            onConfigureClicked = onOpenServiceNotificationSettings,
-        )
-
-        // Section 7: Security & Device Privacy Card (Master Prompt §15)
-        SecurityPrivacyCard(
-            biometricLockEnabled = state.security.biometricLockEnabled,
-            secureScreenEnabled = state.security.secureScreenEnabled,
-            isBiometricAvailable = state.isBiometricAvailable,
-            onToggleBiometric = onToggleBiometric,
-            onToggleSecureScreen = onToggleSecureScreen,
+        // Section 3: Gestures
+        GesturesAndControlsCard(
+            state = state,
+            intelligenceActions = intelligenceActions,
+            isAutoDismissEnabled = state.isAutoDismissEnabled,
+            isShakeToStopEnabled = state.isShakeToStopEnabled,
+            isVolumeKeyToStopEnabled = state.isVolumeKeyToStopEnabled,
+            onToggleAutoDismiss = onToggleAutoDismiss,
+            onToggleShakeToStop = onToggleShakeToStop,
+            onToggleVolumeKeyToStop = onToggleVolumeKeyToStop,
         )
 
         val hasQueueChanges = state.queue != com.jayanth.hearit.core.common.model.QueueSettings() ||
@@ -409,43 +363,6 @@ fun GeneralSettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showResetDialog = false }) {
-                    Text(text = stringResource(R.string.action_cancel))
-                }
-            },
-        )
-    }
-
-    if (showNotificationDialog) {
-        AlertDialog(
-            onDismissRequest = { showNotificationDialog = false },
-            title = {
-                Text(
-                    text = stringResource(R.string.settings_service_notification_dialog_title),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                )
-            },
-            text = {
-                Text(
-                    text = stringResource(R.string.settings_service_notification_dialog_body),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showNotificationDialog = false
-                        onOpenServiceNotificationSettings()
-                    },
-                ) {
-                    Text(
-                        text = stringResource(R.string.settings_service_notification_dialog_confirm),
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showNotificationDialog = false }) {
                     Text(text = stringResource(R.string.action_cancel))
                 }
             },
@@ -546,7 +463,7 @@ private fun AudioFocusCard(
                 ) {
                     Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
                         Text(
-                            text = "Custom Media Ducking Level",
+                            text = "Ducking Level",
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.SemiBold,
                         )
@@ -574,7 +491,7 @@ private fun AudioFocusCard(
                             FilterChip(
                                 selected = state.duckingVolumePercent == pct,
                                 onClick = { intelligenceActions.onDuckingVolumePercentChanged(pct) },
-                                label = { Text(label) },
+                                label = { Text(label, maxLines = 2) },
                             )
                         }
                     }
@@ -591,7 +508,7 @@ private fun AudioFocusCard(
                         FilterChip(
                             selected = state.audioFocusReturnDelayMs == delay,
                             onClick = { intelligenceActions.onAudioFocusReturnDelayChanged(delay) },
-                            label = { Text(label) },
+                            label = { Text(label, maxLines = 2) },
                         )
                     }
                 }
@@ -608,7 +525,7 @@ private fun AudioFocusCard(
             ) {
                 Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
                     Text(
-                        text = "Yield to Maps & Navigation Voice",
+                        text = "Yield to Navigation",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
                     )
@@ -633,7 +550,7 @@ private fun AudioFocusCard(
                 ) {
                     Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
                         Text(
-                            text = "Re-announce Paused Notification Afterward",
+                            text = "Re-announce Afterward",
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Medium,
                         )
@@ -737,592 +654,6 @@ private fun AudioFocusPolicyInfoItem(
 }
 
 /**
- * Grouping and Batching Card.
- */
-@Composable
-private fun GroupingCard(
-    groupingWindowMillis: Long,
-    maxMessagesPerAnnouncement: Int,
-    onGroupingWindowChanged: (Long) -> Unit,
-    onMaxMessagesChanged: (Int) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    SettingsCard(
-        title = "Message Grouping",
-        subtitle = "Batch rapid notifications from the same app",
-        icon = Icons.Rounded.Layers,
-        modifier = modifier,
-    ) {
-        Column {
-            Text(
-                text = "Grouping Window",
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                val windowOptions = listOf(
-                    0L to "Off",
-                    3_000L to "3s",
-                    5_000L to "5s",
-                    10_000L to "10s",
-                )
-                windowOptions.forEachIndexed { index, (millis, label) ->
-                    val isSelected = groupingWindowMillis == millis
-                    SegmentedButton(
-                        selected = isSelected,
-                        onClick = { onGroupingWindowChanged(millis) },
-                        shape = SegmentedButtonDefaults.itemShape(index = index, count = windowOptions.size),
-                    ) {
-                        Text(text = label, style = MaterialTheme.typography.labelSmall)
-                    }
-                }
-            }
-
-            HorizontalDivider(
-                modifier = Modifier.padding(vertical = 14.dp),
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-            )
-
-            Text(
-                text = "Max Grouped Messages",
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                val messageOptions = listOf(
-                    1 to "1",
-                    2 to "2",
-                    3 to "3",
-                    5 to "5",
-                    10 to "10",
-                )
-                messageOptions.forEachIndexed { index, (count, label) ->
-                    val isSelected = maxMessagesPerAnnouncement == count
-                    SegmentedButton(
-                        selected = isSelected,
-                        onClick = { onMaxMessagesChanged(count) },
-                        shape = SegmentedButtonDefaults.itemShape(index = index, count = messageOptions.size),
-                    ) {
-                        Text(text = label, style = MaterialTheme.typography.labelSmall)
-                    }
-                }
-            }
-        }
-    }
-}
-
-/**
- * Pacing and Timing Card.
- */
-@Composable
-private fun PacingCard(
-    delayMillis: Long,
-    minGapMillis: Long,
-    onDelayChanged: (Long) -> Unit,
-    onMinGapChanged: (Long) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    SettingsCard(
-        title = "Delivery Timing",
-        subtitle = "Delays and pauses between announcements",
-        icon = Icons.Rounded.Timer,
-        modifier = modifier,
-    ) {
-        Column {
-            Text(
-                text = "Pre-Speech Delay",
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                val delayOptions = listOf(
-                    0L to "0s",
-                    1_000L to "1s",
-                    2_000L to "2s",
-                    3_000L to "3s",
-                )
-                delayOptions.forEachIndexed { index, (millis, label) ->
-                    val isSelected = delayMillis == millis
-                    SegmentedButton(
-                        selected = isSelected,
-                        onClick = { onDelayChanged(millis) },
-                        shape = SegmentedButtonDefaults.itemShape(index = index, count = delayOptions.size),
-                    ) {
-                        Text(text = label, style = MaterialTheme.typography.labelSmall)
-                    }
-                }
-            }
-
-            HorizontalDivider(
-                modifier = Modifier.padding(vertical = 14.dp),
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-            )
-
-            Text(
-                text = "Pause Between Announcements",
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                val gapOptions = listOf(
-                    0L to "0s",
-                    500L to "500ms",
-                    1_000L to "1s",
-                    2_000L to "2s",
-                )
-                gapOptions.forEachIndexed { index, (millis, label) ->
-                    val isSelected = minGapMillis == millis
-                    SegmentedButton(
-                        selected = isSelected,
-                        onClick = { onMinGapChanged(millis) },
-                        shape = SegmentedButtonDefaults.itemShape(index = index, count = gapOptions.size),
-                    ) {
-                        Text(text = label, style = MaterialTheme.typography.labelSmall)
-                    }
-                }
-            }
-        }
-    }
-}
-
-/**
- * Queue Capacity and Eviction Card.
- */
-@Composable
-private fun QueueCapacityCard(
-    globalMaxSize: Int,
-    perAppMaxSize: Int,
-    expiryMillis: Long,
-    overflowPolicy: OverflowPolicy,
-    onGlobalMaxSizeChanged: (Int) -> Unit,
-    onPerAppMaxSizeChanged: (Int) -> Unit,
-    onExpiryChanged: (Long) -> Unit,
-    onOverflowPolicyChanged: (OverflowPolicy) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    SettingsCard(
-        title = "Queue Capacity",
-        subtitle = "Buffer limits and eviction policies",
-        icon = Icons.Rounded.Storage,
-        modifier = modifier,
-    ) {
-        Column {
-            Text(
-                text = "Total Queue Capacity",
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                val globalOptions = listOf(20 to "20", 50 to "50", 100 to "100")
-                globalOptions.forEachIndexed { index, (size, label) ->
-                    val isSelected = globalMaxSize == size
-                    SegmentedButton(
-                        selected = isSelected,
-                        onClick = { onGlobalMaxSizeChanged(size) },
-                        shape = SegmentedButtonDefaults.itemShape(index = index, count = globalOptions.size),
-                    ) {
-                        Text(text = label, style = MaterialTheme.typography.labelSmall)
-                    }
-                }
-            }
-
-            HorizontalDivider(
-                modifier = Modifier.padding(vertical = 12.dp),
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-            )
-
-            Text(
-                text = "Per-App Capacity",
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                val perAppOptions = listOf(5 to "5", 10 to "10", 20 to "20")
-                perAppOptions.forEachIndexed { index, (size, label) ->
-                    val isSelected = perAppMaxSize == size
-                    SegmentedButton(
-                        selected = isSelected,
-                        onClick = { onPerAppMaxSizeChanged(size) },
-                        shape = SegmentedButtonDefaults.itemShape(index = index, count = perAppOptions.size),
-                    ) {
-                        Text(text = label, style = MaterialTheme.typography.labelSmall)
-                    }
-                }
-            }
-
-            HorizontalDivider(
-                modifier = Modifier.padding(vertical = 12.dp),
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-            )
-
-            Text(
-                text = "Announcement Expiry",
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                val expiryOptions = listOf(
-                    5 * 60_000L to "5m",
-                    15 * 60_000L to "15m",
-                    30 * 60_000L to "30m",
-                    60 * 60_000L to "1h",
-                )
-                expiryOptions.forEachIndexed { index, (millis, label) ->
-                    val isSelected = expiryMillis == millis
-                    SegmentedButton(
-                        selected = isSelected,
-                        onClick = { onExpiryChanged(millis) },
-                        shape = SegmentedButtonDefaults.itemShape(index = index, count = expiryOptions.size),
-                    ) {
-                        Text(text = label, style = MaterialTheme.typography.labelSmall)
-                    }
-                }
-            }
-
-            HorizontalDivider(
-                modifier = Modifier.padding(vertical = 12.dp),
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-            )
-
-            Text(
-                text = "Overflow Policy",
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                val overflowOptions = listOf(
-                    OverflowPolicy.DISCARD_OLDEST to "Oldest",
-                    OverflowPolicy.DISCARD_NEWEST to "Newest",
-                    OverflowPolicy.KEEP_HIGHEST_PRIORITY to "Priority",
-                )
-                overflowOptions.forEachIndexed { index, (policy, label) ->
-                    val isSelected = overflowPolicy == policy
-                    SegmentedButton(
-                        selected = isSelected,
-                        onClick = { onOverflowPolicyChanged(policy) },
-                        shape = SegmentedButtonDefaults.itemShape(index = index, count = overflowOptions.size),
-                    ) {
-                        Text(text = label, style = MaterialTheme.typography.labelSmall)
-                    }
-                }
-            }
-        }
-    }
-}
-
-/**
- * Section Card for Re-announcing Notification Updates.
- */
-@Composable
-private fun NotificationUpdatesCard(
-    repeatUpdates: Boolean,
-    onRepeatUpdatesChanged: (Boolean) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    SettingsCard(
-        title = "Notification Updates",
-        subtitle = "Re-announce updated notifications",
-        icon = Icons.Rounded.Sync,
-        modifier = modifier,
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { onRepeatUpdatesChanged(!repeatUpdates) },
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                Text(
-                    text = stringResource(R.string.settings_repeat_updates_label),
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    text = stringResource(R.string.settings_repeat_updates_desc),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 11.sp,
-                    lineHeight = 15.sp,
-                )
-            }
-            Switch(
-                checked = repeatUpdates,
-                onCheckedChange = onRepeatUpdatesChanged,
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = MaterialTheme.colorScheme.primary,
-                    checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
-                ),
-            )
-        }
-    }
-}
-
-/**
- * Section Card for Persistent Service Notification in Notification Panel.
- */
-@Composable
-private fun ServiceNotificationCard(
-    isVisible: Boolean,
-    onToggleClicked: () -> Unit,
-    onConfigureClicked: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    SettingsCard(
-        title = "Notification Panel",
-        subtitle = "Hear It foreground service tile",
-        icon = if (isVisible) Icons.Rounded.NotificationsActive else Icons.Rounded.NotificationsOff,
-        modifier = modifier,
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            // Live Status Pill
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = if (isVisible) {
-                    MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
-                } else {
-                    Color(0xFF10B981).copy(alpha = 0.15f)
-                },
-                border = BorderStroke(
-                    1.dp,
-                    if (isVisible) {
-                        MaterialTheme.colorScheme.outlineVariant
-                    } else {
-                        Color(0xFF10B981).copy(alpha = 0.4f)
-                    },
-                ),
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Icon(
-                        imageVector = if (isVisible) Icons.Rounded.NotificationsActive else Icons.Rounded.CheckCircle,
-                        contentDescription = null,
-                        tint = if (isVisible) MaterialTheme.colorScheme.primary else Color(0xFF10B981),
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Text(
-                        text = stringResource(
-                            if (isVisible) {
-                                R.string.settings_service_notification_status_visible
-                            } else {
-                                R.string.settings_service_notification_status_hidden
-                            },
-                        ),
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = if (isVisible) {
-                            MaterialTheme.colorScheme.onSecondaryContainer
-                        } else {
-                            Color(0xFF047857)
-                        },
-                    )
-                }
-            }
-
-            // Interactive Switch Row
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onToggleClicked() },
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                    Text(
-                        text = stringResource(R.string.settings_service_notification_visible_label),
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Text(
-                        text = stringResource(
-                            if (isVisible) {
-                                R.string.settings_service_notification_visible_on
-                            } else {
-                                R.string.settings_service_notification_visible_off
-                            },
-                        ),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 11.sp,
-                        lineHeight = 15.sp,
-                    )
-                }
-                Switch(
-                    checked = isVisible,
-                    onCheckedChange = { onToggleClicked() },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = MaterialTheme.colorScheme.primary,
-                        checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
-                    ),
-                )
-            }
-
-            // Explanatory note
-            Text(
-                text = stringResource(R.string.settings_service_notification_explanation),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 11.sp,
-                lineHeight = 15.sp,
-            )
-
-            // Direct button to open Android notification settings
-            FilledTonalButton(
-                onClick = onConfigureClicked,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Configure in Android Settings",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-
-            // Tip underneath
-            Text(
-                text = stringResource(R.string.settings_service_notification_tip),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-@Composable
-private fun SecurityPrivacyCard(
-    biometricLockEnabled: Boolean,
-    secureScreenEnabled: Boolean,
-    isBiometricAvailable: Boolean,
-    onToggleBiometric: () -> Unit,
-    onToggleSecureScreen: (Boolean) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    SettingsCard(
-        title = "Security & Privacy",
-        subtitle = "Biometric lock and secure screen display",
-        icon = Icons.Rounded.Security,
-        modifier = modifier,
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            // Item 1: Biometric & Device Credential Gate
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(enabled = isBiometricAvailable || biometricLockEnabled) { onToggleBiometric() },
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                    Text(
-                        text = "App Lock (Biometric / PIN)",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Text(
-                        text = if (isBiometricAvailable) {
-                            "Require authentication to open Hear It"
-                        } else {
-                            "Set up device PIN or Biometrics in Settings"
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        fontSize = 11.sp,
-                        lineHeight = 15.sp,
-                        color = if (isBiometricAvailable) {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        } else {
-                            MaterialTheme.colorScheme.error
-                        },
-                    )
-                }
-                Switch(
-                    checked = biometricLockEnabled,
-                    onCheckedChange = { onToggleBiometric() },
-                    enabled = isBiometricAvailable || biometricLockEnabled,
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = MaterialTheme.colorScheme.primary,
-                        checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
-                    ),
-                )
-            }
-
-            HorizontalDivider(
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                thickness = 1.dp,
-            )
-
-            // Item 2: Secure Screen Mode (FLAG_SECURE)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onToggleSecureScreen(!secureScreenEnabled) },
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                    Text(
-                        text = "Secure Screen Display",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Text(
-                        text = "Blocks screenshots and app switcher previews",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 11.sp,
-                        lineHeight = 15.sp,
-                    )
-                }
-                Switch(
-                    checked = secureScreenEnabled,
-                    onCheckedChange = onToggleSecureScreen,
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = MaterialTheme.colorScheme.primary,
-                        checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
-                    ),
-                )
-            }
-        }
-    }
-}
-
-/**
  * Reusable M3 section card wrapper with squircle icon badge.
  */
 @Composable
@@ -1366,7 +697,7 @@ internal fun SettingsCard(
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
+                        maxLines = 2,
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                     )
                     Text(
@@ -1396,18 +727,14 @@ internal fun GesturesAndControlsCard(
     isAutoDismissEnabled: Boolean,
     isShakeToStopEnabled: Boolean,
     isVolumeKeyToStopEnabled: Boolean,
-    isMusicPauseHoldEnabled: Boolean,
-    isBluetoothAutoStartEnabled: Boolean,
     onToggleAutoDismiss: (Boolean) -> Unit,
     onToggleShakeToStop: (Boolean) -> Unit,
     onToggleVolumeKeyToStop: (Boolean) -> Unit,
-    onToggleMusicPauseHold: (Boolean) -> Unit,
-    onToggleBluetoothAutoStart: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     SettingsCard(
-        title = "Gestures & Playback Controls",
-        subtitle = "Motion shortcuts and smart auto-dismiss actions",
+        title = "Gestures",
+        subtitle = "Shake, flip and volume-key shortcuts, plus auto-dismiss",
         icon = Icons.Rounded.GraphicEq,
         modifier = modifier,
     ) {
@@ -1420,7 +747,7 @@ internal fun GesturesAndControlsCard(
             ) {
                 Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
                     Text(
-                        text = "Auto-Dismiss Spoken Alerts",
+                        text = "Auto-Dismiss Alerts",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
                     )
@@ -1520,12 +847,12 @@ internal fun GesturesAndControlsCard(
             ) {
                 Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
                     Text(
-                        text = "Shake After Speech to Repeat",
+                        text = "Shake to Repeat",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
                     )
                     Text(
-                        text = "Shake gently within window after speech ends to replay",
+                        text = "Shake within this window after speech to replay",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -1537,7 +864,7 @@ internal fun GesturesAndControlsCard(
             }
             if (state.isShakeToRepeatEnabled) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(5_000L to "5s window", 10_000L to "10s window", 15_000L to "15s window").forEach { (ms, lbl) ->
+                    listOf(5_000L to "5 s", 10_000L to "10 s", 15_000L to "15 s").forEach { (ms, lbl) ->
                         FilterChip(
                             selected = state.shakeRepeatWindowMs == ms,
                             onClick = { intelligenceActions.onShakeRepeatWindowChanged(ms) },
@@ -1556,7 +883,7 @@ internal fun GesturesAndControlsCard(
             ) {
                 Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
                     Text(
-                        text = "Physical Volume Key Silence",
+                        text = "Volume Key Silence",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
                     )
@@ -1572,115 +899,6 @@ internal fun GesturesAndControlsCard(
                 )
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-            // Music Pause Hold (#19 configurable duration)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                    Text(
-                        text = "Music Paused Hold",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        text = "Delays announcements when you pause music to talk",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Switch(
-                    checked = isMusicPauseHoldEnabled,
-                    onCheckedChange = onToggleMusicPauseHold,
-                )
-            }
-            if (isMusicPauseHoldEnabled) {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(
-                        30_000L to "30s",
-                        60_000L to "60s",
-                        90_000L to "90s",
-                        120_000L to "2m",
-                    ).forEach { (ms, label) ->
-                        FilterChip(
-                            selected = state.musicPauseHoldDurationMs == ms,
-                            onClick = { intelligenceActions.onMusicPauseHoldDurationChanged(ms) },
-                            label = { Text(label) },
-                        )
-                    }
-                }
-            }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-            // Bluetooth Auto-Start / Auto-Stop / Filter (#27)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                    Text(
-                        text = "Auto-Start on Earphones Connect",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        text = "Starts HearIt automatically when Bluetooth audio connects",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Switch(
-                    checked = isBluetoothAutoStartEnabled,
-                    onCheckedChange = onToggleBluetoothAutoStart,
-                )
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                    Text(
-                        text = "Auto-Stop on Disconnect",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        text = "Stops service cleanly when Bluetooth earphones disconnect",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Switch(
-                    checked = state.isBluetoothAutoStopEnabled,
-                    onCheckedChange = intelligenceActions.onToggleBluetoothAutoStop,
-                )
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                    Text(
-                        text = "Only Allowed Earphones",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        text = "Ignore unrecognized Bluetooth headsets unless allowed in Devices",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Switch(
-                    checked = state.isBluetoothAutoOnlyAllowedEnabled,
-                    onCheckedChange = intelligenceActions.onToggleBluetoothAutoOnlyAllowed,
-                )
-            }
         }
     }
 }
@@ -1703,7 +921,7 @@ internal fun PeriodicCheckinCard(
     modifier: Modifier = Modifier,
 ) {
     SettingsCard(
-        title = "Periodic Spoken Check-in",
+        title = "Spoken Check-in",
         subtitle = "Speaks time and battery status at regular intervals",
         icon = Icons.Rounded.Timer,
         modifier = modifier,
@@ -1725,11 +943,11 @@ internal fun PeriodicCheckinCard(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    listOf(15 to "15m", 30 to "30m", 60 to "1h", 120 to "2h").forEach { (mins, label) ->
+                    listOf(15 to "15 mins", 30 to "30 mins", 60 to "1hr", 120 to "2hr").forEach { (mins, label) ->
                         FilterChip(
                             selected = intervalMinutes == mins,
                             onClick = { onIntervalChanged(mins) },
-                            label = { Text(label) },
+                            label = { Text(label, maxLines = 2) },
                             modifier = Modifier.weight(1f),
                         )
                     }
@@ -1778,3 +996,262 @@ internal fun PeriodicCheckinCard(
     }
 }
 
+
+/**
+ * Delivery: everything that decides when an announcement is spoken, how it is batched, and
+ * which queued item survives. Queue limits sit behind an Advanced expander because they are
+ * tuning, not day-to-day choices.
+ */
+@Composable
+private fun DeliveryCard(
+    groupingWindowMillis: Long,
+    maxMessagesPerAnnouncement: Int,
+    delayMillis: Long,
+    minGapMillis: Long,
+    pauseBetweenSectionsMillis: Long,
+    globalMaxSize: Int,
+    perAppMaxSize: Int,
+    expiryMillis: Long,
+    overflowPolicy: OverflowPolicy,
+    repeatUpdates: Boolean,
+    musicPauseHoldEnabled: Boolean,
+    musicPauseHoldDurationMs: Long,
+    onGroupingWindowChanged: (Long) -> Unit,
+    onMaxMessagesChanged: (Int) -> Unit,
+    onDelayChanged: (Long) -> Unit,
+    onMinGapChanged: (Long) -> Unit,
+    onPauseBetweenSectionsChanged: (Long) -> Unit,
+    onGlobalMaxSizeChanged: (Int) -> Unit,
+    onPerAppMaxSizeChanged: (Int) -> Unit,
+    onExpiryChanged: (Long) -> Unit,
+    onOverflowPolicyChanged: (OverflowPolicy) -> Unit,
+    onRepeatUpdatesChanged: (Boolean) -> Unit,
+    onToggleMusicPauseHold: (Boolean) -> Unit,
+    onMusicPauseHoldDurationChanged: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var advancedExpanded by rememberSaveable { mutableStateOf(false) }
+
+    SettingsCard(
+        title = "Delivery",
+        subtitle = "Grouping, timing, queue limits and updates",
+        icon = Icons.Rounded.Timer,
+        modifier = modifier,
+    ) {
+        Column {
+            DeliveryLabel("Message Grouping", "Batch rapid notifications from the same app")
+            DeliverySegmented(
+                options = listOf(0L to "Off", 3_000L to "3 s", 5_000L to "5 s", 10_000L to "10 s"),
+                selected = groupingWindowMillis,
+                onSelect = onGroupingWindowChanged,
+            )
+
+            DeliveryGap()
+            DeliveryLabel("Max Grouped Messages")
+            DeliverySegmented(
+                options = listOf(1 to "1", 2 to "2", 3 to "3", 5 to "5", 10 to "10"),
+                selected = maxMessagesPerAnnouncement,
+                onSelect = onMaxMessagesChanged,
+            )
+
+            DeliveryLine()
+
+            DeliveryLabel("Pre-Speech Delay")
+            DeliverySegmented(
+                options = listOf(0L to "Off", 1_000L to "1 s", 2_000L to "2 s", 3_000L to "3 s"),
+                selected = delayMillis,
+                onSelect = onDelayChanged,
+            )
+
+            DeliveryGap()
+            DeliveryLabel("Pause Between Announcements")
+            DeliverySegmented(
+                options = listOf(0L to "Off", 500L to "500 ms", 1_000L to "1 s", 2_000L to "2 s"),
+                selected = minGapMillis,
+                onSelect = onMinGapChanged,
+            )
+
+            DeliveryGap()
+            DeliveryLabel("Pause Inside an Announcement", "Silence between app name, sender and message")
+            DeliverySegmented(
+                options = listOf(0L to "Off", 250L to "250 ms", 500L to "500 ms", 1_000L to "1 s"),
+                selected = pauseBetweenSectionsMillis,
+                onSelect = onPauseBetweenSectionsChanged,
+            )
+
+            DeliveryLine()
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                    Text(
+                        text = "Music Pause Hold",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = "Waits before speaking while your music is paused",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                    )
+                }
+                Switch(checked = musicPauseHoldEnabled, onCheckedChange = onToggleMusicPauseHold)
+            }
+            if (musicPauseHoldEnabled) {
+                DeliveryGap()
+                DeliverySegmented(
+                    options = listOf(
+                        30_000L to "30 s",
+                        60_000L to "60 s",
+                        90_000L to "90 s",
+                        120_000L to "120 s",
+                    ),
+                    selected = musicPauseHoldDurationMs,
+                    onSelect = onMusicPauseHoldDurationChanged,
+                )
+            }
+
+            DeliveryLine()
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                    Text(
+                        text = "Repeat Updates",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = "Speaks again when an app updates a queued notification",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                    )
+                }
+                Switch(checked = repeatUpdates, onCheckedChange = onRepeatUpdatesChanged)
+            }
+
+            DeliveryLine()
+
+            TextButton(
+                onClick = { advancedExpanded = !advancedExpanded },
+                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 4.dp),
+            ) {
+                Text(
+                    text = if (advancedExpanded) "Hide advanced" else "Advanced",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+
+            if (advancedExpanded) {
+                DeliveryGap()
+                DeliveryLabel("Total Queue Capacity")
+                DeliverySegmented(
+                    options = listOf(20 to "20", 50 to "50", 100 to "100"),
+                    selected = globalMaxSize,
+                    onSelect = onGlobalMaxSizeChanged,
+                )
+
+                DeliveryGap()
+                DeliveryLabel("Per-App Capacity")
+                DeliverySegmented(
+                    options = listOf(5 to "5", 10 to "10", 20 to "20"),
+                    selected = perAppMaxSize,
+                    onSelect = onPerAppMaxSizeChanged,
+                )
+
+                DeliveryGap()
+                DeliveryLabel("Announcement Expiry")
+                DeliverySegmented(
+                    options = listOf(
+                        5 * 60_000L to "5 min",
+                        15 * 60_000L to "15 min",
+                        30 * 60_000L to "30 min",
+                        60 * 60_000L to "1 hour",
+                    ),
+                    selected = expiryMillis,
+                    onSelect = onExpiryChanged,
+                )
+
+                DeliveryGap()
+                DeliveryLabel("Overflow Policy")
+                DeliverySegmented(
+                    options = listOf(
+                        OverflowPolicy.DISCARD_OLDEST to "Oldest",
+                        OverflowPolicy.DISCARD_NEWEST to "Newest",
+                        OverflowPolicy.KEEP_HIGHEST_PRIORITY to "Priority",
+                    ),
+                    selected = overflowPolicy,
+                    onSelect = onOverflowPolicyChanged,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DeliveryLabel(title: String, hint: String? = null) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.bodyMedium,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.onSurface,
+    )
+    if (hint != null) {
+        Text(
+            text = hint,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 2,
+            modifier = Modifier.padding(top = 2.dp),
+        )
+    }
+    Spacer(modifier = Modifier.height(8.dp))
+}
+
+@Composable
+private fun <T> DeliverySegmented(
+    options: List<Pair<T, String>>,
+    selected: T,
+    onSelect: (T) -> Unit,
+) {
+    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+        options.forEachIndexed { index, (value, label) ->
+            SegmentedButton(
+                selected = selected == value,
+                onClick = { onSelect(value) },
+                shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
+            ) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1,
+                    softWrap = false,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DeliveryGap() {
+    Spacer(modifier = Modifier.height(14.dp))
+}
+
+@Composable
+private fun DeliveryLine() {
+    HorizontalDivider(
+        modifier = Modifier.padding(vertical = 14.dp),
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+    )
+}

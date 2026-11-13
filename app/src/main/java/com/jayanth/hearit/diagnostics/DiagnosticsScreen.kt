@@ -56,6 +56,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -72,7 +73,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.jayanth.hearit.R
+import com.jayanth.hearit.service.AnnouncementNotification
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -224,6 +229,9 @@ fun DiagnosticsScreen(
 
         // Section 1: Announcement Service Live State
         ServiceDiagnosticsCard(state = state)
+
+        // Section 1B: Ongoing service notification
+        OngoingNotificationCard()
 
         // Section 2: Permissions & System Access
         PermissionsDiagnosticsCard(
@@ -1310,6 +1318,66 @@ private fun DiagnosticsSectionCard(
                 }
             }
             content()
+        }
+    }
+}
+
+/**
+ * Ongoing service notification: visibility state and a direct route into the Android channel
+ * settings. Moved here from Playback & Gestures, which should not own service status.
+ */
+@Composable
+private fun OngoingNotificationCard() {
+    val context = LocalContext.current
+    var visible by remember { mutableStateOf(AnnouncementNotification.isNotificationVisible(context)) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                visible = AnnouncementNotification.isNotificationVisible(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    DiagnosticsSectionCard(
+        title = "Ongoing Notification",
+        subtitle = "Keeps the service visible while it listens",
+        icon = Icons.Rounded.Notifications,
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            DiagnosticRow(
+                label = "Notification Visibility",
+                subtitle = "Shown in the notification shade and on the lock screen",
+                statusText = if (visible) "VISIBLE" else "HIDDEN",
+                isOk = visible,
+            )
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+            OutlinedButton(
+                onClick = {
+                    AnnouncementNotification.openNotificationSettings(context)
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(text = "Configure in Android Settings")
+            }
+
+            Text(
+                text = "Android can hide the notification if battery optimisation restricts the service.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+            )
         }
     }
 }

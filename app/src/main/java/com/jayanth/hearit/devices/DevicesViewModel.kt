@@ -1,14 +1,18 @@
 package com.jayanth.hearit.devices
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jayanth.hearit.core.common.model.AudioOutputKind
 import com.jayanth.hearit.core.common.model.AudioOutputSettings
 import com.jayanth.hearit.core.datastore.HearItSettings
 import com.jayanth.hearit.core.datastore.SettingsRepository
+import com.jayanth.hearit.service.AmbientNoiseSampler
+import com.jayanth.hearit.service.SessionStore
 import com.jayanth.hearit.setup.AudioOutputProbe
 import com.jayanth.hearit.setup.DetectedOutput
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,9 +35,19 @@ import kotlinx.coroutines.launch
 class DevicesViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val audioOutputs: AudioOutputProbe,
+    private val sessionStore: SessionStore,
+    @param:ApplicationContext private val context: Context,
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(DevicesUiState())
+    private val _state = MutableStateFlow(
+        DevicesUiState(
+            isAmbientNoiseBoostEnabled = sessionStore.isAmbientNoiseBoostEnabled &&
+                AmbientNoiseSampler.hasRecordAudioPermission(context),
+            ambientNoiseThresholdDb = sessionStore.ambientNoiseThresholdDb,
+            ambientNoiseBoostPercent = sessionStore.ambientNoiseBoostPercent,
+            hasRecordAudioPermission = AmbientNoiseSampler.hasRecordAudioPermission(context),
+        ),
+    )
     val state: StateFlow<DevicesUiState> = _state.asStateFlow()
 
     private var connected: List<DetectedOutput> = emptyList()
@@ -101,6 +115,36 @@ class DevicesViewModel @Inject constructor(
                 DeviceSelectionEditor.forgetDevice(settings, deviceId)
             }
         }
+    }
+
+    fun refreshRecordAudioPermission() {
+        val granted = AmbientNoiseSampler.hasRecordAudioPermission(context)
+        _state.update { current ->
+            current.copy(
+                hasRecordAudioPermission = granted,
+                isAmbientNoiseBoostEnabled = current.isAmbientNoiseBoostEnabled && granted,
+            )
+        }
+    }
+
+    /** Turns ambient auto-volume on or off; it stays off without microphone permission. */
+    fun onToggleAmbientNoiseBoost(enabled: Boolean) {
+        val granted = AmbientNoiseSampler.hasRecordAudioPermission(context)
+        val effective = enabled && granted
+        sessionStore.isAmbientNoiseBoostEnabled = effective
+        _state.update {
+            it.copy(hasRecordAudioPermission = granted, isAmbientNoiseBoostEnabled = effective)
+        }
+    }
+
+    fun onAmbientNoiseThresholdChanged(db: Int) {
+        sessionStore.ambientNoiseThresholdDb = db
+        _state.update { it.copy(ambientNoiseThresholdDb = db) }
+    }
+
+    fun onAmbientNoiseBoostPercentChanged(percent: Int) {
+        sessionStore.ambientNoiseBoostPercent = percent
+        _state.update { it.copy(ambientNoiseBoostPercent = percent) }
     }
 
     // ---- internals ---------------------------------------------------------------------

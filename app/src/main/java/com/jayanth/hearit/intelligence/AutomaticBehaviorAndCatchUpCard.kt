@@ -25,15 +25,15 @@ internal fun AutomaticBehaviorAndCatchUpCard(
     modifier: Modifier = Modifier,
 ) {
     SettingsCard(
-        title = "Timing & Catch-Up Automation",
-        subtitle = "App-name cooldowns, delayed time tags, and headphone connect catch-up summaries",
+        title = "Timing & Catch-Up",
+        subtitle = "Cooldowns, time tags and connect summaries",
         icon = Icons.Rounded.AutoMode,
         modifier = modifier,
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             // 1. App Name Deduplication (#19)
             NlpToggleRow(
-                title = "Deduplicate Back-to-Back App Names",
+                title = "Dedupe App Names",
                 subtitle = "Omits repeating the app name when rapid alerts arrive from the same app",
                 checked = state.isAppNameDedupEnabled,
                 onCheckedChange = actions.onToggleAppNameDedup,
@@ -58,7 +58,7 @@ internal fun AutomaticBehaviorAndCatchUpCard(
 
             // 2. Delayed Timestamp Context (#19 / Idea 40)
             NlpToggleRow(
-                title = "Delayed Message Time Tag",
+                title = "Delayed Time Tag",
                 subtitle = "Says 'Rahul sent 12 minutes ago:' for notifications held past threshold",
                 checked = state.isDelayedTimestampTagEnabled,
                 onCheckedChange = actions.onToggleDelayedTimestampTag,
@@ -66,9 +66,9 @@ internal fun AutomaticBehaviorAndCatchUpCard(
             if (state.isDelayedTimestampTagEnabled) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf(
-                        60_000L to "After 1m",
-                        120_000L to "After 2m",
-                        300_000L to "After 5m",
+                        60_000L to "1 m",
+                        120_000L to "2 m",
+                        300_000L to "5 m",
                     ).forEach { (ms, label) ->
                         FilterChip(
                             selected = state.delayedTimestampThresholdMs == ms,
@@ -82,7 +82,7 @@ internal fun AutomaticBehaviorAndCatchUpCard(
 
             // 3. Connect Catch-Up Summary (#22)
             NlpToggleRow(
-                title = "\"What Did I Miss?\" Connect Catch-Up",
+                title = "Connect Catch-Up",
                 subtitle = "Summarizes pending + recently skipped alerts by app when earphones connect",
                 checked = state.isCatchUpSummaryEnabled,
                 onCheckedChange = actions.onToggleCatchUpSummary,
@@ -119,7 +119,7 @@ internal fun AutomaticBehaviorAndCatchUpCard(
 
             // 4. Chatty Group Flood Defense: Sender Burst Aggregator (#20)
             NlpToggleRow(
-                title = "Sender Burst Aggregator",
+                title = "Burst Grouping",
                 subtitle = "Merges rapid back-to-back messages from the same contact ('Rahul sent 4 quick messages: ...')",
                 checked = state.isSenderBurstAggregatorEnabled,
                 onCheckedChange = actions.onToggleSenderBurstAggregator,
@@ -146,7 +146,7 @@ internal fun AutomaticBehaviorAndCatchUpCard(
 
             // 5. Spam Cooldown Throttle (#28)
             NlpToggleRow(
-                title = "Sender Spam Cooldown Throttle",
+                title = "Spam Cooldown",
                 subtitle = "Prevents audio fatigue when a sender rapid-fires alerts, summarizing bursts",
                 checked = state.isSpamCooldownEnabled,
                 onCheckedChange = actions.onToggleSpamCooldown,
@@ -173,16 +173,22 @@ internal fun AutomaticBehaviorAndCatchUpCard(
 
             // 6. Multi-App Smart Notification Batching Digest (#33)
             NlpToggleRow(
-                title = "Multi-App Smart Digest",
+                title = "Multi-App Digest",
                 subtitle = "Collects simultaneous alerts across apps into one spoken digest",
                 checked = state.isMultiAppDigestEnabled,
                 onCheckedChange = actions.onToggleMultiAppDigest,
             )
             if (state.isMultiAppDigestEnabled) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(2_000L to "2s collect", 3_000L to "3s collect", 5_000L to "5s collect").forEach { (ms, lbl) ->
+                    val digestOptions = listOf(2_000L to "2 s", 3_000L to "3 s", 5_000L to "5 s")
+                    // Stored values from an older build snap to the closest supported option so a
+                    // chip is always selected.
+                    val digestSelected = digestOptions.minByOrNull {
+                        kotlin.math.abs(it.first - state.multiAppDigestWindowMs)
+                    }?.first ?: 2_000L
+                    digestOptions.forEach { (ms, lbl) ->
                         FilterChip(
-                            selected = state.multiAppDigestWindowMs == ms,
+                            selected = digestSelected == ms,
                             onClick = { actions.onMultiAppDigestWindowChanged(ms) },
                             label = { Text(lbl) },
                         )

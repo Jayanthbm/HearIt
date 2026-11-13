@@ -1,21 +1,18 @@
 package com.jayanth.hearit.voicespeech
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jayanth.hearit.core.common.model.NotificationSnapshot
 import com.jayanth.hearit.core.datastore.SettingsRepository
-import com.jayanth.hearit.core.tts.AnnouncementFormat
 import com.jayanth.hearit.core.tts.AnnouncementTemplate
 import com.jayanth.hearit.core.tts.BuiltAnnouncement
 import com.jayanth.hearit.core.tts.SpeechSettings
 import com.jayanth.hearit.core.tts.TextToSpeechEngine
 import com.jayanth.hearit.core.tts.TtsError
+import com.jayanth.hearit.core.tts.SmartContentCleaner
 import com.jayanth.hearit.core.tts.UtteranceListener
-import com.jayanth.hearit.service.AmbientNoiseSampler
 import com.jayanth.hearit.service.SessionStore
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,7 +29,6 @@ class VoiceSpeechViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val engine: TextToSpeechEngine,
     private val sessionStore: SessionStore,
-    @param:ApplicationContext private val context: Context,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(
@@ -47,11 +43,9 @@ class VoiceSpeechViewModel @Inject constructor(
             isMonoFoldDownEnabled = sessionStore.isMonoFoldDownEnabled,
             isVoiceBoostEnabled = sessionStore.isVoiceBoostEnabled,
             voiceBoostPercent = sessionStore.voiceBoostPercent,
-            isAmbientNoiseBoostEnabled = sessionStore.isAmbientNoiseBoostEnabled &&
-                AmbientNoiseSampler.hasRecordAudioPermission(context),
-            ambientNoiseThresholdDb = sessionStore.ambientNoiseThresholdDb,
-            ambientNoiseBoostPercent = sessionStore.ambientNoiseBoostPercent,
-            hasRecordAudioPermission = AmbientNoiseSampler.hasRecordAudioPermission(context),
+            isDigitFormattingEnabled = sessionStore.isDigitFormattingEnabled,
+            isFormatOtpCodesEnabled = sessionStore.isFormatOtpCodesEnabled,
+            isFormatPhoneNumbersEnabled = sessionStore.isFormatPhoneNumbersEnabled,
         ),
     )
     val state: StateFlow<VoiceSpeechUiState> = _state.asStateFlow()
@@ -63,6 +57,7 @@ class VoiceSpeechViewModel @Inject constructor(
                     current.copy(
                         speech = settings.speech,
                         format = settings.format,
+                        isOtpShieldEnabled = settings.eligibility.privacy.skipOtp,
                         voices = engine.listVoices(),
                         isTtsAvailable = engine.isAvailable(),
                     )
@@ -109,28 +104,6 @@ class VoiceSpeechViewModel @Inject constructor(
         updateSpeech { it.copy(voiceId = voiceId) }
     }
 
-    fun onIncludeAppNameChanged(include: Boolean) {
-        updateFormat { it.copy(includeAppName = include) }
-    }
-
-    fun onIncludeSenderChanged(include: Boolean) {
-        updateFormat { it.copy(includeSender = include) }
-    }
-
-    fun onIncludeMessageChanged(include: Boolean) {
-        updateFormat { it.copy(includeMessage = include) }
-    }
-
-    fun onIntroductionChanged(introduction: String?) {
-        val normalized = introduction?.trim()?.takeIf { it.isNotEmpty() }
-        updateFormat { it.copy(introduction = normalized) }
-    }
-
-    fun onPauseDurationChanged(pauseMillis: Long) {
-        val valid = pauseMillis.coerceAtLeast(0L)
-        updateFormat { it.copy(pauseBetweenSectionsMillis = valid) }
-    }
-
     fun onResetToDefaults() {
         if (_state.value.isSpeaking) {
             engine.stop()
@@ -145,9 +118,6 @@ class VoiceSpeechViewModel @Inject constructor(
         sessionStore.isMonoFoldDownEnabled = true
         sessionStore.isVoiceBoostEnabled = false
         sessionStore.voiceBoostPercent = 20
-        sessionStore.isAmbientNoiseBoostEnabled = false
-        sessionStore.ambientNoiseThresholdDb = 70
-        sessionStore.ambientNoiseBoostPercent = 20
         _state.update {
             it.copy(
                 isEarconEnabled = true,
@@ -160,17 +130,11 @@ class VoiceSpeechViewModel @Inject constructor(
                 isMonoFoldDownEnabled = true,
                 isVoiceBoostEnabled = false,
                 voiceBoostPercent = 20,
-                isAmbientNoiseBoostEnabled = false,
-                ambientNoiseThresholdDb = 70,
-                ambientNoiseBoostPercent = 20,
             )
         }
         viewModelScope.launch {
             settingsRepository.update { current ->
-                current.copy(
-                    speech = SpeechSettings(),
-                    format = AnnouncementFormat(),
-                )
+                current.copy(speech = SpeechSettings())
             }
         }
     }
@@ -276,36 +240,22 @@ class VoiceSpeechViewModel @Inject constructor(
         _state.update { it.copy(voiceBoostPercent = percent) }
     }
 
-    fun refreshRecordAudioPermission() {
-        val granted = AmbientNoiseSampler.hasRecordAudioPermission(context)
-        _state.update { current ->
-            current.copy(
-                hasRecordAudioPermission = granted,
-                isAmbientNoiseBoostEnabled = current.isAmbientNoiseBoostEnabled && granted,
-            )
-        }
+    fun onToggleDigitFormatting(enabled: Boolean) {
+        sessionStore.isDigitFormattingEnabled = enabled
+        SmartContentCleaner.isDigitFormattingEnabled = enabled
+        _state.update { it.copy(isDigitFormattingEnabled = enabled) }
     }
 
-    fun onToggleAmbientNoiseBoost(enabled: Boolean) {
-        val hasPerm = AmbientNoiseSampler.hasRecordAudioPermission(context)
-        val effective = enabled && hasPerm
-        sessionStore.isAmbientNoiseBoostEnabled = effective
-        _state.update {
-            it.copy(
-                hasRecordAudioPermission = hasPerm,
-                isAmbientNoiseBoostEnabled = effective,
-            )
-        }
+    fun onToggleFormatOtpCodes(enabled: Boolean) {
+        sessionStore.isFormatOtpCodesEnabled = enabled
+        SmartContentCleaner.isFormatOtpCodesEnabled = enabled
+        _state.update { it.copy(isFormatOtpCodesEnabled = enabled) }
     }
 
-    fun onAmbientNoiseThresholdChanged(db: Int) {
-        sessionStore.ambientNoiseThresholdDb = db
-        _state.update { it.copy(ambientNoiseThresholdDb = db) }
-    }
-
-    fun onAmbientNoiseBoostPercentChanged(percent: Int) {
-        sessionStore.ambientNoiseBoostPercent = percent
-        _state.update { it.copy(ambientNoiseBoostPercent = percent) }
+    fun onToggleFormatPhoneNumbers(enabled: Boolean) {
+        sessionStore.isFormatPhoneNumbersEnabled = enabled
+        SmartContentCleaner.isFormatPhoneNumbersEnabled = enabled
+        _state.update { it.copy(isFormatPhoneNumbersEnabled = enabled) }
     }
 
     override fun onCleared() {
@@ -323,11 +273,4 @@ class VoiceSpeechViewModel @Inject constructor(
         }
     }
 
-    private fun updateFormat(transform: (AnnouncementFormat) -> AnnouncementFormat) {
-        viewModelScope.launch {
-            settingsRepository.update { current ->
-                current.copy(format = transform(current.format))
-            }
-        }
-    }
 }

@@ -88,34 +88,7 @@ internal fun SmartContentCleaningCard(
             }
             DividerLine()
 
-            // 3. OTP & Phone Number Digit-by-Digit Formatting (#12)
-            NlpToggleRow(
-                title = "Read codes clearly",
-                subtitle = "Reads OTPs and phone numbers digit by digit",
-                checked = state.isDigitFormattingEnabled,
-                onCheckedChange = actions.onToggleDigitFormatting,
-            )
-            if (state.isDigitFormattingEnabled) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    FilterChip(
-                        selected = state.isFormatOtpCodesEnabled,
-                        onClick = { actions.onToggleFormatOtpCodes(!state.isFormatOtpCodesEnabled) },
-                        label = { Text("OTP & PIN") },
-                    )
-                    FilterChip(
-                        selected = state.isFormatPhoneNumbersEnabled,
-                        onClick = { actions.onToggleFormatPhoneNumbers(!state.isFormatPhoneNumbersEnabled) },
-                        label = { Text("Ph. Numbers") },
-                    )
-                }
-            }
-            DividerLine()
-
-            // 4. Currency & Units
+            // 3. Currency & Units
             NlpToggleRow(
                 title = "Currency & units",
                 subtitle = "Speaks symbols and units as words",
@@ -228,7 +201,7 @@ internal fun NlpToggleRow(
                 text = title,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
+                maxLines = 2,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
             )
             Text(

@@ -28,6 +28,7 @@ import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.FormatQuote
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.RecordVoiceOver
 import androidx.compose.material.icons.rounded.RestartAlt
@@ -75,6 +76,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jayanth.hearit.R
@@ -100,11 +102,9 @@ fun VoiceSpeechRoute(
         onPitchChanged = viewModel::onPitchChanged,
         onVolumeChanged = viewModel::onVolumeChanged,
         onVoiceChanged = viewModel::onVoiceChanged,
-        onIncludeAppNameChanged = viewModel::onIncludeAppNameChanged,
-        onIncludeSenderChanged = viewModel::onIncludeSenderChanged,
-        onIncludeMessageChanged = viewModel::onIncludeMessageChanged,
-        onIntroductionChanged = viewModel::onIntroductionChanged,
-        onPauseDurationChanged = viewModel::onPauseDurationChanged,
+        onToggleDigitFormatting = viewModel::onToggleDigitFormatting,
+        onToggleOtpCodes = viewModel::onToggleFormatOtpCodes,
+        onTogglePhoneNumbers = viewModel::onToggleFormatPhoneNumbers,
         onResetToDefaults = viewModel::onResetToDefaults,
         onTestVoice = viewModel::onTestVoice,
         modifier = modifier,
@@ -122,11 +122,9 @@ fun VoiceSpeechScreen(
     onPitchChanged: (Float) -> Unit,
     onVolumeChanged: (Float) -> Unit,
     onVoiceChanged: (String?) -> Unit,
-    onIncludeAppNameChanged: (Boolean) -> Unit,
-    onIncludeSenderChanged: (Boolean) -> Unit,
-    onIncludeMessageChanged: (Boolean) -> Unit,
-    onIntroductionChanged: (String?) -> Unit,
-    onPauseDurationChanged: (Long) -> Unit,
+    onToggleDigitFormatting: (Boolean) -> Unit,
+    onToggleOtpCodes: (Boolean) -> Unit,
+    onTogglePhoneNumbers: (Boolean) -> Unit,
     onResetToDefaults: () -> Unit,
     onTestVoice: () -> Unit,
     modifier: Modifier = Modifier,
@@ -156,14 +154,15 @@ fun VoiceSpeechScreen(
             onOpenVoicePicker = { showVoiceDialog = true },
         )
 
-        // Announcement Format Structure Card
-        AnnouncementStructureCard(
-            state = state,
-            onIncludeAppNameChanged = onIncludeAppNameChanged,
-            onIncludeSenderChanged = onIncludeSenderChanged,
-            onIncludeMessageChanged = onIncludeMessageChanged,
-            onIntroductionChanged = onIntroductionChanged,
-            onPauseDurationChanged = onPauseDurationChanged,
+        // Spoken Codes Card (moved from Active Intelligence)
+        SpokenCodesCard(
+            isDigitFormattingEnabled = state.isDigitFormattingEnabled,
+            isFormatOtpCodesEnabled = state.isFormatOtpCodesEnabled,
+            isFormatPhoneNumbersEnabled = state.isFormatPhoneNumbersEnabled,
+            isOtpShieldEnabled = state.isOtpShieldEnabled,
+            onToggleDigitFormatting = onToggleDigitFormatting,
+            onToggleOtpCodes = onToggleOtpCodes,
+            onTogglePhoneNumbers = onTogglePhoneNumbers,
         )
 
         // Smart Audio Polish Card (Persisted & Configurable)
@@ -296,11 +295,13 @@ private fun LivePreviewCard(
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                     Text(
-                        text = "Dynamic notification simulation",
+                        text = stringResource(R.string.voice_speech_preview_subtext),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 11.sp,
                         lineHeight = 15.sp,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
@@ -346,52 +347,41 @@ private fun LivePreviewCard(
             }
 
             // Test Voice Play/Stop Button
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
+            Button(
+                onClick = onTestVoice,
+                enabled = state.isTtsAvailable && state.previewText != "No sections enabled",
+                shape = RoundedCornerShape(16.dp),
+                colors = if (state.isSpeaking) {
+                    ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError,
+                    )
+                } else {
+                    ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                    )
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
             ) {
-                Text(
-                    text = stringResource(R.string.voice_speech_preview_subtext),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1f).padding(end = 12.dp),
+                Icon(
+                    imageVector = if (state.isSpeaking) Icons.Rounded.Stop else Icons.Rounded.PlayArrow,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
                 )
-
-                Button(
-                    onClick = onTestVoice,
-                    enabled = state.isTtsAvailable && state.previewText != "No sections enabled",
-                    shape = RoundedCornerShape(16.dp),
-                    colors = if (state.isSpeaking) {
-                        ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.error,
-                            contentColor = MaterialTheme.colorScheme.onError,
-                        )
-                    } else {
-                        ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary,
-                        )
-                    },
-                    modifier = Modifier.height(46.dp),
-                ) {
-                    Icon(
-                        imageVector = if (state.isSpeaking) Icons.Rounded.Stop else Icons.Rounded.PlayArrow,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = stringResource(
-                            if (state.isSpeaking) {
-                                R.string.voice_speech_preview_stop
-                            } else {
-                                R.string.voice_speech_preview_play
-                            },
-                        ),
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = stringResource(
+                        if (state.isSpeaking) {
+                            R.string.voice_speech_preview_stop
+                        } else {
+                            R.string.voice_speech_preview_play
+                        },
+                    ),
+                    fontWeight = FontWeight.SemiBold,
+                )
             }
 
             if (!state.isTtsAvailable) {
@@ -759,173 +749,6 @@ private fun SpeechTuningCard(
     }
 }
 
-/**
- * Announcement Structure Card: App name, Sender, Message, Intro text, and Pause between sections.
- */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun AnnouncementStructureCard(
-    state: VoiceSpeechUiState,
-    onIncludeAppNameChanged: (Boolean) -> Unit,
-    onIncludeSenderChanged: (Boolean) -> Unit,
-    onIncludeMessageChanged: (Boolean) -> Unit,
-    onIntroductionChanged: (String?) -> Unit,
-    onPauseDurationChanged: (Long) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-    ) {
-        Column(modifier = Modifier.padding(18.dp)) {
-            // Header
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(bottom = 14.dp),
-            ) {
-                Surface(
-                    modifier = Modifier.size(34.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Rounded.ViewAgenda,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(18.dp),
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.width(10.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.voice_speech_format_title),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Text(
-                        text = stringResource(R.string.voice_speech_format_subtitle),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 11.sp,
-                        lineHeight = 15.sp,
-                    )
-                }
-            }
-
-            // App Name Switch
-            FormatToggleRow(
-                title = stringResource(R.string.voice_speech_include_app_name),
-                description = stringResource(R.string.voice_speech_include_app_name_desc),
-                checked = state.format.includeAppName,
-                onCheckedChange = onIncludeAppNameChanged,
-            )
-
-            HorizontalDivider(
-                modifier = Modifier.padding(vertical = 12.dp),
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-            )
-
-            // Sender Switch
-            FormatToggleRow(
-                title = stringResource(R.string.voice_speech_include_sender),
-                description = stringResource(R.string.voice_speech_include_sender_desc),
-                checked = state.format.includeSender,
-                onCheckedChange = onIncludeSenderChanged,
-            )
-
-            HorizontalDivider(
-                modifier = Modifier.padding(vertical = 12.dp),
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-            )
-
-            // Message Switch
-            FormatToggleRow(
-                title = stringResource(R.string.voice_speech_include_message),
-                description = stringResource(R.string.voice_speech_include_message_desc),
-                checked = state.format.includeMessage,
-                onCheckedChange = onIncludeMessageChanged,
-            )
-
-            HorizontalDivider(
-                modifier = Modifier.padding(vertical = 12.dp),
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-            )
-
-            // Custom Introduction
-            var introInput by remember(state.format.introduction) {
-                mutableStateOf(state.format.introduction ?: "")
-            }
-
-            OutlinedTextField(
-                value = introInput,
-                onValueChange = {
-                    introInput = it
-                    onIntroductionChanged(it.takeIf { text -> text.isNotBlank() })
-                },
-                label = { Text(stringResource(R.string.voice_speech_intro_label)) },
-                placeholder = { Text(stringResource(R.string.voice_speech_intro_placeholder)) },
-                supportingText = { Text(stringResource(R.string.voice_speech_intro_helper)) },
-                singleLine = true,
-                trailingIcon = {
-                    if (introInput.isNotEmpty()) {
-                        IconButton(
-                            onClick = {
-                                introInput = ""
-                                onIntroductionChanged(null)
-                            },
-                        ) {
-                            Icon(Icons.Rounded.Close, contentDescription = "Clear introduction")
-                        }
-                    }
-                },
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Pause between sections
-            Text(
-                text = "Pause Between Sections",
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Text(
-                text = "Silence inserted between announcement parts",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
-            )
-
-            // Pause Options - M3 Expressive Segmented Buttons
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                val pauseOptions = listOf(
-                    0L to "None",
-                    250L to "250ms",
-                    500L to "500ms",
-                    1000L to "1s",
-                )
-                pauseOptions.forEachIndexed { index, (millis, label) ->
-                    val isSelected = state.format.pauseBetweenSectionsMillis == millis
-                    SegmentedButton(
-                        selected = isSelected,
-                        onClick = { onPauseDurationChanged(millis) },
-                        shape = SegmentedButtonDefaults.itemShape(index = index, count = pauseOptions.size),
-                    ) {
-                        Text(text = label, style = MaterialTheme.typography.labelSmall)
-                    }
-                }
-            }
-        }
-    }
-}
-
 @Composable
 private fun FormatToggleRow(
     title: String,
@@ -1196,13 +1019,13 @@ private fun SystemTtsSettingsCard(
         ) {
             Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
                 Text(
-                    text = "Android System TTS Settings",
+                    text = "TTS Settings",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
-                    text = "Install high-quality voice packs or change default TTS engine",
+                    text = "Install voice packs or change the default engine",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -1220,5 +1043,163 @@ private fun SystemTtsSettingsCard(
                 Text("Open")
             }
         }
+    }
+}
+
+/**
+ * Spoken Codes Card: digit-by-digit reading for OTPs, PINs and phone numbers.
+ *
+ * Lives with the voice settings because it changes how the engine pronounces digits; the
+ * Active Intelligence screen keeps only text cleanup.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SpokenCodesCard(
+    isDigitFormattingEnabled: Boolean,
+    isFormatOtpCodesEnabled: Boolean,
+    isFormatPhoneNumbersEnabled: Boolean,
+    isOtpShieldEnabled: Boolean,
+    onToggleDigitFormatting: (Boolean) -> Unit,
+    onToggleOtpCodes: (Boolean) -> Unit,
+    onTogglePhoneNumbers: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var showOtpInfo by remember { mutableStateOf(false) }
+
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Column(modifier = Modifier.padding(18.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(bottom = 14.dp),
+            ) {
+                Surface(
+                    modifier = Modifier.size(34.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Rounded.FormatQuote,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Spoken Codes",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = "Reads digits one by one instead of as a single number",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp,
+                        maxLines = 2,
+                    )
+                }
+            }
+
+            FormatToggleRow(
+                title = "Digit-by-digit reading",
+                description = "Spells out codes and numbers instead of saying their value",
+                checked = isDigitFormattingEnabled,
+                onCheckedChange = onToggleDigitFormatting,
+            )
+
+            if (isDigitFormattingEnabled) {
+                FlowRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    FilterChip(
+                        selected = isFormatOtpCodesEnabled && !isOtpShieldEnabled,
+                        onClick = { onToggleOtpCodes(!isFormatOtpCodesEnabled) },
+                        enabled = !isOtpShieldEnabled,
+                        label = { Text("OTP & PIN") },
+                        trailingIcon = if (isOtpShieldEnabled) {
+                            {
+                                Icon(
+                                    imageVector = Icons.Rounded.Info,
+                                    contentDescription = "Why OTP & PIN is unavailable",
+                                    modifier = Modifier
+                                        .size(16.dp)
+                                        .clickable { showOtpInfo = true },
+                                )
+                            }
+                        } else {
+                            null
+                        },
+                    )
+                    FilterChip(
+                        selected = isFormatPhoneNumbersEnabled,
+                        onClick = { onTogglePhoneNumbers(!isFormatPhoneNumbersEnabled) },
+                        label = { Text("Phone numbers") },
+                    )
+                }
+            }
+
+            if (isOtpShieldEnabled) {
+                Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp)
+                    .clickable { showOtpInfo = true },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Info,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(14.dp),
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "OTP shield is on in Global Rules - codes are never announced",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                )
+            }
+        }
+        }
+    }
+
+    if (showOtpInfo) {
+        AlertDialog(
+            onDismissRequest = { showOtpInfo = false },
+            title = {
+                Text(
+                    text = "OTP & PIN is unavailable",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+            },
+            text = {
+                Text(
+                    text = "Global Eligibility Rules has the OTP & Verification Codes shield turned on, " +
+                        "so verification codes are dropped before anything is spoken. Turn that shield " +
+                        "off to read codes digit by digit.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { showOtpInfo = false }) {
+                    Text(text = "Got it", fontWeight = FontWeight.Bold)
+                }
+            },
+        )
     }
 }

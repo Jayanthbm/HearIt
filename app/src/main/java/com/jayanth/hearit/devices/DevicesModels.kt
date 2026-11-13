@@ -36,6 +36,11 @@ data class DevicesUiState(
     val connected: List<DeviceRow> = emptyList(),
     val remembered: List<DeviceRow> = emptyList(),
     val unavailable: Boolean = false,
+    // Ambient noise auto-volume (#34) - moved here from Voice & Speech
+    val isAmbientNoiseBoostEnabled: Boolean = false,
+    val ambientNoiseThresholdDb: Int = 70,
+    val ambientNoiseBoostPercent: Int = 20,
+    val hasRecordAudioPermission: Boolean = false,
 ) {
 
     /**

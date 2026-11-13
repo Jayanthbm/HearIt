@@ -45,6 +45,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jayanth.hearit.core.common.model.EligibilitySettings
@@ -57,8 +58,8 @@ fun LowBatterySafeguardCard(
     modifier: Modifier = Modifier,
 ) {
     SafeguardCardShell(
-        title = "Low Battery Safeguard",
-        subtitle = "Auto-pause speech cleanly when charge drops low or Battery Saver turns on",
+        title = "Low Battery",
+        subtitle = "Pause speech on low charge or Battery Saver",
         icon = Icons.Rounded.BatteryAlert,
         trailing = {
             Switch(
@@ -71,14 +72,14 @@ fun LowBatterySafeguardCard(
         modifier = modifier,
     ) {
         if (eligibility.lowBatterySafeguardEnabled) {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
                     text = "Pause Below Battery %",
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.SemiBold,
                 )
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(10, 15, 20, 25).forEach { pct ->
+                    listOf(10, 15, 20).forEach { pct ->
                         FilterChip(
                             selected = eligibility.lowBatteryThresholdPercent == pct,
                             onClick = {
@@ -89,16 +90,16 @@ fun LowBatterySafeguardCard(
                     }
                 }
                 SafeguardToggleRow(
-                    title = "Also pause in Battery Saver mode",
-                    subtitle = "Respects OS power saver regardless of battery percentage",
+                    title = "Battery Saver mode",
+                    subtitle = "Pause when system Battery Saver is on",
                     checked = eligibility.lowBatteryPauseOnSaverEnabled,
                     onCheckedChange = {
                         onEligibilityChanged(eligibility.copy(lowBatteryPauseOnSaverEnabled = it))
                     },
                 )
                 SafeguardToggleRow(
-                    title = "Speak one-time low battery warning",
-                    subtitle = "Says 'Low battery, pausing voice announcements' when crossing threshold",
+                    title = "Low battery warning",
+                    subtitle = "Announce once when threshold is crossed",
                     checked = eligibility.lowBatteryWarningSpeechEnabled,
                     onCheckedChange = {
                         onEligibilityChanged(eligibility.copy(lowBatteryWarningSpeechEnabled = it))
@@ -125,8 +126,8 @@ fun CriticalBreakthroughCard(
     var keywordInput by remember { mutableStateOf("") }
 
     SafeguardCardShell(
-        title = "\"Must-Hear\" Critical Breakthrough",
-        subtitle = "Plays urgent chime and bypasses mute, DND, low battery & pocket holds",
+        title = "Breakthrough",
+        subtitle = "Bypasses mute, DND, battery, and pocket",
         icon = Icons.Rounded.NotificationsActive,
         trailing = {
             Switch(
@@ -139,10 +140,10 @@ fun CriticalBreakthroughCard(
         modifier = modifier,
     ) {
         if (eligibility.criticalBreakthroughEnabled) {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 SafeguardToggleRow(
-                    title = "Allow breakthrough even for disabled apps",
-                    subtitle = "Break through if an emergency keyword hits inside any notification",
+                    title = "Allow for disabled apps",
+                    subtitle = "Match keywords even in disabled apps",
                     checked = eligibility.criticalBreakthroughAllowDisabledApps,
                     onCheckedChange = {
                         onEligibilityChanged(eligibility.copy(criticalBreakthroughAllowDisabledApps = it))
@@ -158,7 +159,7 @@ fun CriticalBreakthroughCard(
                     OutlinedTextField(
                         value = keywordInput,
                         onValueChange = { keywordInput = it },
-                        label = { Text("Add critical keyword (e.g. PagerDuty)") },
+                        label = { Text("Critical keyword") },
                         singleLine = true,
                         modifier = Modifier.weight(1f),
                     )
@@ -242,8 +243,8 @@ fun PocketDetectionCard(
     }
 
     SafeguardCardShell(
-        title = "Pocket Detection (Proximity Sensor)",
-        subtitle = "Only speak when phone proximity sensor is covered (in pocket/bag), unless Priority Announce is active",
+        title = "Pocket",
+        subtitle = "Speak only when covered (unless Priority Announce)",
         icon = Icons.Rounded.PhoneAndroid,
         trailing = {
             Switch(
@@ -256,7 +257,7 @@ fun PocketDetectionCard(
         },
         modifier = modifier,
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Surface(
                 shape = RoundedCornerShape(10.dp),
                 color = if (hasProximitySensor) {
@@ -309,14 +310,14 @@ private fun SafeguardCardShell(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
-        Column(modifier = Modifier.padding(18.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(bottom = 12.dp),
+                modifier = Modifier.padding(bottom = 10.dp),
             ) {
                 Surface(
-                    modifier = Modifier.size(34.dp),
-                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.size(32.dp),
+                    shape = RoundedCornerShape(10.dp),
                     color = MaterialTheme.colorScheme.primaryContainer,
                 ) {
                     Box(contentAlignment = Alignment.Center) {
@@ -324,7 +325,7 @@ private fun SafeguardCardShell(
                             imageVector = icon,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(18.dp),
+                            modifier = Modifier.size(17.dp),
                         )
                     }
                 }
@@ -332,14 +333,18 @@ private fun SafeguardCardShell(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = title,
-                        style = MaterialTheme.typography.titleMedium,
+                        style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     Text(
                         text = subtitle,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        lineHeight = 15.sp,
+                        lineHeight = 14.sp,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
                 trailing()

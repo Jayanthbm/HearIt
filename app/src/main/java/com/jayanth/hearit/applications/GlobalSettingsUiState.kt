@@ -8,6 +8,7 @@ import com.jayanth.hearit.core.common.model.PrivacySettings
 import com.jayanth.hearit.core.common.model.ScreenCondition
 import com.jayanth.hearit.core.common.model.TextLengthSettings
 import com.jayanth.hearit.core.datastore.HearItSettings
+import com.jayanth.hearit.core.tts.AnnouncementFormat
 
 /**
  * UiState for the global rules form (#2, #23, #29, #30).
@@ -20,6 +21,7 @@ data class GlobalSettingsUiState(
     val privacy: PrivacySettings = PrivacySettings(),
     val audioOutput: AudioOutputSettings = AudioOutputSettings(),
     val eligibility: EligibilitySettings = EligibilitySettings(),
+    val format: AnnouncementFormat = AnnouncementFormat(),
 ) {
 
     /** True when at least one group differs from the documented defaults. */
@@ -27,7 +29,8 @@ data class GlobalSettingsUiState(
         get() = eligibility != EligibilitySettings() ||
             screenCondition != ScreenCondition.OFF ||
             lockCondition != LockCondition.LOCKED ||
-            privacy != PrivacySettings()
+            privacy != PrivacySettings() ||
+            format != AnnouncementFormat()
 
     companion object {
 
@@ -40,6 +43,7 @@ data class GlobalSettingsUiState(
             privacy = settings.eligibility.privacy,
             audioOutput = settings.eligibility.audioOutput,
             eligibility = settings.eligibility,
+            format = settings.format,
         )
     }
 }

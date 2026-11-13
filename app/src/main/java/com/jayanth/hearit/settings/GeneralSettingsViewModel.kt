@@ -146,6 +146,7 @@ class GeneralSettingsViewModel @Inject constructor(
                 _state.update { current ->
                     current.copy(
                         queue = settings.queue,
+                        pauseBetweenSectionsMillis = settings.format.pauseBetweenSectionsMillis,
                         audioFocus = settings.eligibility.audioFocus,
                         eligibility = settings.eligibility,
                         security = settings.security,
@@ -665,6 +666,17 @@ class GeneralSettingsViewModel @Inject constructor(
     fun onMinGapChanged(millis: Long) {
         val valid = millis.coerceAtLeast(0L)
         updateQueue { it.copy(minGapBetweenAnnouncementsMillis = valid) }
+    }
+
+    fun onPauseBetweenSectionsChanged(millis: Long) {
+        val valid = millis.coerceAtLeast(0L)
+        viewModelScope.launch {
+            settingsRepository.update { settings ->
+                settings.copy(
+                    format = settings.format.copy(pauseBetweenSectionsMillis = valid),
+                )
+            }
+        }
     }
 
     fun onExpiryChanged(millis: Long) {

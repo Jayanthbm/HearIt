@@ -107,6 +107,8 @@
     <string name="nav_backup_restore">Backup &amp; Restore</string>
     <string name="nav_diagnostics">Diagnostics</string>
     <string name="nav_active_intelligence">Active Intelligence</string>
+    <string name="nav_automation">Automation</string>
+    <string name="nav_app_security">App Security</string>
 
     <string name="dashboard_loading">Loading\u2026</string>
     <string name="dashboard_back">Back</string>
@@ -288,16 +290,16 @@
     <string name="global_privacy_desc">Automatic shields for credentials, verification codes, and financial alerts</string>
     <string name="global_privacy_exclude_app">Exclude app from history</string>
     <string name="global_privacy_exclude_app_desc">Suppresses recording notification message content to database</string>
-    <string name="global_privacy_skip_otp">Skip OTP &amp; verification codes</string>
-    <string name="global_privacy_skip_otp_desc">Prevents speaking 2FA and one-time verification codes out loud</string>
-    <string name="global_privacy_skip_password">Skip password notifications</string>
-    <string name="global_privacy_skip_password_desc">Silences notifications containing credentials and security keys</string>
-    <string name="global_privacy_skip_banking">Skip banking &amp; account alerts</string>
-    <string name="global_privacy_skip_banking_desc">Suppresses spoken bank balances, deposits, and account alerts</string>
-    <string name="global_privacy_skip_payment">Skip payment confirmations</string>
-    <string name="global_privacy_skip_payment_desc">Silences purchase transactions, UPI, and debit card receipts</string>
-    <string name="global_privacy_hide_content">Hide notification message body</string>
-    <string name="global_privacy_hide_content_desc">Speaks only App Name and Sender Name; suppresses message text</string>
+    <string name="global_privacy_skip_otp">OTP &amp; codes</string>
+    <string name="global_privacy_skip_otp_desc">Skips 2FA and verification codes</string>
+    <string name="global_privacy_skip_password">Passwords</string>
+    <string name="global_privacy_skip_password_desc">Skips credentials and security alerts</string>
+    <string name="global_privacy_skip_banking">Banking</string>
+    <string name="global_privacy_skip_banking_desc">Skips balances and account alerts</string>
+    <string name="global_privacy_skip_payment">Payment</string>
+    <string name="global_privacy_skip_payment_desc">Skips transactions and receipts</string>
+    <string name="global_privacy_hide_content">Hide body</string>
+    <string name="global_privacy_hide_content_desc">Speaks app and sender only</string>
     <string name="global_privacy_sensitive_keywords">Custom sensitive keywords</string>
     <string name="global_audio_title">Allowed Output Channels</string>
     <string name="global_audio_desc">Hardware channels permitted to play speech announcements</string>
@@ -385,11 +387,11 @@
     <!-- Voice & Speech Settings (Phase P15) -->
     <string name="voice_speech_reset">Reset to defaults</string>
     <string name="voice_speech_reset_confirm_title">Reset Voice &amp; Speech settings?</string>
-    <string name="voice_speech_reset_confirm_body">This will restore the speech speed, pitch, voice, and announcement format back to their initial default values.</string>
+    <string name="voice_speech_reset_confirm_body">This will restore speech speed, pitch, voice, chime, adaptive speed and loudness back to their initial default values. Announcement content and ambient volume are managed on their own screens.</string>
     <string name="voice_speech_preview_title">Live Spoken Preview</string>
     <string name="voice_speech_preview_play">Test Voice</string>
     <string name="voice_speech_preview_stop">Stop Sample</string>
-    <string name="voice_speech_preview_subtext">Simulates how notifications sound with current settings. Does not affect history or queue.</string>
+    <string name="voice_speech_preview_subtext">Simulates how notifications sound with your current settings.</string>
     <string name="voice_speech_tts_unavailable">Text-to-speech engine is currently unavailable or initialising on this device.</string>
     <string name="voice_speech_tuning_title">Speech Tuning</string>
     <string name="voice_speech_rate_label">Speech Rate</string>
@@ -398,8 +400,8 @@
     <string name="voice_speech_voice_system_default">System default</string>
     <string name="voice_speech_voice_dialog_title">Select TTS Voice</string>
     <string name="voice_speech_voice_network_required">Requires network</string>
-    <string name="voice_speech_format_title">Announcement Structure</string>
-    <string name="voice_speech_format_subtitle">Configure which notification details are spoken aloud.</string>
+    <string name="voice_speech_format_title">Announcement</string>
+    <string name="voice_speech_format_subtitle">Pick which details are spoken for each notification.</string>
     <string name="voice_speech_include_app_name">App Name</string>
     <string name="voice_speech_include_app_name_desc">Speak the posting app\'s name (e.g. \"WhatsApp\")</string>
     <string name="voice_speech_include_sender">Sender Name</string>

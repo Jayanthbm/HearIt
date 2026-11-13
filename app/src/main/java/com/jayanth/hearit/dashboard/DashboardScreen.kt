@@ -92,9 +92,11 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.RecordVoiceOver
 import androidx.compose.material.icons.rounded.Replay
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.Stop
+import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Warning
@@ -174,8 +176,10 @@ import com.jayanth.hearit.backup.BackupRestoreRoute
 import com.jayanth.hearit.backup.BackupRestoreViewModel
 import com.jayanth.hearit.history.HistoryRoute
 import com.jayanth.hearit.history.HistoryViewModel
+import com.jayanth.hearit.settings.AutomationRoute
 import com.jayanth.hearit.settings.GeneralSettingsRoute
 import com.jayanth.hearit.settings.GeneralSettingsViewModel
+import com.jayanth.hearit.settings.SecurityRoute
 import com.jayanth.hearit.setup.TestAnnouncementState
 import com.jayanth.hearit.voicespeech.VoiceSpeechRoute
 import com.jayanth.hearit.voicespeech.VoiceSpeechViewModel
@@ -297,6 +301,8 @@ fun DashboardRoute(
         globalRulesContent = { GlobalSettingsRoute(viewModel = globalSettingsViewModel) },
         voiceSpeechContent = { VoiceSpeechRoute(viewModel = voiceSpeechViewModel) },
         settingsContent = { GeneralSettingsRoute(viewModel = generalSettingsViewModel) },
+        automationContent = { AutomationRoute(viewModel = generalSettingsViewModel) },
+        appSecurityContent = { SecurityRoute(viewModel = generalSettingsViewModel) },
         backupRestoreContent = { BackupRestoreRoute(viewModel = backupRestoreViewModel) },
         diagnosticsContent = { DiagnosticsRoute(viewModel = diagnosticsViewModel) },
         historyContent = {
@@ -344,6 +350,8 @@ fun DashboardScreen(
     globalRulesContent: @Composable () -> Unit,
     voiceSpeechContent: @Composable () -> Unit = {},
     settingsContent: @Composable () -> Unit = {},
+    automationContent: @Composable () -> Unit = {},
+    appSecurityContent: @Composable () -> Unit = {},
     backupRestoreContent: @Composable () -> Unit = {},
     diagnosticsContent: @Composable () -> Unit = {},
     historyContent: @Composable () -> Unit,
@@ -436,6 +444,8 @@ fun DashboardScreen(
                         DashboardDestination.BACKUP_RESTORE -> backupRestoreContent()
                         DashboardDestination.DIAGNOSTICS -> diagnosticsContent()
                         DashboardDestination.ACTIVE_INTELLIGENCE -> intelligenceContent()
+                        DashboardDestination.AUTOMATION -> automationContent()
+                        DashboardDestination.APP_SECURITY -> appSecurityContent()
                     }
                 }
             }
@@ -461,6 +471,8 @@ private fun getDestinationOrder(dest: DashboardDestination): Int = when (dest) {
     DashboardDestination.BACKUP_RESTORE -> 8
     DashboardDestination.DIAGNOSTICS -> 9
     DashboardDestination.ACTIVE_INTELLIGENCE -> 10
+    DashboardDestination.AUTOMATION -> 11
+    DashboardDestination.APP_SECURITY -> 12
 }
 
 // ============================================================================
@@ -1118,7 +1130,7 @@ private fun DashboardHome(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 QuickActionCard(
-                    title = "Screen Off",
+                    title = "Off",
                     icon = Icons.Rounded.Nightlight,
                     isActive = isScreenOffActive,
                     enabled = quickActionsEnabled,
@@ -1133,7 +1145,7 @@ private fun DashboardHome(
                     modifier = Modifier.weight(1f),
                 )
                 QuickActionCard(
-                    title = "Screen On",
+                    title = "On",
                     icon = Icons.Rounded.WbSunny,
                     isActive = isScreenOnActive,
                     enabled = quickActionsEnabled,
@@ -1148,7 +1160,7 @@ private fun DashboardHome(
                     modifier = Modifier.weight(1f),
                 )
                 QuickActionCard(
-                    title = "Locked",
+                    title = "Lock",
                     icon = Icons.Rounded.Lock,
                     isActive = isLockedActive,
                     enabled = quickActionsEnabled,
@@ -1163,7 +1175,7 @@ private fun DashboardHome(
                     modifier = Modifier.weight(1f),
                 )
                 QuickActionCard(
-                    title = "Unlocked",
+                    title = "Unlock",
                     icon = Icons.Rounded.LockOpen,
                     isActive = isUnlockedActive,
                     enabled = quickActionsEnabled,
@@ -1726,8 +1738,8 @@ private fun QuickActionCard(
             verticalArrangement = Arrangement.Center,
         ) {
             Surface(
-                modifier = Modifier.size(30.dp),
-                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.size(36.dp),
+                shape = RoundedCornerShape(10.dp),
                 color = when {
                     !enabled -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
                     isActive -> MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
@@ -1737,9 +1749,9 @@ private fun QuickActionCard(
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = icon,
-                        contentDescription = null,
+                        contentDescription = title,
                         tint = contentColor,
-                        modifier = Modifier.size(16.dp),
+                        modifier = Modifier.size(20.dp),
                     )
                 }
             }
@@ -1747,12 +1759,11 @@ private fun QuickActionCard(
             Text(
                 text = title,
                 style = MaterialTheme.typography.labelSmall,
-                fontWeight = if (isActive && enabled) FontWeight.Bold else FontWeight.Medium,
+                fontWeight = if (isActive && enabled) FontWeight.SemiBold else FontWeight.Medium,
                 fontSize = 11.sp,
                 color = contentColor,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
             )
         }
     }
@@ -2142,8 +2153,15 @@ private fun SettingsHubScreen(
                     SettingsHubRow(
                         icon = Icons.AutoMirrored.Rounded.VolumeUp,
                         title = "Playback & Gestures",
-                        subtitle = "Audio focus, Maps yield, gestures, check-in & queue",
+                        subtitle = "Delivery timing, audio focus, Maps yield & gestures",
                         onClick = { onSelectDestination(DashboardDestination.PREFERENCES) },
+                    )
+                    SettingsHubDivider()
+                    SettingsHubRow(
+                        icon = Icons.Rounded.Sync,
+                        title = "Automation",
+                        subtitle = "Earphone connect actions, catch-up & spoken check-in",
+                        onClick = { onSelectDestination(DashboardDestination.AUTOMATION) },
                     )
                 }
             }
@@ -2202,6 +2220,13 @@ private fun SettingsHubScreen(
                         title = "Backup & Restore",
                         subtitle = "Export and import configuration files",
                         onClick = { onSelectDestination(DashboardDestination.BACKUP_RESTORE) },
+                    )
+                    SettingsHubDivider()
+                    SettingsHubRow(
+                        icon = Icons.Rounded.Security,
+                        title = "App Security",
+                        subtitle = "App lock and screenshot protection",
+                        onClick = { onSelectDestination(DashboardDestination.APP_SECURITY) },
                     )
                     SettingsHubDivider()
                     SettingsHubRow(

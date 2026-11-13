@@ -13,6 +13,12 @@ data class VoiceSpeechUiState(
     val voices: List<TtsVoice> = emptyList(),
     val isTtsAvailable: Boolean = true,
     val isSpeaking: Boolean = false,
+    // Digit-by-digit reading (#12) - moved here from Active Intelligence
+    val isDigitFormattingEnabled: Boolean = true,
+    val isFormatOtpCodesEnabled: Boolean = true,
+    val isFormatPhoneNumbersEnabled: Boolean = true,
+    /** Global Rules "OTP & Verification Codes" shield; it drops OTP alerts before speech. */
+    val isOtpShieldEnabled: Boolean = false,
     // Persisted Smart Audio Polish (#18)
     val isEarconEnabled: Boolean = true,
     val earconDurationMs: Int = 120,
@@ -25,11 +31,6 @@ data class VoiceSpeechUiState(
     // Voice Loudness Boost (#24)
     val isVoiceBoostEnabled: Boolean = false,
     val voiceBoostPercent: Int = 20,
-    // Ambient Noise Auto-Volume Boost (#34)
-    val isAmbientNoiseBoostEnabled: Boolean = false,
-    val ambientNoiseThresholdDb: Int = 70,
-    val ambientNoiseBoostPercent: Int = 20,
-    val hasRecordAudioPermission: Boolean = false,
 ) {
     /** Human-readable live preview of what the current format will speak. */
     val previewText: String

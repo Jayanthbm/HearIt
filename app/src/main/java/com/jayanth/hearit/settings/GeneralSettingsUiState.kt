@@ -16,6 +16,7 @@ import com.jayanth.hearit.core.common.model.UrlSummaryRule
  */
 data class GeneralSettingsUiState(
     val queue: QueueSettings = QueueSettings(),
+    val pauseBetweenSectionsMillis: Long = 0L,
     val audioFocus: AudioFocusPolicy = AudioFocusPolicy.DUCK,
     val isServiceNotificationVisible: Boolean = true,
     val security: SecuritySettings = SecuritySettings(),
@@ -83,7 +84,7 @@ data class GeneralSettingsUiState(
     val spamCooldownMaxMessages: Int = 3,
     val spamCooldownWindowMs: Long = 60_000L,
     val isMultiAppDigestEnabled: Boolean = true,
-    val multiAppDigestWindowMs: Long = 2_500L,
+    val multiAppDigestWindowMs: Long = 2_000L,
     // Batch 6 (#15): Tier 2 Local AI Strategy & Support Status
     val isMlKitEntityExtractionEnabled: Boolean = false,
     val isAiCoreSummarizationEnabled: Boolean = false,

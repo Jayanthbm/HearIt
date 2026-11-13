@@ -509,7 +509,7 @@ class SessionStore(context: Context) {
         }
 
     var multiAppDigestWindowMs: Long
-        get() = prefs.getLong(KEY_MULTI_APP_DIGEST_WINDOW_MS, 2_500L)
+        get() = prefs.getLong(KEY_MULTI_APP_DIGEST_WINDOW_MS, 2_000L)
         set(value) {
             prefs.edit().putLong(KEY_MULTI_APP_DIGEST_WINDOW_MS, value.coerceIn(1_500L, 5_000L)).apply()
         }

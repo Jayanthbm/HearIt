@@ -44,6 +44,7 @@ import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material.icons.rounded.Nightlight
 import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material.icons.rounded.PhoneInTalk
+import androidx.compose.material.icons.rounded.RecordVoiceOver
 import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.Shield
@@ -92,6 +93,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -108,6 +110,7 @@ import com.jayanth.hearit.core.common.model.PrivacySettings
 import com.jayanth.hearit.core.common.model.ScreenCondition
 import com.jayanth.hearit.core.common.model.TextLengthSettings
 import com.jayanth.hearit.core.datastore.SettingsRepository
+import com.jayanth.hearit.core.tts.AnnouncementFormat
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.delay
@@ -160,6 +163,18 @@ class GlobalSettingsViewModel @Inject constructor(
     fun onPrivacyChanged(privacy: PrivacySettings) =
         updateEligibility { it.copy(privacy = privacy) }
 
+    fun onIncludeAppNameChanged(include: Boolean) =
+        updateFormat { it.copy(includeAppName = include) }
+
+    fun onIncludeSenderChanged(include: Boolean) =
+        updateFormat { it.copy(includeSender = include) }
+
+    fun onIncludeMessageChanged(include: Boolean) =
+        updateFormat { it.copy(includeMessage = include) }
+
+    fun onIntroductionChanged(introduction: String?) =
+        updateFormat { it.copy(introduction = introduction?.trim()?.takeIf(String::isNotEmpty)) }
+
     fun onAudioOutputChanged(allowWired: Boolean? = null, allowBluetooth: Boolean? = null, allowPhoneSpeaker: Boolean? = null) =
         updateEligibility {
             it.copy(
@@ -174,7 +189,10 @@ class GlobalSettingsViewModel @Inject constructor(
     fun onResetToDefaults() {
         viewModelScope.launch {
             settingsRepository.update { settings ->
-                settings.copy(eligibility = EligibilitySettings())
+                settings.copy(
+                    eligibility = EligibilitySettings(),
+                    format = AnnouncementFormat(),
+                )
             }
         }
     }
@@ -186,6 +204,14 @@ class GlobalSettingsViewModel @Inject constructor(
         viewModelScope.launch {
             settingsRepository.update { settings ->
                 settings.copy(eligibility = transform(settings.eligibility))
+            }
+        }
+    }
+
+    private fun updateFormat(transform: (AnnouncementFormat) -> AnnouncementFormat) {
+        viewModelScope.launch {
+            settingsRepository.update { settings ->
+                settings.copy(format = transform(settings.format))
             }
         }
     }
@@ -210,6 +236,10 @@ fun GlobalSettingsRoute(
         onPrivacyChanged = viewModel::onPrivacyChanged,
         onAudioOutputChanged = viewModel::onAudioOutputChanged,
         onEligibilityChanged = viewModel::onEligibilityChanged,
+        onIncludeAppNameChanged = viewModel::onIncludeAppNameChanged,
+        onIncludeSenderChanged = viewModel::onIncludeSenderChanged,
+        onIncludeMessageChanged = viewModel::onIncludeMessageChanged,
+        onIntroductionChanged = viewModel::onIntroductionChanged,
         onResetToDefaults = viewModel::onResetToDefaults,
         modifier = modifier,
     )
@@ -232,6 +262,10 @@ fun GlobalSettingsScreen(
     onQueueDuringCallChanged: (Boolean) -> Unit = {},
     onAudioOutputChanged: (Boolean?, Boolean?, Boolean?) -> Unit = { _, _, _ -> },
     onEligibilityChanged: (EligibilitySettings) -> Unit = {},
+    onIncludeAppNameChanged: (Boolean) -> Unit = {},
+    onIncludeSenderChanged: (Boolean) -> Unit = {},
+    onIncludeMessageChanged: (Boolean) -> Unit = {},
+    onIntroductionChanged: (String?) -> Unit = {},
 ) {
     var showResetDialog by remember { mutableStateOf(false) }
 
@@ -240,23 +274,13 @@ fun GlobalSettingsScreen(
             .fillMaxSize()
             .imePadding()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         // Hero Card with un-truncated FlowRow status pills
         GlobalRulesHeroCard(state = state)
 
-        val isDeviceStateModified = state.screenCondition != ScreenCondition.OFF ||
-            state.lockCondition != LockCondition.LOCKED ||
-            !state.eligibility.respectDnd ||
-            state.eligibility.queueDuringCall
-        val activeShieldsCount = listOf(
-            state.privacy.skipOtp,
-            state.privacy.skipPassword,
-            state.privacy.skipBanking,
-            state.privacy.skipPayment,
-            state.privacy.hideContent,
-        ).count { it }
+
 
         // Section 1: Device State Conditions (#2 DND & Call Handling)
         DeviceStateCard(
@@ -264,7 +288,6 @@ fun GlobalSettingsScreen(
             lockCondition = state.lockCondition,
             respectDnd = state.eligibility.respectDnd,
             queueDuringCall = state.eligibility.queueDuringCall,
-            isModified = isDeviceStateModified,
             onScreenConditionChanged = onScreenConditionChanged,
             onLockConditionChanged = onLockConditionChanged,
             onRespectDndChanged = onRespectDndChanged,
@@ -274,7 +297,6 @@ fun GlobalSettingsScreen(
         // Section 2: Privacy Protection & Content Shields (with keyboard bringIntoView)
         PrivacyShieldCard(
             privacy = state.privacy,
-            activeCount = activeShieldsCount,
             onPrivacyChanged = onPrivacyChanged,
         )
 
@@ -282,6 +304,16 @@ fun GlobalSettingsScreen(
         GlobalKeywordFilterCard(
             keywordFilter = state.keywordFilter,
             onKeywordFilterChanged = onKeywordFilterChanged,
+        )
+
+        // Section 3B: What gets spoken (announcement structure, per-app content policy)
+        WhatGetsSpokenCard(
+            format = state.format,
+            hideContent = state.privacy.hideContent,
+            onIncludeAppNameChanged = onIncludeAppNameChanged,
+            onIncludeSenderChanged = onIncludeSenderChanged,
+            onIncludeMessageChanged = onIncludeMessageChanged,
+            onIntroductionChanged = onIntroductionChanged,
         )
 
         // Section 4: Critical Breakthrough, Low Battery Safeguard & Pocket Detection
@@ -325,7 +357,7 @@ fun GlobalSettingsScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(120.dp))
+        Spacer(modifier = Modifier.height(100.dp))
     }
 
     if (showResetDialog) {
@@ -376,13 +408,13 @@ private fun GlobalRulesHeroCard(state: GlobalSettingsUiState) {
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
-        Column(modifier = Modifier.padding(18.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Surface(
-                    modifier = Modifier.size(44.dp),
+                    modifier = Modifier.size(40.dp),
                     shape = RoundedCornerShape(14.dp),
                     color = MaterialTheme.colorScheme.primaryContainer,
                 ) {
@@ -396,50 +428,32 @@ private fun GlobalRulesHeroCard(state: GlobalSettingsUiState) {
                     }
                 }
                 Column(modifier = Modifier.weight(1f)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Text(
-                            text = stringResource(R.string.global_settings_title),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        if (state.hasOverrides) {
-                            Surface(
-                                shape = RoundedCornerShape(6.dp),
-                                color = MaterialTheme.colorScheme.primaryContainer,
-                            ) {
-                                Text(
-                                    text = "Modified",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                )
-                            }
-                        }
-                    }
+                    Text(
+                        text = stringResource(R.string.global_settings_title),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = stringResource(R.string.global_settings_description),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         lineHeight = 16.sp,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+            Spacer(modifier = Modifier.height(10.dp))
 
             // Active Policy Summary Chips in FlowRow - No Truncation!
             FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 // Screen Status Pill
@@ -503,15 +517,15 @@ private fun StatusPill(
         border = BorderStroke(1.dp, if (isPositive) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f) else MaterialTheme.colorScheme.outlineVariant),
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
                 tint = if (isPositive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(14.dp),
+                modifier = Modifier.size(13.dp),
             )
             Text(
                 text = text,
@@ -535,7 +549,6 @@ private fun DeviceStateCard(
     lockCondition: LockCondition,
     respectDnd: Boolean,
     queueDuringCall: Boolean,
-    isModified: Boolean,
     onScreenConditionChanged: (ScreenCondition) -> Unit,
     onLockConditionChanged: (LockCondition) -> Unit,
     onRespectDndChanged: (Boolean) -> Unit,
@@ -543,12 +556,10 @@ private fun DeviceStateCard(
 ) {
     SectionCard(
         title = "Device State",
-        subtitle = "Prerequisites for screen and lock states",
+        subtitle = "When screen and lock state allow speech",
         icon = Icons.Rounded.PhoneAndroid,
-        badgeText = if (isModified) "Modified" else "Default",
-        isBadgeHighlighted = isModified,
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             // Screen Condition
             Column {
                 Text(
@@ -558,6 +569,8 @@ private fun DeviceStateCard(
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Spacer(modifier = Modifier.height(8.dp))
+                val screenOffSelected = screenCondition == ScreenCondition.OFF || screenCondition == ScreenCondition.BOTH
+                val screenOnSelected = screenCondition == ScreenCondition.ON || screenCondition == ScreenCondition.BOTH
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -566,24 +579,30 @@ private fun DeviceStateCard(
                         label = stringResource(R.string.global_screen_off),
                         subtitle = "Recommended",
                         icon = Icons.Rounded.Nightlight,
-                        selected = screenCondition == ScreenCondition.OFF,
-                        onClick = { onScreenConditionChanged(ScreenCondition.OFF) },
+                        selected = screenOffSelected,
+                        onClick = {
+                            val next = when {
+                                screenOffSelected && screenOnSelected -> ScreenCondition.ON
+                                screenOffSelected -> ScreenCondition.OFF
+                                else -> if (screenOnSelected) ScreenCondition.BOTH else ScreenCondition.OFF
+                            }
+                            onScreenConditionChanged(next)
+                        },
                         modifier = Modifier.weight(1f),
                     )
                     SegmentOption(
                         label = stringResource(R.string.global_screen_on),
                         subtitle = "Awake only",
                         icon = Icons.Rounded.WbSunny,
-                        selected = screenCondition == ScreenCondition.ON,
-                        onClick = { onScreenConditionChanged(ScreenCondition.ON) },
-                        modifier = Modifier.weight(1f),
-                    )
-                    SegmentOption(
-                        label = stringResource(R.string.global_screen_both),
-                        subtitle = "Either state",
-                        icon = Icons.Rounded.Sync,
-                        selected = screenCondition == ScreenCondition.BOTH,
-                        onClick = { onScreenConditionChanged(ScreenCondition.BOTH) },
+                        selected = screenOnSelected,
+                        onClick = {
+                            val next = when {
+                                screenOnSelected && screenOffSelected -> ScreenCondition.OFF
+                                screenOnSelected -> ScreenCondition.ON
+                                else -> if (screenOffSelected) ScreenCondition.BOTH else ScreenCondition.ON
+                            }
+                            onScreenConditionChanged(next)
+                        },
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -600,6 +619,8 @@ private fun DeviceStateCard(
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Spacer(modifier = Modifier.height(8.dp))
+                val lockedSelected = lockCondition == LockCondition.LOCKED || lockCondition == LockCondition.BOTH
+                val unlockedSelected = lockCondition == LockCondition.UNLOCKED || lockCondition == LockCondition.BOTH
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -608,24 +629,30 @@ private fun DeviceStateCard(
                         label = stringResource(R.string.global_lock_locked),
                         subtitle = "Recommended",
                         icon = Icons.Rounded.Lock,
-                        selected = lockCondition == LockCondition.LOCKED,
-                        onClick = { onLockConditionChanged(LockCondition.LOCKED) },
+                        selected = lockedSelected,
+                        onClick = {
+                            val next = when {
+                                lockedSelected && unlockedSelected -> LockCondition.UNLOCKED
+                                lockedSelected -> LockCondition.LOCKED
+                                else -> if (unlockedSelected) LockCondition.BOTH else LockCondition.LOCKED
+                            }
+                            onLockConditionChanged(next)
+                        },
                         modifier = Modifier.weight(1f),
                     )
                     SegmentOption(
                         label = stringResource(R.string.global_lock_unlocked),
                         subtitle = "Unlocked",
                         icon = Icons.Rounded.LockOpen,
-                        selected = lockCondition == LockCondition.UNLOCKED,
-                        onClick = { onLockConditionChanged(LockCondition.UNLOCKED) },
-                        modifier = Modifier.weight(1f),
-                    )
-                    SegmentOption(
-                        label = stringResource(R.string.global_lock_both),
-                        subtitle = "Either state",
-                        icon = Icons.Rounded.Sync,
-                        selected = lockCondition == LockCondition.BOTH,
-                        onClick = { onLockConditionChanged(LockCondition.BOTH) },
+                        selected = unlockedSelected,
+                        onClick = {
+                            val next = when {
+                                unlockedSelected && lockedSelected -> LockCondition.LOCKED
+                                unlockedSelected -> LockCondition.UNLOCKED
+                                else -> if (lockedSelected) LockCondition.BOTH else LockCondition.UNLOCKED
+                            }
+                            onLockConditionChanged(next)
+                        },
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -635,8 +662,8 @@ private fun DeviceStateCard(
 
             // Do Not Disturb Policy (#2)
             ModernSwitchRow(
-                label = "Silence during Do Not Disturb",
-                subtitle = "Mute regular alerts when Android DND is active (critical keywords still break through)",
+                label = "Silence during DND",
+                subtitle = "Mute alerts during DND (critical keywords still break through)",
                 checked = respectDnd,
                 onCheckedChange = onRespectDndChanged,
                 icon = Icons.Rounded.DoNotDisturbOn,
@@ -686,26 +713,22 @@ private fun DeviceStateCard(
 @Composable
 private fun PrivacyShieldCard(
     privacy: PrivacySettings,
-    activeCount: Int,
     onPrivacyChanged: (PrivacySettings) -> Unit,
 ) {
     var activeShieldInfo by remember { mutableStateOf<Pair<String, String>?>(null) }
 
     SectionCard(
-        title = "Privacy Shields",
-        subtitle = "Redact sensitive content like OTPs and balances",
+        title = "Privacy",
+        subtitle = "Protect codes, balances, and credentials",
         icon = Icons.Rounded.Security,
-        badgeText = "$activeCount Active",
-        isBadgeHighlighted = activeCount > 0,
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             // OTP Skip
             ModernSwitchRow(
                 icon = Icons.Rounded.Shield,
                 label = stringResource(R.string.global_privacy_skip_otp),
                 subtitle = stringResource(R.string.global_privacy_skip_otp_desc),
                 checked = privacy.skipOtp,
-                badgeText = if (privacy.skipOtp) "ACTIVE" else null,
                 onCheckedChange = { onPrivacyChanged(privacy.copy(skipOtp = it)) },
                 onInfoClick = {
                     activeShieldInfo = "OTP & Verification Codes Shield" to
@@ -721,7 +744,6 @@ private fun PrivacyShieldCard(
                 label = stringResource(R.string.global_privacy_skip_password),
                 subtitle = stringResource(R.string.global_privacy_skip_password_desc),
                 checked = privacy.skipPassword,
-                badgeText = if (privacy.skipPassword) "ACTIVE" else null,
                 onCheckedChange = { onPrivacyChanged(privacy.copy(skipPassword = it)) },
                 onInfoClick = {
                     activeShieldInfo = "Password & Credentials Shield" to
@@ -737,7 +759,6 @@ private fun PrivacyShieldCard(
                 label = stringResource(R.string.global_privacy_skip_banking),
                 subtitle = stringResource(R.string.global_privacy_skip_banking_desc),
                 checked = privacy.skipBanking,
-                badgeText = if (privacy.skipBanking) "ACTIVE" else null,
                 onCheckedChange = { onPrivacyChanged(privacy.copy(skipBanking = it)) },
                 onInfoClick = {
                     activeShieldInfo = "Banking & Account Alerts Shield" to
@@ -753,7 +774,6 @@ private fun PrivacyShieldCard(
                 label = stringResource(R.string.global_privacy_skip_payment),
                 subtitle = stringResource(R.string.global_privacy_skip_payment_desc),
                 checked = privacy.skipPayment,
-                badgeText = if (privacy.skipPayment) "ACTIVE" else null,
                 onCheckedChange = { onPrivacyChanged(privacy.copy(skipPayment = it)) },
                 onInfoClick = {
                     activeShieldInfo = "Payment Receipts Shield" to
@@ -769,7 +789,6 @@ private fun PrivacyShieldCard(
                 label = stringResource(R.string.global_privacy_hide_content),
                 subtitle = stringResource(R.string.global_privacy_hide_content_desc),
                 checked = privacy.hideContent,
-                badgeText = if (privacy.hideContent) "ACTIVE" else null,
                 onCheckedChange = { onPrivacyChanged(privacy.copy(hideContent = it)) },
                 onInfoClick = {
                     activeShieldInfo = "Hide Notification Message Body" to
@@ -835,14 +854,14 @@ private fun SectionCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
-        Column(modifier = Modifier.padding(18.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(bottom = 16.dp),
+                modifier = Modifier.padding(bottom = 10.dp),
             ) {
                 Surface(
-                    modifier = Modifier.size(36.dp),
-                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.size(32.dp),
+                    shape = RoundedCornerShape(10.dp),
                     color = MaterialTheme.colorScheme.primaryContainer,
                 ) {
                     Box(contentAlignment = Alignment.Center) {
@@ -850,24 +869,28 @@ private fun SectionCard(
                             imageVector = icon,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp),
+                            modifier = Modifier.size(17.dp),
                         )
                     }
                 }
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(10.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = title,
-                        style = MaterialTheme.typography.titleMedium,
+                        style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     Text(
                         text = subtitle,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 11.sp,
-                        lineHeight = 15.sp,
+                        lineHeight = 14.sp,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
                 if (badgeText != null) {
@@ -913,7 +936,7 @@ private fun SegmentOption(
         ),
     ) {
         Column(
-            modifier = Modifier.padding(vertical = 10.dp, horizontal = 8.dp),
+            modifier = Modifier.padding(vertical = 8.dp, horizontal = 6.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
@@ -923,7 +946,7 @@ private fun SegmentOption(
                 tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(18.dp),
             )
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(3.dp))
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelSmall,
@@ -957,7 +980,7 @@ private fun ModernSwitchRow(
         modifier = modifier
             .fillMaxWidth()
             .clickable(role = Role.Switch) { onCheckedChange(!checked) }
-            .padding(vertical = 6.dp),
+            .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
@@ -1080,8 +1103,8 @@ private fun GlobalKeywordFilterCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             // Header with Switch
             Row(
@@ -1095,8 +1118,8 @@ private fun GlobalKeywordFilterCard(
                     modifier = Modifier.weight(1f),
                 ) {
                     Surface(
-                        modifier = Modifier.size(40.dp),
-                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.size(32.dp),
+                        shape = RoundedCornerShape(10.dp),
                         color = MaterialTheme.colorScheme.primaryContainer,
                     ) {
                         Box(contentAlignment = Alignment.Center) {
@@ -1104,19 +1127,19 @@ private fun GlobalKeywordFilterCard(
                                 imageVector = Icons.Rounded.FilterList,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp),
+                                modifier = Modifier.size(17.dp),
                             )
                         }
                     }
                     Column {
                         Text(
-                            text = "Global Keyword Filters",
+                            text = "Global Filters",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
                         Text(
-                            text = "Silence alerts containing these words",
+                            text = "Silence alerts with these words",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -1216,4 +1239,128 @@ private fun GlobalKeywordFilterCard(
             }
         }
     }
+}
+
+// ============================================================================
+// What Gets Spoken (announcement structure)
+// ============================================================================
+
+/**
+ * Chooses which parts of a notification are spoken. This is content policy, so it lives with
+ * the global rules rather than with the voice engine.
+ */
+@Composable
+private fun WhatGetsSpokenCard(
+    format: AnnouncementFormat,
+    hideContent: Boolean,
+    onIncludeAppNameChanged: (Boolean) -> Unit,
+    onIncludeSenderChanged: (Boolean) -> Unit,
+    onIncludeMessageChanged: (Boolean) -> Unit,
+    onIntroductionChanged: (String?) -> Unit,
+) {
+    SectionCard(
+        title = "Spoken Content",
+        subtitle = "Sections included in every announcement",
+        icon = Icons.Rounded.RecordVoiceOver,
+    ) {
+        Column {
+            SpokenSectionRow(
+                title = "App name",
+                subtitle = "Says which app the message came from",
+                checked = format.includeAppName,
+                onCheckedChange = onIncludeAppNameChanged,
+            )
+            SpokenSectionDivider()
+            SpokenSectionRow(
+                title = "Sender",
+                subtitle = "Says who sent the message",
+                checked = format.includeSender,
+                onCheckedChange = onIncludeSenderChanged,
+            )
+            SpokenSectionDivider()
+            SpokenSectionRow(
+                title = "Message body",
+                subtitle = if (hideContent) {
+                    "Blocked by Privacy shields - message text is never spoken"
+                } else {
+                    "Reads the message text itself"
+                },
+                checked = format.includeMessage && !hideContent,
+                enabled = !hideContent,
+                onCheckedChange = onIncludeMessageChanged,
+            )
+            SpokenSectionDivider()
+
+            var introInput by remember(format.introduction) {
+                mutableStateOf(format.introduction ?: "")
+            }
+            OutlinedTextField(
+                value = introInput,
+                onValueChange = { text ->
+                    introInput = text
+                    onIntroductionChanged(text.takeIf { it.isNotBlank() })
+                },
+                label = { Text(stringResource(R.string.voice_speech_intro_label)) },
+                placeholder = { Text(stringResource(R.string.voice_speech_intro_placeholder)) },
+                supportingText = { Text(stringResource(R.string.voice_speech_intro_helper)) },
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+                trailingIcon = {
+                    if (introInput.isNotEmpty()) {
+                        IconButton(
+                            onClick = {
+                                introInput = ""
+                                onIntroductionChanged(null)
+                            },
+                        ) {
+                            Icon(Icons.Rounded.Close, contentDescription = "Clear introduction")
+                        }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+}
+
+@Composable
+private fun SpokenSectionRow(
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    enabled: Boolean = true,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = if (enabled) {
+                    MaterialTheme.colorScheme.onSurface
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+            )
+        }
+        Switch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
+    }
+}
+
+@Composable
+private fun SpokenSectionDivider() {
+    HorizontalDivider(
+        modifier = Modifier.padding(vertical = 8.dp),
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+    )
 }
