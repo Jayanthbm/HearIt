@@ -23,6 +23,8 @@ import java.util.regex.Pattern
 data class CleanedMessage(
     val text: String,
     val suppress: Boolean = false,
+    /** True when this message matched a user noise phrase whose app setting skips history. */
+    val skipHistory: Boolean = false,
 )
 
 /**
@@ -231,7 +233,8 @@ object SmartContentCleaner {
         // - built-in sync noise phrases are messaging-polish (chat-app) behavior
         // - custom extra noise phrases are enabled for all apps
         if (isCustomNoisePhrase(result, messagingConfig)) {
-            return CleanedMessage("", suppress = true)
+            // An app can also keep noise-phrase matches out of its notification history.
+            return CleanedMessage("", suppress = true, skipHistory = messagingConfig.hideNoisePhraseMatches)
         }
         if (messagingPolishEnabled && isBuiltInSyncBackgroundNoise(result)) {
             return CleanedMessage("", suppress = true)

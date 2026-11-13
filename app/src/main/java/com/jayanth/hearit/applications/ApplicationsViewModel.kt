@@ -505,6 +505,12 @@ class ApplicationsViewModel @Inject constructor(
         }
     }
 
+    fun onHideNoisePhraseMatchesChanged(hide: Boolean) {
+        updateSelected { settings, packageName ->
+            AppSettingsEditor.setHideNoisePhraseMatches(settings, packageName, hide)
+        }
+    }
+
     fun onSetMessagingMediaMapping(oldMatch: String?, match: String, spokenPhrase: String, applyToSender: Boolean = false) {
         updateSelected { settings, packageName ->
             AppSettingsEditor.setMessagingMediaMapping(

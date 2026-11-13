@@ -180,17 +180,20 @@ class AnnouncementPipeline(
             onRecord(HistoryRecord(snapshot, HistoryStatus.SKIPPED, SkipReason.DUPLICATE_UPDATE, priority))
             return Processed(skipDecision, emptyList())
         }
-        if (decision is EligibilityDecision.Announce &&
-            (SmartContentCleaner.shouldSuppressEmptyContent(snapshot.sender, snapshot.messageText) ||
-                SmartContentCleaner.shouldSuppress(snapshot.messageText, snapshot.packageName))
-        ) {
-            HearItLogger.info(
-                LogCategory.RULES,
-                "Notification suppressed by Active Intelligence rules for pkg=${snapshot.packageName}",
-            )
-            val skipDecision = EligibilityDecision.Skip(SkipReason.SUPPRESSED_INTELLIGENCE)
-            onRecord(HistoryRecord(snapshot, HistoryStatus.SKIPPED, SkipReason.SUPPRESSED_INTELLIGENCE, priority))
-            return Processed(skipDecision, emptyList())
+        if (decision is EligibilityDecision.Announce) {
+            val cleaned = SmartContentCleaner.cleanMessage(snapshot.messageText, snapshot.packageName)
+            if (SmartContentCleaner.shouldSuppressEmptyContent(snapshot.sender, snapshot.messageText) || cleaned.suppress) {
+                HearItLogger.info(
+                    LogCategory.RULES,
+                    "Notification suppressed by Active Intelligence rules for pkg=${snapshot.packageName}",
+                )
+                val skipDecision = EligibilityDecision.Skip(SkipReason.SUPPRESSED_INTELLIGENCE)
+                // A noise-phrase match is optionally kept out of history as well as speech.
+                if (!cleaned.skipHistory) {
+                    onRecord(HistoryRecord(snapshot, HistoryStatus.SKIPPED, SkipReason.SUPPRESSED_INTELLIGENCE, priority))
+                }
+                return Processed(skipDecision, emptyList())
+            }
         }
 
         // Per-Sender Spam Cooldown Throttle (#28 / Idea 16)

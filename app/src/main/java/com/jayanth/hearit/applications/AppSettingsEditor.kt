@@ -411,6 +411,15 @@ object AppSettingsEditor {
         override.copy(messagingPolish = override.messagingPolish.copy(extraNoisePhrases = updated))
     }
 
+    /** Keeps notifications silenced by an extra noise phrase out of history (default: keep). */
+    fun setHideNoisePhraseMatches(
+        settings: HearItSettings,
+        packageName: String,
+        hide: Boolean,
+    ): HearItSettings = updateOverride(settings, packageName) { override ->
+        override.copy(messagingPolish = override.messagingPolish.copy(hideNoisePhraseMatches = hide))
+    }
+
     fun setMessagingMediaMapping(
         settings: HearItSettings,
         packageName: String,

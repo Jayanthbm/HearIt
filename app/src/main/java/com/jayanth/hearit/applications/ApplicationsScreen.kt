@@ -245,6 +245,7 @@ fun ApplicationsRoute(
                     onMessagingPolishEnabledChanged = viewModel::onMessagingPolishEnabledChanged,
                     onAddMessagingNoisePhrase = viewModel::onAddMessagingNoisePhrase,
                     onRemoveMessagingNoisePhrase = viewModel::onRemoveMessagingNoisePhrase,
+                    onHideNoisePhraseMatchesChanged = viewModel::onHideNoisePhraseMatchesChanged,
                     onSetMessagingMediaMapping = { oldMatch, match, spoken, applyToSender ->
                         viewModel.onSetMessagingMediaMapping(oldMatch, match, spoken, applyToSender)
                     },
@@ -898,6 +899,7 @@ private fun AppSettingsScreen(
     onMessagingPolishEnabledChanged: (Boolean?) -> Unit = {},
     onAddMessagingNoisePhrase: (String) -> Unit = {},
     onRemoveMessagingNoisePhrase: (String) -> Unit = {},
+    onHideNoisePhraseMatchesChanged: (Boolean) -> Unit = {},
     onSetMessagingMediaMapping: (String?, String, String, Boolean) -> Unit = { _, _, _, _ -> },
     onRemoveMessagingMediaMapping: (String) -> Unit = {},
     onConfirmHistoryPlayBypass: () -> Unit = {},
@@ -2120,6 +2122,7 @@ private fun AppSettingsScreen(
                         onMessagingPolishEnabledChanged = onMessagingPolishEnabledChanged,
                         onAddMessagingNoisePhrase = onAddMessagingNoisePhrase,
                         onRemoveMessagingNoisePhrase = onRemoveMessagingNoisePhrase,
+                        onHideNoisePhraseMatchesChanged = onHideNoisePhraseMatchesChanged,
                         onSetMessagingMediaMapping = onSetMessagingMediaMapping,
                         onRemoveMessagingMediaMapping = onRemoveMessagingMediaMapping,
                     )
@@ -2380,10 +2383,10 @@ private fun ClearAppHistoryDialog(
     var selectedDays by remember { mutableStateOf<Int?>(null) } // null = all, 1 = 1 day, 7 = 7 days, 30 = 30 days
 
     val options = listOf(
-        null to "All history (everything)",
-        1 to "Older than 24 hours (1 day)",
-        7 to "Older than 7 days (1 week)",
-        30 to "Older than 30 days (1 month)",
+        null to "All",
+        1 to "1 day old",
+        7 to "1 week old",
+        30 to "1 month old",
     )
 
     AlertDialog(
@@ -2443,15 +2446,11 @@ private fun ClearAppHistoryDialog(
             }
         },
         confirmButton = {
-            IconButton(
-                onClick = { onClear(selectedDays) },
-                colors = androidx.compose.material3.IconButtonDefaults.iconButtonColors(
-                    contentColor = MaterialTheme.colorScheme.error,
-                ),
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.DeleteOutline,
-                    contentDescription = "Clear history",
+            TextButton(onClick = { onClear(selectedDays) }) {
+                Text(
+                    text = "Delete",
+                    color = MaterialTheme.colorScheme.error,
+                    fontWeight = FontWeight.SemiBold,
                 )
             }
         },
@@ -3326,6 +3325,7 @@ private fun PerAppMessagingPolishCard(
     onMessagingPolishEnabledChanged: (Boolean?) -> Unit,
     onAddMessagingNoisePhrase: (String) -> Unit,
     onRemoveMessagingNoisePhrase: (String) -> Unit,
+    onHideNoisePhraseMatchesChanged: (Boolean) -> Unit,
     onSetMessagingMediaMapping: (String?, String, String, Boolean) -> Unit,
     onRemoveMessagingMediaMapping: (String) -> Unit,
 ) {
@@ -3457,6 +3457,30 @@ private fun PerAppMessagingPolishCard(
                         }
                     }
                 }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Keep noise matches in history",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = "Off: a notification silenced by a phrase above is not saved to history.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = !config.hideNoisePhraseMatches,
+                    onCheckedChange = { onHideNoisePhraseMatchesChanged(!it) },
+                )
             }
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))

@@ -134,6 +134,7 @@ object SettingsCodec {
     private const val APP_MSG_ENABLED = "intel.msg.enabled"
     private const val APP_MSG_NOISE = "intel.msg.noise"
     private const val APP_MSG_MEDIA = "intel.msg.media"
+    private const val APP_MSG_NOISE_HISTORY = "intel.msg.noise.history"
     private const val APP_AUTO_DISMISS = "elig.autoDismiss"
     private const val APP_SPEECH_RATE = "speech.rate"
     private const val APP_SPEECH_PITCH = "speech.pitch"
@@ -317,6 +318,9 @@ object SettingsCodec {
 
         val messaging = override.messagingPolish
         messaging.enabled?.let { values[prefix + APP_MSG_ENABLED] = it.toString() }
+        if (messaging.hideNoisePhraseMatches) {
+            values[prefix + APP_MSG_NOISE_HISTORY] = "true"
+        }
         if (messaging.extraNoisePhrases.isNotEmpty()) {
             values[prefix + APP_MSG_NOISE] = encodeList(messaging.extraNoisePhrases)
         }
@@ -568,6 +572,7 @@ object SettingsCodec {
             categoryOverride = string(APP_CATEGORY)?.enumOrNull<AppCategoryChoice>(),
             messagingPolish = MessagingPolishConfig(
                 enabled = string(APP_MSG_ENABLED)?.toBooleanStrictOrNull(),
+                hideNoisePhraseMatches = string(APP_MSG_NOISE_HISTORY)?.toBooleanStrictOrNull() ?: false,
                 extraNoisePhrases = splitList(string(APP_MSG_NOISE)).map { it.trim() }.filter { it.isNotBlank() },
                 mediaMappings = splitList(string(APP_MSG_MEDIA)).mapNotNull { entry ->
                     val parts = entry.split(FIELD_SEPARATOR)
