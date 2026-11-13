@@ -90,6 +90,7 @@ class GeneralSettingsViewModel @Inject constructor(
             carrierSpamPhrases = sessionStore.carrierSpamPhrases,
             isEmailCleanupEnabled = sessionStore.isEmailCleanupEnabled,
             isContactSanitizerEnabled = sessionStore.isContactSanitizerEnabled,
+            isSkipEmptyNotificationsEnabled = sessionStore.isSkipEmptyNotificationsEnabled,
             isDuckingLevelControlEnabled = sessionStore.isDuckingLevelControlEnabled,
             duckingVolumePercent = sessionStore.duckingVolumePercent,
             audioFocusReturnDelayMs = sessionStore.audioFocusReturnDelayMs,
@@ -431,6 +432,12 @@ class GeneralSettingsViewModel @Inject constructor(
         sessionStore.isContactSanitizerEnabled = enabled
         SmartContentCleaner.isContactSanitizerEnabled = enabled
         _state.update { it.copy(isContactSanitizerEnabled = enabled) }
+    }
+
+    fun onToggleSkipEmptyNotifications(enabled: Boolean) {
+        sessionStore.isSkipEmptyNotificationsEnabled = enabled
+        SmartContentCleaner.isSkipEmptyNotificationsEnabled = enabled
+        _state.update { it.copy(isSkipEmptyNotificationsEnabled = enabled) }
     }
 
     fun onSetAppCategory(packageName: String, category: AppCategory?) {

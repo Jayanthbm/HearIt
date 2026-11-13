@@ -59,4 +59,5 @@ fun skipReasonLabelRes(reason: SkipReason): Int = when (reason) {
     SkipReason.PROXIMITY_UNCOVERED -> R.string.history_reason_proximity_uncovered
     SkipReason.SPAM_COOLDOWN -> R.string.history_reason_spam_cooldown
     SkipReason.MANUALLY_CLEARED -> R.string.history_reason_manually_cleared
+    SkipReason.SERVICE_NOT_RUNNING -> R.string.history_reason_service_not_running
 }

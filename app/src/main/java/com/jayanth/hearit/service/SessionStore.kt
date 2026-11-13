@@ -233,6 +233,13 @@ class SessionStore(context: Context) {
             prefs.edit().putBoolean(KEY_CONTACT_SANITIZER, value).apply()
         }
 
+    /** Skip notifications with no sender name and no body/message content. */
+    var isSkipEmptyNotificationsEnabled: Boolean
+        get() = prefs.getBoolean(KEY_SKIP_EMPTY_NOTIFICATIONS, false)
+        set(value) {
+            prefs.edit().putBoolean(KEY_SKIP_EMPTY_NOTIFICATIONS, value).apply()
+        }
+
     /** Smart Audio Polish & Voice Boost settings (#17, #18, #24, #34). */
     var isEarconEnabled: Boolean
         get() = prefs.getBoolean(KEY_EARCON_ENABLED, true)
@@ -689,6 +696,7 @@ class SessionStore(context: Context) {
         const val KEY_CARRIER_SPAM_PHRASES = "carrier_spam_phrases_json"
         const val KEY_EMAIL_CLEANUP = "email_cleanup"
         const val KEY_CONTACT_SANITIZER = "contact_sanitizer"
+        const val KEY_SKIP_EMPTY_NOTIFICATIONS = "skip_empty_notifications"
         const val KEY_EARCON_ENABLED = "earcon_enabled"
         const val KEY_EARCON_DURATION_MS = "earcon_duration_ms"
         const val KEY_ANTI_COLLISION_DELAY_MS = "anti_collision_delay_ms"

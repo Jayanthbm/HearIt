@@ -322,8 +322,11 @@ object SettingsCodec {
         }
         if (messaging.mediaMappings.isNotEmpty()) {
             val encoded = messaging.mediaMappings.map { rule ->
-                rule.match.replace(LIST_SEPARATOR, " ").replace(FIELD_SEPARATOR, " ") + FIELD_SEPARATOR +
-                    rule.spokenPhrase.replace(LIST_SEPARATOR, " ").replace(FIELD_SEPARATOR, " ")
+                listOf(
+                    rule.match.replace(LIST_SEPARATOR, " ").replace(FIELD_SEPARATOR, " "),
+                    rule.spokenPhrase.replace(LIST_SEPARATOR, " ").replace(FIELD_SEPARATOR, " "),
+                    rule.applyToSender.toString(),
+                ).joinToString(FIELD_SEPARATOR)
             }
             values[prefix + APP_MSG_MEDIA] = encoded.joinToString(LIST_SEPARATOR)
         }
@@ -567,11 +570,12 @@ object SettingsCodec {
                 enabled = string(APP_MSG_ENABLED)?.toBooleanStrictOrNull(),
                 extraNoisePhrases = splitList(string(APP_MSG_NOISE)).map { it.trim() }.filter { it.isNotBlank() },
                 mediaMappings = splitList(string(APP_MSG_MEDIA)).mapNotNull { entry ->
-                    val parts = entry.split(FIELD_SEPARATOR, limit = 2)
-                    if (parts.size != 2) return@mapNotNull null
+                    val parts = entry.split(FIELD_SEPARATOR)
+                    if (parts.size < 2) return@mapNotNull null
                     val match = parts[0].trim()
                     val spoken = parts[1].trim()
-                    if (match.isBlank() || spoken.isBlank()) null else MediaReplacementRule(match, spoken)
+                    val applyToSender = parts.getOrNull(2)?.toBooleanStrictOrNull() ?: false
+                    if (match.isBlank() || spoken.isBlank()) null else MediaReplacementRule(match, spoken, applyToSender)
                 },
             ),
         )

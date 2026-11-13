@@ -183,6 +183,32 @@ class SmartContentCleanerTest {
     }
 
     @Test
+    fun placeholderMapping_rewritesWholeTextAndWholeTokensInsideLongerText() {
+        val pkg = "in.cricketexchange.app.cricketexchange"
+        SmartContentCleaner.replaceMessagingPolishConfigs(
+            mapOf(
+                pkg to com.jayanth.hearit.core.common.model.MessagingPolishConfig(
+                    mediaMappings = listOf(
+                        com.jayanth.hearit.core.common.model.MediaReplacementRule("NZ", "New Zealand", applyToSender = true),
+                        com.jayanth.hearit.core.common.model.MediaReplacementRule("ov", "Overs", applyToSender = true),
+                    ),
+                ),
+            ),
+        )
+
+        // Whole text is the placeholder.
+        assertEquals("New Zealand", SmartContentCleaner.cleanMessageText("NZ", pkg))
+        // Placeholder inside a longer line, whole tokens only (not inside "overall").
+        assertEquals(
+            "New Zealand 265/6 (40 Overs)",
+            SmartContentCleaner.cleanMessageText("NZ 265/6 (40 ov)", pkg),
+        )
+        assertEquals("overall", SmartContentCleaner.cleanMessageText("overall", pkg))
+        // Sender mappings are applied when the rule opts into senders.
+        assertEquals("New Zealand", SmartContentCleaner.cleanSender("NZ", pkg))
+    }
+
+    @Test
     fun appAlias_resolvesCustomSpokenName() {
         SmartContentCleaner.setAppAlias("com.whatsapp.w4b", "Work Chat")
         assertEquals("Work Chat", SmartContentCleaner.resolveAppName("com.whatsapp.w4b", "WhatsApp Business"))

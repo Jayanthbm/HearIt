@@ -49,6 +49,7 @@ data class GeneralSettingsUiState(
     val carrierSpamPhrases: List<String> = IntelligencePresets.DEFAULT_CARRIER_SPAM_PHRASES,
     val isEmailCleanupEnabled: Boolean = true,
     val isContactSanitizerEnabled: Boolean = true,
+    val isSkipEmptyNotificationsEnabled: Boolean = false,
     val installedApps: List<AppEntry> = emptyList(),
     val appCategories: Map<String, AppCategory?> = emptyMap(),
     // Audio Ducking Level Control (#17) & Maps Navigation Yield

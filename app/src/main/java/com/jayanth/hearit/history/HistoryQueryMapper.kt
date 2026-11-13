@@ -39,12 +39,16 @@ object HistoryQueryMapper {
     fun toItems(entries: List<HistoryEntry>): List<HistoryItem> = entries.map { entry ->
         HistoryItem(
             id = entry.id,
+            key = entry.key,
             appName = entry.appName,
             packageName = entry.packageName,
             status = entry.status,
             reason = entry.reason,
             sender = entry.sender,
             messageText = entry.messageText,
+            channelId = entry.channelId,
+            category = entry.category,
+            postTimeMillis = entry.postTimeMillis,
             recordedAtMillis = entry.recordedAtMillis,
             isUpdate = entry.isUpdate,
         )

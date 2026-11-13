@@ -378,6 +378,7 @@
     <string name="history_reason_proximity_uncovered">phone in hand (proximity uncovered)</string>
     <string name="history_reason_spam_cooldown">sender spam cooldown</string>
     <string name="history_reason_manually_cleared">queue cleared manually</string>
+    <string name="history_reason_service_not_running">service not running</string>
 
     <!-- App icon / splash -->
     <string name="splash_icon_description">Hear It app icon</string>

@@ -8,6 +8,7 @@ import com.jayanth.hearit.core.common.model.AudioFocusPolicy
 import com.jayanth.hearit.core.common.model.HistoryStorageMode
 import com.jayanth.hearit.core.common.model.HistoryUpdateHandling
 import com.jayanth.hearit.core.common.model.KeywordFilterSettings
+import com.jayanth.hearit.core.common.model.SkipReason
 import com.jayanth.hearit.core.database.HistoryEntry
 import com.jayanth.hearit.core.tts.TtsVoice
 
@@ -103,9 +104,21 @@ data class AppSettingsUiState(
     val recentHistory: List<HistoryEntry> = emptyList(),
     val historyLoading: Boolean = false,
     val playingHistoryId: Long? = null,
+    val pendingHistoryPlayBlocked: PendingAppHistoryPlayBlocked? = null,
     val enabledAppCount: Int = 0,
     val hasOverrides: Boolean = false,
     val spokenName: String? = null,
     val category: AppCategory? = null,
     val categoryOverride: AppCategoryChoice? = null,
+)
+
+/**
+ * A manual history replay from the per-app screen that the eligibility rules blocked.
+ * [bypassedReasons] carries the reasons the user already chose to override, so confirming
+ * bypasses exactly one more reason and every other rule is still checked.
+ */
+data class PendingAppHistoryPlayBlocked(
+    val entry: HistoryEntry,
+    val reason: SkipReason,
+    val bypassedReasons: Set<SkipReason> = emptySet(),
 )

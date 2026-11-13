@@ -181,7 +181,8 @@ class AnnouncementPipeline(
             return Processed(skipDecision, emptyList())
         }
         if (decision is EligibilityDecision.Announce &&
-            SmartContentCleaner.shouldSuppress(snapshot.messageText, snapshot.packageName)
+            (SmartContentCleaner.shouldSuppressEmptyContent(snapshot.sender, snapshot.messageText) ||
+                SmartContentCleaner.shouldSuppress(snapshot.messageText, snapshot.packageName))
         ) {
             HearItLogger.info(
                 LogCategory.RULES,

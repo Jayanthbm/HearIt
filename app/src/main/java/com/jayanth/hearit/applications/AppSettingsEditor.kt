@@ -420,7 +420,7 @@ object AppSettingsEditor {
         val match = rule.match.trim()
         val spoken = rule.spokenPhrase.trim()
         if (match.isEmpty() || spoken.isEmpty()) return settings
-        val normalized = MediaReplacementRule(match, spoken)
+        val normalized = MediaReplacementRule(match, spoken, rule.applyToSender)
         return updateOverride(settings, packageName) { override ->
             val filtered = override.messagingPolish.mediaMappings.filterNot { existing ->
                 existing.match.equals(oldMatch ?: match, ignoreCase = true) ||

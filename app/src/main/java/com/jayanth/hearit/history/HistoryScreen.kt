@@ -178,6 +178,8 @@ fun HistoryRoute(
         onAppFilterChanged = viewModel::onAppFilterChanged,
         onOpenAppSettings = onOpenAppSettings,
         onPlayEntry = viewModel::onPlayEntry,
+        onConfirmPlayBypass = viewModel::onConfirmPlayBypass,
+        onDismissPlayBlocked = viewModel::onDismissPlayBlocked,
         onStopPlaying = viewModel::onStopPlaying,
         onAddFilter = viewModel::onAddFilter,
         onLoadMore = viewModel::onLoadMore,
@@ -208,6 +210,8 @@ fun HistoryScreen(
     onAppFilterChanged: (String?, String?) -> Unit,
     onOpenAppSettings: (String) -> Unit = {},
     onPlayEntry: (HistoryItem) -> Unit,
+    onConfirmPlayBypass: () -> Unit = {},
+    onDismissPlayBlocked: () -> Unit = {},
     onStopPlaying: () -> Unit,
     onAddFilter: (String, KeywordMatchMode, Boolean, String?) -> Unit,
     onLoadMore: () -> Unit,
@@ -227,6 +231,49 @@ fun HistoryScreen(
     var filterItem by remember { mutableStateOf<HistoryItem?>(null) }
     var selectedIds by rememberSaveable { mutableStateOf(emptySet<Long>()) }
     var isSelectionMode by rememberSaveable { mutableStateOf(false) }
+
+    state.pendingPlayBlocked?.let { pending ->
+        val reasonText = when (pending.reason) {
+            com.jayanth.hearit.core.common.model.SkipReason.APP_DISABLED ->
+                "${pending.item.appName} is disabled for announcements."
+            com.jayanth.hearit.core.common.model.SkipReason.SCREEN_ON -> "Screen is on."
+            com.jayanth.hearit.core.common.model.SkipReason.SCREEN_OFF -> "Screen is off."
+            com.jayanth.hearit.core.common.model.SkipReason.UNLOCKED -> "Device is unlocked."
+            com.jayanth.hearit.core.common.model.SkipReason.LOCKED -> "Device is locked."
+            com.jayanth.hearit.core.common.model.SkipReason.MUTED -> "Announcements are temporarily muted."
+            com.jayanth.hearit.core.common.model.SkipReason.CALL_ACTIVE -> "A call is in progress."
+            com.jayanth.hearit.core.common.model.SkipReason.DND -> "Do Not Disturb is on."
+            com.jayanth.hearit.core.common.model.SkipReason.TOO_LONG -> "Message is too long."
+            com.jayanth.hearit.core.common.model.SkipReason.KEYWORD_FILTERED -> "Filtered by keyword."
+            com.jayanth.hearit.core.common.model.SkipReason.OUTPUT_NOT_ALLOWED -> "Audio output is not allowed."
+            com.jayanth.hearit.core.common.model.SkipReason.PRIVACY_EXCLUDED_APP -> "Excluded by privacy settings."
+            com.jayanth.hearit.core.common.model.SkipReason.PRIVACY_OTP -> "OTP/code content is hidden."
+            com.jayanth.hearit.core.common.model.SkipReason.PRIVACY_PASSWORD -> "Password content is hidden."
+            com.jayanth.hearit.core.common.model.SkipReason.PRIVACY_PAYMENT -> "Payment content is hidden."
+            com.jayanth.hearit.core.common.model.SkipReason.PRIVACY_BANKING -> "Banking content is hidden."
+            com.jayanth.hearit.core.common.model.SkipReason.PRIVACY_SENSITIVE_KEYWORD -> "Sensitive keyword matched."
+            com.jayanth.hearit.core.common.model.SkipReason.LOW_BATTERY -> "Low battery or battery saver is blocking playback."
+            com.jayanth.hearit.core.common.model.SkipReason.PROXIMITY_UNCOVERED -> "Pocket/proximity check blocked playback."
+            com.jayanth.hearit.core.common.model.SkipReason.SUPPRESSED_INTELLIGENCE -> "Filtered by active intelligence."
+            else -> "Can't play: ${pending.reason.name.replace('_', ' ').lowercase().replaceFirstChar { it.titlecase() }}."
+        }
+        val note = if (pending.reason == com.jayanth.hearit.core.common.model.SkipReason.APP_DISABLED) {
+            " Still want to play this notification? Other rules and filters will still be checked."
+        } else {
+            " Play anyway? Other rules and filters will still be checked."
+        }
+        AlertDialog(
+            onDismissRequest = onDismissPlayBlocked,
+            title = { Text(if (pending.reason == com.jayanth.hearit.core.common.model.SkipReason.APP_DISABLED) "App is disabled" else "Can't play") },
+            text = { Text(reasonText + note) },
+            confirmButton = {
+                TextButton(onClick = onConfirmPlayBypass) { Text("Play anyway") }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismissPlayBlocked) { Text("Cancel") }
+            },
+        )
+    }
 
     val groupedItems = remember(state.items) {
         state.items.groupBy { getDateGroup(it.recordedAtMillis) }

@@ -125,6 +125,8 @@ enum class DigitGroupingStyle {
 data class MediaReplacementRule(
     val match: String,
     val spokenPhrase: String,
+    /** When true, apply this mapping to sender names in addition to message content. */
+    val applyToSender: Boolean = false,
 )
 
 /**

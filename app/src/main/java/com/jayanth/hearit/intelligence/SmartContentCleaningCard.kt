@@ -157,6 +157,15 @@ internal fun SmartContentCleaningCard(
                 checked = state.isBotSenderCleaningEnabled,
                 onCheckedChange = actions.onToggleBotSenderCleaning,
             )
+            DividerLine()
+
+            // 10. Skip empty notifications
+            NlpToggleRow(
+                title = "Skip empty notifications",
+                subtitle = "Skip notifications with no sender name and no message content",
+                checked = state.isSkipEmptyNotificationsEnabled,
+                onCheckedChange = actions.onToggleSkipEmptyNotifications,
+            )
         }
     }
 

@@ -1,28 +1,40 @@
 package com.jayanth.hearit.history
 
 import android.content.ContentResolver
+import android.content.Context
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.net.Uri
+import android.os.Build
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.jayanth.hearit.core.database.HistoryQuery
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import com.jayanth.hearit.applications.AppSettingsEditor
+import com.jayanth.hearit.core.common.model.AudioFocusPolicy
 import com.jayanth.hearit.core.common.model.HistoryStatus
 import com.jayanth.hearit.core.common.model.HistoryStorageMode
 import com.jayanth.hearit.core.common.model.HistoryUpdateHandling
-import com.jayanth.hearit.core.common.model.KeywordFilterSettings
 import com.jayanth.hearit.core.common.model.KeywordMatchMode
+import com.jayanth.hearit.core.common.model.NotificationSnapshot
+import com.jayanth.hearit.core.common.model.SkipReason
+import com.jayanth.hearit.core.database.HistoryQuery
 import com.jayanth.hearit.core.database.HistoryRepository
 import com.jayanth.hearit.core.datastore.SettingsRepository
-import com.jayanth.hearit.core.tts.AnnouncementSection
+import com.jayanth.hearit.core.rules.EligibilityDecision
+import com.jayanth.hearit.core.rules.EligibilityRules
+import com.jayanth.hearit.core.tts.AnnouncementFormat
+import com.jayanth.hearit.core.tts.AnnouncementTemplate
 import com.jayanth.hearit.core.tts.BuiltAnnouncement
-import com.jayanth.hearit.core.tts.SectionKind
+import com.jayanth.hearit.core.tts.SmartContentCleaner
 import com.jayanth.hearit.core.tts.TextToSpeechEngine
 import com.jayanth.hearit.core.tts.UtteranceListener
-import com.jayanth.hearit.applications.AppSettingsEditor
+import com.jayanth.hearit.service.RuntimeStateReader
+import com.jayanth.hearit.service.SessionStore
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,24 +45,18 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Drives the History feature (master prompt §12, phase P18).
- *
- * Reads one page at a time through [HistoryRepository] (never the whole table), applies the
- * filter/sort through [HistoryQueryMapper], and writes the global history settings back
- * through [SettingsRepository] so the service's recorder picks them up on its next
- * notification.
- *
- * A read failure is surfaced as [HistoryUiState.unavailable] rather than shown as an empty
- * list, and destructive actions are only performed when the screen has already asked for
- * confirmation.
  */
 @HiltViewModel
 class HistoryViewModel @Inject constructor(
     private val historyRepository: HistoryRepository,
     private val settingsRepository: SettingsRepository,
     private val engine: TextToSpeechEngine,
+    private val sessionStore: SessionStore,
+    @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(HistoryUiState())
@@ -60,6 +66,10 @@ class HistoryViewModel @Inject constructor(
     val userMessage: SharedFlow<String> = _userMessage.asSharedFlow()
 
     private var loadJob: Job? = null
+    private val rules = EligibilityRules()
+    private val audioManager: AudioManager? = context.getSystemService(AudioManager::class.java)
+    private val stateReader: RuntimeStateReader? = audioManager?.let { RuntimeStateReader(context, it, sessionStore) }
+    private var focusRequest: AudioFocusRequest? = null
 
     init {
         viewModelScope.launch {
@@ -82,7 +92,6 @@ class HistoryViewModel @Inject constructor(
         }
     }
 
-    /** Re-reads the first page; called when the screen resumes (the service keeps writing). */
     fun onRefresh() = load(reset = true)
 
     fun onQueryChanged(query: String) = updateFilter { it.copy(query = query) }
@@ -113,7 +122,6 @@ class HistoryViewModel @Inject constructor(
         }
     }
 
-    /** Exports every entry matching the active filter to CSV or TXT via SAF (#10). */
     fun exportToUri(contentResolver: ContentResolver, uri: Uri, asCsv: Boolean) {
         val currentFilter = _state.value.filter
         viewModelScope.launch {
@@ -151,27 +159,54 @@ class HistoryViewModel @Inject constructor(
         }
     }
 
-    /** Appends the next page; a no-op at the end or while a page is already loading. */
+    private fun updateFilter(transform: (HistoryFilter) -> HistoryFilter) {
+        _state.update { it.copy(filter = transform(it.filter)) }
+        load(reset = true)
+    }
+
+    private fun load(reset: Boolean) {
+        if (reset) loadJob?.cancel()
+        if (!reset && (state.value.loading || state.value.endReached)) return
+        loadJob = viewModelScope.launch {
+            val offset = if (reset) 0 else state.value.items.size
+            _state.update { it.copy(loading = true, unavailable = false, endReached = false) }
+            try {
+                val query = HistoryQueryMapper.toQuery(state.value.filter, offset)
+                val page = historyRepository.page(query)
+                val newItems = HistoryQueryMapper.toItems(page)
+                _state.update { current ->
+                    val merged = if (reset) newItems else current.items + newItems
+                    current.copy(
+                        items = merged,
+                        loaded = true,
+                        loading = false,
+                        endReached = page.size < HistoryQueryMapper.PAGE_SIZE,
+                        unavailable = false,
+                    )
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                _state.update { it.copy(loaded = true, loading = false, unavailable = true) }
+            }
+        }
+    }
+
     fun onLoadMore() = load(reset = false)
 
-    /** Deletes one entry (the screen confirms first). */
     fun onDeleteEntry(id: Long) {
         viewModelScope.launch {
             if (safely { historyRepository.delete(id) } != null) load(reset = true)
         }
     }
 
-    /** Deletes multiple selected entries. */
     fun onDeleteMultiple(ids: Set<Long>) {
         viewModelScope.launch {
-            ids.forEach { id ->
-                safely { historyRepository.delete(id) }
-            }
+            ids.forEach { id -> safely { historyRepository.delete(id) } }
             load(reset = true)
         }
     }
 
-    /** Deletes every entry (the screen confirms first). */
     fun onClearAll() {
         viewModelScope.launch {
             if (safely { historyRepository.deleteAll() } != null) load(reset = true)
@@ -189,48 +224,175 @@ class HistoryViewModel @Inject constructor(
 
     fun onPlayEntry(item: HistoryItem) {
         if (_state.value.playingItemId == item.id) {
-            engine.stop()
-            _state.update { it.copy(playingItemId = null) }
+            stopPlayback()
+            return
+        }
+        viewModelScope.launch { playEvaluated(item, bypassedReasons = emptySet()) }
+    }
+
+    fun onConfirmPlayBypass() {
+        val pending = _state.value.pendingPlayBlocked ?: return
+        _state.update { it.copy(pendingPlayBlocked = null) }
+        val updatedBypass = pending.bypassedReasons + pending.reason
+        viewModelScope.launch { playEvaluated(pending.item, bypassedReasons = updatedBypass) }
+    }
+
+    fun onDismissPlayBlocked() {
+        _state.update { it.copy(pendingPlayBlocked = null) }
+    }
+
+    // Backward-compatible no-op names if referenced elsewhere; UI will use new callbacks.
+    fun onConfirmPlayDisabledApp() = onConfirmPlayBypass()
+    fun onDismissPlayDisabledApp() = onDismissPlayBlocked()
+
+    private suspend fun playEvaluated(item: HistoryItem, bypassedReasons: Set<SkipReason>) {
+        stopPlayback()
+        val settings = settingsRepository.settings.first()
+
+        val snapshot = NotificationSnapshot(
+            key = item.key.ifBlank { "${item.packageName}|history|${item.id}" },
+            packageName = item.packageName,
+            appName = item.appName.ifBlank { item.packageName },
+            sender = item.sender?.takeIf { it.isNotBlank() },
+            messageText = item.messageText.orEmpty(),
+            channelId = item.channelId,
+            category = item.category,
+            postTimeMillis = if (item.postTimeMillis > 0L) item.postTimeMillis else item.recordedAtMillis,
+            isUpdate = item.isUpdate,
+        )
+
+        // Keep cleaner/intelligence state fully aligned with current settings for replay.
+        syncCleanerForReplay(settings, sessionStore)
+
+        var resolved = settings.resolvedFor(item.packageName)
+        var runtimeState = stateReader?.read(
+            priorityAnnounceActive = false,
+            isProximityCovered = true,
+            lowBatteryThresholdPercent = resolved.eligibility.lowBatteryThresholdPercent,
+            pauseOnPowerSaver = resolved.eligibility.lowBatteryPauseOnSaverEnabled,
+        ) ?: com.jayanth.hearit.core.common.model.RuntimeState(
+            screenOn = true,
+            isLocked = false,
+            temporaryMuteActive = false,
+            priorityAnnounceActive = false,
+            isCallActive = false,
+            isDndActive = false,
+            activeOutput = null,
+            isBatteryLowOrSaver = false,
+            isProximityCovered = true,
+        )
+
+        val adjusted = applyPlaybackBypasses(resolved, runtimeState, bypassedReasons)
+        resolved = adjusted.first
+        runtimeState = adjusted.second
+
+        val decision = rules.evaluate(snapshot, resolved, runtimeState)
+        when (decision) {
+            is EligibilityDecision.Skip -> {
+                _state.update { it.copy(pendingPlayBlocked = PendingPlayBlocked(item, decision.reason, bypassedReasons)) }
+                return
+            }
+            is EligibilityDecision.Queue -> {
+                // Manual history replay: allow bypassing queue-only blocks (e.g. call active) the same way.
+                _state.update { it.copy(pendingPlayBlocked = PendingPlayBlocked(item, decision.reason, bypassedReasons)) }
+                return
+            }
+            is EligibilityDecision.Announce -> Unit
+        }
+
+        if (SkipReason.SUPPRESSED_INTELLIGENCE !in bypassedReasons &&
+            (SmartContentCleaner.shouldSuppressEmptyContent(snapshot.sender, snapshot.messageText) ||
+                SmartContentCleaner.shouldSuppress(snapshot.messageText, snapshot.packageName))
+        ) {
+            _state.update { it.copy(pendingPlayBlocked = PendingPlayBlocked(item, SkipReason.SUPPRESSED_INTELLIGENCE, bypassedReasons)) }
             return
         }
 
-        viewModelScope.launch {
-            val settings = settingsRepository.settings.first()
-            val textToSpeak = item.messageText?.takeIf { it.isNotBlank() } ?: "Notification from ${item.appName}"
-            val sections = buildList {
-                add(AnnouncementSection(SectionKind.APP_NAME, item.appName))
-                item.sender?.takeIf { it.isNotBlank() }?.let {
-                    add(AnnouncementSection(SectionKind.SENDER, "$it says,"))
+        val format: AnnouncementFormat = settings.format
+        val speech = settings.speechFor(item.packageName)
+        val isCritical = EligibilityRules.isCriticalBreakthrough(snapshot, resolved.eligibility)
+        val built = AnnouncementTemplate.build(
+            snapshots = listOf(snapshot),
+            format = format,
+            isCritical = isCritical,
+        )
+        if (built.isEmpty) {
+            _userMessage.emit("Nothing to play for this notification")
+            return
+        }
+
+        requestAudioFocusForPlayback(resolved.eligibility.audioFocus)
+        _state.update { it.copy(playingItemId = item.id) }
+        val accepted = engine.speak(
+            announcement = built,
+            settings = speech,
+            listener = object : UtteranceListener {
+                override fun onComplete(announcement: BuiltAnnouncement) {
+                    abandonAudioFocusPlayback()
+                    _state.update { if (it.playingItemId == item.id) it.copy(playingItemId = null) else it }
                 }
-                add(AnnouncementSection(SectionKind.MESSAGE, textToSpeak))
-            }
-            val announcement = BuiltAnnouncement(
-                sections = sections,
-                pauseBetweenSectionsMillis = settings.format.pauseBetweenSectionsMillis,
-            )
 
-            _state.update { it.copy(playingItemId = item.id) }
-            val accepted = engine.speak(
-                announcement = announcement,
-                settings = settings.speech,
-                listener = object : UtteranceListener {
-                    override fun onComplete(announcement: BuiltAnnouncement) {
-                        _state.update { if (it.playingItemId == item.id) it.copy(playingItemId = null) else it }
-                    }
-
-                    override fun onError(announcement: BuiltAnnouncement, error: com.jayanth.hearit.core.tts.TtsError) {
-                        _state.update { if (it.playingItemId == item.id) it.copy(playingItemId = null) else it }
-                    }
-                },
-            )
-            if (!accepted) {
-                _state.update { if (it.playingItemId == item.id) it.copy(playingItemId = null) else it }
-            }
+                override fun onError(announcement: BuiltAnnouncement, error: com.jayanth.hearit.core.tts.TtsError) {
+                    abandonAudioFocusPlayback()
+                    _state.update { if (it.playingItemId == item.id) it.copy(playingItemId = null) else it }
+                }
+            },
+        )
+        if (!accepted) {
+            abandonAudioFocusPlayback()
+            _state.update { if (it.playingItemId == item.id) it.copy(playingItemId = null) else it }
+            _userMessage.emit("Couldn't play this notification")
         }
     }
 
+
+    private fun requestAudioFocusForPlayback(policy: AudioFocusPolicy) {
+        val am = audioManager ?: return
+        val gain = when (policy) {
+            AudioFocusPolicy.DUCK -> AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK
+            AudioFocusPolicy.PAUSE -> AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
+            AudioFocusPolicy.NONE -> return
+        }
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                focusRequest?.let { runCatching { am.abandonAudioFocusRequest(it) } }
+                val attrs = AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_ASSISTANT)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build()
+                val req = AudioFocusRequest.Builder(gain)
+                    .setAudioAttributes(attrs)
+                    .setOnAudioFocusChangeListener { /* best-effort for history playback */ }
+                    .build()
+                focusRequest = req
+                am.requestAudioFocus(req)
+            } else {
+                @Suppress("DEPRECATION")
+                am.requestAudioFocus(null, AudioManager.STREAM_MUSIC, gain)
+            }
+        } catch (_: Exception) {}
+    }
+
+    private fun abandonAudioFocusPlayback() {
+        val am = audioManager ?: return
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                focusRequest?.let { runCatching { am.abandonAudioFocusRequest(it) } }
+                focusRequest = null
+            } else {
+                @Suppress("DEPRECATION")
+                am.abandonAudioFocus(null)
+            }
+        } catch (_: Exception) {}
+    }
+
     fun onStopPlaying() {
+        stopPlayback()
+    }
+
+    private fun stopPlayback() {
         engine.stop()
+        abandonAudioFocusPlayback()
         _state.update { it.copy(playingItemId = null) }
     }
 
@@ -287,72 +449,52 @@ class HistoryViewModel @Inject constructor(
         }
     }
 
-    // ---- internals ---------------------------------------------------------------------
-
-    private fun updateFilter(transform: (HistoryFilter) -> HistoryFilter) {
-        _state.update { it.copy(filter = transform(it.filter)) }
-        load(reset = true)
-    }
-
     private fun updateSettings(transform: (com.jayanth.hearit.core.common.model.HistorySettings) -> com.jayanth.hearit.core.common.model.HistorySettings) {
         viewModelScope.launch {
-            safely {
-                settingsRepository.update { settings ->
-                    settings.copy(history = transform(settings.history))
-                }
-            }
+            safely { settingsRepository.update { current -> current.copy(history = transform(current.history)) } }
         }
     }
 
-    /**
-     * Reads one page.
-     *
-     * A reset cancels any in-flight read and starts at offset 0, so a filter change can never
-     * append rows from the previous filter; a load-more appends after the current rows.
-     */
-    private fun load(reset: Boolean) {
-        if (reset) {
-            loadJob?.cancel()
-        } else if (_state.value.loading || _state.value.endReached) {
-            return
-        }
-
-        val filter = _state.value.filter
-        loadJob = viewModelScope.launch {
-            _state.update { it.copy(loading = true) }
-            val offset = if (reset) 0 else _state.value.items.size
-            val page = safely { historyRepository.page(HistoryQueryMapper.toQuery(filter, offset)) }
-            if (page == null) {
-                _state.update { it.copy(loading = false, loaded = true, unavailable = true) }
-                return@launch
-            }
-            val items = HistoryQueryMapper.toItems(page)
-            val distinctApps = items.map { it.packageName to it.appName }
-            _state.update { current ->
-                val mergedApps = (current.availableApps + distinctApps).distinct()
-                current.copy(
-                    items = if (reset) items else current.items + items,
-                    availableApps = mergedApps,
-                    loaded = true,
-                    loading = false,
-                    endReached = page.size < HistoryQueryMapper.PAGE_SIZE,
-                    unavailable = false,
-                )
-            }
-        }
-    }
-
-    /**
-     * Runs [block], reporting failure through [HistoryUiState.unavailable].
-     *
-     * Cancellation is rethrown so a superseded page read never marks history as broken.
-     */
     private suspend fun <T> safely(block: suspend () -> T): T? = try {
         block()
-    } catch (cancelled: CancellationException) {
-        throw cancelled
-    } catch (error: Exception) {
-        _state.update { it.copy(unavailable = true) }
+    } catch (_: CancellationException) {
+        throw CancellationException()
+    } catch (_: Exception) {
+        _userMessage.emit("Something went wrong")
         null
+    }
+
+    private fun skipReasonText(reason: SkipReason): String = when (reason) {
+        SkipReason.APP_DISABLED -> "app is disabled"
+        SkipReason.MUTED -> "temporarily muted"
+        SkipReason.SCREEN_ON -> "screen is on"
+        SkipReason.SCREEN_OFF -> "screen is off"
+        SkipReason.UNLOCKED -> "device is unlocked"
+        SkipReason.LOCKED -> "device is locked"
+        SkipReason.TOO_LONG -> "message is too long"
+        SkipReason.KEYWORD_FILTERED -> "filtered by keyword"
+        SkipReason.PRIVACY_EXCLUDED_APP -> "excluded by privacy settings"
+        SkipReason.PRIVACY_OTP -> "OTP/code content is hidden"
+        SkipReason.PRIVACY_PASSWORD -> "password content is hidden"
+        SkipReason.PRIVACY_PAYMENT -> "payment content is hidden"
+        SkipReason.PRIVACY_BANKING -> "banking content is hidden"
+        SkipReason.PRIVACY_SENSITIVE_KEYWORD -> "sensitive keyword matched"
+        SkipReason.CALL_ACTIVE -> "a call is in progress"
+        SkipReason.DND -> "Do Not Disturb is on"
+        SkipReason.OUTPUT_NOT_ALLOWED -> "audio output not allowed"
+        SkipReason.EXPIRED -> "expired"
+        SkipReason.OVERFLOW -> "queue overflow"
+        SkipReason.DUPLICATE_UPDATE -> "duplicate update"
+        SkipReason.SUPPRESSED_INTELLIGENCE -> "filtered by active intelligence"
+        SkipReason.LOW_BATTERY -> "low battery or battery saver"
+        SkipReason.PROXIMITY_UNCOVERED -> "pocket/proximity check blocked playback"
+        SkipReason.SPAM_COOLDOWN -> "sender spam cooldown"
+        SkipReason.MANUALLY_CLEARED -> "manually cleared"
+        SkipReason.SERVICE_NOT_RUNNING -> "service was not running"
+    }
+
+    override fun onCleared() {
+        stopPlayback()
+        super.onCleared()
     }
 }

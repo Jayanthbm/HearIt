@@ -118,6 +118,7 @@ object SmartContentCleaner {
     @Volatile var isEmailCleanupEnabled: Boolean = true
 
     @Volatile var isContactSanitizerEnabled: Boolean = true
+    @Volatile var isSkipEmptyNotificationsEnabled: Boolean = false
 
     fun setAppAlias(packageName: String, alias: String?) {
         if (alias.isNullOrBlank()) {
@@ -171,11 +172,19 @@ object SmartContentCleaner {
         appAliases[packageName]?.takeIf { it.isNotBlank() } ?: defaultName
 
     /**
-     * Cleans contact or sender names according to bot/shortcode and contact sanitizer settings.
+     * Cleans contact or sender names according to bot/shortcode, contact sanitizer,
+     * per-app placeholder mappings (apply-to-sender), and pronunciation rules.
      */
-    fun cleanSender(sender: String?): String? {
+    fun cleanSender(sender: String?, packageName: String? = null): String? {
         if (sender.isNullOrBlank()) return null
         val trimmed = sender.trim()
+
+        // Per-app placeholder mapping for sender takes priority when matched.
+        val senderMapped = normalizeCustomMediaMappingsForPackage(trimmed, packageName, forSender = true)
+        if (!senderMapped.equals(trimmed, ignoreCase = false)) {
+            val result = if (isPronunciationDictionaryEnabled) applyPronunciationRules(senderMapped, forSender = true) else senderMapped
+            return result.takeIf { it.isNotBlank() } ?: trimmed
+        }
 
         if (isBotSenderCleaningEnabled && BOT_SENDER_PATTERN.matcher(trimmed).matches()) {
             val domain = trimmed.substringAfter("@").substringBefore(".").replaceFirstChar { it.uppercase() }
@@ -185,7 +194,8 @@ object SmartContentCleaner {
         if (isBotSenderCleaningEnabled) {
             val shortcodeMatcher = SHORTCODE_SENDER_PATTERN.matcher(trimmed)
             if (shortcodeMatcher.find()) {
-                return shortcodeMatcher.group(1)
+                val shortcode = shortcodeMatcher.group(1)
+                return if (isPronunciationDictionaryEnabled) applyPronunciationRules(shortcode, forSender = true) else shortcode
             }
         }
 
@@ -205,6 +215,10 @@ object SmartContentCleaner {
     fun shouldSuppress(text: String?, packageName: String? = null): Boolean =
         cleanMessage(text, packageName).suppress
 
+    /** Returns true when "skip empty notifications" is enabled and both sender and body are blank. */
+    fun shouldSuppressEmptyContent(sender: String?, messageText: String?): Boolean =
+        isSkipEmptyNotificationsEnabled && sender.isNullOrBlank() && messageText.isNullOrBlank()
+
     /** Full NLP cleaning pass returning spoken text and suppression flag. */
     fun cleanMessage(text: String?, packageName: String? = null): CleanedMessage {
         if (text.isNullOrBlank()) return CleanedMessage("")
@@ -213,11 +227,14 @@ object SmartContentCleaner {
         val messagingConfig = messagingPolishConfigFor(packageName)
         val messagingPolishEnabled = isMessagingPolishEnabled(packageName, category)
 
-        // 1. Messaging sync/background noise suppression
-        if (messagingPolishEnabled) {
-            if (isSyncBackgroundNoise(result, messagingConfig)) {
-                return CleanedMessage("", suppress = true)
-            }
+        // 1. Sync/background noise suppression:
+        // - built-in sync noise phrases are messaging-polish (chat-app) behavior
+        // - custom extra noise phrases are enabled for all apps
+        if (isCustomNoisePhrase(result, messagingConfig)) {
+            return CleanedMessage("", suppress = true)
+        }
+        if (messagingPolishEnabled && isBuiltInSyncBackgroundNoise(result)) {
+            return CleanedMessage("", suppress = true)
         }
 
         // 2. Carrier & Promo SMS filter
@@ -236,9 +253,12 @@ object SmartContentCleaner {
             }
         }
 
-        // 4. Media tags normalization
+        // 4. Placeholder/media normalization:
+        // - custom placeholder mappings apply to all apps
+        // - built-in messaging media placeholders are messaging-polish (chat-app) behavior
+        result = normalizeCustomMediaMappings(result, messagingConfig, forSender = false)
         if (messagingPolishEnabled) {
-            result = normalizeMediaTags(result, messagingConfig)
+            result = normalizeBuiltInMediaTags(result)
         }
 
         // 5. Bank & transactional SMS condensation
@@ -288,21 +308,27 @@ object SmartContentCleaner {
     fun cleanMessageText(text: String?, packageName: String? = null): String =
         cleanMessage(text, packageName).text
 
-    private fun isSyncBackgroundNoise(text: String, config: MessagingPolishConfig = MessagingPolishConfig()): Boolean {
+    private fun isBuiltInSyncBackgroundNoise(text: String): Boolean {
         val lower = text.lowercase().trim()
-        val builtIn = lower == "checking for new messages…" ||
+        return lower == "checking for new messages…" ||
             lower == "checking for new messages..." ||
             lower.startsWith("whatsapp web is currently active") ||
             lower.startsWith("backup in progress") ||
             lower.startsWith("restoring messages") ||
             lower == "connecting..." ||
             lower == "connecting…"
-        if (builtIn) return true
+    }
+
+    private fun isCustomNoisePhrase(text: String, config: MessagingPolishConfig): Boolean {
+        val lower = text.lowercase().trim()
         return config.extraNoisePhrases.any { phrase ->
             val p = phrase.trim().lowercase()
             p.isNotEmpty() && (lower == p || lower.contains(p))
         }
     }
+
+    private fun isSyncBackgroundNoise(text: String, config: MessagingPolishConfig = MessagingPolishConfig()): Boolean =
+        isBuiltInSyncBackgroundNoise(text) || isCustomNoisePhrase(text, config)
 
     private fun matchesCarrierSpam(text: String): Boolean {
         val lower = text.lowercase()
@@ -316,12 +342,50 @@ object SmartContentCleaner {
         QUOTED_TAPBACK_PATTERN.matcher(text).matches() ||
             UNQUOTED_REACTION_PATTERN.matcher(text).matches()
 
-    private fun normalizeMediaTags(input: String, config: MessagingPolishConfig = MessagingPolishConfig()): String {
-        val trimmed = input.trim()
-        config.mediaMappings.firstOrNull { rule ->
-            rule.match.isNotBlank() && trimmed.equals(rule.match.trim(), ignoreCase = true)
-        }?.let { return it.spokenPhrase }
+    private fun normalizeCustomMediaMappings(
+        input: String,
+        config: MessagingPolishConfig,
+        forSender: Boolean = false,
+    ): String {
+        val rules = config.mediaMappings.filter { rule ->
+            rule.match.isNotBlank() && (!forSender || rule.applyToSender)
+        }
+        if (rules.isEmpty()) return input
 
+        val trimmed = input.trim()
+        // The whole text is a placeholder on its own ("Photo", "NZ"): speak the mapping only.
+        rules.firstOrNull { rule -> trimmed.equals(rule.match.trim(), ignoreCase = true) }
+            ?.let { return it.spokenPhrase }
+
+        // The placeholder appears inside a longer text ("NZ 265/6 (40 ov)"): replace whole
+        // tokens only, longest match first, so a short mapping can't corrupt a longer one.
+        var result = input
+        rules.sortedByDescending { it.match.trim().length }.forEach { rule ->
+            val pattern = wholeTokenPattern(rule.match.trim()) ?: return@forEach
+            result = pattern.replace(result) { rule.spokenPhrase }
+        }
+        return result
+    }
+
+    /** Case-insensitive pattern matching [token] only when it stands alone in the text. */
+    private fun wholeTokenPattern(token: String): Regex? {
+        if (token.isEmpty()) return null
+        val prefix = if (token.first().isLetterOrDigit()) "(?<![\\p{L}\\p{N}])" else ""
+        val suffix = if (token.last().isLetterOrDigit()) "(?![\\p{L}\\p{N}])" else ""
+        return Regex(prefix + Regex.escape(token) + suffix, RegexOption.IGNORE_CASE)
+    }
+
+    private fun normalizeCustomMediaMappingsForPackage(
+        input: String,
+        packageName: String?,
+        forSender: Boolean,
+    ): String {
+        if (packageName == null) return input
+        val config = messagingPolishConfigFor(packageName)
+        return normalizeCustomMediaMappings(input, config, forSender)
+    }
+
+    private fun normalizeBuiltInMediaTags(input: String): String {
         var text = input
         text = text.replace(Regex("(?i)^(?:📷\\s*)?(?:Photo|\\[Photo\\])$"), "Sent a photo")
         text = text.replace(Regex("(?i)^(?:🎥\\s*|🎬\\s*|📹\\s*)?(?:Video|\\[Video\\])$"), "Sent a video")
@@ -354,6 +418,11 @@ object SmartContentCleaner {
             return if (name.isNotEmpty()) "Shared a contact card: $name" else "Shared a contact card"
         }
         return text
+    }
+
+    private fun normalizeMediaTags(input: String, config: MessagingPolishConfig = MessagingPolishConfig()): String {
+        val mapped = normalizeCustomMediaMappings(input, config)
+        return if (mapped != input) mapped else normalizeBuiltInMediaTags(mapped)
     }
 
     private fun condenseBankSmsIfApplicable(input: String): String {

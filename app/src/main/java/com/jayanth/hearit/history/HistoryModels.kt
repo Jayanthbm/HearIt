@@ -45,12 +45,16 @@ data class HistoryFilter(
  */
 data class HistoryItem(
     val id: Long,
+    val key: String,
     val appName: String,
     val packageName: String,
     val status: HistoryStatus,
     val reason: SkipReason? = null,
     val sender: String? = null,
     val messageText: String? = null,
+    val channelId: String? = null,
+    val category: String? = null,
+    val postTimeMillis: Long = 0L,
     val recordedAtMillis: Long,
     val isUpdate: Boolean = false,
 )
@@ -72,12 +76,20 @@ data class HistorySettingsState(
  * @property unavailable True when a read failed; the screen says so instead of showing an
  *   empty list as if there were no history.
  */
+/** A playback attempt blocked by a rule, awaiting user confirmation to bypass. */
+data class PendingPlayBlocked(
+    val item: HistoryItem,
+    val reason: SkipReason,
+    val bypassedReasons: Set<SkipReason> = emptySet(),
+)
+
 data class HistoryUiState(
     val filter: HistoryFilter = HistoryFilter(),
     val settings: HistorySettingsState = HistorySettingsState(),
     val items: List<HistoryItem> = emptyList(),
     val availableApps: List<Pair<String, String>> = emptyList(),
     val playingItemId: Long? = null,
+    val pendingPlayBlocked: PendingPlayBlocked? = null,
     val loaded: Boolean = false,
     val loading: Boolean = false,
     val endReached: Boolean = false,

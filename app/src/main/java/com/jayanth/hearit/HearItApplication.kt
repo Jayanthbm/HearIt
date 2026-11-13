@@ -7,6 +7,7 @@ import com.jayanth.hearit.core.common.logger.HearItLogger
 import com.jayanth.hearit.core.common.logger.LogCategory
 import com.jayanth.hearit.diagnostics.FileDiagnosticLogger
 import com.jayanth.hearit.intelligence.IntelligentSettingsSync
+import com.jayanth.hearit.service.BackgroundHistoryRecorder
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 
@@ -27,12 +28,17 @@ class HearItApplication : Application() {
     @Inject
     lateinit var intelligentSettingsSync: IntelligentSettingsSync
 
+    @Inject
+    lateinit var backgroundHistoryRecorder: BackgroundHistoryRecorder
+
     override fun onCreate() {
         super.onCreate()
         HearItLogger.registerSink(fileDiagnosticLogger)
         intelligentSettingsSync.start()
+        backgroundHistoryRecorder.start()
         com.jayanth.hearit.core.notifications.NotificationRelay.onAnyNotificationPosted = { snapshot ->
             com.jayanth.hearit.wear.WearDataLayerSync.syncNotification(this, snapshot)
+            backgroundHistoryRecorder.onNotificationPosted(snapshot)
         }
         val appVersion = readAppVersionName()
         HearItLogger.info(

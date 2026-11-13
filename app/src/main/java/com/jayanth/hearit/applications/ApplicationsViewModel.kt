@@ -1,7 +1,13 @@
 package com.jayanth.hearit.applications
 
+import android.content.Context
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
+import android.os.Build
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.qualifiers.ApplicationContext
 import com.jayanth.hearit.core.common.model.AppCategory
 import com.jayanth.hearit.core.common.model.AppCategoryChoice
 import com.jayanth.hearit.core.common.model.AppPriority
@@ -9,15 +15,23 @@ import com.jayanth.hearit.core.common.model.AudioFocusPolicy
 import com.jayanth.hearit.core.common.model.HistoryStorageMode
 import com.jayanth.hearit.core.common.model.HistoryUpdateHandling
 import com.jayanth.hearit.core.common.model.MediaReplacementRule
+import com.jayanth.hearit.core.common.model.NotificationSnapshot
+import com.jayanth.hearit.core.common.model.RuntimeState
+import com.jayanth.hearit.core.common.model.SkipReason
 import com.jayanth.hearit.core.common.model.KeywordMatchMode
 import com.jayanth.hearit.core.database.HistoryQuery
 import com.jayanth.hearit.core.database.HistoryRepository
 import com.jayanth.hearit.core.datastore.HearItSettings
-import com.jayanth.hearit.core.tts.AnnouncementSection
+import com.jayanth.hearit.core.tts.AnnouncementTemplate
 import com.jayanth.hearit.core.tts.BuiltAnnouncement
-import com.jayanth.hearit.core.tts.SectionKind
 import com.jayanth.hearit.core.tts.TextToSpeechEngine
 import com.jayanth.hearit.core.tts.UtteranceListener
+import com.jayanth.hearit.core.rules.EligibilityDecision
+import com.jayanth.hearit.core.rules.EligibilityRules
+import com.jayanth.hearit.core.tts.SmartContentCleaner
+import com.jayanth.hearit.history.applyPlaybackBypasses
+import com.jayanth.hearit.history.syncCleanerForReplay
+import com.jayanth.hearit.service.RuntimeStateReader
 import com.jayanth.hearit.core.database.HistoryEntry
 import com.jayanth.hearit.core.datastore.SettingsRepository
 import com.jayanth.hearit.service.SessionStore
@@ -54,7 +68,13 @@ class ApplicationsViewModel @Inject constructor(
     private val historyRepository: HistoryRepository,
     private val engine: TextToSpeechEngine,
     private val sessionStore: SessionStore,
+    @ApplicationContext private val context: Context,
 ) : ViewModel() {
+
+    private val playbackRules = EligibilityRules()
+    private val audioManager: AudioManager? = context.getSystemService(AudioManager::class.java)
+    private val stateReader: RuntimeStateReader? = audioManager?.let { RuntimeStateReader(context, it, sessionStore) }
+    private var focusRequest: AudioFocusRequest? = null
 
     private val _state = MutableStateFlow(ApplicationsUiState())
     val state: StateFlow<ApplicationsUiState> = _state.asStateFlow()
@@ -235,57 +255,205 @@ class ApplicationsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Plays one history record the way the global History screen does: the eligibility rules run
+     * against the current device state, cleanup runs through the announcement template, and a
+     * blocked replay asks the user whether to bypass that one rule.
+     */
     fun onPlayHistoryEntry(entry: HistoryEntry) {
+        if (_state.value.settings?.playingHistoryId == entry.id) {
+            onStopPlaying()
+            return
+        }
+        viewModelScope.launch { playHistoryEntry(entry, bypassedReasons = emptySet()) }
+    }
+
+    /** Confirms "play anyway" for the blocked per-app history replay. */
+    fun onConfirmHistoryPlayBypass() {
+        val pending = _state.value.settings?.pendingHistoryPlayBlocked ?: return
+        _state.update { current ->
+            current.copy(settings = current.settings?.copy(pendingHistoryPlayBlocked = null))
+        }
         viewModelScope.launch {
-            val settings = settingsRepository.current()
-            val textToSpeak = entry.messageText ?: entry.sender ?: entry.appName
-            val sections = buildList {
-                entry.sender?.takeIf { it.isNotBlank() }?.let {
-                    add(AnnouncementSection(SectionKind.SENDER, "$it says,"))
-                }
-                add(AnnouncementSection(SectionKind.MESSAGE, textToSpeak))
-            }
-            val announcement = BuiltAnnouncement(
-                sections = sections,
-                pauseBetweenSectionsMillis = settings.format.pauseBetweenSectionsMillis,
-            )
+            playHistoryEntry(pending.entry, bypassedReasons = pending.bypassedReasons + pending.reason)
+        }
+    }
 
-            _state.update { current ->
-                current.copy(settings = current.settings?.copy(playingHistoryId = entry.id))
-            }
-            val accepted = engine.speak(
-                announcement = announcement,
-                settings = settings.speech,
-                listener = object : UtteranceListener {
-                    override fun onComplete(announcement: BuiltAnnouncement) {
-                        _state.update { current ->
-                            if (current.settings?.playingHistoryId == entry.id) {
-                                current.copy(settings = current.settings?.copy(playingHistoryId = null))
-                            } else current
-                        }
-                    }
+    /** Dismisses the blocked per-app history replay. */
+    fun onDismissHistoryPlayBlocked() {
+        _state.update { current ->
+            current.copy(settings = current.settings?.copy(pendingHistoryPlayBlocked = null))
+        }
+    }
 
-                    override fun onError(announcement: BuiltAnnouncement, error: com.jayanth.hearit.core.tts.TtsError) {
-                        _state.update { current ->
-                            if (current.settings?.playingHistoryId == entry.id) {
-                                current.copy(settings = current.settings?.copy(playingHistoryId = null))
-                            } else current
-                        }
-                    }
-                },
-            )
-            if (!accepted) {
-                _state.update { current ->
-                    if (current.settings?.playingHistoryId == entry.id) {
-                        current.copy(settings = current.settings?.copy(playingHistoryId = null))
-                    } else current
-                }
+    private suspend fun playHistoryEntry(entry: HistoryEntry, bypassedReasons: Set<SkipReason>) {
+        engine.stop()
+        abandonPlaybackFocus()
+        val settings = settingsRepository.current()
+
+        // Same cleaning state as a live announcement (aliases, mappings, dictionary, noise).
+        syncCleanerForReplay(settings, sessionStore)
+
+        val snapshot = NotificationSnapshot(
+            key = entry.key.ifBlank { "${entry.packageName}|history|${entry.id}" },
+            packageName = entry.packageName,
+            appName = entry.appName.ifBlank { entry.packageName },
+            sender = entry.sender?.takeIf { it.isNotBlank() },
+            messageText = entry.messageText.orEmpty(),
+            channelId = entry.channelId,
+            category = entry.category,
+            postTimeMillis = if (entry.postTimeMillis > 0L) entry.postTimeMillis else entry.recordedAtMillis,
+            isUpdate = entry.isUpdate,
+        )
+
+        var resolved = settings.resolvedFor(entry.packageName)
+        var runtimeState = stateReader?.read(
+            priorityAnnounceActive = false,
+            isProximityCovered = true,
+            lowBatteryThresholdPercent = resolved.eligibility.lowBatteryThresholdPercent,
+            pauseOnPowerSaver = resolved.eligibility.lowBatteryPauseOnSaverEnabled,
+        ) ?: RuntimeState(
+            screenOn = true,
+            isLocked = false,
+            temporaryMuteActive = false,
+            priorityAnnounceActive = false,
+            isCallActive = false,
+            isDndActive = false,
+            activeOutput = null,
+            isBatteryLowOrSaver = false,
+            isProximityCovered = true,
+        )
+
+        val adjusted = applyPlaybackBypasses(resolved, runtimeState, bypassedReasons)
+        resolved = adjusted.first
+        runtimeState = adjusted.second
+
+        when (val decision = playbackRules.evaluate(snapshot, resolved, runtimeState)) {
+            is EligibilityDecision.Skip -> {
+                setPendingBlock(entry, decision.reason, bypassedReasons)
+                return
             }
+            is EligibilityDecision.Queue -> {
+                setPendingBlock(entry, decision.reason, bypassedReasons)
+                return
+            }
+            is EligibilityDecision.Announce -> Unit
+        }
+
+        if (SkipReason.SUPPRESSED_INTELLIGENCE !in bypassedReasons &&
+            (SmartContentCleaner.shouldSuppressEmptyContent(snapshot.sender, snapshot.messageText) ||
+                SmartContentCleaner.shouldSuppress(snapshot.messageText, snapshot.packageName))
+        ) {
+            setPendingBlock(entry, SkipReason.SUPPRESSED_INTELLIGENCE, bypassedReasons)
+            return
+        }
+
+        val isCritical = EligibilityRules.isCriticalBreakthrough(snapshot, resolved.eligibility)
+        val announcement = AnnouncementTemplate.build(
+            snapshots = listOf(snapshot),
+            format = settings.format,
+            isCritical = isCritical,
+        )
+        if (announcement.isEmpty) {
+            _userMessage.emit("Nothing to play for this notification")
+            return
+        }
+
+        requestPlaybackFocus(resolved.eligibility.audioFocus)
+        _state.update { current ->
+            current.copy(settings = current.settings?.copy(playingHistoryId = entry.id))
+        }
+        val accepted = engine.speak(
+            announcement = announcement,
+            settings = settings.speechFor(entry.packageName),
+            listener = object : UtteranceListener {
+                override fun onComplete(announcement: BuiltAnnouncement) {
+                    abandonPlaybackFocus()
+                    clearPlaying(entry.id)
+                }
+
+                override fun onError(announcement: BuiltAnnouncement, error: com.jayanth.hearit.core.tts.TtsError) {
+                    abandonPlaybackFocus()
+                    clearPlaying(entry.id)
+                }
+            },
+        )
+        if (!accepted) {
+            abandonPlaybackFocus()
+            clearPlaying(entry.id)
+            _userMessage.emit("Couldn't play this notification")
+        }
+    }
+
+    private fun setPendingBlock(entry: HistoryEntry, reason: SkipReason, bypassedReasons: Set<SkipReason>) {
+        _state.update { current ->
+            current.copy(
+                settings = current.settings?.copy(
+                    pendingHistoryPlayBlocked = PendingAppHistoryPlayBlocked(
+                        entry = entry,
+                        reason = reason,
+                        bypassedReasons = bypassedReasons,
+                    ),
+                ),
+            )
+        }
+    }
+
+    private fun clearPlaying(entryId: Long) {
+        _state.update { current ->
+            if (current.settings?.playingHistoryId == entryId) {
+                current.copy(settings = current.settings.copy(playingHistoryId = null))
+            } else {
+                current
+            }
+        }
+    }
+
+    private fun requestPlaybackFocus(policy: AudioFocusPolicy) {
+        val am = audioManager ?: return
+        val gain = when (policy) {
+            AudioFocusPolicy.DUCK -> AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK
+            AudioFocusPolicy.PAUSE -> AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
+            AudioFocusPolicy.NONE -> return
+        }
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                focusRequest?.let { runCatching { am.abandonAudioFocusRequest(it) } }
+                val attrs = AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_ASSISTANT)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build()
+                val req = AudioFocusRequest.Builder(gain)
+                    .setAudioAttributes(attrs)
+                    .setOnAudioFocusChangeListener { /* best-effort for history playback */ }
+                    .build()
+                focusRequest = req
+                am.requestAudioFocus(req)
+            } else {
+                @Suppress("DEPRECATION")
+                am.requestAudioFocus(null, AudioManager.STREAM_MUSIC, gain)
+            }
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun abandonPlaybackFocus() {
+        val am = audioManager ?: return
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                focusRequest?.let { runCatching { am.abandonAudioFocusRequest(it) } }
+                focusRequest = null
+            } else {
+                @Suppress("DEPRECATION")
+                am.abandonAudioFocus(null)
+            }
+        } catch (_: Exception) {
         }
     }
 
     fun onStopPlaying() {
         engine.stop()
+        abandonPlaybackFocus()
         _state.update { current ->
             current.copy(settings = current.settings?.copy(playingHistoryId = null))
         }
@@ -337,13 +505,13 @@ class ApplicationsViewModel @Inject constructor(
         }
     }
 
-    fun onSetMessagingMediaMapping(oldMatch: String?, match: String, spokenPhrase: String) {
+    fun onSetMessagingMediaMapping(oldMatch: String?, match: String, spokenPhrase: String, applyToSender: Boolean = false) {
         updateSelected { settings, packageName ->
             AppSettingsEditor.setMessagingMediaMapping(
                 settings,
                 packageName,
                 oldMatch,
-                MediaReplacementRule(match, spokenPhrase),
+                MediaReplacementRule(match, spokenPhrase, applyToSender),
             )
         }
     }
@@ -550,6 +718,8 @@ class ApplicationsViewModel @Inject constructor(
                     ).copy(
                         recentHistory = previousHistory,
                         historyLoading = previousLoading,
+                        playingHistoryId = current.settings?.playingHistoryId,
+                        pendingHistoryPlayBlocked = current.settings?.pendingHistoryPlayBlocked,
                     )
                 },
             )

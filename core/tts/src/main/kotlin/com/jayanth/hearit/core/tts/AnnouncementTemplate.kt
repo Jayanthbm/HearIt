@@ -136,7 +136,7 @@ object AnnouncementTemplate {
 
         val prepared = activeSnapshots.map { snapshot ->
             val resolved = resolveGroupAndContent(snapshot, category)
-            val sender = SmartContentCleaner.cleanSender(resolved.sender) ?: resolved.sender
+            val sender = SmartContentCleaner.cleanSender(resolved.sender, packageName) ?: resolved.sender
             val message = SmartContentCleaner.cleanMessage(resolved.messageText, packageName).text
             val delayedMins = delayedMinutesByKey[snapshot.key]?.coerceAtLeast(1L)
             PreparedItem(snapshot, sender, resolved.groupTitle, message, delayedMins)
@@ -247,7 +247,7 @@ object AnnouncementTemplate {
             val category = SmartContentCleaner.resolveCategory(snapshot.packageName)
             val resolved = resolveGroupAndContent(snapshot, category)
             val appName = SmartContentCleaner.resolveAppName(snapshot.packageName, snapshot.appName.trim())
-            val sender = SmartContentCleaner.cleanSender(resolved.sender) ?: resolved.sender
+            val sender = SmartContentCleaner.cleanSender(resolved.sender, snapshot.packageName) ?: resolved.sender
             val message = SmartContentCleaner.cleanMessage(resolved.messageText, snapshot.packageName).text
             val line = buildString {
                 if (format.includeSender && sender.isNotEmpty()) {

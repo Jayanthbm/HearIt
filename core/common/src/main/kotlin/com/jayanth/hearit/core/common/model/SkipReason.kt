@@ -87,4 +87,7 @@ enum class SkipReason {
 
     /** User manually cleared pending items from the queue. */
     MANUALLY_CLEARED,
+
+    /** Captured in background while the announcement service was not running. */
+    SERVICE_NOT_RUNNING,
 }
