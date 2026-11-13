@@ -1,5 +1,7 @@
 package com.jayanth.hearit.applications
 
+import android.content.Intent
+import android.provider.Settings
 import android.text.format.DateUtils
 import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
@@ -122,6 +124,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -155,6 +158,7 @@ fun ApplicationsRoute(
     val state by viewModel.state.collectAsState()
     val settings = state.settings
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
     var filterType by rememberSaveable { mutableIntStateOf(0) } // 0 = All, 1 = Selected, 2 = Unselected (persisted across details view & configuration changes)
 
     LaunchedEffect(Unit) {
@@ -245,6 +249,11 @@ fun ApplicationsRoute(
                         viewModel.onSetMessagingMediaMapping(oldMatch, match, spoken, applyToSender)
                     },
                     onRemoveMessagingMediaMapping = viewModel::onRemoveMessagingMediaMapping,
+                    onOpenAppNotificationSettings = {
+                        val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                            .putExtra(Settings.EXTRA_APP_PACKAGE, settings.packageName)
+                        runCatching { context.startActivity(intent) }
+                    },
                     onConfirmHistoryPlayBypass = viewModel::onConfirmHistoryPlayBypass,
                     onDismissHistoryPlayBlocked = viewModel::onDismissHistoryPlayBlocked,
                     modifier = Modifier.fillMaxSize(),
@@ -511,37 +520,6 @@ private fun ApplicationsListScreen(
                     fontWeight = FontWeight.SemiBold,
                 )
 
-                if (displayedApps.size > 25) {
-                    val anyUnselected = displayedApps.any { it.packageName !in state.enabledApps }
-                    val displayedPackageNames = remember(displayedApps) { displayedApps.map { it.packageName } }
-                    Surface(
-                        onClick = {
-                            if (anyUnselected) onSelectAllVisible(displayedPackageNames)
-                            else onDeselectAllVisible(displayedPackageNames)
-                        },
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color.Transparent,
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
-                        ) {
-                            Icon(
-                                imageVector = if (anyUnselected) Icons.Rounded.CheckCircle else Icons.Rounded.Close,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(15.dp),
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = if (anyUnselected) "Enable all visible" else "Disable all visible",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                        }
-                    }
-                }
             }
             Spacer(modifier = Modifier.height(4.dp))
         }
@@ -924,11 +902,13 @@ private fun AppSettingsScreen(
     onRemoveMessagingMediaMapping: (String) -> Unit = {},
     onConfirmHistoryPlayBypass: () -> Unit = {},
     onDismissHistoryPlayBlocked: () -> Unit = {},
+    onOpenAppNotificationSettings: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var selectedTabKey by remember(state.packageName) { mutableStateOf("rules") }
     var showAddFilterDialog by remember { mutableStateOf(false) }
     var showClearHistoryDialog by remember { mutableStateOf(false) }
+    var showClearStorageDialog by remember { mutableStateOf(false) }
     var filterTargetHistoryItem by remember { mutableStateOf<HistoryEntry?>(null) }
     var detailHistoryItem by remember { mutableStateOf<HistoryEntry?>(null) }
     var pendingDeleteHistoryItem by remember { mutableStateOf<HistoryEntry?>(null) }
@@ -1180,6 +1160,60 @@ private fun AppSettingsScreen(
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
+                    // Shortcut into Android's own notification settings for this app.
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(20.dp))
+                            .clickable(onClick = onOpenAppNotificationSettings),
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            Surface(
+                                modifier = Modifier.size(34.dp),
+                                shape = RoundedCornerShape(10.dp),
+                                color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Notifications,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                }
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Notification settings",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                Text(
+                                    text = "Open Android's notification screen for this app",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 11.sp,
+                                )
+                            }
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+                    }
+
                     if (state.enabled) {
                         // Custom Spoken Name Card (Idea 33)
                         var customSpokenName by remember(state.spokenName) { mutableStateOf(state.spokenName ?: "") }
@@ -1614,6 +1648,31 @@ private fun AppSettingsScreen(
                                 }
                             }
 
+                            if (state.historyStorageMode.effective == HistoryStorageMode.DISABLED) {
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = "Speech announcements still play — this only stops local records. Update handling and retention do not apply.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Spacer(modifier = Modifier.height(10.dp))
+                                OutlinedButton(
+                                    onClick = { showClearStorageDialog = true },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        contentColor = MaterialTheme.colorScheme.error,
+                                    ),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.DeleteOutline,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Clear all saved records", fontWeight = FontWeight.SemiBold)
+                                }
+                            } else {
                             HorizontalDivider(modifier = Modifier.padding(vertical = 14.dp))
 
                             // Update Handling Section
@@ -1773,6 +1832,7 @@ private fun AppSettingsScreen(
                                         }
                                     }
                                 }
+                            }
                             }
                         }
                     }
@@ -2141,14 +2201,22 @@ private fun AppSettingsScreen(
                                     }
                                     Spacer(modifier = Modifier.height(14.dp))
                                     Text(
-                                        text = "No notification history yet",
+                                        text = if (state.historyStorageMode.effective == HistoryStorageMode.DISABLED) {
+                                            "History storage is off"
+                                        } else {
+                                            "No notification history yet"
+                                        },
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.Bold,
                                         textAlign = TextAlign.Center,
                                     )
                                     Spacer(modifier = Modifier.height(6.dp))
                                     Text(
-                                        text = "Notifications processed from ${state.label} will appear here in real-time. You can inspect exact messages, listen to them, or filter unwanted alerts.",
+                                        text = if (state.historyStorageMode.effective == HistoryStorageMode.DISABLED) {
+                                            "Notifications from ${state.label} are still announced, but nothing is saved. Set History & Logs Storage to Full or Metadata in Rules to keep records."
+                                        } else {
+                                            "Notifications processed from ${state.label} will appear here in real-time. You can inspect exact messages, listen to them, or filter unwanted alerts."
+                                        },
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         textAlign = TextAlign.Center,
@@ -2259,6 +2327,32 @@ private fun AppSettingsScreen(
             onAdd = { keyword, mode, isSender ->
                 onAddFilter(keyword, mode, isSender)
                 filterTargetHistoryItem = null
+            },
+        )
+    }
+
+    // Dialog: Clear every record while storage is set to None
+    if (showClearStorageDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearStorageDialog = false },
+            title = { Text("Clear saved records", fontWeight = FontWeight.Bold) },
+            text = {
+                Text("Delete every stored notification record for ${state.label}? This cannot be undone.")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showClearStorageDialog = false
+                        onClearAppHistory(null)
+                    },
+                ) {
+                    Text("Delete all", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearStorageDialog = false }) {
+                    Text("Cancel")
+                }
             },
         )
     }

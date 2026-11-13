@@ -48,6 +48,14 @@ class AndroidTextToSpeechEngine(context: Context) : TextToSpeechEngine {
     )
 
     init {
+        createEngine()
+    }
+
+    /**
+     * Creates (or recreates) the platform engine. [ready] flips once it reports success, so a
+     * [shutdown] is recoverable: the next [speak] can build a fresh engine instead of failing.
+     */
+    private fun createEngine(): TextToSpeech {
         val created = TextToSpeech(appContext) { status ->
             ready = status == TextToSpeech.SUCCESS
         }
@@ -70,6 +78,7 @@ class AndroidTextToSpeechEngine(context: Context) : TextToSpeechEngine {
             }
         })
         engine = created
+        return created
     }
 
     override fun isAvailable(): Boolean = engine != null && ready
@@ -96,9 +105,26 @@ class AndroidTextToSpeechEngine(context: Context) : TextToSpeechEngine {
         settings: SpeechSettings,
         listener: UtteranceListener,
     ): Boolean {
-        val tts = engine?.takeIf { ready } ?: return false
         if (announcement.isEmpty) return false
+        val readyEngine = engine?.takeIf { ready }
+        if (readyEngine == null) {
+            // TextToSpeech initialises asynchronously, and AnnouncementService.onDestroy()
+            // shuts the process-wide engine down. Accept the request and start it once the
+            // engine is ready rather than reporting a failure the user cannot act on.
+            ensureEngine()
+            awaitEngineAndSpeak(announcement, settings, listener)
+            return true
+        }
+        return speakNow(readyEngine, announcement, settings, listener)
+    }
 
+    /** Runs one announcement on a ready [TextToSpeech] instance. */
+    private fun speakNow(
+        tts: TextToSpeech,
+        announcement: BuiltAnnouncement,
+        settings: SpeechSettings,
+        listener: UtteranceListener,
+    ): Boolean {
         finishCurrent(TtsErrorCode.INTERRUPTED, notify = true)
 
         if (!supportsLocale(Locale.getDefault())) {
@@ -170,6 +196,34 @@ class AndroidTextToSpeechEngine(context: Context) : TextToSpeechEngine {
             speakCurrentSection(tts, newRequest)
         }
         return true
+    }
+
+    /** Recreates the platform engine when a previous [shutdown] released it. */
+    private fun ensureEngine(): TextToSpeech = engine ?: createEngine()
+
+    /**
+     * Waits (up to ~4 s) for TextToSpeech to finish initialising, then speaks. Reports
+     * ENGINE_UNAVAILABLE if the platform engine never becomes ready.
+     */
+    private fun awaitEngineAndSpeak(
+        announcement: BuiltAnnouncement,
+        settings: SpeechSettings,
+        listener: UtteranceListener,
+        attempt: Int = 0,
+    ) {
+        if (attempt >= 40) {
+            listener.onError(announcement, TtsError(TtsErrorCode.ENGINE_UNAVAILABLE))
+            return
+        }
+        mainHandler.postDelayed({
+            val tts = engine?.takeIf { ready }
+            if (tts != null) {
+                speakNow(tts, announcement, settings, listener)
+            } else {
+                ensureEngine()
+                awaitEngineAndSpeak(announcement, settings, listener, attempt + 1)
+            }
+        }, 100L)
     }
 
     override fun stop() {
