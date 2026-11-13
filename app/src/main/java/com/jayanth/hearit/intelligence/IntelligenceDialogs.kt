@@ -3,6 +3,7 @@ package com.jayanth.hearit.intelligence
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -39,15 +40,20 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
@@ -61,6 +67,7 @@ import com.jayanth.hearit.core.common.model.AppCategory
 import com.jayanth.hearit.core.common.model.IntelligencePresets
 import com.jayanth.hearit.core.common.model.PronunciationRule
 import com.jayanth.hearit.core.common.model.UrlSummaryRule
+import com.jayanth.hearit.ui.components.SwipeToDeleteContainer
 
 @Composable
 private fun IntelligenceConfigModal(
@@ -68,84 +75,94 @@ private fun IntelligenceConfigModal(
     subtitle: String? = null,
     onDismiss: () -> Unit,
     showDone: Boolean = true,
+    snackbarHostState: SnackbarHostState? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth(0.94f)
-                .heightIn(max = 700.dp)
-                .imePadding(),
-            shape = RoundedCornerShape(24.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerLow,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
-            tonalElevation = 6.dp,
-        ) {
-            Column(
+        Box(contentAlignment = Alignment.BottomCenter) {
+            Surface(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                    .fillMaxWidth(0.94f)
+                    .heightIn(max = 700.dp)
+                    .imePadding(),
+                shape = RoundedCornerShape(24.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
+                tonalElevation = 6.dp,
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = title,
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        if (!subtitle.isNullOrBlank()) {
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = subtitle,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 2,
-                            )
-                        }
-                    }
-                    IconButton(onClick = onDismiss) {
-                        Icon(
-                            imageVector = Icons.Rounded.Close,
-                            contentDescription = "Close",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
-
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f, fill = false),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                        .padding(horizontal = 20.dp, vertical = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    content()
-                }
-
-                if (showDone) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Button(
-                            onClick = onDismiss,
-                            shape = RoundedCornerShape(12.dp),
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = title,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            if (!subtitle.isNullOrBlank()) {
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = subtitle,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 2,
+                                )
+                            }
+                        }
+                        IconButton(onClick = onDismiss) {
+                            Icon(
+                                imageVector = Icons.Rounded.Close,
+                                contentDescription = "Close",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f, fill = false),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        content()
+                    }
+
+                    if (showDone) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
                         ) {
-                            Text("Done")
+                            Button(
+                                onClick = onDismiss,
+                                shape = RoundedCornerShape(12.dp),
+                            ) {
+                                Text("Done")
+                            }
                         }
                     }
                 }
+            }
+
+            snackbarHostState?.let {
+                SnackbarHost(
+                    hostState = it,
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
+                )
             }
         }
     }
@@ -176,6 +193,8 @@ fun PronunciationDictionaryDialog(
         rules.any { it.match.equals(preset.match, ignoreCase = true) }
     }
     val isFormOpen = showForm || editingOriginalMatch != null
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
 
     fun clearForm(hide: Boolean = true) {
         editingOriginalMatch = null
@@ -195,6 +214,7 @@ fun PronunciationDictionaryDialog(
         subtitle = "Set how words and acronyms are spoken",
         onDismiss = onDismiss,
         showDone = false,
+        snackbarHostState = snackbarHostState,
     ) {
         if (!isFormOpen) {
             Row(
@@ -245,63 +265,58 @@ fun PronunciationDictionaryDialog(
                     }
                 } else {
                     items(rules, key = { it.match.lowercase() }) { rule ->
-                        Surface(
+                        SwipeToDeleteContainer(
+                            onDelete = {
+                                onDeleteRule(rule.match)
+                                coroutineScope.launch {
+                                    snackbarHostState.showSnackbar("Rule '${rule.match}' deleted")
+                                }
+                            },
                             shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    editingOriginalMatch = rule.match
-                                    matchText = rule.match
-                                    spokenText = rule.spokenAs
-                                    matchCase = rule.matchCase
-                                    wholeWord = rule.wholeWord
-                                    applyToSender = rule.applyToSender
-                                    matchError = null
-                                    spokenError = null
-                                    showForm = true
-                                },
                         ) {
-                            Row(
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
+                                    .clickable {
+                                        editingOriginalMatch = rule.match
+                                        matchText = rule.match
+                                        spokenText = rule.spokenAs
+                                        matchCase = rule.matchCase
+                                        wholeWord = rule.wholeWord
+                                        applyToSender = rule.applyToSender
+                                        matchError = null
+                                        spokenError = null
+                                        showForm = true
+                                    },
                             ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = "${rule.match} → ${rule.spokenAs}",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.SemiBold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                    Text(
-                                        text = buildString {
-                                            append(if (rule.wholeWord) "Whole word" else "Partial")
-                                            append(if (rule.matchCase) " · Case-sensitive" else " · Ignore case")
-                                            append(if (rule.applyToSender) " · Senders" else " · No senders")
-                                        },
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                                Switch(
-                                    checked = rule.enabled,
-                                    onCheckedChange = { onToggleRule(rule.match, it) },
-                                    modifier = Modifier.scale(0.85f),
-                                )
-                                IconButton(
-                                    onClick = { onDeleteRule(rule.match) },
-                                    modifier = Modifier.size(34.dp),
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    Icon(
-                                        Icons.Rounded.DeleteOutline,
-                                        contentDescription = "Delete rule",
-                                        modifier = Modifier.size(17.dp),
-                                        tint = MaterialTheme.colorScheme.error,
-                                    )
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "${rule.match} → ${rule.spokenAs}",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = buildString {
+                                                append(if (rule.wholeWord) "Whole word" else "Partial")
+                                                append(if (rule.matchCase) " · Case-sensitive" else " · Ignore case")
+                                                append(if (rule.applyToSender) " · Senders" else " · No senders")
+                                            },
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -493,6 +508,8 @@ fun UrlSummaryRulesDialog(
         rules.any { it.pattern.equals(preset.pattern, ignoreCase = true) }
     }
     val isFormOpen = showForm || editingOriginalPattern != null
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
 
     fun clearForm(hide: Boolean = true) {
         editingOriginalPattern = null
@@ -508,6 +525,7 @@ fun UrlSummaryRulesDialog(
         subtitle = "Speak friendly names instead of raw links",
         onDismiss = onDismiss,
         showDone = false,
+        snackbarHostState = snackbarHostState,
     ) {
         if (!isFormOpen) {
             Row(
@@ -552,61 +570,56 @@ fun UrlSummaryRulesDialog(
                     }
                 } else {
                     items(rules, key = { it.pattern.lowercase() }) { rule ->
-                        Surface(
+                        SwipeToDeleteContainer(
+                            onDelete = {
+                                onDeleteRule(rule.pattern)
+                                coroutineScope.launch {
+                                    snackbarHostState.showSnackbar("URL rule '${rule.pattern}' deleted")
+                                }
+                            },
                             shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    editingOriginalPattern = rule.pattern
-                                    pattern = rule.pattern
-                                    spokenPhrase = rule.spokenPhrase
-                                    patternError = null
-                                    spokenPhraseError = null
-                                    showForm = true
-                                },
                         ) {
-                            Row(
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
+                                    .clickable {
+                                        editingOriginalPattern = rule.pattern
+                                        pattern = rule.pattern
+                                        spokenPhrase = rule.spokenPhrase
+                                        patternError = null
+                                        spokenPhraseError = null
+                                        showForm = true
+                                    },
                             ) {
-                                Column(
+                                Row(
                                     modifier = Modifier
-                                        .weight(1f),
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    Text(
-                                        text = rule.pattern,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.SemiBold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                    Text(
-                                        text = "${rule.spokenPhrase} · ${if (rule.isPredefined) "Preset" else "Custom"}",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                }
-                                Switch(
-                                    checked = rule.enabled,
-                                    onCheckedChange = { onToggleRule(rule.pattern, it) },
-                                    modifier = Modifier.scale(0.85f),
-                                )
-                                IconButton(
-                                    onClick = { onDeleteRule(rule.pattern) },
-                                    modifier = Modifier.size(34.dp),
-                                ) {
-                                    Icon(
-                                        Icons.Rounded.DeleteOutline,
-                                        contentDescription = "Delete URL rule",
-                                        modifier = Modifier.size(17.dp),
-                                        tint = MaterialTheme.colorScheme.error,
-                                    )
+                                    Column(
+                                        modifier = Modifier
+                                            .weight(1f),
+                                    ) {
+                                        Text(
+                                            text = rule.pattern,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = "${rule.spokenPhrase} · ${if (rule.isPredefined) "Preset" else "Custom"}",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -734,6 +747,8 @@ fun CarrierSpamPhrasesDialog(
         phrases.any { it.equals(preset, ignoreCase = true) }
     }
     val normalize: (String) -> String = { it.trim().replace(Regex("\\s+"), " ") }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
 
     fun clearForm() {
         newPhrase = ""
@@ -746,6 +761,7 @@ fun CarrierSpamPhrasesDialog(
         subtitle = "Skip carrier upsells, loan promos, and marketing SMS blasts",
         onDismiss = onDismiss,
         showDone = false,
+        snackbarHostState = snackbarHostState,
     ) {
         if (!showForm) {
             Row(
@@ -796,35 +812,34 @@ fun CarrierSpamPhrasesDialog(
                     }
                 } else {
                     items(phrases, key = { it.lowercase() }) { phrase ->
-                        Surface(
+                        SwipeToDeleteContainer(
+                            onDelete = {
+                                onRemovePhrase(phrase)
+                                coroutineScope.launch {
+                                    snackbarHostState.showSnackbar("Promo phrase deleted")
+                                }
+                            },
                             shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-                            modifier = Modifier.fillMaxWidth(),
                         ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                                modifier = Modifier.fillMaxWidth(),
                             ) {
-                                Text(
-                                    text = phrase,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.weight(1f),
-                                )
-                                IconButton(
-                                    onClick = { onRemovePhrase(phrase) },
-                                    modifier = Modifier.size(34.dp),
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    Icon(
-                                        Icons.Rounded.DeleteOutline,
-                                        contentDescription = "Delete promo phrase",
-                                        modifier = Modifier.size(17.dp),
-                                        tint = MaterialTheme.colorScheme.error,
+                                    Text(
+                                        text = phrase,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f),
                                     )
                                 }
                             }
@@ -913,7 +928,6 @@ fun AppCategoriesDialog(
     val visibleApps = remember(apps, appCategories, selectedTab, query) {
         val q = query.trim().lowercase()
         apps
-            .filter { !it.isSystemApp || appCategories[it.packageName] != null }
             .filter { entry ->
                 q.isEmpty() || entry.label.lowercase().contains(q) || entry.packageName.lowercase().contains(q)
             }
@@ -927,6 +941,7 @@ fun AppCategoriesDialog(
         title = "App categories",
         subtitle = "Group enabled apps for Email, Chat, or SMS rules",
         onDismiss = onDismiss,
+        showDone = false,
     ) {
         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
             val categories = AppCategory.entries
@@ -966,7 +981,7 @@ fun AppCategoriesDialog(
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 180.dp, max = 300.dp),
+                .heightIn(min = 200.dp, max = 460.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             items(visibleApps, key = { it.packageName }) { entry ->

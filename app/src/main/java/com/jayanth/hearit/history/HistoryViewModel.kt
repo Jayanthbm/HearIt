@@ -196,7 +196,10 @@ class HistoryViewModel @Inject constructor(
 
     fun onDeleteEntry(id: Long) {
         viewModelScope.launch {
-            if (safely { historyRepository.delete(id) } != null) load(reset = true)
+            if (safely { historyRepository.delete(id) } != null) {
+                load(reset = true)
+                _userMessage.emit("Notification deleted")
+            }
         }
     }
 
@@ -204,12 +207,16 @@ class HistoryViewModel @Inject constructor(
         viewModelScope.launch {
             ids.forEach { id -> safely { historyRepository.delete(id) } }
             load(reset = true)
+            _userMessage.emit("${ids.size} notifications deleted")
         }
     }
 
     fun onClearAll() {
         viewModelScope.launch {
-            if (safely { historyRepository.deleteAll() } != null) load(reset = true)
+            if (safely { historyRepository.deleteAll() } != null) {
+                load(reset = true)
+                _userMessage.emit("History cleared")
+            }
         }
     }
 

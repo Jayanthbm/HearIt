@@ -499,9 +499,18 @@ class ApplicationsViewModel @Inject constructor(
         }
     }
 
+    fun onSetMessagingNoisePhrase(oldPhrase: String?, phrase: String) {
+        updateSelected { settings, packageName ->
+            AppSettingsEditor.setMessagingNoisePhrase(settings, packageName, oldPhrase, phrase)
+        }
+    }
+
     fun onRemoveMessagingNoisePhrase(phrase: String) {
         updateSelected { settings, packageName ->
             AppSettingsEditor.removeMessagingNoisePhrase(settings, packageName, phrase)
+        }
+        viewModelScope.launch {
+            _userMessage.emit("Noise phrase deleted")
         }
     }
 
@@ -525,6 +534,9 @@ class ApplicationsViewModel @Inject constructor(
     fun onRemoveMessagingMediaMapping(match: String) {
         updateSelected { settings, packageName ->
             AppSettingsEditor.removeMessagingMediaMapping(settings, packageName, match)
+        }
+        viewModelScope.launch {
+            _userMessage.emit("Placeholder mapping deleted")
         }
     }
 

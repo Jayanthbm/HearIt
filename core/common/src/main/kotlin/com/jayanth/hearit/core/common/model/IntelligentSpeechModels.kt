@@ -138,10 +138,10 @@ data class MessagingPolishConfig(
     val enabled: Boolean? = null,
     val extraNoisePhrases: List<String> = emptyList(),
     val mediaMappings: List<MediaReplacementRule> = emptyList(),
-    val hideNoisePhraseMatches: Boolean = false,
+    val hideNoisePhraseMatches: Boolean = true,
 ) {
     val inheritsEveryValue: Boolean
-        get() = enabled == null && extraNoisePhrases.isEmpty() && mediaMappings.isEmpty() && !hideNoisePhraseMatches
+        get() = enabled == null && extraNoisePhrases.isEmpty() && mediaMappings.isEmpty() && hideNoisePhraseMatches
 }
 
 /** Built-in starter presets for active intelligence features. */

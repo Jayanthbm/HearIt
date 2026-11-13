@@ -72,6 +72,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -943,11 +944,18 @@ internal fun PeriodicCheckinCard(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    listOf(15 to "15 mins", 30 to "30 mins", 60 to "1hr", 120 to "2hr").forEach { (mins, label) ->
+                    listOf(15 to "15 min", 30 to "30 min", 60 to "1 hr", 120 to "2 hr").forEach { (mins, label) ->
                         FilterChip(
                             selected = intervalMinutes == mins,
                             onClick = { onIntervalChanged(mins) },
-                            label = { Text(label, maxLines = 2) },
+                            label = {
+                                Text(
+                                    text = label,
+                                    maxLines = 1,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            },
                             modifier = Modifier.weight(1f),
                         )
                     }

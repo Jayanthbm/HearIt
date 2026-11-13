@@ -86,6 +86,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -103,15 +104,19 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -134,6 +139,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.jayanth.hearit.R
+import com.jayanth.hearit.ui.components.SwipeToDeleteContainer
 import com.jayanth.hearit.core.common.model.AppCategory
 import com.jayanth.hearit.core.common.model.AppPriority
 import com.jayanth.hearit.core.common.model.AudioFocusPolicy
@@ -244,6 +250,7 @@ fun ApplicationsRoute(
                     onSpokenNameChanged = viewModel::onSpokenNameChanged,
                     onMessagingPolishEnabledChanged = viewModel::onMessagingPolishEnabledChanged,
                     onAddMessagingNoisePhrase = viewModel::onAddMessagingNoisePhrase,
+                    onSetMessagingNoisePhrase = viewModel::onSetMessagingNoisePhrase,
                     onRemoveMessagingNoisePhrase = viewModel::onRemoveMessagingNoisePhrase,
                     onHideNoisePhraseMatchesChanged = viewModel::onHideNoisePhraseMatchesChanged,
                     onSetMessagingMediaMapping = { oldMatch, match, spoken, applyToSender ->
@@ -898,6 +905,7 @@ private fun AppSettingsScreen(
     onSpokenNameChanged: (String?) -> Unit = {},
     onMessagingPolishEnabledChanged: (Boolean?) -> Unit = {},
     onAddMessagingNoisePhrase: (String) -> Unit = {},
+    onSetMessagingNoisePhrase: (String?, String) -> Unit = { _, _ -> },
     onRemoveMessagingNoisePhrase: (String) -> Unit = {},
     onHideNoisePhraseMatchesChanged: (Boolean) -> Unit = {},
     onSetMessagingMediaMapping: (String?, String, String, Boolean) -> Unit = { _, _, _, _ -> },
@@ -2120,7 +2128,7 @@ private fun AppSettingsScreen(
                     PerAppMessagingPolishCard(
                         state = state,
                         onMessagingPolishEnabledChanged = onMessagingPolishEnabledChanged,
-                        onAddMessagingNoisePhrase = onAddMessagingNoisePhrase,
+                        onSetMessagingNoisePhrase = onSetMessagingNoisePhrase,
                         onRemoveMessagingNoisePhrase = onRemoveMessagingNoisePhrase,
                         onHideNoisePhraseMatchesChanged = onHideNoisePhraseMatchesChanged,
                         onSetMessagingMediaMapping = onSetMessagingMediaMapping,
@@ -2234,21 +2242,26 @@ private fun AppSettingsScreen(
                                 verticalArrangement = Arrangement.spacedBy(10.dp),
                             ) {
                                 items(items = state.recentHistory, key = { it.id }) { entry ->
-                                    AppHistoryItemCard(
-                                        entry = entry,
-                                        isPlaying = state.playingHistoryId == entry.id,
-                                        canFilter = state.enabled,
-                                        onPlay = {
-                                            if (state.playingHistoryId == entry.id) {
-                                                onStopPlaying()
-                                            } else {
-                                                onPlayHistoryEntry(entry)
-                                            }
-                                        },
-                                        onFilterThis = { filterTargetHistoryItem = entry },
-                                        onCardClick = { detailHistoryItem = entry },
-                                        onDelete = { pendingDeleteHistoryItem = entry },
-                                    )
+                                    SwipeToDeleteContainer(
+                                        onDelete = { onDeleteHistoryEntry(entry.id) },
+                                        shape = RoundedCornerShape(18.dp),
+                                    ) {
+                                        AppHistoryItemCard(
+                                            entry = entry,
+                                            isPlaying = state.playingHistoryId == entry.id,
+                                            canFilter = state.enabled,
+                                            onPlay = {
+                                                if (state.playingHistoryId == entry.id) {
+                                                    onStopPlaying()
+                                                } else {
+                                                    onPlayHistoryEntry(entry)
+                                                }
+                                            },
+                                            onFilterThis = { filterTargetHistoryItem = entry },
+                                            onCardClick = { detailHistoryItem = entry },
+                                            onDelete = { pendingDeleteHistoryItem = entry },
+                                        )
+                                    }
                                 }
                                 item { Spacer(modifier = Modifier.height(80.dp)) }
                             }
@@ -2626,18 +2639,6 @@ private fun AppHistoryItemCard(
                             contentDescription = if (isPlaying) "Stop" else "Listen",
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(20.dp),
-                        )
-                    }
-
-                    IconButton(
-                        onClick = onDelete,
-                        modifier = Modifier.size(32.dp),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.DeleteOutline,
-                            contentDescription = "Delete entry",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(18.dp),
                         )
                     }
                 }
@@ -3323,7 +3324,7 @@ fun FilterTypeInfoRow(type: String, description: String) {
 private fun PerAppMessagingPolishCard(
     state: AppSettingsUiState,
     onMessagingPolishEnabledChanged: (Boolean?) -> Unit,
-    onAddMessagingNoisePhrase: (String) -> Unit,
+    onSetMessagingNoisePhrase: (String?, String) -> Unit,
     onRemoveMessagingNoisePhrase: (String) -> Unit,
     onHideNoisePhraseMatchesChanged: (Boolean) -> Unit,
     onSetMessagingMediaMapping: (String?, String, String, Boolean) -> Unit,
@@ -3380,7 +3381,7 @@ private fun PerAppMessagingPolishCard(
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
-                    text = "Extra noise phrases and placeholder mapping apply to all apps. Messaging polish is available only for chat/messaging apps.",
+                    text = "Silence repetitive noise phrases and map placeholder text to spoken words.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -3388,98 +3389,154 @@ private fun PerAppMessagingPolishCard(
             }
 
             Text(
-                text = "Extra noise phrases",
+                text = "Noise phrases",
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
-                text = "Messages matching these phrases are treated as noise (applies to all apps).",
+                text = "Notifications matching any of these phrases will not be spoken.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-
-            var noiseInput by remember(state.packageName) { mutableStateOf("") }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                OutlinedTextField(
-                    value = noiseInput,
-                    onValueChange = { noiseInput = it },
-                    modifier = Modifier.weight(1f),
-                    label = { Text("Phrase") },
-                    singleLine = true,
-                    shape = RoundedCornerShape(14.dp),
-                )
-                FilledTonalButton(
-                    onClick = {
-                        onAddMessagingNoisePhrase(noiseInput)
-                        noiseInput = ""
-                    },
-                    enabled = noiseInput.trim().isNotEmpty(),
-                ) {
-                    Text("Add")
-                }
-            }
-
-            if (config.extraNoisePhrases.isEmpty()) {
-                Text(
-                    text = "No custom noise phrases.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            } else {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    config.extraNoisePhrases.forEach { phrase ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                text = phrase,
-                                modifier = Modifier.weight(1f),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                            IconButton(onClick = { onRemoveMessagingNoisePhrase(phrase) }) {
-                                Icon(
-                                    imageVector = Icons.Rounded.DeleteOutline,
-                                    contentDescription = "Remove phrase",
-                                    tint = MaterialTheme.colorScheme.error,
-                                )
-                            }
-                        }
-                    }
-                }
-            }
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Column(modifier = Modifier.weight(1f)) {
+                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
                     Text(
                         text = "Keep noise matches in history",
-                        style = MaterialTheme.typography.labelLarge,
+                        style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                     Text(
-                        text = "Off: a notification silenced by a phrase above is not saved to history.",
+                        text = "Save silenced notifications in history.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
                     )
                 }
                 Switch(
                     checked = !config.hideNoisePhraseMatches,
                     onCheckedChange = { onHideNoisePhraseMatchesChanged(!it) },
+                )
+            }
+
+            var showNoisePhraseDialog by remember(state.packageName) { mutableStateOf(false) }
+            var noisePhraseInput by remember(state.packageName) { mutableStateOf("") }
+            var noisePhraseError by remember(state.packageName) { mutableStateOf<String?>(null) }
+            var editingNoisePhrase by remember(state.packageName) { mutableStateOf<String?>(null) }
+
+            FilledTonalButton(
+                onClick = {
+                    editingNoisePhrase = null
+                    noisePhraseInput = ""
+                    noisePhraseError = null
+                    showNoisePhraseDialog = true
+                },
+            ) {
+                Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Add phrase")
+            }
+
+            if (config.extraNoisePhrases.isEmpty()) {
+                Text(
+                    text = "No custom noise phrases added yet.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    config.extraNoisePhrases.forEach { phrase ->
+                        key(phrase) {
+                            SwipeableNoisePhraseRow(
+                                phrase = phrase,
+                                onClick = {
+                                    editingNoisePhrase = phrase
+                                    noisePhraseInput = phrase
+                                    noisePhraseError = null
+                                    showNoisePhraseDialog = true
+                                },
+                                onDismiss = {
+                                    onRemoveMessagingNoisePhrase(phrase)
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (showNoisePhraseDialog) {
+                AlertDialog(
+                    onDismissRequest = {
+                        showNoisePhraseDialog = false
+                        noisePhraseError = null
+                        editingNoisePhrase = null
+                    },
+                    title = { Text(if (editingNoisePhrase != null) "Edit noise phrase" else "Add noise phrase") },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(
+                                value = noisePhraseInput,
+                                onValueChange = {
+                                    noisePhraseInput = it
+                                    noisePhraseError = null
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Phrase") },
+                                placeholder = { Text("e.g. Checking for new messages") },
+                                minLines = 2,
+                                maxLines = 2,
+                                singleLine = false,
+                                isError = noisePhraseError != null,
+                                supportingText = noisePhraseError?.let { err ->
+                                    { Text(err, color = MaterialTheme.colorScheme.error) }
+                                },
+                                shape = RoundedCornerShape(14.dp),
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                val trimmed = noisePhraseInput.trim()
+                                if (trimmed.isEmpty()) {
+                                    noisePhraseError = "Please enter a phrase."
+                                    return@TextButton
+                                }
+                                val isDuplicate = config.extraNoisePhrases.any { existing ->
+                                    existing.equals(trimmed, ignoreCase = true) &&
+                                        !existing.equals(editingNoisePhrase, ignoreCase = true)
+                                }
+                                if (isDuplicate) {
+                                    noisePhraseError = "This phrase is already added."
+                                    return@TextButton
+                                }
+                                onSetMessagingNoisePhrase(editingNoisePhrase, trimmed)
+                                showNoisePhraseDialog = false
+                                editingNoisePhrase = null
+                                noisePhraseInput = ""
+                                noisePhraseError = null
+                            },
+                        ) {
+                            Text(if (editingNoisePhrase != null) "Save" else "Add")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(
+                            onClick = {
+                                showNoisePhraseDialog = false
+                                noisePhraseError = null
+                                editingNoisePhrase = null
+                            },
+                        ) {
+                            Text("Cancel")
+                        }
+                    },
                 )
             }
 
@@ -3628,61 +3685,88 @@ private fun PerAppMessagingPolishCard(
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     config.mediaMappings.forEach { rule ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                                .clickable {
-                                    editingMapping = rule.match
-                                    mediaMatch = rule.match
-                                    mediaSpoken = rule.spokenPhrase
-                                    mediaApplyToSender = rule.applyToSender
-                                    mappingError = null
-                                    showAddMappingDialog = true
-                                }
-                                .padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = rule.match,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                )
-                                Text(
-                                    text = "→ ${rule.spokenPhrase}" + if (rule.applyToSender) " · sender" else "",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                            IconButton(
-                                onClick = {
-                                    editingMapping = rule.match
-                                    mediaMatch = rule.match
-                                    mediaSpoken = rule.spokenPhrase
-                                    mediaApplyToSender = rule.applyToSender
-                                    mappingError = null
-                                    showAddMappingDialog = true
-                                },
+                        key(rule.match) {
+                            SwipeToDeleteContainer(
+                                onDelete = { onRemoveMessagingMediaMapping(rule.match) },
+                                shape = RoundedCornerShape(12.dp),
                             ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Edit,
-                                    contentDescription = "Edit mapping",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                            IconButton(onClick = { onRemoveMessagingMediaMapping(rule.match) }) {
-                                Icon(
-                                    imageVector = Icons.Rounded.DeleteOutline,
-                                    contentDescription = "Remove mapping",
-                                    tint = MaterialTheme.colorScheme.error,
-                                )
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            editingMapping = rule.match
+                                            mediaMatch = rule.match
+                                            mediaSpoken = rule.spokenPhrase
+                                            mediaApplyToSender = rule.applyToSender
+                                            mappingError = null
+                                            showAddMappingDialog = true
+                                        },
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                                    ) {
+                                        Text(
+                                            text = rule.match,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = "→ ${rule.spokenPhrase}" + if (rule.applyToSender) " · sender" else "",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SwipeableNoisePhraseRow(
+    phrase: String,
+    onClick: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    SwipeToDeleteContainer(
+        onDelete = onDismiss,
+        shape = RoundedCornerShape(12.dp),
+    ) {
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = phrase,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
         }
     }

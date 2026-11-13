@@ -391,13 +391,30 @@ object AppSettingsEditor {
         settings: HearItSettings,
         packageName: String,
         phrase: String,
+    ): HearItSettings = setMessagingNoisePhrase(settings, packageName, oldPhrase = null, phrase = phrase)
+
+    fun setMessagingNoisePhrase(
+        settings: HearItSettings,
+        packageName: String,
+        oldPhrase: String?,
+        phrase: String,
     ): HearItSettings {
         val clean = phrase.trim()
         if (clean.isEmpty()) return settings
         return updateOverride(settings, packageName) { override ->
-            val updated = override.messagingPolish.extraNoisePhrases
-                .filterNot { it.equals(clean, ignoreCase = true) } + clean
-            override.copy(messagingPolish = override.messagingPolish.copy(extraNoisePhrases = updated))
+            val list = override.messagingPolish.extraNoisePhrases.toMutableList()
+            if (oldPhrase != null) {
+                val index = list.indexOfFirst { it.equals(oldPhrase, ignoreCase = true) }
+                if (index != -1) {
+                    list[index] = clean
+                } else {
+                    list.add(clean)
+                }
+            } else {
+                list.removeAll { it.equals(clean, ignoreCase = true) }
+                list.add(clean)
+            }
+            override.copy(messagingPolish = override.messagingPolish.copy(extraNoisePhrases = list))
         }
     }
 

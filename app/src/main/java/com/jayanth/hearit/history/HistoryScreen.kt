@@ -110,6 +110,7 @@ import com.jayanth.hearit.core.common.model.HistoryStorageMode
 import com.jayanth.hearit.core.common.model.HistoryUpdateHandling
 import com.jayanth.hearit.core.common.model.KeywordMatchMode
 import com.jayanth.hearit.core.common.model.SkipReason
+import com.jayanth.hearit.ui.components.SwipeToDeleteContainer
 import com.jayanth.hearit.ui.components.verticalScrollbar
 
 /**
@@ -628,25 +629,30 @@ fun HistoryScreen(
                     }
                     items(items = itemsInGroup, key = { item -> item.id }) { item ->
                         val isSelected = item.id in selectedIds
-                        ModernHistoryCard(
-                            item = item,
-                            isPlaying = state.playingItemId == item.id,
-                            isSelectionMode = isSelectionMode,
-                            isSelected = isSelected,
-                            onToggleSelect = {
-                                selectedIds = if (isSelected) selectedIds - item.id else selectedIds + item.id
-                            },
-                            onPlay = { onPlayEntry(item) },
-                            onAppClick = { onOpenAppSettings(item.packageName) },
-                            onCardClick = {
-                                if (isSelectionMode) {
+                        SwipeToDeleteContainer(
+                            onDelete = { onDeleteEntry(item.id) },
+                            shape = RoundedCornerShape(18.dp),
+                        ) {
+                            ModernHistoryCard(
+                                item = item,
+                                isPlaying = state.playingItemId == item.id,
+                                isSelectionMode = isSelectionMode,
+                                isSelected = isSelected,
+                                onToggleSelect = {
                                     selectedIds = if (isSelected) selectedIds - item.id else selectedIds + item.id
-                                } else {
-                                    detailItem = item
-                                }
-                            },
-                            onDelete = { pendingDelete = item },
-                        )
+                                },
+                                onPlay = { onPlayEntry(item) },
+                                onAppClick = { onOpenAppSettings(item.packageName) },
+                                onCardClick = {
+                                    if (isSelectionMode) {
+                                        selectedIds = if (isSelected) selectedIds - item.id else selectedIds + item.id
+                                    } else {
+                                        detailItem = item
+                                    }
+                                },
+                                onDelete = { pendingDelete = item },
+                            )
+                        }
                     }
                 }
             }
@@ -1100,18 +1106,6 @@ private fun ModernHistoryCard(
                             contentDescription = if (isPlaying) "Stop" else "Listen",
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(20.dp),
-                        )
-                    }
-
-                    IconButton(
-                        onClick = onDelete,
-                        modifier = Modifier.size(32.dp),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.DeleteOutline,
-                            contentDescription = stringResource(R.string.history_delete_entry, item.appName),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(18.dp),
                         )
                     }
                 }
