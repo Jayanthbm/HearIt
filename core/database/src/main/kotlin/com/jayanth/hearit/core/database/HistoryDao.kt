@@ -27,6 +27,28 @@ interface HistoryDao {
     @Query("SELECT * FROM history_entries WHERE key = :key ORDER BY recordedAtMillis DESC LIMIT 1")
     suspend fun latestFor(key: String): HistoryEntryEntity?
 
+    /**
+     * Newest row carrying the same app, sender and body at or after [sinceMillis].
+     *
+     * Backs content-level duplicate collapsing: apps that re-post the same text (live score
+     * cards, "checking for new messages") reuse their existing row instead of adding one per
+     * repeat. `IS` is SQLite's null-safe equality, so a null sender or body still matches.
+     */
+    @Query(
+        "SELECT * FROM history_entries " +
+            "WHERE packageName = :packageName " +
+            "AND sender IS :sender " +
+            "AND messageText IS :messageText " +
+            "AND recordedAtMillis >= :sinceMillis " +
+            "ORDER BY recordedAtMillis DESC LIMIT 1",
+    )
+    suspend fun latestIdenticalContent(
+        packageName: String,
+        sender: String?,
+        messageText: String?,
+        sinceMillis: Long,
+    ): HistoryEntryEntity?
+
     /** Deletes one row. */
     @Query("DELETE FROM history_entries WHERE id = :id")
     suspend fun deleteById(id: Long)

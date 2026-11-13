@@ -84,16 +84,29 @@ class RoomHistoryRepository(
         reason: SkipReason?,
         priority: AppPriority?,
     ): Long? {
+        val now = clock.nowMillis()
         val existing = dao.latestFor(snapshot.key)
         val action = HistoryRecorderPolicy.decide(
             snapshot = snapshot,
             settings = settings,
             status = status,
             reason = reason,
-            recordedAtMillis = clock.nowMillis(),
+            recordedAtMillis = now,
             priority = priority,
             existingEntryForSameKey = existing != null,
         )
+
+        // Content-level duplicate collapsing: an app that re-posts the same body keeps one row
+        // instead of writing a new history entry for every repeat.
+        if (action is HistoryRecordAction.Insert && snapshot.messageText.isNotBlank()) {
+            val duplicate = dao.latestIdenticalContent(
+                packageName = snapshot.packageName,
+                sender = snapshot.sender,
+                messageText = snapshot.messageText,
+                sinceMillis = now - DUPLICATE_WINDOW_MILLIS,
+            )
+            if (duplicate != null) return duplicate.id
+        }
 
         return when (action) {
             HistoryRecordAction.Discard -> null
@@ -157,5 +170,14 @@ class RoomHistoryRepository(
             val cutoff = clock.nowMillis() - (olderThanDays.toLong() * 24 * 60 * 60 * 1000L)
             dao.deleteOlderThanForPackage(packageName, cutoff)
         }
+    }
+
+    private companion object {
+        /**
+         * How long an identical (app, sender, body) notification reuses its existing row.
+         * Long enough to absorb score/progress re-posts, short enough that a genuinely new
+         * message with the same text still gets its own entry.
+         */
+        const val DUPLICATE_WINDOW_MILLIS: Long = 5 * 60_000L
     }
 }
