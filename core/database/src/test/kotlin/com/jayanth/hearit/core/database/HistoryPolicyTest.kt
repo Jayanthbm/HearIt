@@ -83,8 +83,8 @@ class HistoryPolicyTest {
     }
 
     @Test
-    fun decide_updateEntryWithExistingRow_replacesIt() {
-        val settings = HistorySettings(updateHandling = HistoryUpdateHandling.UPDATE_ENTRY)
+    fun decide_existingRowWithSameKey_insertsNewEntry() {
+        val settings = HistorySettings()
 
         val action = HistoryRecorderPolicy.decide(
             snapshot(isUpdate = true),
@@ -95,12 +95,12 @@ class HistoryPolicyTest {
             existingEntryForSameKey = true,
         )
 
-        assertTrue(action is HistoryRecordAction.ReplaceExisting)
+        assertTrue(action is HistoryRecordAction.Insert)
     }
 
     @Test
-    fun decide_updateEntryWithoutExistingRow_inserts() {
-        val settings = HistorySettings(updateHandling = HistoryUpdateHandling.UPDATE_ENTRY)
+    fun decide_withoutExistingRow_inserts() {
+        val settings = HistorySettings()
 
         val action = HistoryRecorderPolicy.decide(
             snapshot(),
@@ -128,6 +128,61 @@ class HistoryPolicyTest {
         )
 
         assertTrue(action is HistoryRecordAction.Insert)
+    }
+
+    @Test
+    fun decide_queuedTransitionToAnnounced_replacesExistingEvenIfNewEntryMode() {
+        val settings = HistorySettings(updateHandling = HistoryUpdateHandling.NEW_ENTRY)
+
+        val action = HistoryRecorderPolicy.decide(
+            snapshot(),
+            settings,
+            HistoryStatus.ANNOUNCED,
+            null,
+            recordedAt,
+            existingEntryForSameKey = true,
+            existingEntryStatus = HistoryStatus.QUEUED,
+        )
+
+        assertTrue(action is HistoryRecordAction.ReplaceExisting)
+        assertEquals(HistoryStatus.ANNOUNCED, (action as HistoryRecordAction.ReplaceExisting).entry.status)
+    }
+
+    @Test
+    fun decide_queuedTransitionToInterrupted_replacesExisting() {
+        val settings = HistorySettings(updateHandling = HistoryUpdateHandling.NEW_ENTRY)
+
+        val action = HistoryRecorderPolicy.decide(
+            snapshot(),
+            settings,
+            HistoryStatus.INTERRUPTED,
+            SkipReason.INTERRUPTED_USER,
+            recordedAt,
+            existingEntryForSameKey = true,
+            existingEntryStatus = HistoryStatus.QUEUED,
+        )
+
+        assertTrue(action is HistoryRecordAction.ReplaceExisting)
+        assertEquals(HistoryStatus.INTERRUPTED, (action as HistoryRecordAction.ReplaceExisting).entry.status)
+        assertEquals(SkipReason.INTERRUPTED_USER, (action as HistoryRecordAction.ReplaceExisting).entry.reason)
+    }
+
+    @Test
+    fun decide_queuedTransitionToSkipped_replacesExisting() {
+        val settings = HistorySettings(updateHandling = HistoryUpdateHandling.NEW_ENTRY)
+
+        val action = HistoryRecorderPolicy.decide(
+            snapshot(),
+            settings,
+            HistoryStatus.SKIPPED,
+            SkipReason.TOO_LONG,
+            recordedAt,
+            existingEntryForSameKey = true,
+            existingEntryStatus = HistoryStatus.QUEUED,
+        )
+
+        assertTrue(action is HistoryRecordAction.ReplaceExisting)
+        assertEquals(HistoryStatus.SKIPPED, (action as HistoryRecordAction.ReplaceExisting).entry.status)
     }
 
     @Test

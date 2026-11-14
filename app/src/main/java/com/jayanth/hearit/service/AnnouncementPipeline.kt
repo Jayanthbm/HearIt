@@ -9,6 +9,7 @@ import com.jayanth.hearit.core.common.model.NotificationSnapshot
 import com.jayanth.hearit.core.common.model.ResolvedSettings
 import com.jayanth.hearit.core.common.model.RuntimeState
 import com.jayanth.hearit.core.common.model.SkipReason
+import com.jayanth.hearit.core.database.HistoryRepository
 import com.jayanth.hearit.core.queue.AnnouncementQueue
 import com.jayanth.hearit.core.queue.QueueEvent
 import com.jayanth.hearit.core.queue.ReadyAnnouncement
@@ -51,14 +52,24 @@ class AnnouncementPipeline(
     private val onRecord: (HistoryRecord) -> Unit = {},
 ) {
 
-    private data class ContentSignature(
+    data class ContentSignature(
         val packageName: String,
         val sender: String,
         val messageText: String,
     )
 
     private val recentSignatures = mutableMapOf<ContentSignature, Long>()
-    private val dedupWindowMillis = 20_000L
+    val dedupWindowMillis: Long = HistoryRepository.DUPLICATE_WINDOW_MILLIS
+
+    /** Seeds recently announced signatures (e.g. from history DB) so reconnects don't re-announce. */
+    fun seedSignatures(signatures: Map<ContentSignature, Long>) {
+        val now = clock()
+        signatures.forEach { (sig, timestamp) ->
+            if (now - timestamp < dedupWindowMillis) {
+                recentSignatures[sig] = timestamp
+            }
+        }
+    }
 
     private data class SenderCooldownBucket(
         val acceptedTimestamps: MutableList<Long> = mutableListOf(),

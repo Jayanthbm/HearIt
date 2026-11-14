@@ -66,6 +66,18 @@ interface HistoryRepository {
 
     /** Deletes rows for a specific package older than [olderThanDays], or all if null; returns count removed. */
     suspend fun clearPackageHistory(packageName: String, olderThanDays: Int? = null): Int
+
+    /** Returns recently announced entries recorded since [sinceMillis]. */
+    suspend fun recentAnnounced(sinceMillis: Long): List<HistoryEntry>
+
+    companion object {
+        /**
+         * How long an identical (app, sender, body) notification reuses its existing row.
+         * 30 seconds absorbs rapid reposts and progress updates without dropping genuine
+         * subsequent messages with identical content (e.g. "Ok", "Yes").
+         */
+        const val DUPLICATE_WINDOW_MILLIS: Long = 30_000L
+    }
 }
 
 /**
@@ -89,6 +101,9 @@ class RoomHistoryRepository(
     ): Long? {
         val now = clock.nowMillis()
         val existing = dao.latestFor(snapshot.key)
+        val existingStatus = existing?.status?.let { raw ->
+            runCatching { HistoryStatus.valueOf(raw) }.getOrNull()
+        }
         val action = HistoryRecorderPolicy.decide(
             snapshot = snapshot,
             settings = settings,
@@ -97,6 +112,7 @@ class RoomHistoryRepository(
             recordedAtMillis = now,
             priority = priority,
             existingEntryForSameKey = existing != null,
+            existingEntryStatus = existingStatus,
         )
 
         // Content-level duplicate collapsing: an app that re-posts the same body keeps one row
@@ -106,9 +122,16 @@ class RoomHistoryRepository(
                 packageName = snapshot.packageName,
                 sender = snapshot.sender,
                 messageText = snapshot.messageText,
-                sinceMillis = now - DUPLICATE_WINDOW_MILLIS,
+                sinceMillis = now - HistoryRepository.DUPLICATE_WINDOW_MILLIS,
             )
-            if (duplicate != null) return duplicate.id
+            if (duplicate != null) {
+                if (duplicate.status == HistoryStatus.QUEUED.name &&
+                    (status == HistoryStatus.ANNOUNCED || status == HistoryStatus.INTERRUPTED || status == HistoryStatus.SKIPPED)
+                ) {
+                    dao.update(action.entry.copy(id = duplicate.id).toEntity())
+                }
+                return duplicate.id
+            }
         }
 
         return when (action) {
@@ -177,12 +200,6 @@ class RoomHistoryRepository(
         }
     }
 
-    private companion object {
-        /**
-         * How long an identical (app, sender, body) notification reuses its existing row.
-         * 30 seconds absorbs rapid reposts and progress updates without dropping genuine
-         * subsequent messages with identical content (e.g. "Ok", "Yes").
-         */
-        const val DUPLICATE_WINDOW_MILLIS: Long = 30_000L
-    }
+    override suspend fun recentAnnounced(sinceMillis: Long): List<HistoryEntry> =
+        dao.recentEntriesByStatus(HistoryStatus.ANNOUNCED.name, sinceMillis).map { it.toDomain() }
 }

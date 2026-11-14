@@ -111,7 +111,6 @@ import com.jayanth.hearit.R
 import com.jayanth.hearit.applications.FilterTypeInfoRow
 import com.jayanth.hearit.core.common.model.HistoryStatus
 import com.jayanth.hearit.core.common.model.HistoryStorageMode
-import com.jayanth.hearit.core.common.model.HistoryUpdateHandling
 import com.jayanth.hearit.core.common.model.KeywordMatchMode
 import com.jayanth.hearit.core.common.model.SkipReason
 import com.jayanth.hearit.ui.components.StatusPill
@@ -208,7 +207,6 @@ fun HistoryRoute(
         onDeleteMultiple = viewModel::onDeleteMultiple,
         onClearAll = viewModel::onClearAll,
         onStorageModeChanged = viewModel::onStorageModeChanged,
-        onUpdateHandlingChanged = viewModel::onUpdateHandlingChanged,
         onRetentionChanged = viewModel::onRetentionChanged,
         modifier = modifier,
     )
@@ -240,7 +238,6 @@ fun HistoryScreen(
     onDeleteMultiple: (Set<Long>) -> Unit = {},
     onClearAll: () -> Unit,
     onStorageModeChanged: (HistoryStorageMode) -> Unit,
-    onUpdateHandlingChanged: (HistoryUpdateHandling) -> Unit,
     onRetentionChanged: (Int?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -613,7 +610,6 @@ fun HistoryScreen(
             HistorySettingsCard(
                 settings = state.settings,
                 onStorageClick = { openDialog = DIALOG_STORAGE },
-                onUpdatesClick = { openDialog = DIALOG_UPDATES },
                 onRetentionClick = { openDialog = DIALOG_RETENTION },
             )
         }
@@ -792,20 +788,6 @@ fun HistoryScreen(
             selected = state.settings.storageMode,
             label = { mode -> stringResource(storageLabelRes(mode)) },
             onSelect = { mode -> openDialog = DIALOG_NONE; onStorageModeChanged(mode) },
-            onDismiss = { openDialog = DIALOG_NONE },
-        )
-
-        DIALOG_UPDATES -> ChoiceDialog(
-            title = "Update Handling",
-            options = HistoryUpdateHandling.entries,
-            selected = state.settings.updateHandling,
-            label = { handling ->
-                when (handling) {
-                    HistoryUpdateHandling.UPDATE_ENTRY -> "Update in place (modify existing notification)"
-                    HistoryUpdateHandling.NEW_ENTRY -> "New entry (save each update separately)"
-                }
-            },
-            onSelect = { handling -> openDialog = DIALOG_NONE; onUpdateHandlingChanged(handling) },
             onDismiss = { openDialog = DIALOG_NONE },
         )
 
@@ -1137,44 +1119,22 @@ private fun ModernHistoryCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Footer Action Row: Update badge (left) + Action Buttons (right)
+            // Footer Action Row: Action Buttons
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.End,
             ) {
-                if (item.isUpdate) {
-                    Surface(
-                        shape = RoundedCornerShape(6.dp),
-                        color = MaterialTheme.colorScheme.secondaryContainer,
-                    ) {
-                        Text(
-                            text = "Update",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                            fontSize = 10.sp,
-                        )
-                    }
-                } else {
-                    Spacer(modifier = Modifier.width(1.dp))
-                }
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                IconButton(
+                    onClick = onPlay,
+                    modifier = Modifier.size(32.dp),
                 ) {
-                    IconButton(
-                        onClick = onPlay,
-                        modifier = Modifier.size(32.dp),
-                    ) {
-                        Icon(
-                            imageVector = if (isPlaying) Icons.Rounded.Stop else Icons.Rounded.PlayArrow,
-                            contentDescription = if (isPlaying) "Stop" else "Listen",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp),
-                        )
-                    }
+                    Icon(
+                        imageVector = if (isPlaying) Icons.Rounded.Stop else Icons.Rounded.PlayArrow,
+                        contentDescription = if (isPlaying) "Stop" else "Listen",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp),
+                    )
                 }
             }
         }
@@ -1736,19 +1696,14 @@ private fun HistoryNoticeBanner(message: String, isError: Boolean) {
 private fun HistorySettingsCard(
     settings: HistorySettingsState,
     onStorageClick: () -> Unit,
-    onUpdatesClick: () -> Unit,
     onRetentionClick: () -> Unit,
 ) {
     var isExpanded by rememberSaveable { mutableStateOf(false) }
 
     val storageLabel = stringResource(storageLabelRes(settings.storageMode))
-    val updateLabel = when (settings.updateHandling) {
-        HistoryUpdateHandling.UPDATE_ENTRY -> "Update in place"
-        HistoryUpdateHandling.NEW_ENTRY -> "New entry"
-    }
     val retentionLabel = settings.retentionDays?.let { stringResource(R.string.history_retention_days, it) }
         ?: stringResource(R.string.history_retention_never)
-    val summaryText = "$storageLabel · $retentionLabel · $updateLabel"
+    val summaryText = "$storageLabel · $retentionLabel"
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -1819,11 +1774,6 @@ private fun HistorySettingsCard(
                         label = stringResource(R.string.history_storage_label),
                         value = storageLabel,
                         onClick = onStorageClick,
-                    )
-                    HistorySettingRow(
-                        label = "Update Handling",
-                        value = updateLabel,
-                        onClick = onUpdatesClick,
                     )
                     HistorySettingRow(
                         label = stringResource(R.string.history_retention_label),
@@ -1956,11 +1906,10 @@ private const val DIALOG_NONE = 0
 private const val DIALOG_STATUS = 1
 private const val DIALOG_SORT = 2
 private const val DIALOG_STORAGE = 3
-private const val DIALOG_UPDATES = 4
-private const val DIALOG_RETENTION = 5
-private const val DIALOG_APP = 6
-private const val DIALOG_DATE = 7
-private const val DIALOG_DATE_CUSTOM = 8
-private const val DIALOG_EXPORT = 9
+private const val DIALOG_RETENTION = 4
+private const val DIALOG_APP = 5
+private const val DIALOG_DATE = 6
+private const val DIALOG_DATE_CUSTOM = 7
+private const val DIALOG_EXPORT = 8
 
 private val RETENTION_OPTIONS: List<Int?> = listOf(null, 7, 30, 90)

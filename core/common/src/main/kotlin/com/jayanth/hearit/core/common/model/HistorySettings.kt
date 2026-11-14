@@ -44,7 +44,7 @@ enum class HistoryUpdateHandling {
  */
 data class HistorySettings(
     val storageMode: HistoryStorageMode = HistoryStorageMode.FULL_CONTENT,
-    val updateHandling: HistoryUpdateHandling = HistoryUpdateHandling.UPDATE_ENTRY,
+    val updateHandling: HistoryUpdateHandling = HistoryUpdateHandling.NEW_ENTRY,
     val retentionDays: Int? = null,
     val requireAuth: Boolean = false,
 ) {

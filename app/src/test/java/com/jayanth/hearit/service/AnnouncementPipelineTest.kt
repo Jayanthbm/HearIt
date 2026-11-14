@@ -4,6 +4,7 @@ import com.jayanth.hearit.core.common.model.EligibilitySettings
 import com.jayanth.hearit.core.common.model.NotificationSnapshot
 import com.jayanth.hearit.core.common.model.ResolvedSettings
 import com.jayanth.hearit.core.common.model.RuntimeState
+import com.jayanth.hearit.core.common.model.SkipReason
 import com.jayanth.hearit.core.common.time.Clock
 import com.jayanth.hearit.core.queue.AnnouncementQueue
 import com.jayanth.hearit.core.queue.DeviceAudioState
@@ -376,5 +377,54 @@ class AnnouncementPipelineTest {
         val cleared = pipeline.clearQueue()
         assertEquals(4, cleared)
         assertEquals(0, pipeline.pendingCount)
+    }
+
+    @Test
+    fun onNotification_dedupWindowIs30SecondsAndSuppressesIdenticalContent() {
+        val clock = TestClock(now = 10_000L)
+        val pipeline = AnnouncementPipeline(
+            queue = AnnouncementQueue(clock = Clock { clock.now }),
+            clock = { clock.now },
+        )
+
+        assertEquals(30_000L, pipeline.dedupWindowMillis)
+
+        val s1 = snapshot(key = "k1", sender = "Rahul", messageText = "Hello")
+        val s2 = snapshot(key = "k2", sender = "Rahul", messageText = "Hello")
+
+        val p1 = pipeline.onNotification(s1, enabled, state())
+        assertTrue(p1.decision is EligibilityDecision.Announce)
+
+        // Arrives 25 seconds later (within 30s window) -> suppressed as duplicate
+        clock.now += 25_000L
+        val p2 = pipeline.onNotification(s2, enabled, state())
+        assertTrue(p2.decision is EligibilityDecision.Skip)
+        assertEquals(SkipReason.DUPLICATE_UPDATE, (p2.decision as EligibilityDecision.Skip).reason)
+
+        // Arrives 35 seconds later (outside 30s window) -> allowed to announce
+        clock.now += 35_000L
+        val s3 = snapshot(key = "k3", sender = "Rahul", messageText = "Hello")
+        val p3 = pipeline.onNotification(s3, enabled, state())
+        assertTrue(p3.decision is EligibilityDecision.Announce)
+    }
+
+    @Test
+    fun seedSignatures_suppressesDuplicateFromReconnectOrRestart() {
+        val clock = TestClock(now = 50_000L)
+        val pipeline = AnnouncementPipeline(
+            queue = AnnouncementQueue(clock = Clock { clock.now }),
+            clock = { clock.now },
+        )
+
+        // Seed with a notification that was announced 10 seconds ago
+        val signature = AnnouncementPipeline.ContentSignature("com.whatsapp", "Rahul", "Hello from shade")
+        pipeline.seedSignatures(mapOf(signature to 40_000L))
+
+        // Reconnect delivers the shade notification
+        val s = snapshot(packageName = "com.whatsapp", key = "shade1", sender = "Rahul", messageText = "Hello from shade")
+        val processed = pipeline.onNotification(s, enabled, state())
+
+        assertTrue(processed.decision is EligibilityDecision.Skip)
+        assertEquals(SkipReason.DUPLICATE_UPDATE, (processed.decision as EligibilityDecision.Skip).reason)
     }
 }

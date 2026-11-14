@@ -13,7 +13,6 @@ import com.jayanth.hearit.applications.AppSettingsEditor
 import com.jayanth.hearit.core.common.model.AudioFocusPolicy
 import com.jayanth.hearit.core.common.model.HistoryStatus
 import com.jayanth.hearit.core.common.model.HistoryStorageMode
-import com.jayanth.hearit.core.common.model.HistoryUpdateHandling
 import com.jayanth.hearit.core.common.model.KeywordMatchMode
 import com.jayanth.hearit.core.common.model.NotificationSnapshot
 import com.jayanth.hearit.core.common.model.SkipReason
@@ -265,9 +264,6 @@ class HistoryViewModel @Inject constructor(
 
     fun onStorageModeChanged(storageMode: HistoryStorageMode) =
         updateSettings { it.copy(storageMode = storageMode) }
-
-    fun onUpdateHandlingChanged(updateHandling: HistoryUpdateHandling) =
-        updateSettings { it.copy(updateHandling = updateHandling) }
 
     fun onRetentionChanged(retentionDays: Int?) =
         updateSettings { it.copy(retentionDays = retentionDays) }

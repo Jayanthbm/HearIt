@@ -44,6 +44,7 @@ object HistoryRecorderPolicy {
         recordedAtMillis: Long,
         priority: AppPriority? = null,
         existingEntryForSameKey: Boolean = false,
+        existingEntryStatus: HistoryStatus? = null,
     ): HistoryRecordAction {
         if (settings.storageMode == HistoryStorageMode.DISABLED) {
             return HistoryRecordAction.Discard
@@ -68,7 +69,10 @@ object HistoryRecorderPolicy {
             priority = priority,
         )
 
-        return if (settings.updateHandling == HistoryUpdateHandling.UPDATE_ENTRY && existingEntryForSameKey) {
+        val isQueuedLifecycleTransition = existingEntryStatus == HistoryStatus.QUEUED &&
+            (status == HistoryStatus.ANNOUNCED || status == HistoryStatus.INTERRUPTED || status == HistoryStatus.SKIPPED || status == HistoryStatus.QUEUED)
+
+        return if (isQueuedLifecycleTransition) {
             HistoryRecordAction.ReplaceExisting(entry)
         } else {
             HistoryRecordAction.Insert(entry)

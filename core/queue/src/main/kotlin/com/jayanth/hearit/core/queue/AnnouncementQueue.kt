@@ -149,6 +149,16 @@ class AnnouncementQueue(
     /** Checks whether an item with [key] is currently waiting in the pending queue. */
     fun hasPending(key: String): Boolean = pending.any { it.snapshot.key == key }
 
+    /** Seeds recently announced notification keys with their announcement timestamps (e.g. from history DB). */
+    fun seedAnnounced(keys: Map<String, Long>) {
+        val now = clock.nowMillis()
+        keys.forEach { (key, timestamp) ->
+            if (now - timestamp < settings.expiryMillis) {
+                announcedAt[key] = timestamp
+            }
+        }
+    }
+
     /** Number of items parked by an active call. */
     val heldCount: Int
         get() = held.size

@@ -149,7 +149,6 @@ import com.jayanth.hearit.core.common.model.AppPriority
 import com.jayanth.hearit.core.common.model.AudioFocusPolicy
 import com.jayanth.hearit.core.common.model.HistoryStatus
 import com.jayanth.hearit.core.common.model.HistoryStorageMode
-import com.jayanth.hearit.core.common.model.HistoryUpdateHandling
 import com.jayanth.hearit.core.common.model.KeywordMatchMode
 import com.jayanth.hearit.core.common.model.SkipReason
 import com.jayanth.hearit.core.database.HistoryEntry
@@ -254,7 +253,6 @@ fun ApplicationsRoute(
                     onAutoDismissChanged = viewModel::onAutoDismissChanged,
                     onPriorityChanged = viewModel::onPriorityChanged,
                     onHistoryStorageModeChanged = viewModel::onHistoryStorageModeChanged,
-                    onHistoryUpdateHandlingChanged = viewModel::onHistoryUpdateHandlingChanged,
                     onHistoryRetentionChanged = viewModel::onHistoryRetentionChanged,
                     onRespectDndChanged = viewModel::onRespectDndChanged,
                     onQueueDuringCallChanged = viewModel::onQueueDuringCallChanged,
@@ -917,7 +915,6 @@ private fun AppSettingsScreen(
     onAutoDismissChanged: (Boolean?) -> Unit,
     onPriorityChanged: (AppPriority?) -> Unit,
     onHistoryStorageModeChanged: (HistoryStorageMode?) -> Unit,
-    onHistoryUpdateHandlingChanged: (HistoryUpdateHandling?) -> Unit,
     onHistoryRetentionChanged: (Int?) -> Unit,
     onRespectDndChanged: (Boolean?) -> Unit,
     onQueueDuringCallChanged: (Boolean?) -> Unit,
@@ -1721,85 +1718,6 @@ private fun AppSettingsScreen(
                                     Text("Clear all saved records", fontWeight = FontWeight.SemiBold)
                                 }
                             } else {
-                            HorizontalDivider(modifier = Modifier.padding(vertical = 14.dp))
-
-                            // Update Handling Section
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Text(
-                                    text = "Update Handling",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                )
-                                if (!state.historyUpdateHandling.isInherited) {
-                                    TextButton(onClick = { onHistoryUpdateHandlingChanged(null) }) {
-                                        Text("Revert to Global", style = MaterialTheme.typography.labelSmall)
-                                    }
-                                }
-                            }
-                            Text(
-                                text = "Choose whether edited or progress notifications overwrite earlier records.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            // 2-pill segmented selector
-                            Surface(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(42.dp),
-                                shape = RoundedCornerShape(12.dp),
-                                color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(3.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                ) {
-                                    val handlingOptions = listOf(
-                                        HistoryUpdateHandling.UPDATE_ENTRY to "Update",
-                                        HistoryUpdateHandling.NEW_ENTRY to "Separate",
-                                    )
-                                    handlingOptions.forEach { (handling, label) ->
-                                        val isSelected = state.historyUpdateHandling.effective == handling
-                                        val pillBg by animateColorAsState(
-                                            targetValue = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
-                                            label = "updatePillBg",
-                                        )
-                                        val pillText by animateColorAsState(
-                                            targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-                                            label = "updatePillText",
-                                        )
-                                        Box(
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .fillMaxHeight()
-                                                .clip(RoundedCornerShape(9.dp))
-                                                .background(pillBg)
-                                                .clickable { onHistoryUpdateHandlingChanged(handling) },
-                                            contentAlignment = Alignment.Center,
-                                        ) {
-                                            Text(
-                                                text = label,
-                                                style = MaterialTheme.typography.labelSmall,
-                                                fontSize = 12.sp,
-                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                                color = pillText,
-                                                maxLines = 1,
-                                                softWrap = false,
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-
                             HorizontalDivider(modifier = Modifier.padding(vertical = 14.dp))
 
                             // History Retention Section

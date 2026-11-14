@@ -240,6 +240,9 @@ class AnnouncementService : Service(), NotificationSink {
         override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>?) {
             if (addedDevices.isNullOrEmpty()) return
             val hasHeadphones = addedDevices.any { it.isHeadphoneDevice() }
+            if (hasHeadphones) {
+                seedRecentAnnouncementsFromHistory()
+            }
             if (!hasHeadphones || !sessionStore.isCatchUpSummaryEnabled) return
 
             val nowElapsed = SystemClock.elapsedRealtime()
@@ -425,6 +428,7 @@ class AnnouncementService : Service(), NotificationSink {
         HearItNotificationListenerService.requestRebindIfDisconnected(this)
         audioManager.registerAudioPlaybackCallback(playbackCallback, handler)
 
+        seedRecentAnnouncementsFromHistory()
         HearItLogger.info(LogCategory.SERVICE, "AnnouncementService created")
     }
 
@@ -432,6 +436,7 @@ class AnnouncementService : Service(), NotificationSink {
         val action = intent?.action
         HearItLogger.info(LogCategory.SERVICE, "AnnouncementService onStartCommand action=$action")
         HearItNotificationListenerService.requestRebindIfDisconnected(this)
+        seedRecentAnnouncementsFromHistory()
         when (action) {
             ACTION_STOP -> {
                 sessionStore.isStarted = false
@@ -576,6 +581,41 @@ class AnnouncementService : Service(), NotificationSink {
     override fun onRemoved(key: String) {
         // The listener already forgot the extraction identity; the queue owns dedup and
         // expiry for pending items.
+    }
+
+    private fun seedRecentAnnouncementsFromHistory() {
+        serviceScope.launch(Dispatchers.IO) {
+            val now = System.currentTimeMillis()
+            val window = HistoryRepository.DUPLICATE_WINDOW_MILLIS
+            val recent = runCatching {
+                history.recentAnnounced(now - window)
+            }.getOrDefault(emptyList())
+
+            if (recent.isNotEmpty()) {
+                val signatures = recent.mapNotNull { entry ->
+                    val text = entry.messageText?.trim().orEmpty()
+                    val sender = entry.sender?.trim().orEmpty()
+                    if (text.isNotBlank() || sender.isNotBlank()) {
+                        AnnouncementPipeline.ContentSignature(entry.packageName, sender, text) to entry.recordedAtMillis
+                    } else null
+                }.toMap()
+
+                val keys = recent.associate { it.key to it.recordedAtMillis }
+
+                handler.post {
+                    if (::pipeline.isInitialized) {
+                        pipeline.seedSignatures(signatures)
+                    }
+                    if (::queue.isInitialized) {
+                        queue.seedAnnounced(keys)
+                    }
+                    HearItLogger.info(
+                        LogCategory.SERVICE,
+                        "Seeded ${signatures.size} recent announcement signatures from history DB",
+                    )
+                }
+            }
+        }
     }
 
     override fun onDestroy() {
