@@ -189,7 +189,7 @@ fun WearApp() {
                 .fillMaxSize()
                 .background(Color.Black),
             state = listState,
-            contentPadding = PaddingValues(top = 40.dp, bottom = 32.dp, start = 8.dp, end = 8.dp),
+            contentPadding = PaddingValues(top = 54.dp, bottom = 36.dp, start = 8.dp, end = 8.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
             autoCentering = null,
             horizontalAlignment = Alignment.CenterHorizontally,
