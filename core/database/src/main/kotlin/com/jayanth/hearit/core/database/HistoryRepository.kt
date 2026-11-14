@@ -43,6 +43,9 @@ interface HistoryRepository {
     /** Deletes one entry ("clear individual"). */
     suspend fun delete(id: Long)
 
+    /** Restores a previously deleted entry (e.g. on Undo). */
+    suspend fun restore(entry: HistoryEntry): Long
+
     /** Deletes all history ("clear all"). */
     suspend fun deleteAll()
 
@@ -145,6 +148,8 @@ class RoomHistoryRepository(
     override suspend fun latestFor(key: String): HistoryEntry? = dao.latestFor(key)?.toDomain()
 
     override suspend fun delete(id: Long) = dao.deleteById(id)
+
+    override suspend fun restore(entry: HistoryEntry): Long = dao.insert(entry.copy(id = 0L).toEntity())
 
     override suspend fun deleteAll() = dao.deleteAll()
 

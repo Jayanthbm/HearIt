@@ -36,13 +36,14 @@ import androidx.compose.ui.unit.dp
 fun SwipeToDeleteContainer(
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
     shape: Shape = RoundedCornerShape(12.dp),
     content: @Composable () -> Unit,
 ) {
     val dismissState = rememberSwipeToDismissBoxState(
         positionalThreshold = { totalDistance -> totalDistance * 0.6f },
         confirmValueChange = { value ->
-            if (value == SwipeToDismissBoxValue.EndToStart) {
+            if (enabled && value == SwipeToDismissBoxValue.EndToStart) {
                 onDelete()
                 true
             } else {
@@ -55,29 +56,31 @@ fun SwipeToDeleteContainer(
         state = dismissState,
         modifier = modifier,
         enableDismissFromStartToEnd = false,
-        enableDismissFromEndToStart = true,
+        enableDismissFromEndToStart = enabled,
         backgroundContent = {
-            val color by animateColorAsState(
-                targetValue = if (dismissState.targetValue == SwipeToDismissBoxValue.Settled) {
-                    Color.Transparent
-                } else {
-                    MaterialTheme.colorScheme.errorContainer
-                },
-                label = "swipeDeleteBg",
+            val isSwiping = enabled && (
+                dismissState.targetValue != SwipeToDismissBoxValue.Settled ||
+                dismissState.currentValue != SwipeToDismissBoxValue.Settled
             )
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(shape)
-                    .background(color)
-                    .padding(end = 20.dp),
-                contentAlignment = Alignment.CenterEnd,
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.DeleteOutline,
-                    contentDescription = "Delete",
-                    tint = MaterialTheme.colorScheme.error,
+            if (isSwiping) {
+                val color by animateColorAsState(
+                    targetValue = MaterialTheme.colorScheme.errorContainer,
+                    label = "swipeDeleteBg",
                 )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(shape)
+                        .background(color)
+                        .padding(end = 20.dp),
+                    contentAlignment = Alignment.CenterEnd,
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.DeleteOutline,
+                        contentDescription = "Delete",
+                        tint = MaterialTheme.colorScheme.error,
+                    )
+                }
             }
         },
         content = { content() },

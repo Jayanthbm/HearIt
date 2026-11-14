@@ -84,6 +84,11 @@ class ApplicationsViewModel @Inject constructor(
     private val _userMessage = MutableSharedFlow<String>()
     val userMessage: SharedFlow<String> = _userMessage.asSharedFlow()
 
+    private val _historyUndoMessage = MutableSharedFlow<HistoryEntry>()
+    val historyUndoMessage: SharedFlow<HistoryEntry> = _historyUndoMessage.asSharedFlow()
+
+    private var lastDeletedHistoryEntry: HistoryEntry? = null
+
     private var historyObservationJob: Job? = null
 
     /** Icon source for the list rows; a data source, not a policy holder. */
@@ -476,9 +481,35 @@ class ApplicationsViewModel @Inject constructor(
     }
 
     fun onDeleteHistoryEntry(id: Long) {
+        val entry = _state.value.settings?.recentHistory?.firstOrNull { it.id == id }
+        lastDeletedHistoryEntry = entry
         viewModelScope.launch {
             historyRepository.delete(id)
-            _userMessage.emit("Deleted notification record")
+            if (entry != null) {
+                _historyUndoMessage.emit(entry)
+            } else {
+                _userMessage.emit("Deleted notification record")
+            }
+        }
+    }
+
+    fun onUndoDeleteHistory() {
+        val entry = lastDeletedHistoryEntry ?: return
+        lastDeletedHistoryEntry = null
+        viewModelScope.launch {
+            try {
+                historyRepository.restore(entry.copy(id = 0L))
+                _userMessage.emit("Notification restored")
+            } catch (e: Exception) {
+                _userMessage.emit("Could not restore notification")
+            }
+        }
+    }
+
+    fun onDeleteMultipleHistoryEntries(ids: Set<Long>) {
+        viewModelScope.launch {
+            ids.forEach { id -> historyRepository.delete(id) }
+            _userMessage.emit("${ids.size} notifications deleted")
         }
     }
 

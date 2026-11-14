@@ -269,7 +269,14 @@ fun PronunciationDictionaryDialog(
                             onDelete = {
                                 onDeleteRule(rule.match)
                                 coroutineScope.launch {
-                                    snackbarHostState.showSnackbar("Rule '${rule.match}' deleted")
+                                    val result = snackbarHostState.showSnackbar(
+                                        message = "Rule '${rule.match}' deleted",
+                                        actionLabel = "Undo",
+                                        duration = androidx.compose.material3.SnackbarDuration.Long,
+                                    )
+                                    if (result == androidx.compose.material3.SnackbarResult.ActionPerformed) {
+                                        onSaveRule(null, rule)
+                                    }
                                 }
                             },
                             shape = RoundedCornerShape(12.dp),
@@ -574,7 +581,14 @@ fun UrlSummaryRulesDialog(
                             onDelete = {
                                 onDeleteRule(rule.pattern)
                                 coroutineScope.launch {
-                                    snackbarHostState.showSnackbar("URL rule '${rule.pattern}' deleted")
+                                    val result = snackbarHostState.showSnackbar(
+                                        message = "URL rule '${rule.pattern}' deleted",
+                                        actionLabel = "Undo",
+                                        duration = androidx.compose.material3.SnackbarDuration.Long,
+                                    )
+                                    if (result == androidx.compose.material3.SnackbarResult.ActionPerformed) {
+                                        onSaveRule(null, rule)
+                                    }
                                 }
                             },
                             shape = RoundedCornerShape(12.dp),
@@ -816,7 +830,14 @@ fun CarrierSpamPhrasesDialog(
                             onDelete = {
                                 onRemovePhrase(phrase)
                                 coroutineScope.launch {
-                                    snackbarHostState.showSnackbar("Promo phrase deleted")
+                                    val result = snackbarHostState.showSnackbar(
+                                        message = "Promo phrase deleted",
+                                        actionLabel = "Undo",
+                                        duration = androidx.compose.material3.SnackbarDuration.Long,
+                                    )
+                                    if (result == androidx.compose.material3.SnackbarResult.ActionPerformed) {
+                                        onAddPhrase(phrase)
+                                    }
                                 }
                             },
                             shape = RoundedCornerShape(12.dp),

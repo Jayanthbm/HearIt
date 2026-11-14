@@ -17,6 +17,7 @@ import com.jayanth.hearit.core.common.model.HistoryUpdateHandling
 import com.jayanth.hearit.core.common.model.KeywordMatchMode
 import com.jayanth.hearit.core.common.model.NotificationSnapshot
 import com.jayanth.hearit.core.common.model.SkipReason
+import com.jayanth.hearit.core.database.HistoryEntry
 import com.jayanth.hearit.core.database.HistoryQuery
 import com.jayanth.hearit.core.database.HistoryRepository
 import com.jayanth.hearit.core.datastore.SettingsRepository
@@ -64,6 +65,11 @@ class HistoryViewModel @Inject constructor(
 
     private val _userMessage = MutableSharedFlow<String>()
     val userMessage: SharedFlow<String> = _userMessage.asSharedFlow()
+
+    private val _undoMessage = MutableSharedFlow<HistoryItem>()
+    val undoMessage: SharedFlow<HistoryItem> = _undoMessage.asSharedFlow()
+
+    private var lastDeletedItem: HistoryItem? = null
 
     private var loadJob: Job? = null
     private val rules = EligibilityRules()
@@ -196,10 +202,46 @@ class HistoryViewModel @Inject constructor(
     fun onLoadMore() = load(reset = false)
 
     fun onDeleteEntry(id: Long) {
+        val itemToDelete = state.value.items.firstOrNull { it.id == id }
+        lastDeletedItem = itemToDelete
         viewModelScope.launch {
             if (safely { historyRepository.delete(id) } != null) {
                 load(reset = true)
-                _userMessage.emit("Notification deleted")
+                if (itemToDelete != null) {
+                    _undoMessage.emit(itemToDelete)
+                } else {
+                    _userMessage.emit("Notification deleted")
+                }
+            }
+        }
+    }
+
+    /** Restores the last deleted history entry if undo is requested. */
+    fun onUndoDelete() {
+        val item = lastDeletedItem ?: return
+        lastDeletedItem = null
+        viewModelScope.launch {
+            val entry = HistoryEntry(
+                id = 0L,
+                key = item.key,
+                packageName = item.packageName,
+                appName = item.appName,
+                sender = item.sender,
+                messageText = item.messageText,
+                channelId = item.channelId,
+                category = item.category,
+                postTimeMillis = item.postTimeMillis,
+                recordedAtMillis = item.recordedAtMillis,
+                status = item.status,
+                reason = item.reason,
+                isUpdate = item.isUpdate,
+            )
+            try {
+                historyRepository.restore(entry)
+                load(reset = true)
+                _userMessage.emit("Notification restored")
+            } catch (e: Exception) {
+                _userMessage.emit("Could not restore notification")
             }
         }
     }

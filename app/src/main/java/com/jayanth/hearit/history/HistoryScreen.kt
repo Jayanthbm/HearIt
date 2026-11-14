@@ -4,6 +4,7 @@ import android.text.format.DateUtils
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -46,6 +47,8 @@ import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.NotificationsNone
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -92,6 +95,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -130,7 +134,22 @@ fun HistoryRoute(
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(viewModel) {
         viewModel.userMessage.collect { message ->
-            snackbarHostState.showSnackbar(message)
+            snackbarHostState.showSnackbar(
+                message = message,
+                duration = androidx.compose.material3.SnackbarDuration.Short,
+            )
+        }
+    }
+    LaunchedEffect(viewModel) {
+        viewModel.undoMessage.collect {
+            val result = snackbarHostState.showSnackbar(
+                message = "Notification deleted",
+                actionLabel = "Undo",
+                duration = androidx.compose.material3.SnackbarDuration.Long,
+            )
+            if (result == androidx.compose.material3.SnackbarResult.ActionPerformed) {
+                viewModel.onUndoDelete()
+            }
         }
     }
 
@@ -341,6 +360,12 @@ fun HistoryScreen(
                 )
 
                 // Filter & Sort Horizontal Scroll Row
+                val hasActiveFilters = state.filter.selectedPackageName != null ||
+                    state.filter.status != null ||
+                    state.filter.datePreset != HistoryDatePreset.ALL ||
+                    state.filter.query.isNotBlank() ||
+                    state.filter.sort != HistorySortOrder.RecentFirst
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -348,6 +373,40 @@ fun HistoryScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    if (hasActiveFilters) {
+                        FilterChip(
+                            selected = true,
+                            onClick = {
+                                onQueryChanged("")
+                                onAppFilterChanged(null, null)
+                                onStatusChanged(null)
+                                onDatePresetSelected(HistoryDatePreset.ALL)
+                                onSortChanged(HistorySortOrder.RecentFirst)
+                            },
+                            label = {
+                                Text(
+                                    text = "Reset",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Rounded.Close,
+                                    contentDescription = "Reset all filters",
+                                    modifier = Modifier.size(14.dp),
+                                )
+                            },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+                                selectedLabelColor = MaterialTheme.colorScheme.onErrorContainer,
+                                selectedLeadingIconColor = MaterialTheme.colorScheme.onErrorContainer,
+                            ),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.4f)),
+                            shape = RoundedCornerShape(12.dp),
+                        )
+                    }
+
                     // App filter pill
                     FilterChip(
                         selected = state.filter.selectedPackageName != null,
@@ -631,6 +690,7 @@ fun HistoryScreen(
                     items(items = itemsInGroup, key = { item -> item.id }) { item ->
                         val isSelected = item.id in selectedIds
                         SwipeToDeleteContainer(
+                            enabled = !isSelectionMode,
                             onDelete = { onDeleteEntry(item.id) },
                             shape = RoundedCornerShape(18.dp),
                         ) {
@@ -741,8 +801,8 @@ fun HistoryScreen(
             selected = state.settings.updateHandling,
             label = { handling ->
                 when (handling) {
-                    HistoryUpdateHandling.UPDATE_ENTRY -> "Update"
-                    HistoryUpdateHandling.NEW_ENTRY -> "Separate"
+                    HistoryUpdateHandling.UPDATE_ENTRY -> "Update in place (modify existing notification)"
+                    HistoryUpdateHandling.NEW_ENTRY -> "New entry (save each update separately)"
                 }
             },
             onSelect = { handling -> openDialog = DIALOG_NONE; onUpdateHandlingChanged(handling) },
@@ -899,7 +959,7 @@ fun HistoryScreen(
     }
 }
 
-private fun getDateGroup(recordedAtMillis: Long): String {
+internal fun getDateGroup(recordedAtMillis: Long): String {
     val now = java.util.Calendar.getInstance()
     val itemCal = java.util.Calendar.getInstance().apply { timeInMillis = recordedAtMillis }
 
@@ -942,7 +1002,12 @@ private fun ModernHistoryCard(
             .clickable(onClick = onCardClick),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f) else MaterialTheme.colorScheme.surfaceContainer,
+            containerColor = if (isSelected) {
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                    .compositeOver(MaterialTheme.colorScheme.surfaceContainer)
+            } else {
+                MaterialTheme.colorScheme.surfaceContainer
+            },
         ),
         border = BorderStroke(
             1.dp,
@@ -1674,6 +1739,17 @@ private fun HistorySettingsCard(
     onUpdatesClick: () -> Unit,
     onRetentionClick: () -> Unit,
 ) {
+    var isExpanded by rememberSaveable { mutableStateOf(false) }
+
+    val storageLabel = stringResource(storageLabelRes(settings.storageMode))
+    val updateLabel = when (settings.updateHandling) {
+        HistoryUpdateHandling.UPDATE_ENTRY -> "Update in place"
+        HistoryUpdateHandling.NEW_ENTRY -> "New entry"
+    }
+    val retentionLabel = settings.retentionDays?.let { stringResource(R.string.history_retention_days, it) }
+        ?: stringResource(R.string.history_retention_never)
+    val summaryText = "$storageLabel · $retentionLabel · $updateLabel"
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
@@ -1681,35 +1757,81 @@ private fun HistorySettingsCard(
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
-            Text(
-                text = "History & Storage Rules",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(role = Role.Button) { isExpanded = !isExpanded },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .background(
+                                color = MaterialTheme.colorScheme.secondaryContainer,
+                                shape = RoundedCornerShape(8.dp),
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Tune,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                        Text(
+                            text = "History & Storage Rules",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            text = summaryText,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+                Icon(
+                    imageVector = if (isExpanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
+                    contentDescription = if (isExpanded) "Collapse rules" else "Expand rules",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(24.dp),
+                )
+            }
 
-            HistorySettingRow(
-                label = stringResource(R.string.history_storage_label),
-                value = stringResource(storageLabelRes(settings.storageMode)),
-                onClick = onStorageClick,
-            )
-
-            HistorySettingRow(
-                label = "Update Handling",
-                value = when (settings.updateHandling) {
-                    HistoryUpdateHandling.UPDATE_ENTRY -> "Update"
-                    HistoryUpdateHandling.NEW_ENTRY -> "Separate"
-                },
-                onClick = onUpdatesClick,
-            )
-
-            HistorySettingRow(
-                label = stringResource(R.string.history_retention_label),
-                value = settings.retentionDays?.let { stringResource(R.string.history_retention_days, it) }
-                    ?: stringResource(R.string.history_retention_never),
-                onClick = onRetentionClick,
-            )
+            AnimatedVisibility(visible = isExpanded) {
+                Column(modifier = Modifier.padding(top = 10.dp)) {
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.padding(bottom = 6.dp),
+                    )
+                    HistorySettingRow(
+                        label = stringResource(R.string.history_storage_label),
+                        value = storageLabel,
+                        onClick = onStorageClick,
+                    )
+                    HistorySettingRow(
+                        label = "Update Handling",
+                        value = updateLabel,
+                        onClick = onUpdatesClick,
+                    )
+                    HistorySettingRow(
+                        label = stringResource(R.string.history_retention_label),
+                        value = retentionLabel,
+                        onClick = onRetentionClick,
+                    )
+                }
+            }
         }
     }
 }

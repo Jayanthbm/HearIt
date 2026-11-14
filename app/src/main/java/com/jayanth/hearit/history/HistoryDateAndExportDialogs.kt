@@ -133,6 +133,7 @@ fun HistoryCustomDateRangePickerDialog(
                 .fillMaxWidth()
                 .height(460.dp)
                 .padding(top = 8.dp),
+            showModeToggle = false,
         )
     }
 }

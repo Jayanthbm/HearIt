@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -85,6 +86,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
@@ -126,6 +128,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -151,6 +154,7 @@ import com.jayanth.hearit.core.common.model.KeywordMatchMode
 import com.jayanth.hearit.core.common.model.SkipReason
 import com.jayanth.hearit.core.database.HistoryEntry
 import com.jayanth.hearit.core.rules.KeywordMatcher
+import com.jayanth.hearit.history.getDateGroup
 import com.jayanth.hearit.history.skipReasonLabel
 import com.jayanth.hearit.ui.components.verticalScrollbar
 
@@ -171,7 +175,22 @@ fun ApplicationsRoute(
 
     LaunchedEffect(Unit) {
         viewModel.userMessage.collect { message ->
-            snackbarHostState.showSnackbar(message)
+            snackbarHostState.showSnackbar(
+                message = message,
+                duration = androidx.compose.material3.SnackbarDuration.Short,
+            )
+        }
+    }
+    LaunchedEffect(viewModel) {
+        viewModel.historyUndoMessage.collect {
+            val result = snackbarHostState.showSnackbar(
+                message = "Notification deleted",
+                actionLabel = "Undo",
+                duration = androidx.compose.material3.SnackbarDuration.Long,
+            )
+            if (result == androidx.compose.material3.SnackbarResult.ActionPerformed) {
+                viewModel.onUndoDeleteHistory()
+            }
         }
     }
 
@@ -248,6 +267,7 @@ fun ApplicationsRoute(
                     onPlayHistoryEntry = viewModel::onPlayHistoryEntry,
                     onStopPlaying = viewModel::onStopPlaying,
                     onDeleteHistoryEntry = viewModel::onDeleteHistoryEntry,
+                    onDeleteMultipleHistoryEntries = viewModel::onDeleteMultipleHistoryEntries,
                     onClearAppHistory = viewModel::onClearAppHistory,
                     onSpokenNameChanged = viewModel::onSpokenNameChanged,
                     onMessagingPolishEnabledChanged = viewModel::onMessagingPolishEnabledChanged,
@@ -910,6 +930,7 @@ private fun AppSettingsScreen(
     onPlayHistoryEntry: (HistoryEntry) -> Unit,
     onStopPlaying: () -> Unit,
     onDeleteHistoryEntry: (Long) -> Unit,
+    onDeleteMultipleHistoryEntries: (Set<Long>) -> Unit = {},
     onClearAppHistory: (Int?) -> Unit,
     onSpokenNameChanged: (String?) -> Unit = {},
     onMessagingPolishEnabledChanged: (Boolean?) -> Unit = {},
@@ -931,6 +952,14 @@ private fun AppSettingsScreen(
     var filterTargetHistoryItem by remember { mutableStateOf<HistoryEntry?>(null) }
     var detailHistoryItem by remember { mutableStateOf<HistoryEntry?>(null) }
     var pendingDeleteHistoryItem by remember { mutableStateOf<HistoryEntry?>(null) }
+    var isHistorySelectionMode by rememberSaveable(state.packageName) { mutableStateOf(false) }
+    var selectedHistoryIds by rememberSaveable(state.packageName) { mutableStateOf(emptySet<Long>()) }
+    var showBatchDeleteDialog by remember { mutableStateOf(false) }
+
+    BackHandler(enabled = isHistorySelectionMode) {
+        isHistorySelectionMode = false
+        selectedHistoryIds = emptySet()
+    }
 
     // Same gating as the global History screen: a blocked manual replay can be bypassed once,
     // and every other rule is still checked afterwards.
@@ -2151,31 +2180,120 @@ private fun AppSettingsScreen(
                 Column(
                     modifier = Modifier.fillMaxSize(),
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = "All Notifications (${state.recentHistory.size})",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-
-                        if (state.recentHistory.isNotEmpty()) {
-                            IconButton(
-                                onClick = { showClearHistoryDialog = true },
-                                colors = androidx.compose.material3.IconButtonDefaults.iconButtonColors(
-                                    contentColor = MaterialTheme.colorScheme.error,
-                                ),
+                    if (isHistorySelectionMode) {
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 8.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f),
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.DeleteOutline,
-                                    contentDescription = "Clear history",
+                                Text(
+                                    text = "${selectedHistoryIds.size} selected",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
                                 )
+
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                ) {
+                                    TextButton(
+                                        onClick = {
+                                            selectedHistoryIds = if (selectedHistoryIds.size == state.recentHistory.size) {
+                                                emptySet()
+                                            } else {
+                                                state.recentHistory.map { it.id }.toSet()
+                                            }
+                                        },
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                    ) {
+                                        Text(
+                                            text = if (selectedHistoryIds.size == state.recentHistory.size) "Deselect All" else "Select All",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                        )
+                                    }
+
+                                    if (selectedHistoryIds.isNotEmpty()) {
+                                        IconButton(
+                                            onClick = { showBatchDeleteDialog = true },
+                                            modifier = Modifier.size(32.dp),
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.DeleteOutline,
+                                                contentDescription = "Delete selected",
+                                                tint = MaterialTheme.colorScheme.error,
+                                                modifier = Modifier.size(18.dp),
+                                            )
+                                        }
+                                    }
+
+                                    TextButton(
+                                        onClick = {
+                                            isHistorySelectionMode = false
+                                            selectedHistoryIds = emptySet()
+                                        },
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                    ) {
+                                        Text("Done", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = "All Notifications (${state.recentHistory.size})",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+
+                            if (state.recentHistory.isNotEmpty()) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                ) {
+                                    TextButton(
+                                        onClick = { isHistorySelectionMode = true },
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.CheckCircle,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(14.dp),
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Select", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                    }
+
+                                    IconButton(
+                                        onClick = { showClearHistoryDialog = true },
+                                        colors = androidx.compose.material3.IconButtonDefaults.iconButtonColors(
+                                            contentColor = MaterialTheme.colorScheme.error,
+                                        ),
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.DeleteOutline,
+                                            contentDescription = "Clear history",
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -2246,34 +2364,95 @@ private fun AppSettingsScreen(
                         }
 
                         else -> {
+                            val groupedHistory = remember(state.recentHistory) {
+                                state.recentHistory.groupBy { getDateGroup(it.recordedAtMillis) }
+                            }
+
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
                                 verticalArrangement = Arrangement.spacedBy(10.dp),
                             ) {
-                                items(items = state.recentHistory, key = { it.id }) { entry ->
-                                    SwipeToDeleteContainer(
-                                        onDelete = { onDeleteHistoryEntry(entry.id) },
-                                        shape = RoundedCornerShape(18.dp),
-                                    ) {
-                                        val isAlreadyFiltered = entry.reason == SkipReason.KEYWORD_FILTERED ||
-                                            entry.reason == SkipReason.PRIVACY_SENSITIVE_KEYWORD ||
-                                            entry.reason == SkipReason.SUPPRESSED_INTELLIGENCE ||
-                                            entry.reason == SkipReason.PRIVACY_EXCLUDED_APP
-                                        AppHistoryItemCard(
-                                            entry = entry,
-                                            isPlaying = state.playingHistoryId == entry.id,
-                                            canFilter = state.enabled && !isAlreadyFiltered,
-                                            onPlay = {
-                                                if (state.playingHistoryId == entry.id) {
-                                                    onStopPlaying()
-                                                } else {
-                                                    onPlayHistoryEntry(entry)
-                                                }
-                                            },
-                                            onFilterThis = { filterTargetHistoryItem = entry },
-                                            onCardClick = { detailHistoryItem = entry },
-                                            onDelete = { pendingDeleteHistoryItem = entry },
-                                        )
+                                groupedHistory.forEach { (dateGroup, itemsInGroup) ->
+                                    item(key = "header_$dateGroup") {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(top = 10.dp, bottom = 4.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        ) {
+                                            Text(
+                                                text = dateGroup,
+                                                style = MaterialTheme.typography.labelMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.primary,
+                                            )
+                                            HorizontalDivider(
+                                                modifier = Modifier.weight(1f),
+                                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                                            )
+                                            Surface(
+                                                shape = RoundedCornerShape(6.dp),
+                                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                            ) {
+                                                Text(
+                                                    text = "${itemsInGroup.size}",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    items(items = itemsInGroup, key = { it.id }) { entry ->
+                                        val isSelected = entry.id in selectedHistoryIds
+                                        SwipeToDeleteContainer(
+                                            enabled = !isHistorySelectionMode,
+                                            onDelete = { onDeleteHistoryEntry(entry.id) },
+                                            shape = RoundedCornerShape(18.dp),
+                                        ) {
+                                            val isAlreadyFiltered = entry.reason == SkipReason.KEYWORD_FILTERED ||
+                                                entry.reason == SkipReason.PRIVACY_SENSITIVE_KEYWORD ||
+                                                entry.reason == SkipReason.SUPPRESSED_INTELLIGENCE ||
+                                                entry.reason == SkipReason.PRIVACY_EXCLUDED_APP
+                                            AppHistoryItemCard(
+                                                entry = entry,
+                                                isPlaying = state.playingHistoryId == entry.id,
+                                                canFilter = state.enabled && !isAlreadyFiltered,
+                                                isSelectionMode = isHistorySelectionMode,
+                                                isSelected = isSelected,
+                                                onToggleSelect = {
+                                                    selectedHistoryIds = if (isSelected) {
+                                                        selectedHistoryIds - entry.id
+                                                    } else {
+                                                        selectedHistoryIds + entry.id
+                                                    }
+                                                },
+                                                onPlay = {
+                                                    if (state.playingHistoryId == entry.id) {
+                                                        onStopPlaying()
+                                                    } else {
+                                                        onPlayHistoryEntry(entry)
+                                                    }
+                                                },
+                                                onFilterThis = { filterTargetHistoryItem = entry },
+                                                onCardClick = {
+                                                    if (isHistorySelectionMode) {
+                                                        selectedHistoryIds = if (isSelected) {
+                                                            selectedHistoryIds - entry.id
+                                                        } else {
+                                                            selectedHistoryIds + entry.id
+                                                        }
+                                                    } else {
+                                                        detailHistoryItem = entry
+                                                    }
+                                                },
+                                                onDelete = { pendingDeleteHistoryItem = entry },
+                                            )
+                                        }
                                     }
                                 }
                                 item { Spacer(modifier = Modifier.height(80.dp)) }
@@ -2334,6 +2513,31 @@ private fun AppSettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { pendingDeleteHistoryItem = null }) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
+
+    if (showBatchDeleteDialog && selectedHistoryIds.isNotEmpty()) {
+        AlertDialog(
+            onDismissRequest = { showBatchDeleteDialog = false },
+            title = { Text("Delete ${selectedHistoryIds.size} announcements?", fontWeight = FontWeight.Bold) },
+            text = { Text("These records will be permanently removed from this app's history.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showBatchDeleteDialog = false
+                        onDeleteMultipleHistoryEntries(selectedHistoryIds)
+                        selectedHistoryIds = emptySet()
+                        isHistorySelectionMode = false
+                    },
+                ) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showBatchDeleteDialog = false }) {
                     Text("Cancel")
                 }
             },
@@ -2497,6 +2701,9 @@ private fun AppHistoryItemCard(
     entry: HistoryEntry,
     isPlaying: Boolean,
     canFilter: Boolean = true,
+    isSelectionMode: Boolean = false,
+    isSelected: Boolean = false,
+    onToggleSelect: () -> Unit = {},
     onPlay: () -> Unit,
     onFilterThis: () -> Unit,
     onCardClick: () -> Unit,
@@ -2510,13 +2717,27 @@ private fun AppHistoryItemCard(
         ).toString()
     }
 
+    val cardBorder = if (isSelected) {
+        BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary)
+    } else {
+        BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+    }
+    val cardColors = if (isSelected) {
+        CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                .compositeOver(MaterialTheme.colorScheme.surfaceContainer),
+        )
+    } else {
+        CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onCardClick),
+            .clickable(onClick = if (isSelectionMode) onToggleSelect else onCardClick),
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+        colors = cardColors,
+        border = cardBorder,
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             // Header: App Name / Sender (full width) + Status Pill
@@ -2529,18 +2750,29 @@ private fun AppHistoryItemCard(
                     modifier = Modifier.weight(1f),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Surface(
-                        modifier = Modifier.size(30.dp),
-                        shape = RoundedCornerShape(10.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Rounded.Notifications,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(16.dp),
-                            )
+                    if (isSelectionMode) {
+                        Checkbox(
+                            checked = isSelected,
+                            onCheckedChange = { onToggleSelect() },
+                            colors = CheckboxDefaults.colors(
+                                checkedColor = MaterialTheme.colorScheme.primary,
+                            ),
+                            modifier = Modifier.size(28.dp),
+                        )
+                    } else {
+                        Surface(
+                            modifier = Modifier.size(30.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Notifications,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                            }
                         }
                     }
                     Spacer(modifier = Modifier.width(10.dp))
@@ -2626,7 +2858,7 @@ private fun AppHistoryItemCard(
                         }
                     }
 
-                    if (canFilter) {
+                    if (!isSelectionMode && canFilter) {
                         FilledTonalButton(
                             onClick = onFilterThis,
                             shape = RoundedCornerShape(10.dp),
@@ -2644,20 +2876,22 @@ private fun AppHistoryItemCard(
                     }
                 }
 
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    IconButton(
-                        onClick = onPlay,
-                        modifier = Modifier.size(32.dp),
+                if (!isSelectionMode) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
-                        Icon(
-                            imageVector = if (isPlaying) Icons.Rounded.Stop else Icons.Rounded.PlayArrow,
-                            contentDescription = if (isPlaying) "Stop" else "Listen",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp),
-                        )
+                        IconButton(
+                            onClick = onPlay,
+                            modifier = Modifier.size(32.dp),
+                        ) {
+                            Icon(
+                                imageVector = if (isPlaying) Icons.Rounded.Stop else Icons.Rounded.PlayArrow,
+                                contentDescription = if (isPlaying) "Stop" else "Listen",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
                     }
                 }
             }
