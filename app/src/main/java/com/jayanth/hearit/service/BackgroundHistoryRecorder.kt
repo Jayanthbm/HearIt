@@ -9,6 +9,7 @@ import com.jayanth.hearit.core.database.HistoryRepository
 import com.jayanth.hearit.core.datastore.HearItSettings
 import com.jayanth.hearit.core.datastore.SettingsRepository
 import com.jayanth.hearit.core.notifications.NotificationRelay
+import com.jayanth.hearit.core.tts.SmartContentCleaner
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
@@ -42,6 +43,12 @@ class BackgroundHistoryRecorder @Inject constructor(
         // If the announcement service is active, it owns recording for this snapshot.
         if (NotificationRelay.sink != null) return
         if (snapshot.isGroupSummary) return
+        if (snapshot.packageName == "com.whatsapp" && snapshot.key == "com.whatsapp||1") return
+
+        val isEmptyNotification = SmartContentCleaner.shouldSuppressEmptyContent(snapshot.sender, snapshot.messageText)
+        val cleaned = SmartContentCleaner.cleanMessage(snapshot.messageText, snapshot.packageName, snapshot.sender)
+        val skipHistory = (isEmptyNotification && !SmartContentCleaner.isSaveEmptyNotificationsToHistory) || cleaned.skipHistory || cleaned.suppress
+        if (skipHistory) return
 
         val settings = latestSettings.value
         scope.launch {

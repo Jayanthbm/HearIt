@@ -6,5 +6,6 @@ data class WearNotification(
     val appName: String,
     val sender: String,
     val message: String,
-    val timestamp: Long
+    val timestamp: Long,
+    val historyId: Long = 0L,
 )

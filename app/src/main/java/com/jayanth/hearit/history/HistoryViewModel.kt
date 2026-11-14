@@ -222,6 +222,7 @@ class HistoryViewModel @Inject constructor(
         lastDeletedItem = itemToDelete
         viewModelScope.launch {
             if (safely { historyRepository.delete(id) } != null) {
+                com.jayanth.hearit.wear.WearDataLayerSync.notifyNotificationDeleted(context, id, itemToDelete?.key)
                 load(reset = true)
                 if (itemToDelete != null) {
                     _undoMessage.emit(itemToDelete)
@@ -264,7 +265,10 @@ class HistoryViewModel @Inject constructor(
 
     fun onDeleteMultiple(ids: Set<Long>) {
         viewModelScope.launch {
-            ids.forEach { id -> safely { historyRepository.delete(id) } }
+            ids.forEach { id ->
+                safely { historyRepository.delete(id) }
+                com.jayanth.hearit.wear.WearDataLayerSync.notifyNotificationDeleted(context, id)
+            }
             load(reset = true)
             _userMessage.emit("${ids.size} notifications deleted")
         }
@@ -273,6 +277,7 @@ class HistoryViewModel @Inject constructor(
     fun onClearAll() {
         viewModelScope.launch {
             if (safely { historyRepository.deleteAll() } != null) {
+                com.jayanth.hearit.wear.WearDataLayerSync.notifyAllNotificationsCleared(context)
                 load(reset = true)
                 _userMessage.emit("History cleared")
             }

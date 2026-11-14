@@ -105,6 +105,7 @@ class WearNotificationListenerService : WearableListenerService() {
                         sender = json.optString("sender", ""),
                         message = json.optString("message", ""),
                         timestamp = json.optLong("timestamp", System.currentTimeMillis()),
+                        historyId = json.optLong("historyId", 0L),
                     )
                     val beforeCount = WearNotificationStore.notifications.value.size
                     WearNotificationStore.addNotification(notification)
@@ -116,6 +117,24 @@ class WearNotificationListenerService : WearableListenerService() {
                     }
                 } catch (_: Exception) {
                 }
+            }
+            "/notifications/delete" -> {
+                try {
+                    val jsonString = String(messageEvent.data, Charsets.UTF_8)
+                    val json = JSONObject(jsonString)
+                    val id = json.optString("id", "")
+                    val historyId = json.optLong("historyId", 0L)
+                    if (id.isNotBlank()) {
+                        WearNotificationStore.removeNotification(id)
+                    }
+                    if (historyId != 0L) {
+                        WearNotificationStore.removeByHistoryId(historyId)
+                    }
+                } catch (_: Exception) {
+                }
+            }
+            "/notifications/clear_all" -> {
+                WearNotificationStore.clearAll()
             }
             else -> super.onMessageReceived(messageEvent)
         }

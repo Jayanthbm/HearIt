@@ -487,6 +487,7 @@ class ApplicationsViewModel @Inject constructor(
         lastDeletedHistoryEntry = entry
         viewModelScope.launch {
             historyRepository.delete(id)
+            com.jayanth.hearit.wear.WearDataLayerSync.notifyNotificationDeleted(context, id, entry?.key)
             if (entry != null) {
                 _historyUndoMessage.emit(entry)
             } else {
@@ -510,7 +511,10 @@ class ApplicationsViewModel @Inject constructor(
 
     fun onDeleteMultipleHistoryEntries(ids: Set<Long>) {
         viewModelScope.launch {
-            ids.forEach { id -> historyRepository.delete(id) }
+            ids.forEach { id ->
+                historyRepository.delete(id)
+                com.jayanth.hearit.wear.WearDataLayerSync.notifyNotificationDeleted(context, id)
+            }
             _userMessage.emit("${ids.size} notifications deleted")
         }
     }

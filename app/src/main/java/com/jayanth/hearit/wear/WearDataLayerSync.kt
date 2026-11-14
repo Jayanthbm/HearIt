@@ -12,8 +12,10 @@ import com.google.android.gms.wearable.Node
 import com.google.android.gms.wearable.PutDataMapRequest
 import com.google.android.gms.wearable.Wearable
 import com.jayanth.hearit.core.common.model.NotificationSnapshot
+import com.jayanth.hearit.core.tts.SmartContentCleaner
 import com.jayanth.hearit.service.SessionStore
 import java.io.ByteArrayOutputStream
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -188,15 +190,62 @@ object WearDataLayerSync {
         }
     }
 
+    private data class WatchContentSignature(
+        val packageName: String,
+        val sender: String,
+        val text: String,
+    )
+    private val recentWatchSignatures = ConcurrentHashMap<WatchContentSignature, Long>()
+    private const val WATCH_DEDUP_WINDOW_MILLIS = 10_000L
+
+    private fun isContentDuplicate(packageName: String, sender: String, text: String, now: Long): Boolean {
+        if (text.isBlank() && sender.isBlank()) return false
+        recentWatchSignatures.entries.removeAll { now - it.value >= WATCH_DEDUP_WINDOW_MILLIS }
+
+        val currentSig = WatchContentSignature(packageName, sender, text)
+        if (recentWatchSignatures.containsKey(currentSig)) return true
+
+        return recentWatchSignatures.keys.any { sig ->
+            if (sig.packageName != packageName) return@any false
+            if (sig.sender == sender && sig.text == text) return@any true
+            if (sig.text.isNotEmpty() && text.contains(sig.text) && (sig.sender.isEmpty() || text.startsWith("${sig.sender}:"))) return@any true
+            if (sig.text.contains(text) && (sender.isEmpty() || sig.text.startsWith("$sender:"))) return@any true
+            false
+        }
+    }
+
     /**
      * Option A independent notification forwarding (#36): mirrors notifications for the user's
      * max-4 Watch Apps whenever Watch Forwarding is ON, regardless of AnnouncementService state.
+     * Applies full Active Intelligence filtering (sync noise suppression, clean text, dedup).
      */
-    fun syncNotification(context: Context, snapshot: NotificationSnapshot) {
+    fun syncNotification(context: Context, snapshot: NotificationSnapshot, historyId: Long = 0L) {
         val appContext = context.applicationContext
         val sessionStore = SessionStore(appContext)
         if (!sessionStore.isWatchForwardingEnabled) return
         if (snapshot.packageName !in sessionStore.watchFilterApps) return
+
+        // 1. Suppress Android group summary notifications and WhatsApp root summary
+        if (snapshot.isGroupSummary) return
+        if (snapshot.packageName == "com.whatsapp" && snapshot.key == "com.whatsapp||1") return
+
+        // 2. Suppress empty notifications
+        if (SmartContentCleaner.shouldSuppressEmptyContent(snapshot.sender, snapshot.messageText)) return
+
+        // 3. Active Intelligence Cleaning & Noise Suppression
+        val cleaned = SmartContentCleaner.cleanMessage(snapshot.messageText, snapshot.packageName, snapshot.sender)
+        if (cleaned.suppress) return
+
+        val cleanSender = (SmartContentCleaner.cleanSender(snapshot.sender) ?: snapshot.sender)?.trim().orEmpty()
+        val cleanMessage = cleaned.text.trim()
+        if (cleanMessage.isBlank() && cleanSender.isBlank()) return
+
+        // 4. Deduplication
+        val now = System.currentTimeMillis()
+        if (isContentDuplicate(snapshot.packageName, cleanSender, cleanMessage, now)) {
+            return
+        }
+        recentWatchSignatures[WatchContentSignature(snapshot.packageName, cleanSender, cleanMessage)] = now
 
         scope.launch {
             try {
@@ -207,10 +256,11 @@ object WearDataLayerSync {
                 if (!nodes.isNullOrEmpty()) {
                     val payload = JSONObject().apply {
                         put("id", snapshot.key)
+                        put("historyId", historyId)
                         put("packageName", snapshot.packageName)
                         put("appName", snapshot.appName)
-                        put("sender", snapshot.sender ?: "")
-                        put("message", snapshot.messageText)
+                        put("sender", cleanSender)
+                        put("message", cleanMessage)
                         put("timestamp", snapshot.postTimeMillis)
                     }.toString().toByteArray(Charsets.UTF_8)
 
@@ -220,6 +270,47 @@ object WearDataLayerSync {
                 }
             } catch (_: Exception) {
                 // Ignore gracefully if Wearable API is unavailable
+            }
+        }
+    }
+
+    /** Notifies connected watch nodes to remove a deleted history entry. */
+    fun notifyNotificationDeleted(context: Context, historyId: Long, key: String? = null) {
+        val appContext = context.applicationContext
+        scope.launch {
+            try {
+                val nodeClient = Wearable.getNodeClient(appContext)
+                val messageClient = Wearable.getMessageClient(appContext)
+                val nodes = Tasks.await(nodeClient.connectedNodes)
+                if (!nodes.isNullOrEmpty()) {
+                    val payload = JSONObject().apply {
+                        put("historyId", historyId)
+                        if (key != null) put("id", key)
+                    }.toString().toByteArray(Charsets.UTF_8)
+                    for (node in nodes) {
+                        messageClient.sendMessage(node.id, "/notifications/delete", payload)
+                    }
+                }
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    /** Notifies connected watch nodes that all history has been cleared. */
+    fun notifyAllNotificationsCleared(context: Context) {
+        val appContext = context.applicationContext
+        scope.launch {
+            try {
+                val nodeClient = Wearable.getNodeClient(appContext)
+                val messageClient = Wearable.getMessageClient(appContext)
+                val nodes = Tasks.await(nodeClient.connectedNodes)
+                if (!nodes.isNullOrEmpty()) {
+                    val payload = ByteArray(0)
+                    for (node in nodes) {
+                        messageClient.sendMessage(node.id, "/notifications/clear_all", payload)
+                    }
+                }
+            } catch (_: Exception) {
             }
         }
     }

@@ -65,6 +65,11 @@ object WearNotificationStore {
         _notifications.value = _notifications.value.filter { it.id != id }
     }
 
+    fun removeByHistoryId(historyId: Long) {
+        if (historyId == 0L) return
+        _notifications.value = _notifications.value.filter { it.historyId != historyId }
+    }
+
     fun clearAll() {
         _notifications.value = emptyList()
     }

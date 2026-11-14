@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Apps
+import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.NotificationsNone
 import androidx.compose.runtime.Composable
@@ -53,6 +54,7 @@ import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.foundation.lazy.items
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material.AppCard
+import androidx.wear.compose.material.ChipDefaults
 import androidx.wear.compose.material.CompactChip
 import androidx.wear.compose.material.Icon
 import androidx.wear.compose.material.MaterialTheme
@@ -67,8 +69,11 @@ import com.google.android.gms.wearable.Wearable
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -374,13 +379,13 @@ fun WearApp() {
                 items(filteredNotifications, key = { it.id }) { notif ->
                     NotificationCard(
                         notification = notif,
-                        onDismiss = { WearNotificationStore.removeNotification(notif.id) },
+                        onDismiss = { dismissWatchNotification(context, notif) },
                     )
                 }
 
                 item(key = "clear_all") {
                     CompactChip(
-                        onClick = { WearNotificationStore.clearAll() },
+                        onClick = { clearAllWatchNotifications(context) },
                         label = {
                             Text(
                                 text = "Clear All",
@@ -409,6 +414,43 @@ fun WearApp() {
     }
 }
 
+private fun dismissWatchNotification(context: android.content.Context, notification: WearNotification) {
+    WearNotificationStore.removeNotification(notification.id)
+    CoroutineScope(Dispatchers.IO).launch {
+        runCatching {
+            val nodeClient = Wearable.getNodeClient(context)
+            val messageClient = Wearable.getMessageClient(context)
+            val nodes = Tasks.await(nodeClient.connectedNodes)
+            if (!nodes.isNullOrEmpty()) {
+                val payload = JSONObject().apply {
+                    put("id", notification.id)
+                    put("historyId", notification.historyId)
+                }.toString().toByteArray(Charsets.UTF_8)
+                for (node in nodes) {
+                    messageClient.sendMessage(node.id, "/history/delete", payload)
+                }
+            }
+        }
+    }
+}
+
+private fun clearAllWatchNotifications(context: android.content.Context) {
+    WearNotificationStore.clearAll()
+    CoroutineScope(Dispatchers.IO).launch {
+        runCatching {
+            val nodeClient = Wearable.getNodeClient(context)
+            val messageClient = Wearable.getMessageClient(context)
+            val nodes = Tasks.await(nodeClient.connectedNodes)
+            if (!nodes.isNullOrEmpty()) {
+                val payload = ByteArray(0)
+                for (node in nodes) {
+                    messageClient.sendMessage(node.id, "/history/clear_all", payload)
+                }
+            }
+        }
+    }
+}
+
 private fun decodeAppIcon(bytes: ByteArray?): ImageBitmap? {
     if (bytes == null || bytes.isEmpty()) return null
     return runCatching {
@@ -421,13 +463,14 @@ fun NotificationCard(
     notification: WearNotification,
     onDismiss: () -> Unit,
 ) {
+    var isExpanded by remember { mutableStateOf(false) }
     val timeFormatter = remember { SimpleDateFormat("h:mm a", Locale.getDefault()) }
     val formattedTime = remember(notification.timestamp) {
         timeFormatter.format(Date(notification.timestamp))
     }
 
     AppCard(
-        onClick = onDismiss,
+        onClick = { isExpanded = !isExpanded },
         appName = {
             Text(
                 text = notification.appName,
@@ -452,7 +495,7 @@ fun NotificationCard(
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
-                    maxLines = 1,
+                    maxLines = if (isExpanded) 3 else 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
@@ -464,10 +507,37 @@ fun NotificationCard(
         Text(
             text = notification.message,
             fontSize = 12.sp,
-            lineHeight = 15.sp,
+            lineHeight = 16.sp,
             color = Color(0xFFE0E0E0),
-            maxLines = 3,
+            maxLines = if (isExpanded) Int.MAX_VALUE else 3,
             overflow = TextOverflow.Ellipsis,
         )
+        if (isExpanded) {
+            Spacer(modifier = Modifier.height(8.dp))
+            CompactChip(
+                onClick = onDismiss,
+                icon = {
+                    Icon(
+                        imageVector = Icons.Rounded.DeleteOutline,
+                        contentDescription = "Clear",
+                        modifier = Modifier.size(14.dp),
+                        tint = Color(0xFFFF8A80),
+                    )
+                },
+                label = {
+                    Text(
+                        text = "Clear",
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFFFF8A80),
+                    )
+                },
+                colors = ChipDefaults.chipColors(
+                    backgroundColor = Color(0xFF2C1E1E),
+                    contentColor = Color(0xFFFF8A80),
+                ),
+                modifier = Modifier.align(Alignment.End),
+            )
+        }
     }
 }
