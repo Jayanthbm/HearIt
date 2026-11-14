@@ -96,7 +96,6 @@ fun WearApp() {
     }
 
     var isPhoneConnected by remember { mutableStateOf(false) }
-    var connectedNodeName by remember { mutableStateOf<String?>(null) }
     var selectedPackageFilter by remember { mutableStateOf<String?>(null) } // null == ALL
 
     suspend fun refreshPhoneAndConfig() {
@@ -105,7 +104,6 @@ fun WearApp() {
                 val nodeClient = Wearable.getNodeClient(context)
                 val nodes = Tasks.await(nodeClient.connectedNodes)
                 isPhoneConnected = !nodes.isNullOrEmpty()
-                connectedNodeName = nodes.firstOrNull()?.displayName
                 nodes?.forEach { node ->
                     Wearable.getMessageClient(context).sendMessage(node.id, "/request/sync", byteArrayOf())
                 }
@@ -191,7 +189,8 @@ fun WearApp() {
                 .fillMaxSize()
                 .background(Color.Black),
             state = listState,
-            contentPadding = PaddingValues(top = 34.dp, bottom = 28.dp),
+            contentPadding = PaddingValues(top = 40.dp, bottom = 32.dp, start = 8.dp, end = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
             autoCentering = null,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
@@ -210,7 +209,7 @@ fun WearApp() {
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(9.dp)
+                                .size(8.dp)
                                 .clip(CircleShape)
                                 .background(
                                     if (isPhoneConnected) Color(0xFF4CAF50)
@@ -225,11 +224,7 @@ fun WearApp() {
                         )
                     }
                     Text(
-                        text = if (isPhoneConnected) {
-                            connectedNodeName?.let { "Phone connected · $it" } ?: "Phone connected"
-                        } else {
-                            "Phone offline · Tap to refresh"
-                        },
+                        text = if (isPhoneConnected) "Phone connected" else "Phone offline · Tap to refresh",
                         fontSize = 10.sp,
                         color = if (isPhoneConnected) Color(0xFF81C784) else Color(0xFFE57373),
                         maxLines = 1,
@@ -381,7 +376,6 @@ fun WearApp() {
                         notification = notif,
                         onDismiss = { WearNotificationStore.removeNotification(notif.id) },
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
                 }
 
                 item(key = "clear_all") {
@@ -391,10 +385,11 @@ fun WearApp() {
                             Text(
                                 text = "Clear All",
                                 fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
                                 color = Color(0xFFFF8A80),
                             )
                         },
-                        modifier = Modifier.padding(top = 8.dp, bottom = 6.dp),
+                        modifier = Modifier.padding(top = 4.dp, bottom = 2.dp),
                     )
                 }
             }
@@ -402,12 +397,12 @@ fun WearApp() {
             item(key = "app_version") {
                 Text(
                     text = "HearIt v$wearVersionName",
-                    fontSize = 10.5.sp,
+                    fontSize = 10.sp,
                     color = Color(0xFF757575),
                     textAlign = TextAlign.Center,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 8.dp, bottom = 6.dp),
+                        .padding(top = 4.dp, bottom = 4.dp),
                 )
             }
         }
@@ -439,6 +434,8 @@ fun NotificationCard(
                 fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = Color(0xFF81C784),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         },
         time = {
@@ -467,6 +464,7 @@ fun NotificationCard(
         Text(
             text = notification.message,
             fontSize = 12.sp,
+            lineHeight = 15.sp,
             color = Color(0xFFE0E0E0),
             maxLines = 3,
             overflow = TextOverflow.Ellipsis,
