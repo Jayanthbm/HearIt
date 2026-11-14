@@ -120,7 +120,7 @@ internal fun AutomaticBehaviorAndCatchUpCard(
             // 4. Chatty Group Flood Defense: Sender Burst Aggregator (#20)
             NlpToggleRow(
                 title = "Burst Grouping",
-                subtitle = "Merges rapid back-to-back messages from the same contact ('Rahul sent 4 quick messages: ...')",
+                subtitle = "Optional sender burst aggregation ('Rahul sent 4 messages: ...'). Grouping Window handles rapid bursts by default.",
                 checked = state.isSenderBurstAggregatorEnabled,
                 onCheckedChange = actions.onToggleSenderBurstAggregator,
             )
@@ -174,7 +174,7 @@ internal fun AutomaticBehaviorAndCatchUpCard(
             // 6. Multi-App Smart Notification Batching Digest (#33)
             NlpToggleRow(
                 title = "Multi-App Digest",
-                subtitle = "Collects simultaneous alerts across apps into one spoken digest",
+                subtitle = "Batch alerts across different apps into one spoken digest. Superseded by Grouping Window for single-app queues.",
                 checked = state.isMultiAppDigestEnabled,
                 onCheckedChange = actions.onToggleMultiAppDigest,
             )

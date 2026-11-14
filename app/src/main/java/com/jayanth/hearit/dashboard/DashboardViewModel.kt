@@ -2,6 +2,13 @@ package com.jayanth.hearit.dashboard
 
 import android.content.Context
 import android.content.Intent
+import android.media.AudioDeviceCallback
+import android.media.AudioDeviceInfo
+import android.media.AudioManager
+import android.net.Uri
+import android.os.Build
+import android.os.PowerManager
+import android.provider.Settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jayanth.hearit.core.common.model.AudioOutputSettings
@@ -58,7 +65,20 @@ class DashboardViewModel @Inject constructor(
     private val _state = MutableStateFlow(DashboardUiState())
     val state: StateFlow<DashboardUiState> = _state.asStateFlow()
 
+    private val audioManager = context.getSystemService(AudioManager::class.java)
+
+    private val audioDeviceCallback = object : AudioDeviceCallback() {
+        override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>?) {
+            refreshAudioOutput()
+        }
+
+        override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>?) {
+            refreshAudioOutput()
+        }
+    }
+
     init {
+        audioManager?.registerAudioDeviceCallback(audioDeviceCallback, null)
         viewModelScope.launch {
             settingsRepository.settings.collect { settings ->
                 val connected = audioOutputs.connectedOutputs()
@@ -71,13 +91,22 @@ class DashboardViewModel @Inject constructor(
                         outputLabel = resolvedOutput,
                         screenCondition = settings.eligibility.screenCondition,
                         lockCondition = settings.eligibility.lockCondition,
+                        speechRate = settings.speech.speechRate,
+                        speechVolume = settings.speech.volumeLevel,
+                        isAdaptiveSpeedEnabled = sessionStore.isAdaptiveSpeedEnabled,
+                        isVoiceBoostEnabled = sessionStore.isVoiceBoostEnabled,
                     )
                 }
             }
         }
         viewModelScope.launch {
             serviceStatus.state.collect { snapshot ->
-                _state.update { current -> current.copy(service = snapshot) }
+                _state.update { current ->
+                    current.copy(
+                        service = snapshot,
+                        lastStopReason = if (snapshot.isRunning) null else sessionStore.lastStopReason,
+                    )
+                }
             }
         }
         viewModelScope.launch {
@@ -145,6 +174,8 @@ class DashboardViewModel @Inject constructor(
     fun onRefresh() {
         val connected = audioOutputs.connectedOutputs()
         val currentAudioOutput = _state.value.audioOutput
+        val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+        val isExempt = powerManager?.isIgnoringBatteryOptimizations(context.packageName) == true
         _state.update {
             it.copy(
                 temporaryMuteActive = sessionStore.isTemporaryMuteActive,
@@ -152,9 +183,61 @@ class DashboardViewModel @Inject constructor(
                 outputLabel = resolveActiveOutput(currentAudioOutput, connected),
                 testSpeechDismissed = sessionStore.isTestSpeechDismissed,
                 isRepeatShortcutEnabled = sessionStore.isRepeatLastShortcutEnabled,
+                isBatteryOptimizationExempt = isExempt,
+                isBatteryWarningDismissed = sessionStore.isBatteryWarningDismissed,
+                lastStopReason = if (sessionStore.isStarted) null else sessionStore.lastStopReason,
             )
         }
         loadRecentHistory()
+    }
+
+    /** Instantly re-probes connected audio outputs on hardware change events. */
+    fun refreshAudioOutput() {
+        val connected = audioOutputs.connectedOutputs()
+        val currentAudioOutput = _state.value.audioOutput
+        val resolved = resolveActiveOutput(currentAudioOutput, connected)
+        _state.update { it.copy(outputLabel = resolved) }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        audioManager?.unregisterAudioDeviceCallback(audioDeviceCallback)
+    }
+
+    /** Dismisses the battery optimization warning banner on the dashboard. */
+    fun onDismissBatteryWarning() {
+        sessionStore.isBatteryWarningDismissed = true
+        _state.update { it.copy(isBatteryWarningDismissed = true) }
+    }
+
+    /** Prompts user to exempt Hear It from battery optimizations for uninterrupted background speech. */
+    fun onRequestBatteryExemption() {
+        try {
+            val directIntent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                data = Uri.parse("package:${context.packageName}")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(directIntent)
+            return
+        } catch (_: Exception) {
+            // Fall through to standard app details or ignore settings
+        }
+        try {
+            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.fromParts("package", context.packageName, null)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+        } catch (_: Exception) {
+            try {
+                context.startActivity(
+                    Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                )
+            } catch (_: Exception) {
+                // Ignore if settings cannot be opened
+            }
+        }
     }
 
     /** Sets temporary mute for the given duration in minutes (P16). */
@@ -226,10 +309,60 @@ class DashboardViewModel @Inject constructor(
     }
 
     /** Explicit Start (master prompt §4): the service reports back through the monitor. */
-    fun onStartService() = serviceControl.startAnnouncements()
+    fun onStartService() {
+        val audioOutput = state.value.audioOutput
+        if (!audioOutput.allowPhoneSpeaker) {
+            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+            val devices = audioManager?.getDevices(AudioManager.GET_DEVICES_OUTPUTS).orEmpty()
+            val hasHeadphones = devices.any { device ->
+                device.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
+                    device.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO ||
+                    (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && device.type == AudioDeviceInfo.TYPE_BLE_HEADSET) ||
+                    device.type == AudioDeviceInfo.TYPE_WIRED_HEADSET ||
+                    device.type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES ||
+                    device.type == AudioDeviceInfo.TYPE_USB_HEADSET
+            }
+            if (!hasHeadphones) {
+                _state.update { it.copy(showNoAudioOutputWarning = true) }
+                return
+            }
+        }
+        sessionStore.lastStopReason = null
+        _state.update { it.copy(lastStopReason = null) }
+        serviceControl.startAnnouncements()
+    }
+
+    fun onConfirmStartWithSpeaker() {
+        viewModelScope.launch {
+            settingsRepository.update { current ->
+                current.copy(
+                    eligibility = current.eligibility.copy(
+                        audioOutput = current.eligibility.audioOutput.copy(allowPhoneSpeaker = true),
+                    ),
+                )
+            }
+            sessionStore.lastStopReason = null
+            _state.update { it.copy(showNoAudioOutputWarning = false, lastStopReason = null) }
+            serviceControl.startAnnouncements()
+        }
+    }
+
+    fun onConfirmStartAnyway() {
+        sessionStore.lastStopReason = null
+        _state.update { it.copy(showNoAudioOutputWarning = false, lastStopReason = null) }
+        serviceControl.startAnnouncements()
+    }
+
+    fun onDismissNoAudioOutputWarning() {
+        _state.update { it.copy(showNoAudioOutputWarning = false) }
+    }
 
     /** Explicit Stop (master prompt §4). */
-    fun onStopService() = serviceControl.stopAnnouncements()
+    fun onStopService() {
+        sessionStore.lastStopReason = null
+        _state.update { it.copy(lastStopReason = null) }
+        serviceControl.stopAnnouncements()
+    }
 
     /** Searches history with the dashboard's filter state (P18). */
     fun onHistorySearch(filter: DashboardFilterState) {

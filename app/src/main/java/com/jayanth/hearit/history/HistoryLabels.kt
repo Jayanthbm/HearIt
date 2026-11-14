@@ -60,4 +60,10 @@ fun skipReasonLabelRes(reason: SkipReason): Int = when (reason) {
     SkipReason.SPAM_COOLDOWN -> R.string.history_reason_spam_cooldown
     SkipReason.MANUALLY_CLEARED -> R.string.history_reason_manually_cleared
     SkipReason.SERVICE_NOT_RUNNING -> R.string.history_reason_service_not_running
+    SkipReason.INTERRUPTED_SHAKE -> R.string.history_reason_interrupted_shake
+    SkipReason.INTERRUPTED_FLIP -> R.string.history_reason_interrupted_flip
+    SkipReason.INTERRUPTED_VOLUME_KEY -> R.string.history_reason_interrupted_volume_key
+    SkipReason.INTERRUPTED_AUDIO_LOST -> R.string.history_reason_interrupted_audio_lost
+    SkipReason.INTERRUPTED_AUDIO_FOCUS -> R.string.history_reason_interrupted_audio_focus
+    SkipReason.INTERRUPTED_USER -> R.string.history_reason_interrupted_user
 }

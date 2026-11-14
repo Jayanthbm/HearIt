@@ -40,7 +40,6 @@ class VoiceSpeechViewModel @Inject constructor(
             adaptiveSpeedTier1Multiplier = sessionStore.adaptiveSpeedTier1Multiplier,
             adaptiveSpeedTier2Multiplier = sessionStore.adaptiveSpeedTier2Multiplier,
             adaptiveSpeedTier3Multiplier = sessionStore.adaptiveSpeedTier3Multiplier,
-            isMonoFoldDownEnabled = sessionStore.isMonoFoldDownEnabled,
             isVoiceBoostEnabled = sessionStore.isVoiceBoostEnabled,
             voiceBoostPercent = sessionStore.voiceBoostPercent,
             isDigitFormattingEnabled = sessionStore.isDigitFormattingEnabled,
@@ -115,7 +114,6 @@ class VoiceSpeechViewModel @Inject constructor(
         sessionStore.adaptiveSpeedTier1Multiplier = AdaptiveSpeedCalculator.DEFAULT_TIER_1_MULTIPLIER
         sessionStore.adaptiveSpeedTier2Multiplier = AdaptiveSpeedCalculator.DEFAULT_TIER_2_MULTIPLIER
         sessionStore.adaptiveSpeedTier3Multiplier = AdaptiveSpeedCalculator.DEFAULT_TIER_3_MULTIPLIER
-        sessionStore.isMonoFoldDownEnabled = true
         sessionStore.isVoiceBoostEnabled = false
         sessionStore.voiceBoostPercent = 20
         _state.update {
@@ -127,7 +125,6 @@ class VoiceSpeechViewModel @Inject constructor(
                 adaptiveSpeedTier1Multiplier = AdaptiveSpeedCalculator.DEFAULT_TIER_1_MULTIPLIER,
                 adaptiveSpeedTier2Multiplier = AdaptiveSpeedCalculator.DEFAULT_TIER_2_MULTIPLIER,
                 adaptiveSpeedTier3Multiplier = AdaptiveSpeedCalculator.DEFAULT_TIER_3_MULTIPLIER,
-                isMonoFoldDownEnabled = true,
                 isVoiceBoostEnabled = false,
                 voiceBoostPercent = 20,
             )
@@ -223,11 +220,6 @@ class VoiceSpeechViewModel @Inject constructor(
     fun onAdaptiveSpeedTier3Changed(multiplier: Float) {
         sessionStore.adaptiveSpeedTier3Multiplier = multiplier
         _state.update { it.copy(adaptiveSpeedTier3Multiplier = multiplier) }
-    }
-
-    fun onToggleMonoFoldDown(enabled: Boolean) {
-        sessionStore.isMonoFoldDownEnabled = enabled
-        _state.update { it.copy(isMonoFoldDownEnabled = enabled) }
     }
 
     fun onToggleVoiceBoost(enabled: Boolean) {

@@ -2,11 +2,15 @@ package com.jayanth.hearit.service
 
 import android.app.KeyguardManager
 import android.app.NotificationManager
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.os.Build
 import android.os.PowerManager
+import android.os.SystemClock
 import com.jayanth.hearit.core.common.model.AudioOutput
 import com.jayanth.hearit.core.common.model.AudioOutputKind
 import com.jayanth.hearit.core.common.model.RuntimeState
@@ -20,10 +24,34 @@ class RuntimeStateReader(
     private val sessionStore: SessionStore,
 ) {
 
+    private val appContext = context.applicationContext
     private val powerManager = context.getSystemService(PowerManager::class.java)
     private val keyguardManager = context.getSystemService(KeyguardManager::class.java)
     private val notificationManager = context.getSystemService(NotificationManager::class.java)
     private val batteryManager = context.getSystemService(android.os.BatteryManager::class.java)
+
+    private var lastScreenWakeTime: Long = 0L
+
+    private val screenReceiver = object : BroadcastReceiver() {
+        override fun onReceive(c: Context?, intent: Intent?) {
+            if (intent?.action == Intent.ACTION_SCREEN_ON) {
+                lastScreenWakeTime = SystemClock.elapsedRealtime()
+            }
+        }
+    }
+
+    init {
+        try {
+            val filter = IntentFilter(Intent.ACTION_SCREEN_ON)
+            appContext.registerReceiver(screenReceiver, filter)
+        } catch (_: Exception) {}
+    }
+
+    fun unregister(context: Context? = null) {
+        try {
+            appContext.unregisterReceiver(screenReceiver)
+        } catch (_: Exception) {}
+    }
 
     /** Current battery percentage (1..100, fallback 100). */
     fun readBatteryPercent(): Int =
@@ -42,9 +70,17 @@ class RuntimeStateReader(
         val isPowerSave = powerManager?.isPowerSaveMode ?: false
         val isLowBattery = (capacity in 1..lowBatteryThresholdPercent) || (isPowerSave && pauseOnPowerSaver)
 
+        val isLocked = keyguardManager?.isKeyguardLocked ?: false
+        val rawScreenInteractive = powerManager?.isInteractive ?: true
+        val now = SystemClock.elapsedRealtime()
+        // If the screen turned on within 1.5 seconds while the device is locked, it was woken by
+        // ambient notification display. Treat it as screen-off so ambient notifications aren't dropped.
+        val isAmbientWake = isLocked && rawScreenInteractive && (now - lastScreenWakeTime in 0..AMBIENT_WAKE_BUFFER_MILLIS)
+        val screenOn = rawScreenInteractive && !isAmbientWake
+
         return RuntimeState(
-            screenOn = powerManager?.isInteractive ?: true,
-            isLocked = keyguardManager?.isKeyguardLocked ?: false,
+            screenOn = screenOn,
+            isLocked = isLocked,
             temporaryMuteActive = sessionStore.isTemporaryMuteActive,
             priorityAnnounceActive = priorityAnnounceActive,
             isCallActive = audioManager.mode == AudioManager.MODE_IN_CALL ||
@@ -107,5 +143,6 @@ class RuntimeStateReader(
 
     private companion object {
         const val DND_OFF = NotificationManager.INTERRUPTION_FILTER_ALL
+        const val AMBIENT_WAKE_BUFFER_MILLIS = 1500L
     }
 }

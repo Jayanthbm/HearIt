@@ -55,6 +55,7 @@ class NotificationExtractor(
             isUpdate = tracker.markSeen(key),
             isGroup = raw.isGroupConversation,
             groupTitle = raw.conversationTitle?.takeUnless { it.equals(appName, ignoreCase = true) },
+            isGroupSummary = raw.isGroupSummary,
         )
     }
 

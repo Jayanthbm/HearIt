@@ -1,5 +1,6 @@
 package com.jayanth.hearit.dashboard
 
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import com.jayanth.hearit.readAppVersionName
 import androidx.annotation.StringRes
@@ -70,6 +71,7 @@ import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Backup
+import androidx.compose.material.icons.rounded.BatteryAlert
 import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.Cable
 import androidx.compose.material.icons.rounded.CheckCircle
@@ -82,6 +84,7 @@ import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.LockOpen
+import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.Nightlight
 import androidx.compose.material.icons.rounded.NotificationImportant
 import androidx.compose.material.icons.rounded.Notifications
@@ -292,6 +295,11 @@ fun DashboardRoute(
         onLockConditionChanged = viewModel::onLockConditionChanged,
         onHistorySearch = viewModel::onHistorySearch,
         onHistoryClearAll = viewModel::onHistoryClearAll,
+        onConfirmStartWithSpeaker = viewModel::onConfirmStartWithSpeaker,
+        onConfirmStartAnyway = viewModel::onConfirmStartAnyway,
+        onDismissNoAudioOutputWarning = viewModel::onDismissNoAudioOutputWarning,
+        onDismissBatteryWarning = viewModel::onDismissBatteryWarning,
+        onRequestBatteryExemption = viewModel::onRequestBatteryExemption,
         appsContent = {
             ApplicationsRoute(
                 viewModel = applicationsViewModel,
@@ -346,6 +354,11 @@ fun DashboardScreen(
     onLockConditionChanged: (LockCondition) -> Unit = {},
     onHistorySearch: (DashboardFilterState) -> Unit,
     onHistoryClearAll: () -> Unit,
+    onConfirmStartWithSpeaker: () -> Unit = {},
+    onConfirmStartAnyway: () -> Unit = {},
+    onDismissNoAudioOutputWarning: () -> Unit = {},
+    onDismissBatteryWarning: () -> Unit = {},
+    onRequestBatteryExemption: () -> Unit = {},
     appsContent: @Composable () -> Unit,
     globalRulesContent: @Composable () -> Unit,
     voiceSpeechContent: @Composable () -> Unit = {},
@@ -427,6 +440,11 @@ fun DashboardScreen(
                             onLockConditionChanged = onLockConditionChanged,
                             onHistorySearch = onHistorySearch,
                             onHistoryClearAll = onHistoryClearAll,
+                            onConfirmStartWithSpeaker = onConfirmStartWithSpeaker,
+                            onConfirmStartAnyway = onConfirmStartAnyway,
+                            onDismissNoAudioOutputWarning = onDismissNoAudioOutputWarning,
+                            onDismissBatteryWarning = onDismissBatteryWarning,
+                            onRequestBatteryExemption = onRequestBatteryExemption,
                             onSelectDestination = onSelectDestination,
                             onNavigateToHistoryWithFilter = onNavigateToHistoryWithFilter,
                         )
@@ -674,6 +692,11 @@ private fun DashboardHome(
     onLockConditionChanged: (LockCondition) -> Unit = {},
     onHistorySearch: (DashboardFilterState) -> Unit,
     onHistoryClearAll: () -> Unit,
+    onConfirmStartWithSpeaker: () -> Unit = {},
+    onConfirmStartAnyway: () -> Unit = {},
+    onDismissNoAudioOutputWarning: () -> Unit = {},
+    onDismissBatteryWarning: () -> Unit = {},
+    onRequestBatteryExemption: () -> Unit = {},
     onSelectDestination: (DashboardDestination) -> Unit,
     onNavigateToHistoryWithFilter: (HistoryStatus?) -> Unit,
 ) {
@@ -706,6 +729,16 @@ private fun DashboardHome(
                 else -> "Good Night"
             }
         }
+        val muteRemainingLabel = remember(state.temporaryMuteMinutes) {
+            when (state.temporaryMuteMinutes) {
+                15 -> "Muted · 15m"
+                30 -> "Muted · 30m"
+                60 -> "Muted · 1h"
+                120 -> "Muted · 2h"
+                -1 -> "Muted"
+                else -> "Muted"
+            }
+        }
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -724,7 +757,100 @@ private fun DashboardHome(
                     color = MaterialTheme.colorScheme.onBackground,
                 )
             }
-            ServiceStatusPill(isRunning = state.service.isRunning, isSpeaking = state.service.isSpeaking)
+            ServiceStatusPill(
+                isRunning = state.service.isRunning,
+                isSpeaking = state.service.isSpeaking,
+                isMuted = state.temporaryMuteActive && state.service.isRunning,
+                remainingMuteLabel = muteRemainingLabel,
+            )
+        }
+
+        // ── Battery Optimization Exemption Banner ────────────────────────────
+        if (!state.isBatteryOptimizationExempt && !state.isBatteryWarningDismissed) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.45f),
+                ),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.45f)),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Surface(
+                        modifier = Modifier.size(36.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.tertiaryContainer,
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Rounded.BatteryAlert,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Unrestricted Battery",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontSize = 13.sp,
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "Prevent Android from stopping background speech announcements",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 11.sp,
+                            lineHeight = 14.sp,
+                            maxLines = 2,
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Button(
+                        onClick = onRequestBatteryExemption,
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                        modifier = Modifier.height(34.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.tertiary,
+                            contentColor = MaterialTheme.colorScheme.onTertiary,
+                        ),
+                    ) {
+                        Text(
+                            text = "Fix",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(2.dp))
+
+                    IconButton(
+                        onClick = onDismissBatteryWarning,
+                        modifier = Modifier.size(28.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Close,
+                            contentDescription = "Dismiss battery warning",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
+                }
+            }
         }
 
         // Hero Service Monitor Card
@@ -734,81 +860,13 @@ private fun DashboardHome(
             onStop = onStopService,
             onClearQueue = onClearQueue,
             onRepeatLast = onRepeatLastAnnouncement,
+            onTemporaryMuteCleared = onTemporaryMuteCleared,
             onSelectDestination = onSelectDestination,
         )
 
-        // ── Today's Activity Section (Interactive Stats with History Deep Link) ──
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = "Today's Activity",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground,
-            )
-            Surface(
-                onClick = { onNavigateToHistoryWithFilter(null) },
-                shape = RoundedCornerShape(8.dp),
-                color = Color.Transparent,
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
-                ) {
-                    Text(
-                        text = "History",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                    Spacer(modifier = Modifier.width(2.dp))
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(16.dp),
-                    )
-                }
-            }
-        }
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(IntrinsicSize.Max),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            // Spoken Today Stat Card
-            ActivityStatCard(
-                count = state.todayAnnouncedCount,
-                label = "Spoken",
-                caption = "Announcements read",
-                icon = Icons.AutoMirrored.Rounded.VolumeUp,
-                accentColor = Color(0xFF10B981),
-                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                onClick = { onNavigateToHistoryWithFilter(HistoryStatus.ANNOUNCED) },
-                modifier = Modifier.weight(1f),
-            )
-
-            // Skipped Today Stat Card
-            ActivityStatCard(
-                count = state.todaySkippedCount,
-                label = "Skipped",
-                caption = "Rules or privacy filter",
-                icon = Icons.Rounded.NotificationsNone,
-                accentColor = MaterialTheme.colorScheme.secondary,
-                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                onClick = { onNavigateToHistoryWithFilter(HistoryStatus.SKIPPED) },
-                modifier = Modifier.weight(1f),
-            )
-        }
-
-        // Quick Controls & Status
+        // ── Speech Eligibility Rules (When to Announce) ────────────────────
         Text(
-            text = "Quick Controls",
+            text = "When to Announce",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onBackground,
@@ -963,8 +1021,7 @@ private fun DashboardHome(
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (priorityEnabled) 1f else 0.5f),
                         fontSize = 10.5.sp,
                         lineHeight = 13.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+                        maxLines = 2,
                     )
                 }
             }
@@ -1103,109 +1160,16 @@ private fun DashboardHome(
                         },
                         fontSize = 10.5.sp,
                         lineHeight = 13.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+                        maxLines = 2,
                     )
                 }
             }
         }
 
-        // Quick Action Section
-        Text(
-            text = "Quick Action",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground,
-        )
-
         val quickActionsEnabled = !state.priorityAnnounceActive
-        val isScreenOffActive = state.screenCondition == ScreenCondition.OFF || state.screenCondition == ScreenCondition.BOTH
-        val isScreenOnActive = state.screenCondition == ScreenCondition.ON || state.screenCondition == ScreenCondition.BOTH
-        val isLockedActive = state.lockCondition == LockCondition.LOCKED || state.lockCondition == LockCondition.BOTH
-        val isUnlockedActive = state.lockCondition == LockCondition.UNLOCKED || state.lockCondition == LockCondition.BOTH
 
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                QuickActionCard(
-                    title = "Off",
-                    icon = Icons.Rounded.Nightlight,
-                    isActive = isScreenOffActive,
-                    enabled = quickActionsEnabled,
-                    onClick = {
-                        val nextCondition = when (state.screenCondition) {
-                            ScreenCondition.OFF -> ScreenCondition.ON
-                            ScreenCondition.ON -> ScreenCondition.BOTH
-                            ScreenCondition.BOTH -> ScreenCondition.ON
-                        }
-                        onScreenConditionChanged(nextCondition)
-                    },
-                    modifier = Modifier.weight(1f),
-                )
-                QuickActionCard(
-                    title = "On",
-                    icon = Icons.Rounded.WbSunny,
-                    isActive = isScreenOnActive,
-                    enabled = quickActionsEnabled,
-                    onClick = {
-                        val nextCondition = when (state.screenCondition) {
-                            ScreenCondition.ON -> ScreenCondition.OFF
-                            ScreenCondition.OFF -> ScreenCondition.BOTH
-                            ScreenCondition.BOTH -> ScreenCondition.OFF
-                        }
-                        onScreenConditionChanged(nextCondition)
-                    },
-                    modifier = Modifier.weight(1f),
-                )
-                QuickActionCard(
-                    title = "Lock",
-                    icon = Icons.Rounded.Lock,
-                    isActive = isLockedActive,
-                    enabled = quickActionsEnabled,
-                    onClick = {
-                        val nextCondition = when (state.lockCondition) {
-                            LockCondition.LOCKED -> LockCondition.UNLOCKED
-                            LockCondition.UNLOCKED -> LockCondition.BOTH
-                            LockCondition.BOTH -> LockCondition.UNLOCKED
-                        }
-                        onLockConditionChanged(nextCondition)
-                    },
-                    modifier = Modifier.weight(1f),
-                )
-                QuickActionCard(
-                    title = "Unlock",
-                    icon = Icons.Rounded.LockOpen,
-                    isActive = isUnlockedActive,
-                    enabled = quickActionsEnabled,
-                    onClick = {
-                        val nextCondition = when (state.lockCondition) {
-                            LockCondition.UNLOCKED -> LockCondition.LOCKED
-                            LockCondition.LOCKED -> LockCondition.BOTH
-                            LockCondition.BOTH -> LockCondition.LOCKED
-                        }
-                        onLockConditionChanged(nextCondition)
-                    },
-                    modifier = Modifier.weight(1f),
-                )
-            }
-            if (!quickActionsEnabled) {
-                Text(
-                    text = "Bypassed while Priority Announce is active",
-                    style = MaterialTheme.typography.bodySmall,
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                    modifier = Modifier.padding(start = 4.dp),
-                )
-            }
-        }
-
-        // ── Smart Intelligence & Hardware Shortcuts Card ───────────────────
         Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { onSelectDestination(DashboardDestination.ACTIVE_INTELLIGENCE) },
+            modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -1216,8 +1180,204 @@ private fun DashboardHome(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                // Header explaining the rules
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "Speech Conditions",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = if (quickActionsEnabled) {
+                            "Announce notifications only when conditions match"
+                        } else {
+                            "Bypassed: Priority Announce is currently active"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (quickActionsEnabled) {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        } else {
+                            MaterialTheme.colorScheme.primary
+                        },
+                        fontSize = 11.sp,
+                        lineHeight = 14.sp,
+                        maxLines = 2,
+                    )
+                }
+
+                // Row 1: Screen Condition
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "Phone Screen",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontSize = 12.sp,
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        ConditionSegment(
+                            title = "Off",
+                            icon = Icons.Rounded.Nightlight,
+                            isSelected = state.screenCondition == ScreenCondition.OFF,
+                            enabled = quickActionsEnabled,
+                            onClick = { onScreenConditionChanged(ScreenCondition.OFF) },
+                            modifier = Modifier.weight(1f),
+                        )
+                        ConditionSegment(
+                            title = "On",
+                            icon = Icons.Rounded.WbSunny,
+                            isSelected = state.screenCondition == ScreenCondition.ON,
+                            enabled = quickActionsEnabled,
+                            onClick = { onScreenConditionChanged(ScreenCondition.ON) },
+                            modifier = Modifier.weight(1f),
+                        )
+                        ConditionSegment(
+                            title = "Always",
+                            icon = Icons.Rounded.CheckCircle,
+                            isSelected = state.screenCondition == ScreenCondition.BOTH,
+                            enabled = quickActionsEnabled,
+                            onClick = { onScreenConditionChanged(ScreenCondition.BOTH) },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+
+                // Row 2: Lock Condition
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "Device Lock",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontSize = 12.sp,
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        ConditionSegment(
+                            title = "Locked",
+                            icon = Icons.Rounded.Lock,
+                            isSelected = state.lockCondition == LockCondition.LOCKED,
+                            enabled = quickActionsEnabled,
+                            onClick = { onLockConditionChanged(LockCondition.LOCKED) },
+                            modifier = Modifier.weight(1f),
+                        )
+                        ConditionSegment(
+                            title = "Unlocked",
+                            icon = Icons.Rounded.LockOpen,
+                            isSelected = state.lockCondition == LockCondition.UNLOCKED,
+                            enabled = quickActionsEnabled,
+                            onClick = { onLockConditionChanged(LockCondition.UNLOCKED) },
+                            modifier = Modifier.weight(1f),
+                        )
+                        ConditionSegment(
+                            title = "Always",
+                            icon = Icons.Rounded.CheckCircle,
+                            isSelected = state.lockCondition == LockCondition.BOTH,
+                            enabled = quickActionsEnabled,
+                            onClick = { onLockConditionChanged(LockCondition.BOTH) },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+            }
+        }
+
+        // ── Today's Activity Section (Interactive Stats with History Deep Link) ──
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "Today's Activity",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            Surface(
+                onClick = { onNavigateToHistoryWithFilter(null) },
+                shape = RoundedCornerShape(8.dp),
+                color = Color.Transparent,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                ) {
+                    Text(
+                        text = "History",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Spacer(modifier = Modifier.width(2.dp))
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
+            }
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Max),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            // Spoken Today Stat Card
+            ActivityStatCard(
+                count = state.todayAnnouncedCount,
+                label = "Spoken",
+                caption = "Announcements read",
+                icon = Icons.AutoMirrored.Rounded.VolumeUp,
+                accentColor = MaterialTheme.colorScheme.primary,
+                containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                onClick = { onNavigateToHistoryWithFilter(HistoryStatus.ANNOUNCED) },
+                modifier = Modifier.weight(1f),
+            )
+
+            // Skipped Today Stat Card
+            ActivityStatCard(
+                count = state.todaySkippedCount,
+                label = "Skipped",
+                caption = "Rules or privacy filter",
+                icon = Icons.Rounded.NotificationsNone,
+                accentColor = MaterialTheme.colorScheme.secondary,
+                containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                onClick = { onNavigateToHistoryWithFilter(HistoryStatus.SKIPPED) },
+                modifier = Modifier.weight(1f),
+            )
+        }
+
+        // ── Active Intelligence Showcase Card (USP / Future Pro Feature) ────
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onSelectDestination(DashboardDestination.ACTIVE_INTELLIGENCE) },
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            ),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
+                // Header Row with Title, AI Engine Pill, Subtitle, and Trailing Arrow
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -1230,13 +1390,13 @@ private fun DashboardHome(
                             .padding(end = 8.dp),
                     ) {
                         Surface(
-                            modifier = Modifier.size(36.dp),
-                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.size(38.dp),
+                            shape = RoundedCornerShape(12.dp),
                             color = MaterialTheme.colorScheme.primaryContainer,
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
-                                    imageVector = Icons.Rounded.Tune,
+                                    imageVector = Icons.Rounded.AutoAwesome,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(20.dp),
@@ -1245,70 +1405,87 @@ private fun DashboardHome(
                         }
                         Spacer(modifier = Modifier.width(10.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Active Intelligence",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1,
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "Active Intelligence",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = MaterialTheme.colorScheme.primary,
+                                ) {
+                                    Text(
+                                        text = "PRO",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Black,
+                                        color = MaterialTheme.colorScheme.onPrimary,
+                                        fontSize = 8.5.sp,
+                                        letterSpacing = 0.5.sp,
+                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp),
+                                    )
+                                }
+                            }
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = "Text cleanup & AI rules",
+                                text = "On-device text cleaning, spam shield and phonetic speech",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 11.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
+                                lineHeight = 14.sp,
+                                maxLines = 2,
                             )
                         }
                     }
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp),
+                    )
                 }
 
+                // 2x2 Feature Showcase Grid
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    listOf(
-                        Triple(Icons.Rounded.AutoAwesome, "NLP", MaterialTheme.colorScheme.primary),
-                        Triple(Icons.Rounded.RecordVoiceOver, "Dict", MaterialTheme.colorScheme.primary),
-                        Triple(Icons.Rounded.GraphicEq, "Filter", MaterialTheme.colorScheme.primary),
-                        Triple(Icons.Rounded.Apps, "AI", MaterialTheme.colorScheme.primary),
-                    ).forEach { (icon, label, tint) ->
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                            border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(32.dp),
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(horizontal = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center,
-                            ) {
-                                Icon(
-                                    imageVector = icon,
-                                    contentDescription = null,
-                                    tint = tint,
-                                    modifier = Modifier.size(13.dp),
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = label,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    maxLines = 1,
-                                    softWrap = false,
-                                )
-                            }
-                        }
-                    }
+                    IntelligenceFeatureBadge(
+                        icon = Icons.Rounded.AutoAwesome,
+                        title = "Smart Clean",
+                        caption = "Cleans URLs & emojis",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.weight(1f),
+                    )
+                    IntelligenceFeatureBadge(
+                        icon = Icons.Rounded.Security,
+                        title = "Spam Shield",
+                        caption = "Filters carrier spam",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    IntelligenceFeatureBadge(
+                        icon = Icons.Rounded.RecordVoiceOver,
+                        title = "Pronounce",
+                        caption = "Custom word phonetics",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.weight(1f),
+                    )
+                    IntelligenceFeatureBadge(
+                        icon = Icons.Rounded.Memory,
+                        title = "Entity AI",
+                        caption = "Spells codes & flights",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.weight(1f),
+                    )
                 }
             }
         }
@@ -1360,7 +1537,11 @@ private fun DashboardHome(
                                     color = MaterialTheme.colorScheme.onSurface,
                                 )
                                 Text(
-                                    text = if (state.testAnnouncement == TestAnnouncementState.SPEAKING) "Speaking sample…" else "Play test phrase",
+                                    text = when {
+                                        state.testAnnouncement == TestAnnouncementState.SPEAKING -> "Speaking sample…"
+                                        state.temporaryMuteActive && state.service.isRunning -> "Play sample (Muted)"
+                                        else -> "Play test phrase"
+                                    },
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -1369,8 +1550,18 @@ private fun DashboardHome(
 
                         Spacer(modifier = Modifier.width(8.dp))
 
+                        val context = LocalContext.current
                         Button(
-                            onClick = { onTestAnnouncement(testAnnouncementText) },
+                            onClick = {
+                                if (state.temporaryMuteActive && state.service.isRunning) {
+                                    Toast.makeText(
+                                        context,
+                                        "Muted for notifications · Playing sample for testing only",
+                                        Toast.LENGTH_SHORT,
+                                    ).show()
+                                }
+                                onTestAnnouncement(testAnnouncementText)
+                            },
                             enabled = state.testAnnouncement != TestAnnouncementState.SPEAKING,
                             shape = RoundedCornerShape(14.dp),
                             modifier = Modifier.height(38.dp),
@@ -1558,6 +1749,49 @@ private fun DashboardHome(
             shape = RoundedCornerShape(24.dp),
         )
     }
+
+    if (state.showNoAudioOutputWarning) {
+        AlertDialog(
+            onDismissRequest = onDismissNoAudioOutputWarning,
+            icon = {
+                Icon(
+                    imageVector = Icons.Rounded.Warning,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                )
+            },
+            title = {
+                Text(
+                    text = "No Audio Output Available",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+            },
+            text = {
+                Text(
+                    text = "Phone speaker is disabled and no Bluetooth or wired headphones are connected. Spoken alerts cannot be heard until an output device is available.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+            confirmButton = {
+                Button(onClick = onConfirmStartWithSpeaker) {
+                    Text("Enable Speaker & Start")
+                }
+            },
+            dismissButton = {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = onConfirmStartAnyway) {
+                        Text("Start Anyway")
+                    }
+                    TextButton(onClick = onDismissNoAudioOutputWarning) {
+                        Text(stringResource(R.string.action_cancel))
+                    }
+                }
+            },
+            shape = RoundedCornerShape(24.dp),
+        )
+    }
 }
 
 @Composable
@@ -1659,8 +1893,7 @@ private fun ActivityStatCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 11.sp,
                     lineHeight = 14.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    maxLines = 2,
                 )
             }
         }
@@ -1668,10 +1901,10 @@ private fun ActivityStatCard(
 }
 
 @Composable
-private fun QuickActionCard(
+private fun ConditionSegment(
     title: String,
     icon: ImageVector,
-    isActive: Boolean,
+    isSelected: Boolean,
     enabled: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -1679,43 +1912,44 @@ private fun QuickActionCard(
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        targetValue = if (isPressed && enabled) 0.95f else 1f,
+        targetValue = if (isPressed && enabled) 0.96f else 1f,
         animationSpec = spring(stiffness = Spring.StiffnessMedium, dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "quickActionScale",
+        label = "conditionScale",
     )
 
-    val containerBg by animateColorAsState(
+    val bgColor by animateColorAsState(
         targetValue = when {
-            !enabled -> MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.4f)
-            isActive -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-            else -> MaterialTheme.colorScheme.surfaceContainer
+            !enabled -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+            isSelected -> MaterialTheme.colorScheme.primaryContainer
+            else -> MaterialTheme.colorScheme.surfaceContainerHigh
         },
         animationSpec = spring(stiffness = Spring.StiffnessLow),
-        label = "quickActionBg",
+        label = "conditionBg",
     )
 
     val borderColor by animateColorAsState(
         targetValue = when {
-            !enabled -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)
-            isActive -> MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
-            else -> MaterialTheme.colorScheme.outlineVariant
+            !enabled -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)
+            isSelected -> MaterialTheme.colorScheme.primary
+            else -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
         },
         animationSpec = spring(stiffness = Spring.StiffnessLow),
-        label = "quickActionBorder",
+        label = "conditionBorder",
     )
 
     val contentColor by animateColorAsState(
         targetValue = when {
             !enabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
-            isActive -> MaterialTheme.colorScheme.primary
+            isSelected -> MaterialTheme.colorScheme.onPrimaryContainer
             else -> MaterialTheme.colorScheme.onSurfaceVariant
         },
         animationSpec = spring(stiffness = Spring.StiffnessMedium),
-        label = "quickActionContentColor",
+        label = "conditionContent",
     )
 
-    Card(
+    Surface(
         modifier = modifier
+            .height(38.dp)
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
@@ -1726,44 +1960,32 @@ private fun QuickActionCard(
                 indication = null,
                 onClick = onClick,
             ),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = containerBg),
-        border = BorderStroke(1.dp, borderColor),
+        shape = RoundedCornerShape(12.dp),
+        color = bgColor,
+        border = BorderStroke(if (isSelected) 1.2.dp else 0.75.dp, borderColor),
     ) {
-        Column(
+        Row(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 10.dp, horizontal = 4.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
+                .fillMaxSize()
+                .padding(horizontal = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
         ) {
-            Surface(
-                modifier = Modifier.size(36.dp),
-                shape = RoundedCornerShape(10.dp),
-                color = when {
-                    !enabled -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-                    isActive -> MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                    else -> MaterialTheme.colorScheme.surfaceVariant
-                },
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = title,
-                        tint = contentColor,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(4.dp))
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = contentColor,
+                modifier = Modifier.size(13.dp),
+            )
+            Spacer(modifier = Modifier.width(3.dp))
             Text(
                 text = title,
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = if (isActive && enabled) FontWeight.SemiBold else FontWeight.Medium,
-                fontSize = 11.sp,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                 color = contentColor,
-                textAlign = TextAlign.Center,
+                fontSize = 11.sp,
                 maxLines = 1,
+                softWrap = false,
             )
         }
     }
@@ -1780,6 +2002,7 @@ private fun HeroServiceCard(
     onStop: () -> Unit,
     onClearQueue: () -> Unit = {},
     onRepeatLast: () -> Unit = {},
+    onTemporaryMuteCleared: () -> Unit = {},
     onSelectDestination: (DashboardDestination) -> Unit,
 ) {
     val isRunning = state.service.isRunning
@@ -1792,7 +2015,11 @@ private fun HeroServiceCard(
         ),
         border = BorderStroke(
             1.5.dp,
-            if (isRunning) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant,
+            when {
+                !isRunning -> MaterialTheme.colorScheme.outlineVariant
+                state.temporaryMuteActive -> MaterialTheme.colorScheme.error.copy(alpha = 0.6f)
+                else -> MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+            },
         ),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -1892,6 +2119,74 @@ private fun HeroServiceCard(
                 }
             }
 
+            if (isRunning && state.temporaryMuteActive) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.45f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Rounded.VolumeOff,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = "Speech Muted",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                )
+                                val muteSub = when (state.temporaryMuteMinutes) {
+                                    15 -> "15m timer active · Alerts silenced"
+                                    30 -> "30m timer active · Alerts silenced"
+                                    60 -> "1h timer active · Alerts silenced"
+                                    120 -> "2h timer active · Alerts silenced"
+                                    -1 -> "Muted indefinitely until unmuted"
+                                    else -> "Temporary mute active"
+                                }
+                                Text(
+                                    text = muteSub,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.85f),
+                                    fontSize = 11.sp,
+                                    lineHeight = 14.sp,
+                                    maxLines = 2,
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Surface(
+                            onClick = onTemporaryMuteCleared,
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.error,
+                        ) {
+                            Text(
+                                text = "Unmute",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onError,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                            )
+                        }
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(14.dp))
 
             // Dedicated Audio Output Tile (Full Width - ample room for earphone name without "...")
@@ -1965,7 +2260,7 @@ private fun HeroServiceCard(
                                     modifier = Modifier
                                         .size(6.dp)
                                         .clip(CircleShape)
-                                        .background(Color(0xFF10B981)),
+                                        .background(MaterialTheme.colorScheme.primary),
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                             }
@@ -1984,6 +2279,77 @@ private fun HeroServiceCard(
                             )
                         }
                     }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Speech Tuning Vitals Tile (Full Width with deep link to Voice & Speech)
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onSelectDestination(DashboardDestination.VOICE_SPEECH) },
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surfaceContainer,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Surface(
+                        modifier = Modifier.size(40.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Rounded.RecordVoiceOver,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Voice & Speech",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 11.sp,
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        val volPct = (state.speechVolume * 100).toInt()
+                        val rateStr = String.format(java.util.Locale.US, "%.1f×", state.speechRate)
+                        val extraTag = when {
+                            state.isAdaptiveSpeedEnabled && state.isVoiceBoostEnabled -> " · Adaptive & Boost"
+                            state.isAdaptiveSpeedEnabled -> " · Adaptive"
+                            state.isVoiceBoostEnabled -> " · Boost"
+                            else -> ""
+                        }
+                        Text(
+                            text = "$volPct% Volume · $rateStr Speed$extraTag",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 2,
+                            lineHeight = 18.sp,
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                        contentDescription = "Voice and Speech Settings",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp),
+                    )
                 }
             }
 
@@ -2060,6 +2426,24 @@ private fun HeroServiceCard(
                     }
                 }
             }
+
+            if (!isRunning && state.lastStopReason == "Bluetooth disconnected") {
+                Spacer(modifier = Modifier.height(10.dp))
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        text = "Auto-paused: Earphones disconnected",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.5.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(vertical = 6.dp, horizontal = 12.dp),
+                    )
+                }
+            }
         }
     }
 }
@@ -2068,20 +2452,24 @@ private fun HeroServiceCard(
 private fun ServiceStatusPill(
     isRunning: Boolean,
     isSpeaking: Boolean,
+    isMuted: Boolean = false,
+    remainingMuteLabel: String? = null,
     modifier: Modifier = Modifier,
 ) {
-    val greenColor = Color(0xFF10B981)
+    val activeColor = MaterialTheme.colorScheme.primary
+    val mutedColor = MaterialTheme.colorScheme.error
     val stoppedColor = MaterialTheme.colorScheme.onSurfaceVariant
-    val label = when {
-        isSpeaking -> "Speaking…"
-        isRunning -> "Running"
-        else -> "Stopped"
+    val (statusColor, label) = when {
+        !isRunning -> stoppedColor to "Stopped"
+        isMuted -> mutedColor to (remainingMuteLabel ?: "Muted")
+        isSpeaking -> activeColor to "Speaking"
+        else -> activeColor to "Running"
     }
 
     Surface(
         shape = RoundedCornerShape(10.dp),
-        color = if (isRunning) greenColor.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-        border = BorderStroke(1.dp, if (isRunning) greenColor.copy(alpha = 0.35f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+        color = statusColor.copy(alpha = 0.12f),
+        border = BorderStroke(1.dp, statusColor.copy(alpha = 0.35f)),
         modifier = modifier,
     ) {
         Row(
@@ -2093,14 +2481,69 @@ private fun ServiceStatusPill(
                 modifier = Modifier
                     .size(7.dp)
                     .clip(CircleShape)
-                    .background(if (isRunning) greenColor else stoppedColor.copy(alpha = 0.5f)),
+                    .background(statusColor),
             )
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
-                color = if (isRunning) greenColor else stoppedColor,
+                color = statusColor,
                 fontSize = 12.sp,
+            )
+        }
+    }
+}
+
+@Composable
+private fun IntelligenceFeatureBadge(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    caption: String,
+    tint: Color,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+        border = BorderStroke(0.75.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+        modifier = modifier,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(10.dp),
+        ) {
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = tint.copy(alpha = 0.12f),
+                modifier = Modifier.size(28.dp),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = tint,
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 12.sp,
+                maxLines = 1,
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = caption,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 10.sp,
+                lineHeight = 13.sp,
+                maxLines = 2,
             )
         }
     }
@@ -2264,7 +2707,7 @@ private fun SettingsHubScreen(
                         modifier = Modifier
                             .size(8.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFF10B981)),
+                            .background(MaterialTheme.colorScheme.primary),
                     )
                     Text(
                         text = "HearIt v$appVersionName",

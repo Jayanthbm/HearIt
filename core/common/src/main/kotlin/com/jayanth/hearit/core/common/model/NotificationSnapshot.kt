@@ -46,6 +46,7 @@ data class NotificationSnapshot(
     val isUpdate: Boolean = false,
     val isGroup: Boolean = false,
     val groupTitle: String? = null,
+    val isGroupSummary: Boolean = false,
 ) {
     init {
         require(key.isNotBlank()) { "NotificationSnapshot.key must not be blank" }

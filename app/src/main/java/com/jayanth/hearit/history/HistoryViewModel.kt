@@ -70,6 +70,7 @@ class HistoryViewModel @Inject constructor(
     private val audioManager: AudioManager? = context.getSystemService(AudioManager::class.java)
     private val stateReader: RuntimeStateReader? = audioManager?.let { RuntimeStateReader(context, it, sessionStore) }
     private var focusRequest: AudioFocusRequest? = null
+    private var gestureSimulator: PlaybackGestureSimulator? = null
 
     init {
         viewModelScope.launch {
@@ -330,24 +331,26 @@ class HistoryViewModel @Inject constructor(
 
         requestAudioFocusForPlayback(resolved.eligibility.audioFocus)
         _state.update { it.copy(playingItemId = item.id) }
+        gestureSimulator?.stop()
+        gestureSimulator = PlaybackGestureSimulator(context) {
+            stopPlayback()
+        }.also { it.start() }
+
         val accepted = engine.speak(
             announcement = built,
             settings = speech,
             listener = object : UtteranceListener {
                 override fun onComplete(announcement: BuiltAnnouncement) {
-                    abandonAudioFocusPlayback()
-                    _state.update { if (it.playingItemId == item.id) it.copy(playingItemId = null) else it }
+                    stopPlayback()
                 }
 
                 override fun onError(announcement: BuiltAnnouncement, error: com.jayanth.hearit.core.tts.TtsError) {
-                    abandonAudioFocusPlayback()
-                    _state.update { if (it.playingItemId == item.id) it.copy(playingItemId = null) else it }
+                    stopPlayback()
                 }
             },
         )
         if (!accepted) {
-            abandonAudioFocusPlayback()
-            _state.update { if (it.playingItemId == item.id) it.copy(playingItemId = null) else it }
+            stopPlayback()
             _userMessage.emit("Couldn't play this notification")
         }
     }
@@ -364,12 +367,17 @@ class HistoryViewModel @Inject constructor(
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 focusRequest?.let { runCatching { am.abandonAudioFocusRequest(it) } }
                 val attrs = AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_ASSISTANT)
+                    .setUsage(AudioAttributes.USAGE_ASSISTANCE_ACCESSIBILITY)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                     .build()
                 val req = AudioFocusRequest.Builder(gain)
                     .setAudioAttributes(attrs)
-                    .setOnAudioFocusChangeListener { /* best-effort for history playback */ }
+                    .setWillPauseWhenDucked(gain == AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+                    .setOnAudioFocusChangeListener { change ->
+                        if (change == AudioManager.AUDIOFOCUS_LOSS || change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
+                            stopPlayback()
+                        }
+                    }
                     .build()
                 focusRequest = req
                 am.requestAudioFocus(req)
@@ -398,6 +406,8 @@ class HistoryViewModel @Inject constructor(
     }
 
     private fun stopPlayback() {
+        gestureSimulator?.stop()
+        gestureSimulator = null
         engine.stop()
         abandonAudioFocusPlayback()
         _state.update { it.copy(playingItemId = null) }
@@ -498,6 +508,12 @@ class HistoryViewModel @Inject constructor(
         SkipReason.SPAM_COOLDOWN -> "sender spam cooldown"
         SkipReason.MANUALLY_CLEARED -> "manually cleared"
         SkipReason.SERVICE_NOT_RUNNING -> "service was not running"
+        SkipReason.INTERRUPTED_SHAKE -> "interrupted by shake"
+        SkipReason.INTERRUPTED_FLIP -> "interrupted by flip"
+        SkipReason.INTERRUPTED_VOLUME_KEY -> "interrupted by volume key"
+        SkipReason.INTERRUPTED_AUDIO_LOST -> "interrupted by audio route loss"
+        SkipReason.INTERRUPTED_AUDIO_FOCUS -> "interrupted by audio focus loss"
+        SkipReason.INTERRUPTED_USER -> "interrupted by user"
     }
 
     override fun onCleared() {

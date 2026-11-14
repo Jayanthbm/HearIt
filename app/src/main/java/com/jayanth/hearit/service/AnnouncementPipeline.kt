@@ -171,13 +171,13 @@ class AnnouncementPipeline(
         )
         val now = clock()
         val isReplacingPending = queue.hasPending(snapshot.key)
-        if (!isReplacingPending && decision is EligibilityDecision.Announce && isContentDuplicate(snapshot, now)) {
+        if (!isReplacingPending && decision is EligibilityDecision.Announce && (snapshot.isGroupSummary || isContentDuplicate(snapshot, now))) {
             HearItLogger.info(
                 LogCategory.RULES,
-                "Duplicate notification content suppressed within ${dedupWindowMillis / 1000}s for pkg=${snapshot.packageName}",
+                "Duplicate or group summary notification content suppressed for pkg=${snapshot.packageName}",
             )
             val skipDecision = EligibilityDecision.Skip(SkipReason.DUPLICATE_UPDATE)
-            onRecord(HistoryRecord(snapshot, HistoryStatus.SKIPPED, SkipReason.DUPLICATE_UPDATE, priority))
+            // Suppress duplicate history entry insertion for rapid duplicate updates
             return Processed(skipDecision, emptyList())
         }
         if (decision is EligibilityDecision.Announce) {
@@ -381,13 +381,14 @@ class AnnouncementPipeline(
      *   engine error passes false, so history records `INTERRUPTED` instead of `ANNOUNCED`
      *   for a group the queue considers completed.
      */
-    fun onSpeechFinished(spoken: Boolean = true): List<QueueEvent> {
+    fun onSpeechFinished(spoken: Boolean = true, interruptionReason: SkipReason? = null): List<QueueEvent> {
         val finished = active ?: return emptyList()
         active = null
         val events = queue.markCompleted(finished.selection.id)
         val overrideStatus = if (spoken) null else HistoryStatus.INTERRUPTED
+        val effectiveReason = if (!spoken) (interruptionReason ?: SkipReason.INTERRUPTED_USER) else null
         events.forEach { event ->
-            onRecord(event.toHistoryRecord(finished.selection.priority, overrideStatus))
+            onRecord(event.toHistoryRecord(finished.selection.priority, overrideStatus, effectiveReason))
         }
         return events
     }
@@ -421,8 +422,9 @@ class AnnouncementPipeline(
     private fun QueueEvent.toHistoryRecord(
         priority: AppPriority = AppPriority.NORMAL,
         overrideStatus: HistoryStatus? = null,
+        overrideReason: SkipReason? = null,
     ): HistoryRecord = if (overrideStatus != null && this is QueueEvent.Announced) {
-        HistoryRecord(snapshot, overrideStatus, null, priority)
+        HistoryRecord(snapshot, overrideStatus, overrideReason, priority)
     } else {
         HistoryRecord(snapshot, historyStatus, reason, priority)
     }

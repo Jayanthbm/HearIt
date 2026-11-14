@@ -248,7 +248,7 @@ private fun SetupHeader(state: SetupUiState) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
         // Step chip + Progress percentage
         Row(
@@ -424,7 +424,7 @@ private fun WelcomeStep() {
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp, vertical = 4.dp),
+            .padding(horizontal = 16.dp, vertical = 4.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         // Compact expressive brand emblem
@@ -565,7 +565,7 @@ private fun NotificationAccessStep(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         PermissionCard(
@@ -604,7 +604,7 @@ private fun BluetoothStep(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         PermissionCard(
@@ -644,7 +644,7 @@ private fun TextToSpeechStep(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         TtsProbeCard(
@@ -757,7 +757,7 @@ private fun BatteryGuidanceStep(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Card(
@@ -894,7 +894,7 @@ private fun AppSelectionStep(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 24.dp),
+            .padding(horizontal = 16.dp),
     ) {
         // Search bar
         OutlinedTextField(
@@ -1087,7 +1087,7 @@ private fun AudioDevicesStep(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         // Bluetooth
@@ -1256,7 +1256,7 @@ private fun TestAnnouncementStep(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -1366,7 +1366,7 @@ private fun ReviewStep(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         // Summary Card
@@ -1679,10 +1679,10 @@ private fun PermissionCard(
 private fun StatusChip(isSuccess: Boolean, label: String) {
     Surface(
         shape = RoundedCornerShape(20.dp),
-        color = if (isSuccess) Color(0xFF064E3B) else Color(0xFF78350F),
+        color = if (isSuccess) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
-            if (isSuccess) Color(0xFF10B981) else Color(0xFFF59E0B),
+            if (isSuccess) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.error,
         ),
     ) {
         Row(
@@ -1692,7 +1692,7 @@ private fun StatusChip(isSuccess: Boolean, label: String) {
             Icon(
                 imageVector = if (isSuccess) Icons.Rounded.CheckCircle else Icons.Rounded.Warning,
                 contentDescription = null,
-                tint = if (isSuccess) Color(0xFF34D399) else Color(0xFFFBBF24),
+                tint = if (isSuccess) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                 modifier = Modifier.size(14.dp),
             )
             Spacer(modifier = Modifier.width(5.dp))
@@ -1700,7 +1700,7 @@ private fun StatusChip(isSuccess: Boolean, label: String) {
                 text = label,
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
-                color = if (isSuccess) Color(0xFF34D399) else Color(0xFFFBBF24),
+                color = if (isSuccess) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer,
                 maxLines = 1,
             )
         }
@@ -1712,10 +1712,10 @@ private fun StatusBanner(isSuccess: Boolean, message: String) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
-        color = if (isSuccess) Color(0xFF064E3B).copy(alpha = 0.5f) else Color(0xFF78350F).copy(alpha = 0.4f),
+        color = if (isSuccess) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f) else MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f),
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
-            if (isSuccess) Color(0xFF10B981).copy(alpha = 0.4f) else Color(0xFFF59E0B).copy(alpha = 0.4f),
+            if (isSuccess) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f) else MaterialTheme.colorScheme.error.copy(alpha = 0.4f),
         ),
     ) {
         Row(
@@ -1725,7 +1725,7 @@ private fun StatusBanner(isSuccess: Boolean, message: String) {
             Icon(
                 imageVector = if (isSuccess) Icons.Rounded.CheckCircle else Icons.Rounded.Warning,
                 contentDescription = null,
-                tint = if (isSuccess) Color(0xFF34D399) else Color(0xFFFBBF24),
+                tint = if (isSuccess) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                 modifier = Modifier.size(18.dp),
             )
             Spacer(modifier = Modifier.width(10.dp))
@@ -1733,7 +1733,7 @@ private fun StatusBanner(isSuccess: Boolean, message: String) {
                 text = message,
                 modifier = Modifier.weight(1f),
                 style = MaterialTheme.typography.bodySmall,
-                color = if (isSuccess) Color(0xFFD1FAE5) else Color(0xFFFEF3C7),
+                color = if (isSuccess) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer,
                 lineHeight = 18.sp,
             )
         }

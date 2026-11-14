@@ -28,7 +28,7 @@ class DashboardDestinationTest {
     }
 
     @Test
-    fun secondary_hasTheEightSecondaryEntries_inOrder() {
+    fun secondary_hasTheTenSecondaryEntries_inOrder() {
         assertEquals(
             listOf(
                 DashboardDestination.DEVICES,
@@ -39,6 +39,8 @@ class DashboardDestinationTest {
                 DashboardDestination.BACKUP_RESTORE,
                 DashboardDestination.DIAGNOSTICS,
                 DashboardDestination.ACTIVE_INTELLIGENCE,
+                DashboardDestination.AUTOMATION,
+                DashboardDestination.APP_SECURITY,
             ),
             DashboardDestination.secondary,
         )

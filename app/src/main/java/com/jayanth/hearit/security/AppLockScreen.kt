@@ -157,7 +157,7 @@ fun AppLockScreen(
                             Icon(
                                 imageVector = Icons.Rounded.CheckCircle,
                                 contentDescription = null,
-                                tint = Color(0xFF10B981),
+                                tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(14.dp),
                             )
                             Text(

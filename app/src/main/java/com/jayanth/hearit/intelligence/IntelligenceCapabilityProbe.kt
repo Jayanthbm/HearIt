@@ -27,20 +27,12 @@ enum class MlKitModelStatus {
     PLAY_SERVICES_UNAVAILABLE,
 }
 
-enum class AiCoreStatus {
-    SUPPORTED_READY,
-    NOT_SUPPORTED,
-}
-
 data class LocalAiCapabilityReport(
     val mlKitStatus: MlKitModelStatus,
     val mlKitStatusLabel: String,
-    val aiCoreStatus: AiCoreStatus,
-    val aiCoreStatusLabel: String,
 ) {
     val mlKitSupported: Boolean get() = mlKitStatus != MlKitModelStatus.PLAY_SERVICES_UNAVAILABLE
     val mlKitModelReady: Boolean get() = mlKitStatus == MlKitModelStatus.READY
-    val aiCoreSupported: Boolean get() = aiCoreStatus == AiCoreStatus.SUPPORTED_READY
 }
 
 /**
@@ -105,8 +97,7 @@ object LocalAiEnhancer {
 
 /**
  * Probes Tier 2 local AI capabilities (#15):
- *  - Tier 2A: ML Kit Entity Extraction (lightweight on-demand Play Services model)
- *  - Tier 2B: Android AICore system package (Android 14+ Gemini Nano hardware AI)
+ *  - ML Kit Entity Extraction (lightweight on-demand Play Services model)
  */
 @Singleton
 class IntelligenceCapabilityProbe @Inject constructor(
@@ -149,28 +140,10 @@ class IntelligenceCapabilityProbe @Inject constructor(
             }
         }
 
-        val (aiCoreStatus, aiCoreLabel) = probeAiCore()
         LocalAiCapabilityReport(
             mlKitStatus = mlKitStatus,
             mlKitStatusLabel = mlKitLabel,
-            aiCoreStatus = aiCoreStatus,
-            aiCoreStatusLabel = aiCoreLabel,
         )
-    }
-
-    private fun probeAiCore(): Pair<AiCoreStatus, String> {
-        if (Build.VERSION.SDK_INT < 34) {
-            return AiCoreStatus.NOT_SUPPORTED to "Requires Android 14+ & AICore"
-        }
-        val installed = runCatching {
-            val info = context.packageManager.getPackageInfo("com.google.android.aicore", 0)
-            info.applicationInfo?.enabled == true
-        }.getOrDefault(false)
-        return if (installed) {
-            AiCoreStatus.SUPPORTED_READY to "Supported · Hardware AI"
-        } else {
-            AiCoreStatus.NOT_SUPPORTED to "Not Supported on this Device"
-        }
     }
 
     suspend fun downloadMlKitModel(): Result<Boolean> = withContext(Dispatchers.IO) {
@@ -190,7 +163,6 @@ class IntelligenceCapabilityProbe @Inject constructor(
     suspend fun enhanceAnnouncement(
         announcement: BuiltAnnouncement,
         mlKitEnabled: Boolean,
-        aiCoreEnabled: Boolean,
     ): BuiltAnnouncement {
         if (!mlKitEnabled || !cachedMlKitReady) return announcement
         return withTimeoutOrNull(180L) {

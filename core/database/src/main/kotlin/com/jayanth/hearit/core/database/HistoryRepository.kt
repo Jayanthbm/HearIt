@@ -175,9 +175,9 @@ class RoomHistoryRepository(
     private companion object {
         /**
          * How long an identical (app, sender, body) notification reuses its existing row.
-         * Long enough to absorb score/progress re-posts, short enough that a genuinely new
-         * message with the same text still gets its own entry.
+         * 30 seconds absorbs rapid reposts and progress updates without dropping genuine
+         * subsequent messages with identical content (e.g. "Ok", "Yes").
          */
-        const val DUPLICATE_WINDOW_MILLIS: Long = 5 * 60_000L
+        const val DUPLICATE_WINDOW_MILLIS: Long = 30_000L
     }
 }

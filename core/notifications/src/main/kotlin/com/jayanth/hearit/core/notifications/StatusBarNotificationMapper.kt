@@ -74,6 +74,7 @@ internal object StatusBarNotificationMapper {
             conversationTitle = conversationTitle,
             messagingSender = messagingSender,
             messagingText = messagingText,
+            isGroupSummary = (notification?.flags ?: 0) and Notification.FLAG_GROUP_SUMMARY != 0,
         )
     }
 

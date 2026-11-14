@@ -139,6 +139,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.jayanth.hearit.R
+import com.jayanth.hearit.ui.components.StatusPill
 import com.jayanth.hearit.ui.components.SwipeToDeleteContainer
 import com.jayanth.hearit.core.common.model.AppCategory
 import com.jayanth.hearit.core.common.model.AppPriority
@@ -147,6 +148,7 @@ import com.jayanth.hearit.core.common.model.HistoryStatus
 import com.jayanth.hearit.core.common.model.HistoryStorageMode
 import com.jayanth.hearit.core.common.model.HistoryUpdateHandling
 import com.jayanth.hearit.core.common.model.KeywordMatchMode
+import com.jayanth.hearit.core.common.model.SkipReason
 import com.jayanth.hearit.core.database.HistoryEntry
 import com.jayanth.hearit.core.rules.KeywordMatcher
 import com.jayanth.hearit.history.skipReasonLabel
@@ -460,6 +462,9 @@ private fun ApplicationsListScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
 
+        val showSystemFilter = filterType != 1 // In the Enabled tab (1), no need of system hidden filter
+        val showCategoriesFilter = filterType != 2 // In the Off tab (2), no need of categories filter
+
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -468,37 +473,41 @@ private fun ApplicationsListScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            FilterChip(
-                selected = showSystemApps,
-                onClick = { showSystemApps = !showSystemApps },
-                label = {
-                    Text(
-                        text = if (showSystemApps) "System Shown" else "System Hidden",
-                        fontSize = 11.5.sp,
-                        maxLines = 1,
-                    )
-                },
-                shape = RoundedCornerShape(10.dp),
-            )
-            FilterChip(
-                selected = false,
-                onClick = { showCategoriesDialog = true },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Rounded.Tune,
-                        contentDescription = null,
-                        modifier = Modifier.size(15.dp),
-                    )
-                },
-                label = {
-                    Text(
-                        text = "Categories",
-                        fontSize = 11.5.sp,
-                        maxLines = 1,
-                    )
-                },
-                shape = RoundedCornerShape(10.dp),
-            )
+            if (showSystemFilter) {
+                FilterChip(
+                    selected = showSystemApps,
+                    onClick = { showSystemApps = !showSystemApps },
+                    label = {
+                        Text(
+                            text = if (showSystemApps) "System Shown" else "System Hidden",
+                            fontSize = 11.5.sp,
+                            maxLines = 1,
+                        )
+                    },
+                    shape = RoundedCornerShape(10.dp),
+                )
+            }
+            if (showCategoriesFilter) {
+                FilterChip(
+                    selected = false,
+                    onClick = { showCategoriesDialog = true },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Rounded.Tune,
+                            contentDescription = null,
+                            modifier = Modifier.size(15.dp),
+                        )
+                    },
+                    label = {
+                        Text(
+                            text = "Categories",
+                            fontSize = 11.5.sp,
+                            maxLines = 1,
+                        )
+                    },
+                    shape = RoundedCornerShape(10.dp),
+                )
+            }
         }
 
         if (showCategoriesDialog) {
@@ -2246,10 +2255,14 @@ private fun AppSettingsScreen(
                                         onDelete = { onDeleteHistoryEntry(entry.id) },
                                         shape = RoundedCornerShape(18.dp),
                                     ) {
+                                        val isAlreadyFiltered = entry.reason == SkipReason.KEYWORD_FILTERED ||
+                                            entry.reason == SkipReason.PRIVACY_SENSITIVE_KEYWORD ||
+                                            entry.reason == SkipReason.SUPPRESSED_INTELLIGENCE ||
+                                            entry.reason == SkipReason.PRIVACY_EXCLUDED_APP
                                         AppHistoryItemCard(
                                             entry = entry,
                                             isPlaying = state.playingHistoryId == entry.id,
-                                            canFilter = state.enabled,
+                                            canFilter = state.enabled && !isAlreadyFiltered,
                                             onPlay = {
                                                 if (state.playingHistoryId == entry.id) {
                                                     onStopPlaying()
@@ -2275,10 +2288,14 @@ private fun AppSettingsScreen(
 
     // Dialog: Full History Notification Details
     detailHistoryItem?.let { entry ->
+        val isAlreadyFiltered = entry.reason == SkipReason.KEYWORD_FILTERED ||
+            entry.reason == SkipReason.PRIVACY_SENSITIVE_KEYWORD ||
+            entry.reason == SkipReason.SUPPRESSED_INTELLIGENCE ||
+            entry.reason == SkipReason.PRIVACY_EXCLUDED_APP
         HistoryDetailDialog(
             entry = entry,
             isPlaying = state.playingHistoryId == entry.id,
-            canFilter = state.enabled,
+            canFilter = state.enabled && !isAlreadyFiltered,
             onPlay = {
                 if (state.playingHistoryId == entry.id) {
                     onStopPlaying()
@@ -2546,7 +2563,7 @@ private fun AppHistoryItemCard(
                 }
 
                 Spacer(modifier = Modifier.width(8.dp))
-                HistoryStatusPill(status = entry.status)
+                StatusPill(status = entry.status)
             }
 
             // Skip Reason Tag
@@ -2557,8 +2574,9 @@ private fun AppHistoryItemCard(
                     shape = RoundedCornerShape(6.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f),
                 ) {
+                    val labelPrefix = if (entry.status == HistoryStatus.INTERRUPTED) "Interrupted: " else "Reason: "
                     Text(
-                        text = "Reason: ${skipReasonLabel(reason)}",
+                        text = "$labelPrefix${skipReasonLabel(reason)}",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 11.sp,
@@ -2688,7 +2706,7 @@ private fun HistoryDetailDialog(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                HistoryStatusPill(status = entry.status)
+                StatusPill(status = entry.status)
             }
         },
         text = {
@@ -2794,31 +2812,6 @@ private fun HistoryDetailDialog(
             }
         },
     )
-}
-
-@Composable
-private fun HistoryStatusPill(status: HistoryStatus) {
-    val (bgColor, textColor, label) = when (status) {
-        HistoryStatus.ANNOUNCED -> Triple(Color(0xFF064E3B), Color(0xFF34D399), "Spoken")
-        HistoryStatus.SKIPPED -> Triple(Color(0xFF78350F), Color(0xFFFBBF24), "Skipped")
-        HistoryStatus.QUEUED -> Triple(Color(0xFF1E3A8A), Color(0xFF93C5FD), "Queued")
-        HistoryStatus.PENDING -> Triple(Color(0xFF1E3A8A), Color(0xFF93C5FD), "Pending")
-        HistoryStatus.INTERRUPTED -> Triple(Color(0xFF7F1D1D), Color(0xFFFCA5A5), "Interrupted")
-    }
-
-    Surface(
-        shape = RoundedCornerShape(8.dp),
-        color = bgColor,
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            color = textColor,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-            fontSize = 11.sp,
-        )
-    }
 }
 
 @Composable

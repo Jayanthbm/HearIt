@@ -23,19 +23,14 @@ class LocalAiEnhancerTest {
         val unsupported = LocalAiCapabilityReport(
             mlKitStatus = MlKitModelStatus.DOWNLOAD_REQUIRED,
             mlKitStatusLabel = "Supported · Model Not Downloaded",
-            aiCoreStatus = AiCoreStatus.NOT_SUPPORTED,
-            aiCoreStatusLabel = "Not Supported on this Device",
         )
         assertTrue(unsupported.mlKitSupported)
         assertFalse(unsupported.mlKitModelReady)
-        assertFalse(unsupported.aiCoreSupported)
 
         val ready = unsupported.copy(
             mlKitStatus = MlKitModelStatus.READY,
-            aiCoreStatus = AiCoreStatus.SUPPORTED_READY,
         )
         assertEquals(MlKitModelStatus.READY, ready.mlKitStatus)
         assertTrue(ready.mlKitModelReady)
-        assertTrue(ready.aiCoreSupported)
     }
 }

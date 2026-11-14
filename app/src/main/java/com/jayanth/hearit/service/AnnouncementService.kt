@@ -128,12 +128,14 @@ class AnnouncementService : Service(), NotificationSink {
 
     /** Last accepted announcement, so Pause/Resume can re-speak it (P16). */
     private var lastAction: AnnouncementPipeline.Action.Speak? = null
+    private var lastActionSpokenAtMillis: Long = 0L
 
     /** Active audio-focus request while an announcement is being spoken, or null. */
     private var focusRequest: AudioFocusRequest? = null
     private var pendingAbandonFocusRequest: AudioFocusRequest? = null
     private var savedMusicVolumeIndex: Int? = null
     private var isPausedMidUtterance: Boolean = false
+    private var pendingInterruptionReason: SkipReason? = null
 
     @Volatile
     private var isNavigationAudioActive: Boolean = false
@@ -189,7 +191,10 @@ class AnnouncementService : Service(), NotificationSink {
         handler.post {
             when (change) {
                 AudioManager.AUDIOFOCUS_LOSS -> {
-                    if (currentAction != null) engine.stop()
+                    if (currentAction != null) {
+                        pendingInterruptionReason = SkipReason.INTERRUPTED_AUDIO_FOCUS
+                        engine.stop()
+                    }
                 }
                 AudioManager.AUDIOFOCUS_LOSS_TRANSIENT,
                 AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
@@ -203,6 +208,7 @@ class AnnouncementService : Service(), NotificationSink {
                             sessionStore.navigationYieldSettleDelayMs.coerceAtLeast(500L),
                         )
                     } else if (change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT && currentAction != null) {
+                        pendingInterruptionReason = SkipReason.INTERRUPTED_AUDIO_FOCUS
                         engine.stop()
                     }
                 }
@@ -293,6 +299,7 @@ class AnnouncementService : Service(), NotificationSink {
                         sessionStore.lastHeadphoneDisconnectedAtMillis = System.currentTimeMillis()
                     }
                 }
+                pendingInterruptionReason = SkipReason.INTERRUPTED_AUDIO_LOST
                 engine.stop()
             }
         }
@@ -311,7 +318,6 @@ class AnnouncementService : Service(), NotificationSink {
     private var musicPausedAtMillis = 0L
     private var tickCount = 0L
     private var isProximityCovered = true
-    private var proximityMaxRange = 5f
     private var lastCatchUpSpokenAtElapsed = 0L
     private var lastPeriodicCheckinElapsed = 0L
     private var lowBatteryWarningSpoken = false
@@ -319,10 +325,6 @@ class AnnouncementService : Service(), NotificationSink {
     private val sensorEventListener = object : SensorEventListener {
         override fun onSensorChanged(event: SensorEvent?) {
             if (event == null) return
-            if (event.sensor.type == Sensor.TYPE_PROXIMITY) {
-                isProximityCovered = event.values[0] < minOf(proximityMaxRange, 5f)
-                return
-            }
             if (event.sensor.type != Sensor.TYPE_ACCELEROMETER) return
             val x = event.values[0]
             val y = event.values[1]
@@ -331,6 +333,7 @@ class AnnouncementService : Service(), NotificationSink {
             // 1. Flip check: phone lying flat face down (z < -8.5 m/s^2)
             if (z < -8.5f && currentAction != null && sessionStore.isFlipToStopEnabled) {
                 HearItLogger.info(LogCategory.SERVICE, "Flip gesture detected: stopping speech")
+                pendingInterruptionReason = SkipReason.INTERRUPTED_FLIP
                 engine.stop()
                 return
             }
@@ -342,6 +345,7 @@ class AnnouncementService : Service(), NotificationSink {
                 lastShakeTime = now
                 if (currentAction != null && sessionStore.isShakeToStopEnabled) {
                     HearItLogger.info(LogCategory.SERVICE, "Shake gesture detected: stopping speech")
+                    pendingInterruptionReason = SkipReason.INTERRUPTED_SHAKE
                     engine.stop()
                 } else if (
                     currentAction == null &&
@@ -361,6 +365,7 @@ class AnnouncementService : Service(), NotificationSink {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == "android.media.VOLUME_CHANGED_ACTION" && currentAction != null && sessionStore.isVolumeKeyToStopEnabled) {
                 HearItLogger.info(LogCategory.SERVICE, "Volume key pressed while speaking: stopping speech")
+                pendingInterruptionReason = SkipReason.INTERRUPTED_VOLUME_KEY
                 engine.stop()
             }
         }
@@ -412,11 +417,6 @@ class AnnouncementService : Service(), NotificationSink {
         val accel = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
         if (accel != null) {
             sensorManager.registerListener(sensorEventListener, accel, SensorManager.SENSOR_DELAY_UI)
-        }
-        val proximity = sensorManager?.getDefaultSensor(Sensor.TYPE_PROXIMITY)
-        if (proximity != null) {
-            proximityMaxRange = proximity.maximumRange
-            sensorManager.registerListener(sensorEventListener, proximity, SensorManager.SENSOR_DELAY_NORMAL)
         }
         val filter = IntentFilter("android.media.VOLUME_CHANGED_ACTION")
         try {
@@ -506,7 +506,8 @@ class AnnouncementService : Service(), NotificationSink {
             }
 
             ACTION_SKIP -> {
-                currentAction?.let { finishSpeech(it, spoken = false) }
+                pendingInterruptionReason = SkipReason.INTERRUPTED_USER
+                currentAction?.let { finishSpeech(it, spoken = false, reason = SkipReason.INTERRUPTED_USER) }
                 pipeline.tick(
                     state = currentState(),
                     settingsOf = { packageName -> settingsSource.forApp(packageName) },
@@ -587,6 +588,9 @@ class AnnouncementService : Service(), NotificationSink {
             unregisterReceiver(volumeReceiver)
         } catch (_: Throwable) {}
         (getSystemService(Context.SENSOR_SERVICE) as? SensorManager)?.unregisterListener(sensorEventListener)
+        try {
+            stateReader.unregister(this)
+        } catch (_: Throwable) {}
         NotificationRelay.sink = null
         abandonAudioFocus(immediate = true)
         engine.shutdown()
@@ -817,7 +821,16 @@ class AnnouncementService : Service(), NotificationSink {
         if (speaking != null || preparingAction != null) {
             if (speaking != null) {
                 pipeline.onStateChanged(state) { packageName -> settingsSource.forApp(packageName) }
-                    .forEach { action -> if (action is AnnouncementPipeline.Action.StopSpeech) engine.stop() }
+                    .forEach { action ->
+                        if (action is AnnouncementPipeline.Action.StopSpeech) {
+                            pendingInterruptionReason = when (action.reason) {
+                                AnnouncementPipeline.StopReason.OUTPUT_LOST -> SkipReason.INTERRUPTED_AUDIO_LOST
+                                AnnouncementPipeline.StopReason.DEVICE_SILENT -> SkipReason.MUTED
+                                AnnouncementPipeline.StopReason.ELIGIBILITY_LOST -> SkipReason.INTERRUPTED_USER
+                            }
+                            engine.stop()
+                        }
+                    }
             }
             publishStatus()
             return
@@ -843,7 +856,7 @@ class AnnouncementService : Service(), NotificationSink {
             settingsOf = { packageName -> settingsSource.forApp(packageName) },
         )
         if (spoken != null) {
-            val useTier2 = (sessionStore.isMlKitEntityExtractionEnabled || sessionStore.isAiCoreSummarizationEnabled) &&
+            val useTier2 = sessionStore.isMlKitEntityExtractionEnabled &&
                 spoken.announcement.sections.any { it.text.length >= 16 }
             if (useTier2) {
                 preparingAction = spoken
@@ -851,7 +864,6 @@ class AnnouncementService : Service(), NotificationSink {
                     val enhanced = capabilityProbe.enhanceAnnouncement(
                         announcement = spoken.announcement,
                         mlKitEnabled = sessionStore.isMlKitEntityExtractionEnabled,
-                        aiCoreEnabled = sessionStore.isAiCoreSummarizationEnabled,
                     )
                     withContext(Dispatchers.Main) {
                         if (preparingAction === spoken) {
@@ -994,6 +1006,7 @@ class AnnouncementService : Service(), NotificationSink {
         isPausedMidUtterance = false
         currentAction = action
         lastAction = action
+        lastActionSpokenAtMillis = SystemClock.elapsedRealtime()
         requestAudioFocus(action)
         HearItLogger.info(
             LogCategory.TTS,
@@ -1026,15 +1039,21 @@ class AnnouncementService : Service(), NotificationSink {
      * @param spoken false when it was stopped, skipped, replaced or never started, so the
      *   pipeline records `INTERRUPTED` instead of `ANNOUNCED`.
      */
-    private fun finishSpeech(action: AnnouncementPipeline.Action.Speak, spoken: Boolean = true) {
+    private fun finishSpeech(
+        action: AnnouncementPipeline.Action.Speak,
+        spoken: Boolean = true,
+        reason: SkipReason? = null,
+    ) {
         if (currentAction !== action) return
         currentAction = null
         if (spoken) {
             isPausedMidUtterance = false
         }
+        val interruptionReason = if (!spoken) (reason ?: pendingInterruptionReason ?: SkipReason.INTERRUPTED_USER) else null
+        pendingInterruptionReason = null
         lastSpeechEndTimeMillis = SystemClock.elapsedRealtime()
         abandonAudioFocus()
-        pipeline.onSpeechFinished(spoken)
+        pipeline.onSpeechFinished(spoken, interruptionReason)
         HearItLogger.info(
             LogCategory.TTS,
             "Finished speech announcement: pkg=${action.selection.packageName}, spoken=$spoken",
@@ -1093,11 +1112,14 @@ class AnnouncementService : Service(), NotificationSink {
      * Content-free by design: the monitor learns that something is being read and how many
      * announcements wait, never what they say (master prompt §17).
      */
+    private fun isLastAnnouncementFresh(): Boolean =
+        lastAction != null && (SystemClock.elapsedRealtime() - lastActionSpokenAtMillis < 15 * 60_000L)
+
     private fun publishStatus() {
         serviceStatus.updateSpeech(
             isSpeaking = pipeline.isSpeaking,
             pendingCount = pipeline.pendingCount,
-            hasLastAnnouncement = lastAction != null,
+            hasLastAnnouncement = isLastAnnouncementFresh(),
         )
         updateNotification()
     }
@@ -1108,7 +1130,7 @@ class AnnouncementService : Service(), NotificationSink {
             speaking = currentAction != null,
             isPriorityAnnounce = serviceStatus.state.value.isPriorityAnnounceActive,
             isMuted = sessionStore.isTemporaryMuteActive,
-            showRepeatAction = sessionStore.isRepeatLastShortcutEnabled && lastAction != null,
+            showRepeatAction = sessionStore.isRepeatLastShortcutEnabled && isLastAnnouncementFresh(),
         )
         startForeground(
             AnnouncementNotification.NOTIFICATION_ID,
@@ -1123,7 +1145,7 @@ class AnnouncementService : Service(), NotificationSink {
             speaking = currentAction != null,
             isPriorityAnnounce = serviceStatus.state.value.isPriorityAnnounceActive,
             isMuted = sessionStore.isTemporaryMuteActive,
-            showRepeatAction = sessionStore.isRepeatLastShortcutEnabled && lastAction != null,
+            showRepeatAction = sessionStore.isRepeatLastShortcutEnabled && isLastAnnouncementFresh(),
         )
         val manager = getSystemService(NotificationManager::class.java)
         manager?.notify(AnnouncementNotification.NOTIFICATION_ID, notification)

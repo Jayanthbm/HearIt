@@ -76,7 +76,6 @@ data class IntelligenceActions(
     val onRefreshLocalAiCapabilities: () -> Unit = {},
     val onToggleMlKitEntityExtraction: (Boolean) -> Unit = {},
     val onDownloadMlKitModel: () -> Unit = {},
-    val onToggleAiCoreSummarization: (Boolean) -> Unit = {},
 ) {
     companion object {
         fun from(viewModel: GeneralSettingsViewModel): IntelligenceActions = IntelligenceActions(
@@ -144,7 +143,6 @@ data class IntelligenceActions(
             onRefreshLocalAiCapabilities = viewModel::onRefreshLocalAiCapabilities,
             onToggleMlKitEntityExtraction = viewModel::onToggleMlKitEntityExtraction,
             onDownloadMlKitModel = viewModel::onDownloadMlKitModel,
-            onToggleAiCoreSummarization = viewModel::onToggleAiCoreSummarization,
         )
     }
 }

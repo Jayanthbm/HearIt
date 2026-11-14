@@ -152,3 +152,59 @@ internal fun playbackBlockMessage(reason: SkipReason, appName: String): String {
     }
     return reasonText + note
 }
+
+/**
+ * Simulates real-time notification control gestures (shake-to-stop, volume key to stop)
+ * during manual notification playback from History.
+ */
+internal class PlaybackGestureSimulator(
+    private val context: android.content.Context,
+    private val onStopTriggered: () -> Unit,
+) {
+    private val sensorManager = context.getSystemService(android.content.Context.SENSOR_SERVICE) as? android.hardware.SensorManager
+    private val accelerometer = sensorManager?.getDefaultSensor(android.hardware.Sensor.TYPE_ACCELEROMETER)
+    private var lastShakeTime = 0L
+
+    private val sensorListener = object : android.hardware.SensorEventListener {
+        override fun onSensorChanged(event: android.hardware.SensorEvent?) {
+            if (event?.sensor?.type != android.hardware.Sensor.TYPE_ACCELEROMETER) return
+            val x = event.values[0]
+            val y = event.values[1]
+            val z = event.values[2]
+            val acceleration = kotlin.math.sqrt((x * x + y * y + z * z).toDouble()).toFloat()
+            val now = android.os.SystemClock.elapsedRealtime()
+            if (acceleration > 15.5f && now - lastShakeTime > 1_000L) {
+                lastShakeTime = now
+                onStopTriggered()
+            }
+        }
+        override fun onAccuracyChanged(sensor: android.hardware.Sensor?, accuracy: Int) {}
+    }
+
+    private val volumeReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: android.content.Context?, intent: android.content.Intent?) {
+            if (intent?.action == "android.media.VOLUME_CHANGED_ACTION") {
+                onStopTriggered()
+            }
+        }
+    }
+
+    fun start() {
+        accelerometer?.let {
+            sensorManager?.registerListener(sensorListener, it, android.hardware.SensorManager.SENSOR_DELAY_UI)
+        }
+        try {
+            val filter = android.content.IntentFilter("android.media.VOLUME_CHANGED_ACTION")
+            context.registerReceiver(volumeReceiver, filter)
+        } catch (_: Throwable) {}
+    }
+
+    fun stop() {
+        try {
+            sensorManager?.unregisterListener(sensorListener)
+        } catch (_: Throwable) {}
+        try {
+            context.unregisterReceiver(volumeReceiver)
+        } catch (_: Throwable) {}
+    }
+}

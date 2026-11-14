@@ -49,6 +49,20 @@ class SessionStore(context: Context) {
             prefs.edit().putBoolean(KEY_TEST_SPEECH_DISMISSED, value).apply()
         }
 
+    /** True if user manually dismissed the battery optimization warning banner on home screen. */
+    var isBatteryWarningDismissed: Boolean
+        get() = prefs.getBoolean(KEY_BATTERY_WARNING_DISMISSED, false)
+        set(value) {
+            prefs.edit().putBoolean(KEY_BATTERY_WARNING_DISMISSED, value).apply()
+        }
+
+    /** Reason the service was last stopped (e.g. "Bluetooth disconnected"), or null. */
+    var lastStopReason: String?
+        get() = prefs.getString(KEY_LAST_STOP_REASON, null)
+        set(value) {
+            prefs.edit().putString(KEY_LAST_STOP_REASON, value).apply()
+        }
+
     /** True if notifications should be cleared from status bar after speaking (Idea 39, default true). */
     var isAutoDismissEnabled: Boolean
         get() = prefs.getBoolean(KEY_AUTO_DISMISS, true)
@@ -283,12 +297,6 @@ class SessionStore(context: Context) {
             prefs.edit().putFloat(KEY_ADAPTIVE_SPEED_TIER_3_MULTIPLIER, value.coerceIn(1.0f, 2.0f)).apply()
         }
 
-    var isMonoFoldDownEnabled: Boolean
-        get() = prefs.getBoolean(KEY_MONO_FOLD_DOWN, true)
-        set(value) {
-            prefs.edit().putBoolean(KEY_MONO_FOLD_DOWN, value).apply()
-        }
-
     var isVoiceBoostEnabled: Boolean
         get() = prefs.getBoolean(KEY_VOICE_BOOST_ENABLED, false)
         set(value) {
@@ -465,7 +473,7 @@ class SessionStore(context: Context) {
 
     /** Sender Burst Aggregator (#20 / Idea 2). */
     var isSenderBurstAggregatorEnabled: Boolean
-        get() = prefs.getBoolean(KEY_SENDER_BURST_AGGREGATOR, true)
+        get() = prefs.getBoolean(KEY_SENDER_BURST_AGGREGATOR, false)
         set(value) {
             prefs.edit().putBoolean(KEY_SENDER_BURST_AGGREGATOR, value).apply()
         }
@@ -510,7 +518,7 @@ class SessionStore(context: Context) {
 
     /** Multi-App Smart Batching Digest (#33 / Idea 53). */
     var isMultiAppDigestEnabled: Boolean
-        get() = prefs.getBoolean(KEY_MULTI_APP_DIGEST_ENABLED, true)
+        get() = prefs.getBoolean(KEY_MULTI_APP_DIGEST_ENABLED, false)
         set(value) {
             prefs.edit().putBoolean(KEY_MULTI_APP_DIGEST_ENABLED, value).apply()
         }
@@ -526,12 +534,6 @@ class SessionStore(context: Context) {
         get() = prefs.getBoolean(KEY_MLKIT_ENTITY_ENABLED, false)
         set(value) {
             prefs.edit().putBoolean(KEY_MLKIT_ENTITY_ENABLED, value).apply()
-        }
-
-    var isAiCoreSummarizationEnabled: Boolean
-        get() = prefs.getBoolean(KEY_AICORE_SUMMARIZATION_ENABLED, false)
-        set(value) {
-            prefs.edit().putBoolean(KEY_AICORE_SUMMARIZATION_ENABLED, value).apply()
         }
 
     // ---- Batch 7 (#35-#36): Wear OS Companion Settings (Max 4 Watch Apps, Option A) ----
@@ -663,11 +665,43 @@ class SessionStore(context: Context) {
         emptyList()
     }
 
+    /** Exports custom pronunciation rules, URL summary rules and filter phrases for backup. */
+    fun exportActiveRulesJson(): JSONObject = JSONObject().apply {
+        put("pronunciationRules", prefs.getString(KEY_PRONUNCIATION_RULES, null))
+        put("urlSummaryRules", prefs.getString(KEY_URL_SUMMARY_RULES, null))
+        put("carrierSpamPhrases", prefs.getString(KEY_CARRIER_SPAM_PHRASES, null))
+        put("isPronunciationDictionaryEnabled", isPronunciationDictionaryEnabled)
+        put("isCarrierSpamFilterEnabled", isCarrierSpamFilterEnabled)
+    }
+
+    /** Restores custom pronunciation rules, URL summary rules and filter phrases from backup. */
+    fun importActiveRulesJson(json: JSONObject) {
+        val editor = prefs.edit()
+        if (json.has("pronunciationRules") && !json.isNull("pronunciationRules")) {
+            editor.putString(KEY_PRONUNCIATION_RULES, json.getString("pronunciationRules"))
+        }
+        if (json.has("urlSummaryRules") && !json.isNull("urlSummaryRules")) {
+            editor.putString(KEY_URL_SUMMARY_RULES, json.getString("urlSummaryRules"))
+        }
+        if (json.has("carrierSpamPhrases") && !json.isNull("carrierSpamPhrases")) {
+            editor.putString(KEY_CARRIER_SPAM_PHRASES, json.getString("carrierSpamPhrases"))
+        }
+        if (json.has("isPronunciationDictionaryEnabled")) {
+            editor.putBoolean(KEY_PRONUNCIATION_ENABLED, json.getBoolean("isPronunciationDictionaryEnabled"))
+        }
+        if (json.has("isCarrierSpamFilterEnabled")) {
+            editor.putBoolean(KEY_CARRIER_SPAM_FILTER, json.getBoolean("isCarrierSpamFilterEnabled"))
+        }
+        editor.apply()
+    }
+
     private companion object {
         const val FILE_NAME = "hearit_session"
         const val KEY_STARTED = "started"
         const val KEY_TEMPORARY_MUTE = "temporary_mute"
         const val KEY_TEST_SPEECH_DISMISSED = "test_speech_dismissed"
+        const val KEY_BATTERY_WARNING_DISMISSED = "battery_warning_dismissed"
+        const val KEY_LAST_STOP_REASON = "last_stop_reason"
         const val KEY_AUTO_DISMISS = "auto_dismiss"
         const val KEY_BT_AUTO_START = "bt_auto_start"
         const val KEY_SHAKE_TO_STOP = "shake_to_stop"
@@ -704,7 +738,6 @@ class SessionStore(context: Context) {
         const val KEY_ADAPTIVE_SPEED_TIER_1_MULTIPLIER = "adaptive_speed_tier1_multiplier"
         const val KEY_ADAPTIVE_SPEED_TIER_2_MULTIPLIER = "adaptive_speed_tier2_multiplier"
         const val KEY_ADAPTIVE_SPEED_TIER_3_MULTIPLIER = "adaptive_speed_tier3_multiplier"
-        const val KEY_MONO_FOLD_DOWN = "mono_fold_down"
         const val KEY_VOICE_BOOST_ENABLED = "voice_boost_enabled"
         const val KEY_VOICE_BOOST_PERCENT = "voice_boost_percent"
         const val KEY_AMBIENT_NOISE_BOOST_ENABLED = "ambient_noise_boost_enabled"
@@ -743,7 +776,6 @@ class SessionStore(context: Context) {
         const val KEY_MULTI_APP_DIGEST_ENABLED = "multi_app_digest_enabled"
         const val KEY_MULTI_APP_DIGEST_WINDOW_MS = "multi_app_digest_window_ms"
         const val KEY_MLKIT_ENTITY_ENABLED = "mlkit_entity_enabled"
-        const val KEY_AICORE_SUMMARIZATION_ENABLED = "aicore_summarization_enabled"
         const val KEY_WATCH_FORWARDING_ENABLED = "watch_forwarding_enabled"
         const val KEY_WATCH_HAPTICS_ENABLED = "watch_haptics_enabled"
         const val KEY_WATCH_FILTER_APPS = "watch_filter_apps_json"

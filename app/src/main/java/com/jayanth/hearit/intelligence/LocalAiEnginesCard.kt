@@ -107,8 +107,8 @@ fun LocalAiEnginesCard(
                 title = "Instant Pattern NLP",
                 subtitle = "0 MB overhead · Runs locally on every Android device",
                 badgeText = "Active · On-Device",
-                badgeContainer = Color(0xFF1B5E20).copy(alpha = 0.2f),
-                badgeContent = Color(0xFF4CAF50),
+                badgeContainer = MaterialTheme.colorScheme.primaryContainer,
+                badgeContent = MaterialTheme.colorScheme.onPrimaryContainer,
                 trailing = null,
             )
 
@@ -121,14 +121,14 @@ fun LocalAiEnginesCard(
                     subtitle = "Detects tracking IDs, flight numbers, and IBAN codes cleanly before TTS",
                     badgeText = state.mlKitStatusLabel,
                     badgeContainer = if (state.mlKitModelReady) {
-                        Color(0xFF1B5E20).copy(alpha = 0.2f)
+                        MaterialTheme.colorScheme.primaryContainer
                     } else if (state.mlKitSupported) {
                         MaterialTheme.colorScheme.secondaryContainer
                     } else {
                         MaterialTheme.colorScheme.surfaceContainerHighest
                     },
                     badgeContent = if (state.mlKitModelReady) {
-                        Color(0xFF4CAF50)
+                        MaterialTheme.colorScheme.onPrimaryContainer
                     } else if (state.mlKitSupported) {
                         MaterialTheme.colorScheme.onSecondaryContainer
                     } else {
@@ -164,36 +164,6 @@ fun LocalAiEnginesCard(
                     }
                 }
             }
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-
-            // Android AICore (System Gemini Nano)
-            EngineStatusRow(
-                title = "Android AICore",
-                subtitle = if (state.aiCoreSupported) {
-                    "System Gemini Nano hardware acceleration available for long notification summaries"
-                } else {
-                    "Not available on this device; instant cleaning still works"
-                },
-                badgeText = state.aiCoreStatusLabel,
-                badgeContainer = if (state.aiCoreSupported) {
-                    Color(0xFF1B5E20).copy(alpha = 0.2f)
-                } else {
-                    MaterialTheme.colorScheme.surfaceContainerHighest
-                },
-                badgeContent = if (state.aiCoreSupported) {
-                    Color(0xFF4CAF50)
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-                trailing = {
-                    Switch(
-                        checked = state.isAiCoreSummarizationEnabled && state.aiCoreSupported,
-                        enabled = state.aiCoreSupported,
-                        onCheckedChange = actions.onToggleAiCoreSummarization,
-                    )
-                },
-            )
         }
     }
 }

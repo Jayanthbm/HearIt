@@ -10,12 +10,11 @@
 
 ### Text must not be truncated by surprise
 - Fixed headings/labels: `maxLines = 1` with ellipsis is fine.
-- Explanatory subtitles: allow **2 lines** (`maxLines = 2`) with ellipsis only as a last
-  resort. If a 2-line subtitle still truncates, **shorten the copy** instead of growing
-  the layout.
+- Explanatory subtitles & captions: allow **2 lines** (`maxLines = 2`) with proper `lineHeight`. Never use `maxLines = 1` on subtitles or descriptions.
+- If a 2-line subtitle still truncates, **shorten the copy** instead of growing the layout.
 - User-supplied text (device names, app names, keywords): up to 2 lines + ellipsis.
-- If a label renders as "This phone's speak…", rename it (e.g. `Speaker`) rather than
-  letting the ellipsis show. Static copy must never end with "…".
+- If a label renders as "This phone's speak…", rename it (e.g. `Speaker`) rather than letting the ellipsis show. Static copy must never end with "…".
+- **Zero-Truncation Verification Rule**: After every UI change, inspect all text elements on device. Multi-column cards (half-width cards, 2x2 grids, stat cards) must have copy concise enough and layout spacious enough to display completely with zero ellipsis.
 
 ### Spacing tokens
 - Screen: 16dp horizontal, 8dp vertical padding, 12dp between sections.

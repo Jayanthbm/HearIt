@@ -27,7 +27,6 @@ data class VoiceSpeechUiState(
     val adaptiveSpeedTier1Multiplier: Float = AdaptiveSpeedCalculator.DEFAULT_TIER_1_MULTIPLIER,
     val adaptiveSpeedTier2Multiplier: Float = AdaptiveSpeedCalculator.DEFAULT_TIER_2_MULTIPLIER,
     val adaptiveSpeedTier3Multiplier: Float = AdaptiveSpeedCalculator.DEFAULT_TIER_3_MULTIPLIER,
-    val isMonoFoldDownEnabled: Boolean = true,
     // Voice Loudness Boost (#24)
     val isVoiceBoostEnabled: Boolean = false,
     val voiceBoostPercent: Int = 20,

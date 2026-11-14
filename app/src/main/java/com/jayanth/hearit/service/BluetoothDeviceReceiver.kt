@@ -40,6 +40,7 @@ class BluetoothDeviceReceiver : BroadcastReceiver() {
 
         when (intent.action) {
             BluetoothDevice.ACTION_ACL_CONNECTED -> {
+                sessionStore.lastStopReason = null
                 if (!sessionStore.isBluetoothAutoStartEnabled) return
                 HearItLogger.info(LogCategory.SERVICE, "Bluetooth audio connected -> Auto-starting service")
                 try {
@@ -55,7 +56,13 @@ class BluetoothDeviceReceiver : BroadcastReceiver() {
                 sessionStore.lastHeadphoneDisconnectedAtMillis = System.currentTimeMillis()
                 if (!sessionStore.isBluetoothAutoStopEnabled) return
                 HearItLogger.info(LogCategory.SERVICE, "Bluetooth audio disconnected -> Auto-stopping service")
+                sessionStore.lastStopReason = "Bluetooth disconnected"
                 try {
+                    android.widget.Toast.makeText(
+                        context,
+                        "Hear It paused: Bluetooth disconnected",
+                        android.widget.Toast.LENGTH_SHORT,
+                    ).show()
                     context.startService(AnnouncementService.createStopIntent(context))
                 } catch (e: Exception) {
                     HearItLogger.error(LogCategory.SERVICE, "Failed to auto-stop service on Bluetooth disconnect", e)

@@ -255,9 +255,6 @@ class AndroidTextToSpeechEngine(context: Context) : TextToSpeechEngine {
 
         val params = Bundle().apply {
             putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, effectiveVolume)
-            if (sessionStore.isMonoFoldDownEnabled) {
-                putFloat(TextToSpeech.Engine.KEY_PARAM_PAN, 0.0f)
-            }
             if (totalBoostPercent > 0) {
                 prepareLoudnessEnhancer(totalBoostPercent)?.let { sessionId ->
                     putInt(TextToSpeech.Engine.KEY_PARAM_SESSION_ID, sessionId)

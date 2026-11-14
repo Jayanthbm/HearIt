@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jayanth.hearit.core.datastore.SettingsRepository
+import com.jayanth.hearit.service.SessionStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
@@ -26,6 +27,7 @@ import org.json.JSONObject
 @HiltViewModel
 class BackupRestoreViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
+    private val sessionStore: SessionStore,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(BackupRestoreUiState())
@@ -39,8 +41,20 @@ class BackupRestoreViewModel @Inject constructor(
         }
     }
 
+    private suspend fun getFullBackupJson(): String {
+        val baseJson = settingsRepository.exportSettings()
+        return try {
+            val json = JSONObject(baseJson)
+            val rules = sessionStore.exportActiveRulesJson()
+            json.put("activeRules", rules)
+            json.toString(2)
+        } catch (_: Exception) {
+            baseJson
+        }
+    }
+
     private suspend fun refreshExportJson() {
-        val json = settingsRepository.exportSettings()
+        val json = getFullBackupJson()
         _state.update { it.copy(currentSettingsJson = json) }
     }
 
@@ -48,7 +62,7 @@ class BackupRestoreViewModel @Inject constructor(
         viewModelScope.launch {
             _state.update { it.copy(isExporting = true) }
             try {
-                val json = settingsRepository.exportSettings()
+                val json = getFullBackupJson()
                 withContext(Dispatchers.IO) {
                     context.contentResolver.openOutputStream(uri)?.use { outputStream ->
                         outputStream.write(json.toByteArray(Charsets.UTF_8))
@@ -128,6 +142,13 @@ class BackupRestoreViewModel @Inject constructor(
                     )
                 }
                 return
+            }
+
+            if (parsed.has("activeRules")) {
+                val rulesJson = parsed.optJSONObject("activeRules")
+                if (rulesJson != null) {
+                    sessionStore.importActiveRulesJson(rulesJson)
+                }
             }
 
             settingsRepository.importSettings(content)

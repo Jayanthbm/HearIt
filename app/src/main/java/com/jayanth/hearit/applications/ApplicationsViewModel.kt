@@ -31,6 +31,7 @@ import com.jayanth.hearit.core.rules.EligibilityRules
 import com.jayanth.hearit.core.tts.SmartContentCleaner
 import com.jayanth.hearit.history.applyPlaybackBypasses
 import com.jayanth.hearit.history.syncCleanerForReplay
+import com.jayanth.hearit.history.PlaybackGestureSimulator
 import com.jayanth.hearit.service.RuntimeStateReader
 import com.jayanth.hearit.core.database.HistoryEntry
 import com.jayanth.hearit.core.datastore.SettingsRepository
@@ -75,6 +76,7 @@ class ApplicationsViewModel @Inject constructor(
     private val audioManager: AudioManager? = context.getSystemService(AudioManager::class.java)
     private val stateReader: RuntimeStateReader? = audioManager?.let { RuntimeStateReader(context, it, sessionStore) }
     private var focusRequest: AudioFocusRequest? = null
+    private var gestureSimulator: PlaybackGestureSimulator? = null
 
     private val _state = MutableStateFlow(ApplicationsUiState())
     val state: StateFlow<ApplicationsUiState> = _state.asStateFlow()
@@ -363,6 +365,11 @@ class ApplicationsViewModel @Inject constructor(
         _state.update { current ->
             current.copy(settings = current.settings?.copy(playingHistoryId = entry.id))
         }
+        gestureSimulator?.stop()
+        gestureSimulator = PlaybackGestureSimulator(context) {
+            onStopPlaying()
+        }.also { it.start() }
+
         val accepted = engine.speak(
             announcement = announcement,
             settings = settings.speechFor(entry.packageName),
@@ -400,6 +407,8 @@ class ApplicationsViewModel @Inject constructor(
     }
 
     private fun clearPlaying(entryId: Long) {
+        gestureSimulator?.stop()
+        gestureSimulator = null
         _state.update { current ->
             if (current.settings?.playingHistoryId == entryId) {
                 current.copy(settings = current.settings.copy(playingHistoryId = null))
@@ -420,12 +429,17 @@ class ApplicationsViewModel @Inject constructor(
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 focusRequest?.let { runCatching { am.abandonAudioFocusRequest(it) } }
                 val attrs = AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_ASSISTANT)
+                    .setUsage(AudioAttributes.USAGE_ASSISTANCE_ACCESSIBILITY)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                     .build()
                 val req = AudioFocusRequest.Builder(gain)
                     .setAudioAttributes(attrs)
-                    .setOnAudioFocusChangeListener { /* best-effort for history playback */ }
+                    .setWillPauseWhenDucked(gain == AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+                    .setOnAudioFocusChangeListener { change ->
+                        if (change == AudioManager.AUDIOFOCUS_LOSS || change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
+                            onStopPlaying()
+                        }
+                    }
                     .build()
                 focusRequest = req
                 am.requestAudioFocus(req)
@@ -438,6 +452,8 @@ class ApplicationsViewModel @Inject constructor(
     }
 
     private fun abandonPlaybackFocus() {
+        gestureSimulator?.stop()
+        gestureSimulator = null
         val am = audioManager ?: return
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

@@ -642,8 +642,13 @@ private fun ConnectedDeviceCard(
                     }
                 }
                 Spacer(modifier = Modifier.height(2.dp))
+                val statusSubtitle = when {
+                    row.isBluetooth && !bluetoothEnabled -> "Disabled because Bluetooth category is off"
+                    row.allowed -> "Allowed for announcements"
+                    else -> "Muted for announcements"
+                }
                 Text(
-                    text = if (row.allowed) "Allowed for announcements" else "Muted for announcements",
+                    text = statusSubtitle,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 11.sp,
@@ -815,12 +820,19 @@ private fun PreviouslyConnectedDeviceCard(
                         overflow = TextOverflow.Ellipsis,
                     )
                     Spacer(modifier = Modifier.height(2.dp))
+                    val rememberedSubtitle = when {
+                        row.isBluetooth && !bluetoothEnabled -> "Disabled because Bluetooth category is off"
+                        row.allowed -> "Allowed for announcements"
+                        else -> "Muted for announcements"
+                    }
                     Text(
-                        text = if (row.allowed) "Allowed for announcements" else "Muted for announcements",
+                        text = rememberedSubtitle,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 11.sp,
                         lineHeight = 15.sp,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
 

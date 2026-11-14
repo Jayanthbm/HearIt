@@ -41,6 +41,7 @@ class BackgroundHistoryRecorder @Inject constructor(
     fun onNotificationPosted(snapshot: NotificationSnapshot) {
         // If the announcement service is active, it owns recording for this snapshot.
         if (NotificationRelay.sink != null) return
+        if (snapshot.isGroupSummary) return
 
         val settings = latestSettings.value
         scope.launch {

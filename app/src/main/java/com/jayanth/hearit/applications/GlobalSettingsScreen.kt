@@ -327,11 +327,6 @@ fun GlobalSettingsScreen(
             onEligibilityChanged = onEligibilityChanged,
         )
 
-        PocketDetectionCard(
-            eligibility = state.eligibility,
-            onEligibilityChanged = onEligibilityChanged,
-        )
-
         // Reset to Defaults Button
         OutlinedButton(
             onClick = { showResetDialog = true },

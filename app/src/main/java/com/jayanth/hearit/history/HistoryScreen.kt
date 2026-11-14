@@ -110,6 +110,7 @@ import com.jayanth.hearit.core.common.model.HistoryStorageMode
 import com.jayanth.hearit.core.common.model.HistoryUpdateHandling
 import com.jayanth.hearit.core.common.model.KeywordMatchMode
 import com.jayanth.hearit.core.common.model.SkipReason
+import com.jayanth.hearit.ui.components.StatusPill
 import com.jayanth.hearit.ui.components.SwipeToDeleteContainer
 import com.jayanth.hearit.ui.components.verticalScrollbar
 
@@ -1024,7 +1025,7 @@ private fun ModernHistoryCard(
                 }
 
                 Spacer(modifier = Modifier.width(8.dp))
-                HistoryStatusPill(status = item.status)
+                StatusPill(status = item.status)
             }
 
             // Reason / Skip Cause Tag
@@ -1034,8 +1035,9 @@ private fun ModernHistoryCard(
                     shape = RoundedCornerShape(6.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f),
                 ) {
+                    val labelPrefix = if (item.status == HistoryStatus.INTERRUPTED) "Interrupted: " else "Reason: "
                     Text(
-                        text = "Reason: ${skipReasonLabel(item.reason)}",
+                        text = "$labelPrefix${skipReasonLabel(item.reason)}",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 11.sp,
@@ -1154,7 +1156,7 @@ private fun HistoryDetailDialog(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                HistoryStatusPill(status = item.status)
+                StatusPill(status = item.status)
             }
         },
         text = {
@@ -1235,18 +1237,25 @@ private fun HistoryDetailDialog(
                         Text(if (isPlaying) "Stop" else "Listen", maxLines = 1)
                     }
 
-                    Button(
-                        onClick = onFilterThis,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Tune,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Filter this", maxLines = 1)
+                    val isAlreadyFiltered = item.reason == com.jayanth.hearit.core.common.model.SkipReason.KEYWORD_FILTERED ||
+                        item.reason == com.jayanth.hearit.core.common.model.SkipReason.PRIVACY_SENSITIVE_KEYWORD ||
+                        item.reason == com.jayanth.hearit.core.common.model.SkipReason.SUPPRESSED_INTELLIGENCE ||
+                        item.reason == com.jayanth.hearit.core.common.model.SkipReason.PRIVACY_EXCLUDED_APP
+
+                    if (!isAlreadyFiltered) {
+                        Button(
+                            onClick = onFilterThis,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Tune,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Filter this", maxLines = 1)
+                        }
                     }
                 }
             }
@@ -1539,31 +1548,6 @@ private fun FilterThisDialog(
             }
         },
     )
-}
-
-@Composable
-private fun HistoryStatusPill(status: HistoryStatus) {
-    val (bgColor, textColor, label) = when (status) {
-        HistoryStatus.ANNOUNCED -> Triple(Color(0xFF064E3B), Color(0xFF34D399), "Spoken")
-        HistoryStatus.SKIPPED -> Triple(Color(0xFF78350F), Color(0xFFFBBF24), "Skipped")
-        HistoryStatus.QUEUED -> Triple(Color(0xFF1E3A8A), Color(0xFF93C5FD), "Queued")
-        HistoryStatus.PENDING -> Triple(Color(0xFF1E3A8A), Color(0xFF93C5FD), "Pending")
-        HistoryStatus.INTERRUPTED -> Triple(Color(0xFF7F1D1D), Color(0xFFFCA5A5), "Interrupted")
-    }
-
-    Surface(
-        shape = RoundedCornerShape(8.dp),
-        color = bgColor,
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            color = textColor,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-            fontSize = 11.sp,
-        )
-    }
 }
 
 @Composable

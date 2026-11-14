@@ -90,4 +90,22 @@ enum class SkipReason {
 
     /** Captured in background while the announcement service was not running. */
     SERVICE_NOT_RUNNING,
+
+    /** Speech interrupted: phone was shaken to stop announcement. */
+    INTERRUPTED_SHAKE,
+
+    /** Speech interrupted: phone was flipped face down to stop announcement. */
+    INTERRUPTED_FLIP,
+
+    /** Speech interrupted: volume key pressed to stop announcement. */
+    INTERRUPTED_VOLUME_KEY,
+
+    /** Speech interrupted: headphones disconnected or audio route lost. */
+    INTERRUPTED_AUDIO_LOST,
+
+    /** Speech interrupted: audio focus was lost to another app or call. */
+    INTERRUPTED_AUDIO_FOCUS,
+
+    /** Speech interrupted: stopped by user action, screen unlocking, or state change. */
+    INTERRUPTED_USER,
 }

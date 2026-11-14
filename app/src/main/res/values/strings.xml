@@ -379,6 +379,12 @@
     <string name="history_reason_spam_cooldown">sender spam cooldown</string>
     <string name="history_reason_manually_cleared">queue cleared manually</string>
     <string name="history_reason_service_not_running">service not running</string>
+    <string name="history_reason_interrupted_shake">shaken to stop</string>
+    <string name="history_reason_interrupted_flip">flipped face down</string>
+    <string name="history_reason_interrupted_volume_key">volume key pressed</string>
+    <string name="history_reason_interrupted_audio_lost">audio output lost</string>
+    <string name="history_reason_interrupted_audio_focus">audio focus lost</string>
+    <string name="history_reason_interrupted_user">stopped by user</string>
 
     <!-- App icon / splash -->
     <string name="splash_icon_description">Hear It app icon</string>

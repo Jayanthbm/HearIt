@@ -106,6 +106,14 @@ data class DashboardUiState(
     val testAnnouncement: TestAnnouncementState = TestAnnouncementState.IDLE,
     val testSpeechDismissed: Boolean = false,
     val isRepeatShortcutEnabled: Boolean = true,
+    val showNoAudioOutputWarning: Boolean = false,
+    val speechRate: Float = 1.0f,
+    val speechVolume: Float = 1.0f,
+    val isAdaptiveSpeedEnabled: Boolean = true,
+    val isVoiceBoostEnabled: Boolean = false,
+    val isBatteryOptimizationExempt: Boolean = true,
+    val isBatteryWarningDismissed: Boolean = false,
+    val lastStopReason: String? = null,
 ) {
 
     /** Master prompt §13 "Normal announcements ON/OFF": on exactly while the service runs. */

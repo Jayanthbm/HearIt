@@ -122,7 +122,6 @@ class GeneralSettingsViewModel @Inject constructor(
             isMultiAppDigestEnabled = sessionStore.isMultiAppDigestEnabled,
             multiAppDigestWindowMs = sessionStore.multiAppDigestWindowMs,
             isMlKitEntityExtractionEnabled = sessionStore.isMlKitEntityExtractionEnabled,
-            isAiCoreSummarizationEnabled = sessionStore.isAiCoreSummarizationEnabled,
         ),
     )
     val state: StateFlow<GeneralSettingsUiState> = _state.asStateFlow()
@@ -596,8 +595,6 @@ class GeneralSettingsViewModel @Inject constructor(
                     mlKitStatusLabel = report.mlKitStatusLabel,
                     mlKitSupported = report.mlKitSupported,
                     mlKitModelReady = report.mlKitModelReady,
-                    aiCoreStatusLabel = report.aiCoreStatusLabel,
-                    aiCoreSupported = report.aiCoreSupported,
                 )
             }
         }
@@ -623,11 +620,6 @@ class GeneralSettingsViewModel @Inject constructor(
             }
             onRefreshLocalAiCapabilities()
         }
-    }
-
-    fun onToggleAiCoreSummarization(enabled: Boolean) {
-        sessionStore.isAiCoreSummarizationEnabled = enabled
-        _state.update { it.copy(isAiCoreSummarizationEnabled = enabled) }
     }
 
     fun onToggleSpamCooldown(enabled: Boolean) {

@@ -147,8 +147,8 @@ fun DiagnosticsScreen(
         state.logExportSuccessMessage?.let { success ->
             Surface(
                 shape = RoundedCornerShape(12.dp),
-                color = Color(0xFF064E3B).copy(alpha = 0.2f),
-                border = BorderStroke(1.dp, Color(0xFF10B981)),
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Row(
@@ -164,7 +164,7 @@ fun DiagnosticsScreen(
                         Icon(
                             imageVector = Icons.Rounded.CheckCircle,
                             contentDescription = null,
-                            tint = Color(0xFF34D399),
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(18.dp),
                         )
                         Text(
@@ -353,8 +353,8 @@ private fun SystemHealthHeroCard(healthy: Boolean) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        color = if (healthy) Color(0xFF064E3B) else MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
-        border = BorderStroke(1.dp, if (healthy) Color(0xFF10B981) else MaterialTheme.colorScheme.error),
+        color = if (healthy) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+        border = BorderStroke(1.dp, if (healthy) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.error),
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
@@ -364,7 +364,7 @@ private fun SystemHealthHeroCard(healthy: Boolean) {
             Icon(
                 imageVector = if (healthy) Icons.Rounded.CheckCircle else Icons.Rounded.Warning,
                 contentDescription = null,
-                tint = if (healthy) Color(0xFF34D399) else MaterialTheme.colorScheme.error,
+                tint = if (healthy) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                 modifier = Modifier.size(28.dp),
             )
             Column {
@@ -372,7 +372,7 @@ private fun SystemHealthHeroCard(healthy: Boolean) {
                     text = if (healthy) "System Ready & Healthy" else "Attention Required",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = if (healthy) Color(0xFF34D399) else MaterialTheme.colorScheme.onErrorContainer,
+                    color = if (healthy) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -383,7 +383,7 @@ private fun SystemHealthHeroCard(healthy: Boolean) {
                         "One or more system permissions or hardware probes need attention."
                     },
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (healthy) Color(0xFFA7F3D0) else MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f),
+                    color = if (healthy) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f),
                     maxLines = 2,
                     lineHeight = 16.sp,
                     overflow = TextOverflow.Ellipsis,
@@ -854,7 +854,7 @@ private fun TtsDiagnosticsCard(
                         Icon(
                             imageVector = Icons.Rounded.CheckCircle,
                             contentDescription = null,
-                            tint = Color(0xFF10B981),
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(18.dp),
                         )
                         Text(
@@ -1088,8 +1088,8 @@ private fun DiagnosticRow(
 private fun StatusBadge(text: String, isOk: Boolean) {
     Surface(
         shape = RoundedCornerShape(8.dp),
-        color = if (isOk) Color(0xFF064E3B) else MaterialTheme.colorScheme.surfaceVariant,
-        border = BorderStroke(1.dp, if (isOk) Color(0xFF10B981) else MaterialTheme.colorScheme.outlineVariant),
+        color = if (isOk) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+        border = BorderStroke(1.dp, if (isOk) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
@@ -1099,7 +1099,7 @@ private fun StatusBadge(text: String, isOk: Boolean) {
                 modifier = Modifier
                     .size(6.dp)
                     .clip(CircleShape)
-                    .background(if (isOk) Color(0xFF34D399) else MaterialTheme.colorScheme.onSurfaceVariant),
+                    .background(if (isOk) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant),
             )
             Spacer(modifier = Modifier.width(6.dp))
             Text(
@@ -1108,7 +1108,7 @@ private fun StatusBadge(text: String, isOk: Boolean) {
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 softWrap = false,
-                color = if (isOk) Color(0xFF34D399) else MaterialTheme.colorScheme.onSurfaceVariant,
+                color = if (isOk) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
@@ -1168,8 +1168,8 @@ private fun DiagnosticLogsCard(
             // Privacy Guarantee Pill
             Surface(
                 shape = RoundedCornerShape(8.dp),
-                color = Color(0xFF10B981).copy(alpha = 0.12f),
-                border = BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.35f)),
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Row(
@@ -1180,14 +1180,14 @@ private fun DiagnosticLogsCard(
                     Icon(
                         imageVector = Icons.Rounded.CheckCircle,
                         contentDescription = null,
-                        tint = Color(0xFF10B981),
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(14.dp),
                     )
                     Text(
                         text = stringResource(R.string.diagnostics_logs_stat_privacy),
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF047857),
+                        color = MaterialTheme.colorScheme.primary,
                     )
                 }
             }
