@@ -236,16 +236,21 @@ object WearDataLayerSync {
         val cleaned = SmartContentCleaner.cleanMessage(snapshot.messageText, snapshot.packageName, snapshot.sender)
         if (cleaned.suppress) return
 
-        val cleanSender = (SmartContentCleaner.cleanSender(snapshot.sender) ?: snapshot.sender)?.trim().orEmpty()
+        val rawCleanSender = (SmartContentCleaner.cleanSender(snapshot.sender) ?: snapshot.sender)?.trim().orEmpty()
+        val displaySender = if (!snapshot.groupTitle.isNullOrBlank() && snapshot.isGroup && rawCleanSender.isNotBlank()) {
+            "$rawCleanSender in ${snapshot.groupTitle}"
+        } else {
+            rawCleanSender
+        }
         val cleanMessage = cleaned.text.trim()
-        if (cleanMessage.isBlank() && cleanSender.isBlank()) return
+        if (cleanMessage.isBlank() && displaySender.isBlank()) return
 
         // 4. Deduplication
         val now = System.currentTimeMillis()
-        if (isContentDuplicate(snapshot.packageName, cleanSender, cleanMessage, now)) {
+        if (isContentDuplicate(snapshot.packageName, displaySender, cleanMessage, now)) {
             return
         }
-        recentWatchSignatures[WatchContentSignature(snapshot.packageName, cleanSender, cleanMessage)] = now
+        recentWatchSignatures[WatchContentSignature(snapshot.packageName, displaySender, cleanMessage)] = now
 
         scope.launch {
             try {
@@ -259,7 +264,7 @@ object WearDataLayerSync {
                         put("historyId", historyId)
                         put("packageName", snapshot.packageName)
                         put("appName", snapshot.appName)
-                        put("sender", cleanSender)
+                        put("sender", displaySender)
                         put("message", cleanMessage)
                         put("timestamp", snapshot.postTimeMillis)
                     }.toString().toByteArray(Charsets.UTF_8)

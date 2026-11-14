@@ -36,7 +36,42 @@ class NotificationExtractor(
      */
     fun extract(raw: RawNotification, nowMillis: Long): NotificationSnapshot {
         val appName = raw.appLabel?.trim()?.takeIf { it.isNotEmpty() } ?: raw.packageName
-        val title = raw.messagingSender.trimmedOrNull() ?: raw.title.trimmedOrNull()
+        val rawTitle = raw.title.trimmedOrNull()?.takeUnless { it.equals(appName, ignoreCase = true) }
+        val rawSubText = raw.subText.trimmedOrNull()?.takeUnless { it.equals(appName, ignoreCase = true) }
+        val convTitle = raw.conversationTitle.trimmedOrNull()?.takeUnless { it.equals(appName, ignoreCase = true) }
+
+        var resolvedSender: String? = raw.messagingSender.trimmedOrNull()
+        var resolvedGroupTitle: String? = convTitle
+
+        if (resolvedSender != null) {
+            // MessagingStyle: messagingSender is the individual message author
+            if (resolvedGroupTitle == null) {
+                // If notification title differs from author, it holds the group title (e.g. WhatsApp groups)
+                if (rawTitle != null && !rawTitle.equals(resolvedSender, ignoreCase = true)) {
+                    resolvedGroupTitle = if (rawTitle.contains(" @ ")) {
+                        rawTitle.substringAfter(" @ ").trim()
+                    } else {
+                        rawTitle
+                    }
+                } else if (rawSubText != null && !rawSubText.equals(resolvedSender, ignoreCase = true)) {
+                    resolvedGroupTitle = rawSubText
+                }
+            }
+        } else if (rawTitle != null) {
+            if (rawTitle.contains(" @ ")) {
+                val parts = rawTitle.split(" @ ", limit = 2)
+                resolvedSender = parts[0].trim()
+                if (resolvedGroupTitle == null) {
+                    resolvedGroupTitle = parts[1].trim()
+                }
+            } else {
+                resolvedSender = rawTitle
+            }
+        }
+
+        val isGroup = raw.isGroupConversation ||
+            (resolvedGroupTitle != null && resolvedSender != null && !resolvedGroupTitle.equals(resolvedSender, ignoreCase = true))
+
         val messageText = raw.messagingText.trimmedOrNull()
             ?: raw.bigText.trimmedOrNull()
             ?: raw.text.trimmedOrNull().orEmpty()
@@ -46,15 +81,15 @@ class NotificationExtractor(
             key = key,
             packageName = raw.packageName,
             appName = appName,
-            sender = title?.takeUnless { it.equals(appName, ignoreCase = true) },
+            sender = resolvedSender?.takeUnless { it.equals(appName, ignoreCase = true) },
             messageText = messageText,
             channelId = raw.channelId,
             isSilentChannel = raw.channelIsSilent,
             category = raw.category,
             postTimeMillis = raw.postTimeMillis.takeIf { it > 0L } ?: nowMillis,
             isUpdate = tracker.markSeen(key),
-            isGroup = raw.isGroupConversation,
-            groupTitle = raw.conversationTitle?.takeUnless { it.equals(appName, ignoreCase = true) },
+            isGroup = isGroup,
+            groupTitle = resolvedGroupTitle?.takeUnless { it.equals(appName, ignoreCase = true) },
             isGroupSummary = raw.isGroupSummary,
         )
     }

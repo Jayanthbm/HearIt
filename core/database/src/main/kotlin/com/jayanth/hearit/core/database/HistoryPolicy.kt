@@ -50,11 +50,17 @@ object HistoryRecorderPolicy {
             return HistoryRecordAction.Discard
         }
 
+        val senderDisplay = if (!snapshot.groupTitle.isNullOrBlank() && snapshot.isGroup && !snapshot.sender.isNullOrBlank()) {
+            "${snapshot.sender} in ${snapshot.groupTitle}"
+        } else {
+            snapshot.sender
+        }
+
         val entry = HistoryEntry(
             key = snapshot.key,
             packageName = snapshot.packageName,
             appName = snapshot.appName,
-            sender = snapshot.sender,
+            sender = senderDisplay,
             messageText = when (settings.storageMode) {
                 HistoryStorageMode.FULL_CONTENT -> snapshot.messageText.takeIf { it.isNotBlank() }
                 HistoryStorageMode.METADATA_ONLY, HistoryStorageMode.DISABLED -> null
