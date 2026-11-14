@@ -1,5 +1,6 @@
 package com.jayanth.hearit.history
 
+import android.graphics.Bitmap
 import android.text.format.DateUtils
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -7,6 +8,7 @@ import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -95,6 +97,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -104,6 +108,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
@@ -116,6 +121,8 @@ import com.jayanth.hearit.core.common.model.SkipReason
 import com.jayanth.hearit.ui.components.StatusPill
 import com.jayanth.hearit.ui.components.SwipeToDeleteContainer
 import com.jayanth.hearit.ui.components.verticalScrollbar
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Entry point of the History feature (master prompt §12, phase P18).
@@ -208,6 +215,8 @@ fun HistoryRoute(
         onClearAll = viewModel::onClearAll,
         onStorageModeChanged = viewModel::onStorageModeChanged,
         onRetentionChanged = viewModel::onRetentionChanged,
+        onRemoveDisabledHistoryApp = viewModel::onRemoveDisabledHistoryApp,
+        onClearAllDisabledHistoryApps = viewModel::onClearAllDisabledHistoryApps,
         modifier = modifier,
     )
 }
@@ -239,6 +248,8 @@ fun HistoryScreen(
     onClearAll: () -> Unit,
     onStorageModeChanged: (HistoryStorageMode) -> Unit,
     onRetentionChanged: (Int?) -> Unit,
+    onRemoveDisabledHistoryApp: (String) -> Unit = {},
+    onClearAllDisabledHistoryApps: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var openDialog by rememberSaveable { mutableStateOf(DIALOG_NONE) }
@@ -611,6 +622,7 @@ fun HistoryScreen(
                 settings = state.settings,
                 onStorageClick = { openDialog = DIALOG_STORAGE },
                 onRetentionClick = { openDialog = DIALOG_RETENTION },
+                onDisabledAppsClick = { openDialog = DIALOG_DISABLED_APPS },
             )
         }
 
@@ -824,6 +836,13 @@ fun HistoryScreen(
             entryCountShown = state.items.size,
             onExportCsv = { openDialog = DIALOG_NONE; onRequestExportCsv() },
             onExportTxt = { openDialog = DIALOG_NONE; onRequestExportTxt() },
+            onDismiss = { openDialog = DIALOG_NONE },
+        )
+
+        DIALOG_DISABLED_APPS -> DisabledHistoryAppsDialog(
+            disabledApps = state.settings.disabledApps,
+            onRemoveApp = onRemoveDisabledHistoryApp,
+            onClearAll = onClearAllDisabledHistoryApps,
             onDismiss = { openDialog = DIALOG_NONE },
         )
     }
@@ -1697,12 +1716,15 @@ private fun HistorySettingsCard(
     settings: HistorySettingsState,
     onStorageClick: () -> Unit,
     onRetentionClick: () -> Unit,
+    onDisabledAppsClick: () -> Unit,
 ) {
     var isExpanded by rememberSaveable { mutableStateOf(false) }
 
     val storageLabel = stringResource(storageLabelRes(settings.storageMode))
     val retentionLabel = settings.retentionDays?.let { stringResource(R.string.history_retention_days, it) }
         ?: stringResource(R.string.history_retention_never)
+    val disabledAppsCount = settings.disabledApps.size
+    val disabledAppsLabel = if (disabledAppsCount == 1) "1 app" else "$disabledAppsCount apps"
     val summaryText = "$storageLabel · $retentionLabel"
 
     Card(
@@ -1779,6 +1801,11 @@ private fun HistorySettingsCard(
                         label = stringResource(R.string.history_retention_label),
                         value = retentionLabel,
                         onClick = onRetentionClick,
+                    )
+                    HistorySettingRow(
+                        label = "Apps with history disabled",
+                        value = disabledAppsLabel,
+                        onClick = onDisabledAppsClick,
                     )
                 }
             }
@@ -1911,5 +1938,243 @@ private const val DIALOG_APP = 5
 private const val DIALOG_DATE = 6
 private const val DIALOG_DATE_CUSTOM = 7
 private const val DIALOG_EXPORT = 8
+private const val DIALOG_DISABLED_APPS = 9
 
 private val RETENTION_OPTIONS: List<Int?> = listOf(null, 7, 30, 90)
+
+@Composable
+private fun HistoryAppIcon(packageName: String, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    var iconBitmap by remember(packageName) { mutableStateOf<ImageBitmap?>(null) }
+
+    LaunchedEffect(packageName) {
+        withContext(Dispatchers.IO) {
+            runCatching {
+                context.packageManager.getApplicationIcon(packageName)
+                    .toBitmap(96, 96, Bitmap.Config.ARGB_8888)
+                    .asImageBitmap()
+            }.getOrNull()
+        }.also {
+            iconBitmap = it
+        }
+    }
+
+    val bitmap = iconBitmap
+    if (bitmap != null) {
+        Image(
+            bitmap = bitmap,
+            contentDescription = null,
+            modifier = modifier.clip(RoundedCornerShape(8.dp)),
+        )
+    } else {
+        Box(
+            modifier = modifier
+                .background(
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = RoundedCornerShape(8.dp),
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Apps,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun DisabledHistoryAppsDialog(
+    disabledApps: List<DisabledHistoryApp>,
+    onRemoveApp: (String) -> Unit,
+    onClearAll: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var showConfirmClearAll by rememberSaveable { mutableStateOf(false) }
+
+    if (showConfirmClearAll) {
+        AlertDialog(
+            onDismissRequest = { showConfirmClearAll = false },
+            title = {
+                Text(
+                    text = "Clear all exclusions?",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+            },
+            text = {
+                Text(
+                    text = "All ${disabledApps.size} apps will be restored to inherit the global history storage rule.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showConfirmClearAll = false
+                        onClearAll()
+                    },
+                ) {
+                    Text(
+                        text = "Clear all",
+                        color = MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirmClearAll = false }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            },
+        )
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "History-Disabled Apps",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Notifications from these apps are never saved.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        lineHeight = 16.sp,
+                    )
+                }
+                if (disabledApps.isNotEmpty()) {
+                    TextButton(
+                        onClick = { showConfirmClearAll = true },
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                    ) {
+                        Text(
+                            text = "Clear all",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
+            }
+        },
+        text = {
+            if (disabledApps.isEmpty()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .background(
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                shape = CircleShape,
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Check,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(24.dp),
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = "No apps disabled",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "All apps inherit the global history storage rule.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        maxLines = 2,
+                        lineHeight = 16.sp,
+                    )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 360.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(disabledApps, key = { it.packageName }) { app ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                                    shape = RoundedCornerShape(12.dp),
+                                )
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            HistoryAppIcon(
+                                packageName = app.packageName,
+                                modifier = Modifier.size(36.dp),
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = app.appName,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Text(
+                                    text = app.packageName,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            IconButton(
+                                onClick = { onRemoveApp(app.packageName) },
+                                modifier = Modifier.size(36.dp),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.DeleteOutline,
+                                    contentDescription = "Restore history for ${app.appName}",
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(
+                    text = "Done",
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+        },
+    )
+}

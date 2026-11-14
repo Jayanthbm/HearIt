@@ -28,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.jayanth.hearit.core.common.model.ReactionFilterMode
 import com.jayanth.hearit.settings.GeneralSettingsUiState
 import com.jayanth.hearit.settings.SettingsCard
@@ -166,6 +167,36 @@ internal fun SmartContentCleaningCard(
                 checked = state.isSkipEmptyNotificationsEnabled,
                 onCheckedChange = actions.onToggleSkipEmptyNotifications,
             )
+
+            if (state.isSkipEmptyNotificationsEnabled) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 12.dp, top = 4.dp, bottom = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                        Text(
+                            text = "Save empty notifications to history",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            text = "Keep skipped empty alerts visible in Notification History.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            lineHeight = 16.sp,
+                        )
+                    }
+                    Switch(
+                        checked = state.isSaveEmptyNotificationsToHistory,
+                        onCheckedChange = actions.onToggleSaveEmptyNotificationsToHistory,
+                    )
+                }
+            }
         }
     }
 

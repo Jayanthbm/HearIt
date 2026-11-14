@@ -85,13 +85,26 @@ class AnnouncementPipeline(
 
         recentSignatures.entries.removeAll { now - it.value >= dedupWindowMillis }
 
-        val signature = ContentSignature(snapshot.packageName, sender, text)
-        val lastSeen = recentSignatures[signature]
-        if (lastSeen != null && now - lastSeen < dedupWindowMillis) {
-            return true
+        // Cross-format check: handles child message arriving before/after group summary
+        return recentSignatures.keys.any { sig ->
+            if (sig.packageName != snapshot.packageName) return@any false
+            // 1. Exact sender + message text match
+            if (sig.sender == sender && sig.messageText == text) return@any true
+            // 2. Child arrived first: text is "Sandesh ABC: 📊 Badminton?" while sig.messageText is "📊 Badminton?"
+            if (sig.messageText.isNotEmpty() && text.contains(sig.messageText) && (sig.sender.isEmpty() || text.startsWith("${sig.sender}:"))) return@any true
+            // 3. Summary arrived first: sig.messageText was "Sandesh ABC: 📊 Badminton?" while current text is "📊 Badminton?"
+            if (sig.messageText.contains(text) && (sender.isEmpty() || sig.messageText.startsWith("$sender:"))) return@any true
+            false
         }
-        recentSignatures[signature] = now
-        return false
+    }
+
+    private fun recordContentSignature(snapshot: NotificationSnapshot, now: Long) {
+        val text = snapshot.messageText?.trim().orEmpty()
+        val sender = snapshot.sender?.trim().orEmpty()
+        if (text.isNotBlank() || sender.isNotBlank()) {
+            val signature = ContentSignature(snapshot.packageName, sender, text)
+            recentSignatures[signature] = now
+        }
     }
 
     /** What the service should do next; the service owns the engine. */
@@ -175,14 +188,10 @@ class AnnouncementPipeline(
         spamCooldownMaxMessages: Int = 3,
         spamCooldownWindowMs: Long = 60_000L,
     ): Processed {
-        val decision = rules.evaluate(snapshot, settings, state)
-        HearItLogger.info(
-            LogCategory.RULES,
-            "Eligibility evaluated for pkg=${snapshot.packageName}: decision=${decision.javaClass.simpleName}${if (decision is EligibilityDecision.Skip) " (reason=${decision.reason})" else ""}",
-        )
         val now = clock()
         val isReplacingPending = queue.hasPending(snapshot.key)
-        if (!isReplacingPending && decision is EligibilityDecision.Announce && (snapshot.isGroupSummary || isContentDuplicate(snapshot, now))) {
+        val isWhatsAppSummary = snapshot.packageName == "com.whatsapp" && (snapshot.key == "com.whatsapp||1" || snapshot.isGroupSummary)
+        if (!isReplacingPending && (snapshot.isGroupSummary || isWhatsAppSummary || isContentDuplicate(snapshot, now))) {
             HearItLogger.info(
                 LogCategory.RULES,
                 "Duplicate or group summary notification content suppressed for pkg=${snapshot.packageName}",
@@ -191,21 +200,28 @@ class AnnouncementPipeline(
             // Suppress duplicate history entry insertion for rapid duplicate updates
             return Processed(skipDecision, emptyList())
         }
-        if (decision is EligibilityDecision.Announce) {
-            val cleaned = SmartContentCleaner.cleanMessage(snapshot.messageText, snapshot.packageName)
-            if (SmartContentCleaner.shouldSuppressEmptyContent(snapshot.sender, snapshot.messageText) || cleaned.suppress) {
-                HearItLogger.info(
-                    LogCategory.RULES,
-                    "Notification suppressed by Active Intelligence rules for pkg=${snapshot.packageName}",
-                )
-                val skipDecision = EligibilityDecision.Skip(SkipReason.SUPPRESSED_INTELLIGENCE)
-                // A noise-phrase match is optionally kept out of history as well as speech.
-                if (!cleaned.skipHistory) {
-                    onRecord(HistoryRecord(snapshot, HistoryStatus.SKIPPED, SkipReason.SUPPRESSED_INTELLIGENCE, priority))
-                }
-                return Processed(skipDecision, emptyList())
+
+        val cleaned = SmartContentCleaner.cleanMessage(snapshot.messageText, snapshot.packageName, snapshot.sender)
+        val isEmptyNotification = SmartContentCleaner.shouldSuppressEmptyContent(snapshot.sender, snapshot.messageText)
+        if (isEmptyNotification || cleaned.suppress) {
+            HearItLogger.info(
+                LogCategory.RULES,
+                "Notification suppressed by Active Intelligence rules for pkg=${snapshot.packageName}",
+            )
+            val skipDecision = EligibilityDecision.Skip(SkipReason.SUPPRESSED_INTELLIGENCE)
+            // A noise-phrase match or empty notification is optionally kept out of history.
+            val skipHistory = (isEmptyNotification && !SmartContentCleaner.isSaveEmptyNotificationsToHistory) || cleaned.skipHistory
+            if (!skipHistory) {
+                onRecord(HistoryRecord(snapshot, HistoryStatus.SKIPPED, SkipReason.SUPPRESSED_INTELLIGENCE, priority))
             }
+            return Processed(skipDecision, emptyList())
         }
+
+        val decision = rules.evaluate(snapshot, settings, state)
+        HearItLogger.info(
+            LogCategory.RULES,
+            "Eligibility evaluated for pkg=${snapshot.packageName}: decision=${decision.javaClass.simpleName}${if (decision is EligibilityDecision.Skip) " (reason=${decision.reason})" else ""}",
+        )
 
         // Per-Sender Spam Cooldown Throttle (#28 / Idea 16)
         val isCritical = EligibilityRules.isCriticalBreakthrough(snapshot, settings.eligibility)
@@ -239,7 +255,10 @@ class AnnouncementPipeline(
             }
         }
         val events = when (decision) {
-            EligibilityDecision.Announce -> queue.enqueue(snapshot, priority)
+            EligibilityDecision.Announce -> {
+                recordContentSignature(snapshot, now)
+                queue.enqueue(snapshot, priority)
+            }
             is EligibilityDecision.Queue -> queue.hold(snapshot, priority, decision.reason)
             is EligibilityDecision.Skip -> {
                 // A skip is a history fact too, and keeps the reason it was skipped for.

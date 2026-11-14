@@ -59,11 +59,18 @@ data class HistoryItem(
     val isUpdate: Boolean = false,
 )
 
+/** An app whose history storage mode is explicitly disabled. */
+data class DisabledHistoryApp(
+    val packageName: String,
+    val appName: String,
+)
+
 /** Global history settings the screen can edit (storage mode, update handling, retention). */
 data class HistorySettingsState(
     val storageMode: HistoryStorageMode = HistoryStorageMode.FULL_CONTENT,
     val updateHandling: HistoryUpdateHandling = HistoryUpdateHandling.UPDATE_ENTRY,
     val retentionDays: Int? = null,
+    val disabledApps: List<DisabledHistoryApp> = emptyList(),
 )
 
 /**

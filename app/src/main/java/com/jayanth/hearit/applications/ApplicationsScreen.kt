@@ -58,12 +58,14 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Apps
+import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.FilterAlt
 import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.material.icons.rounded.History
@@ -71,6 +73,7 @@ import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.NotificationsOff
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.RecordVoiceOver
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material.icons.rounded.Search
@@ -145,6 +148,18 @@ import com.jayanth.hearit.R
 import com.jayanth.hearit.ui.components.StatusPill
 import com.jayanth.hearit.ui.components.SwipeToDeleteContainer
 import com.jayanth.hearit.core.common.model.AppCategory
+import com.jayanth.hearit.core.common.model.DefaultAppCategories
+import com.jayanth.hearit.core.common.model.IntelligencePresets
+import com.jayanth.hearit.core.common.model.MatchTarget
+import com.jayanth.hearit.core.common.model.MediaReplacementRule
+import com.jayanth.hearit.core.common.model.SyncNoiseRule
+import androidx.compose.material.icons.rounded.Category
+import androidx.compose.material.icons.rounded.Chat
+import androidx.compose.material.icons.rounded.Email
+import androidx.compose.material.icons.rounded.FormatQuote
+import androidx.compose.material.icons.rounded.AccountBalance
+import androidx.compose.material.icons.rounded.Sync
+import androidx.compose.material.icons.rounded.VisibilityOff
 import com.jayanth.hearit.core.common.model.AppPriority
 import com.jayanth.hearit.core.common.model.AudioFocusPolicy
 import com.jayanth.hearit.core.common.model.HistoryStatus
@@ -268,15 +283,17 @@ fun ApplicationsRoute(
                     onDeleteMultipleHistoryEntries = viewModel::onDeleteMultipleHistoryEntries,
                     onClearAppHistory = viewModel::onClearAppHistory,
                     onSpokenNameChanged = viewModel::onSpokenNameChanged,
+                    onSetCategory = { category -> viewModel.onSetAppCategory(settings.packageName, category) },
+                    onResetCategory = { viewModel.onResetAppCategory(settings.packageName) },
                     onMessagingPolishEnabledChanged = viewModel::onMessagingPolishEnabledChanged,
-                    onAddMessagingNoisePhrase = viewModel::onAddMessagingNoisePhrase,
-                    onSetMessagingNoisePhrase = viewModel::onSetMessagingNoisePhrase,
+                    onSetMessagingNoiseRule = viewModel::onSetMessagingNoiseRule,
                     onRemoveMessagingNoisePhrase = viewModel::onRemoveMessagingNoisePhrase,
+                    onLoadDefaultNoiseRules = viewModel::onLoadDefaultNoiseRules,
                     onHideNoisePhraseMatchesChanged = viewModel::onHideNoisePhraseMatchesChanged,
-                    onSetMessagingMediaMapping = { oldMatch, match, spoken, applyToSender ->
-                        viewModel.onSetMessagingMediaMapping(oldMatch, match, spoken, applyToSender)
-                    },
+                    onSetMessagingMediaMapping = viewModel::onSetMessagingMediaMapping,
                     onRemoveMessagingMediaMapping = viewModel::onRemoveMessagingMediaMapping,
+                    onLoadDefaultMediaMappings = viewModel::onLoadDefaultMediaMappings,
+                    onImportMediaMappings = viewModel::onImportMediaMappings,
                     onOpenAppNotificationSettings = {
                         val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                             .putExtra(Settings.EXTRA_APP_PACKAGE, settings.packageName)
@@ -597,7 +614,6 @@ private fun ApplicationsListScreen(
                             app = app,
                             enabled = app.packageName in state.enabledApps,
                             isPriorityListed = app.packageName in state.priorityAnnounceApps,
-                            hasCustomRules = app.packageName in state.customizedApps,
                             isSelectionMode = state.isSelectionMode,
                             isSelected = app.packageName in state.selectedPackages,
                             icons = icons,
@@ -753,7 +769,6 @@ private fun ApplicationRow(
     app: AppEntry,
     enabled: Boolean,
     isPriorityListed: Boolean,
-    hasCustomRules: Boolean = false,
     isSelectionMode: Boolean = false,
     isSelected: Boolean = false,
     icons: AppIconLoader,
@@ -838,29 +853,17 @@ private fun ApplicationRow(
                     onCheckedChange = { onToggleSelect() },
                 )
             } else {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
+                // 1-tap Priority Star (#5)
+                IconButton(
+                    onClick = onTogglePriority,
+                    modifier = Modifier.size(34.dp),
                 ) {
-                    // 1-tap Priority Star (#5)
-                    IconButton(
-                        onClick = onTogglePriority,
-                        modifier = Modifier.size(34.dp),
-                    ) {
-                        Icon(
-                            imageVector = if (isPriorityListed) Icons.Rounded.Star else Icons.Rounded.StarBorder,
-                            contentDescription = if (isPriorityListed) "Remove from Priority List" else "Add to Priority List",
-                            tint = if (isPriorityListed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(19.dp),
-                        )
-                    }
-                    if (hasCustomRules) {
-                        Icon(
-                            imageVector = Icons.Rounded.Edit,
-                            contentDescription = "Custom rules",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(14.dp),
-                        )
-                    }
+                    Icon(
+                        imageVector = if (isPriorityListed) Icons.Rounded.Star else Icons.Rounded.StarBorder,
+                        contentDescription = if (isPriorityListed) "Remove from Priority List" else "Add to Priority List",
+                        tint = if (isPriorityListed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(19.dp),
+                    )
                 }
 
                 Spacer(modifier = Modifier.width(2.dp))
@@ -930,13 +933,17 @@ private fun AppSettingsScreen(
     onDeleteMultipleHistoryEntries: (Set<Long>) -> Unit = {},
     onClearAppHistory: (Int?) -> Unit,
     onSpokenNameChanged: (String?) -> Unit = {},
+    onSetCategory: (AppCategory?) -> Unit = {},
+    onResetCategory: () -> Unit = {},
     onMessagingPolishEnabledChanged: (Boolean?) -> Unit = {},
-    onAddMessagingNoisePhrase: (String) -> Unit = {},
-    onSetMessagingNoisePhrase: (String?, String) -> Unit = { _, _ -> },
+    onSetMessagingNoiseRule: (String?, String, MatchTarget) -> Unit = { _, _, _ -> },
     onRemoveMessagingNoisePhrase: (String) -> Unit = {},
+    onLoadDefaultNoiseRules: () -> Unit = {},
     onHideNoisePhraseMatchesChanged: (Boolean) -> Unit = {},
-    onSetMessagingMediaMapping: (String?, String, String, Boolean) -> Unit = { _, _, _, _ -> },
+    onSetMessagingMediaMapping: (String?, String, String, MatchTarget) -> Unit = { _, _, _, _ -> },
     onRemoveMessagingMediaMapping: (String) -> Unit = {},
+    onLoadDefaultMediaMappings: () -> Unit = {},
+    onImportMediaMappings: (List<MediaReplacementRule>) -> Unit = {},
     onConfirmHistoryPlayBypass: () -> Unit = {},
     onDismissHistoryPlayBlocked: () -> Unit = {},
     onOpenAppNotificationSettings: () -> Unit = {},
@@ -1019,21 +1026,126 @@ private fun AppSettingsScreen(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            if (state.hasOverrides) {
+            if (state.enabled) {
+                var showCategoryDialog by rememberSaveable { mutableStateOf(false) }
+                val categoryLabel = when (state.category) {
+                    AppCategory.MESSAGING, AppCategory.SMS -> "Messaging"
+                    AppCategory.EMAIL -> "Email"
+                    null -> "None"
+                }
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer,
+                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.85f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                    modifier = Modifier.clickable(role = Role.Button) { showCategoryDialog = true },
                 ) {
-                    Text(
-                        text = "Custom Rules",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        fontWeight = FontWeight.Bold,
+                    Row(
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                    )
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(
+                            text = categoryLabel,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Icon(
+                            imageVector = Icons.Rounded.ArrowDropDown,
+                            contentDescription = "Change category",
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
                 }
+
+                if (showCategoryDialog) {
+                val defaultCategory = remember(state.packageName) { DefaultAppCategories.defaultCategoryFor(state.packageName) }
+                val defaultLabel = when (defaultCategory) {
+                    AppCategory.MESSAGING, AppCategory.SMS -> "Messaging"
+                    AppCategory.EMAIL -> "Email"
+                    null -> "None"
+                }
+                val isCustomized = state.category != defaultCategory
+
+                AlertDialog(
+                    onDismissRequest = { showCategoryDialog = false },
+                    title = {
+                        Text(
+                            text = "App category",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                text = "Select how HearIt optimizes announcements for this app. System default is $defaultLabel.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            val options = listOf(
+                                "Messaging" to AppCategory.MESSAGING,
+                                "Email" to AppCategory.EMAIL,
+                                "None" to null,
+                            )
+                            options.forEach { (label, cat) ->
+                                val isSelected = state.category == cat
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .clickable {
+                                            onSetCategory(cat)
+                                            showCategoryDialog = false
+                                        }
+                                        .background(
+                                            if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                                            else Color.Transparent,
+                                        )
+                                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                ) {
+                                    RadioButton(
+                                        selected = isSelected,
+                                        onClick = {
+                                            onSetCategory(cat)
+                                            showCategoryDialog = false
+                                        },
+                                    )
+                                    Text(
+                                        text = label,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                    )
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        if (isCustomized) {
+                            TextButton(
+                                onClick = {
+                                    onResetCategory()
+                                    showCategoryDialog = false
+                                },
+                            ) {
+                                Text("Reset to default")
+                            }
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showCategoryDialog = false }) {
+                            Text("Done")
+                        }
+                    },
+                )
             }
         }
+    }
 
         Spacer(modifier = Modifier.height(10.dp))
 
@@ -1260,70 +1372,131 @@ private fun AppSettingsScreen(
                     }
 
                     if (state.enabled) {
-                        // Custom Spoken Name Card (Idea 33)
-                        var customSpokenName by remember(state.spokenName) { mutableStateOf(state.spokenName ?: "") }
+                        // Custom Spoken Name Card (Sleek Setting Row + Edit Dialog)
+                        var showSpokenNameDialog by rememberSaveable { mutableStateOf(false) }
+                        var tempSpokenName by rememberSaveable { mutableStateOf("") }
+
+                        if (showSpokenNameDialog) {
+                            AlertDialog(
+                                onDismissRequest = { showSpokenNameDialog = false },
+                                title = {
+                                    Text(
+                                        text = "Custom Spoken App Name",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                    )
+                                },
+                                text = {
+                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Text(
+                                            text = "HearIt will speak this nickname instead of '${state.label}'.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                        OutlinedTextField(
+                                            value = tempSpokenName,
+                                            onValueChange = { tempSpokenName = it },
+                                            placeholder = { Text(state.label) },
+                                            singleLine = true,
+                                            modifier = Modifier.fillMaxWidth(),
+                                            trailingIcon = {
+                                                if (tempSpokenName.isNotBlank()) {
+                                                    IconButton(onClick = { tempSpokenName = "" }) {
+                                                        Icon(Icons.Rounded.Close, contentDescription = "Clear")
+                                                    }
+                                                }
+                                            },
+                                        )
+                                    }
+                                },
+                                confirmButton = {
+                                    TextButton(
+                                        onClick = {
+                                            onSpokenNameChanged(tempSpokenName.trim().ifBlank { null })
+                                            showSpokenNameDialog = false
+                                        },
+                                    ) {
+                                        Text("Save", fontWeight = FontWeight.Bold)
+                                    }
+                                },
+                                dismissButton = {
+                                    Row {
+                                        if (state.spokenName != null) {
+                                            TextButton(
+                                                onClick = {
+                                                    onSpokenNameChanged(null)
+                                                    showSpokenNameDialog = false
+                                                },
+                                            ) {
+                                                Text("Reset")
+                                            }
+                                        }
+                                        TextButton(onClick = { showSpokenNameDialog = false }) {
+                                            Text("Cancel")
+                                        }
+                                    }
+                                },
+                            )
+                        }
+
                         Card(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(role = Role.Button) {
+                                    tempSpokenName = state.spokenName ?: ""
+                                    showSpokenNameDialog = true
+                                },
                             shape = RoundedCornerShape(20.dp),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
                         ) {
-                            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    modifier = Modifier.weight(1f),
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Tune,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(20.dp),
-                                    )
+                                    Surface(
+                                        modifier = Modifier.size(36.dp),
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = if (state.spokenName != null) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.RecordVoiceOver,
+                                                contentDescription = null,
+                                                tint = if (state.spokenName != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(20.dp),
+                                            )
+                                        }
+                                    }
                                     Column {
                                         Text(
-                                            text = "Custom Spoken App Name",
+                                            text = "Custom spoken name",
                                             style = MaterialTheme.typography.titleSmall,
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.onSurface,
                                         )
                                         Text(
-                                            text = "Spoken nickname (e.g. 'Teams' instead of 'Microsoft Teams')",
+                                            text = state.spokenName?.let { "'$it'" } ?: "Default (${state.label})",
                                             style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            fontSize = 11.sp,
+                                            color = if (state.spokenName != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                            fontWeight = if (state.spokenName != null) FontWeight.SemiBold else FontWeight.Normal,
                                         )
                                     }
                                 }
-
-                                OutlinedTextField(
-                                    value = customSpokenName,
-                                    onValueChange = { customSpokenName = it },
-                                    placeholder = { Text("Default: ${state.label}") },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth(),
-                                    trailingIcon = {
-                                        if (customSpokenName.isNotBlank()) {
-                                            IconButton(onClick = {
-                                                customSpokenName = ""
-                                                onSpokenNameChanged(null)
-                                            }) {
-                                                Icon(Icons.Rounded.Close, contentDescription = "Clear")
-                                            }
-                                        }
-                                    },
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp),
                                 )
-
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.End,
-                                ) {
-                                    FilledTonalButton(
-                                        onClick = { onSpokenNameChanged(customSpokenName.ifBlank { null }) },
-                                        shape = RoundedCornerShape(10.dp),
-                                    ) {
-                                        Text("Save Name")
-                                    }
-                                }
                             }
                         }
 
@@ -2074,24 +2247,35 @@ private fun AppSettingsScreen(
                 }
                     }
                     "intel" -> {
-                // Intelligence
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
-                ) {
-                    PerAppMessagingPolishCard(
-                        state = state,
-                        onMessagingPolishEnabledChanged = onMessagingPolishEnabledChanged,
-                        onSetMessagingNoisePhrase = onSetMessagingNoisePhrase,
-                        onRemoveMessagingNoisePhrase = onRemoveMessagingNoisePhrase,
-                        onHideNoisePhraseMatchesChanged = onHideNoisePhraseMatchesChanged,
-                        onSetMessagingMediaMapping = onSetMessagingMediaMapping,
-                        onRemoveMessagingMediaMapping = onRemoveMessagingMediaMapping,
-                    )
-                    Spacer(modifier = Modifier.height(130.dp))
-                }
+                        // Intelligence
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(14.dp),
+                        ) {
+                            PerAppCategoryIntelligenceCard(
+                                state = state,
+                                onMessagingPolishEnabledChanged = onMessagingPolishEnabledChanged,
+                            )
+                            if (state.category == AppCategory.MESSAGING || state.category == AppCategory.SMS || state.category == AppCategory.EMAIL) {
+                                PerAppSyncNoiseCard(
+                                    state = state,
+                                    onSetMessagingNoiseRule = onSetMessagingNoiseRule,
+                                    onRemoveMessagingNoisePhrase = onRemoveMessagingNoisePhrase,
+                                    onLoadDefaultNoiseRules = onLoadDefaultNoiseRules,
+                                    onHideNoisePhraseMatchesChanged = onHideNoisePhraseMatchesChanged,
+                                )
+                            }
+                            PerAppSmartReplacementsCard(
+                                state = state,
+                                onSetMessagingMediaMapping = onSetMessagingMediaMapping,
+                                onRemoveMessagingMediaMapping = onRemoveMessagingMediaMapping,
+                                onLoadDefaultMediaMappings = onLoadDefaultMediaMappings,
+                                onImportMediaMappings = onImportMediaMappings,
+                            )
+                            Spacer(modifier = Modifier.height(130.dp))
+                        }
                     }
                     "history" -> {
                 // History
@@ -2176,7 +2360,7 @@ private fun AppSettingsScreen(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
-                                text = "All Notifications (${state.recentHistory.size})",
+                                text = "Notifications (${state.recentHistory.size})",
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface,
@@ -2187,17 +2371,14 @@ private fun AppSettingsScreen(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                                 ) {
-                                    TextButton(
+                                    IconButton(
                                         onClick = { isHistorySelectionMode = true },
-                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
                                     ) {
                                         Icon(
                                             imageVector = Icons.Rounded.CheckCircle,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(14.dp),
+                                            contentDescription = "Select",
+                                            modifier = Modifier.size(20.dp),
                                         )
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Select", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                                     }
 
                                     IconButton(
@@ -2751,7 +2932,7 @@ private fun AppHistoryItemCard(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Footer Action Row: Filter button / Update badge (left) + Action Buttons (right)
+            // Footer Action Row: Filter button (left) + Action Buttons (right)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -2761,21 +2942,6 @@ private fun AppHistoryItemCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    if (entry.isUpdate) {
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = MaterialTheme.colorScheme.secondaryContainer,
-                        ) {
-                            Text(
-                                text = "Updated",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp),
-                                fontSize = 10.sp,
-                            )
-                        }
-                    }
-
                     if (!isSelectionMode && canFilter) {
                         FilledTonalButton(
                             onClick = onFilterThis,
@@ -3466,16 +3632,10 @@ fun FilterTypeInfoRow(type: String, description: String) {
 
 
 @Composable
-private fun PerAppMessagingPolishCard(
+private fun PerAppCategoryIntelligenceCard(
     state: AppSettingsUiState,
     onMessagingPolishEnabledChanged: (Boolean?) -> Unit,
-    onSetMessagingNoisePhrase: (String?, String) -> Unit,
-    onRemoveMessagingNoisePhrase: (String) -> Unit,
-    onHideNoisePhraseMatchesChanged: (Boolean) -> Unit,
-    onSetMessagingMediaMapping: (String?, String, String, Boolean) -> Unit,
-    onRemoveMessagingMediaMapping: (String) -> Unit,
 ) {
-    val isMessagingApp = state.category == AppCategory.MESSAGING
     val config = state.messagingPolish.effective
     val effectiveEnabled = config.enabled ?: true
 
@@ -3486,64 +3646,224 @@ private fun PerAppMessagingPolishCard(
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (isMessagingApp) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Messaging polish",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        Text(
-                            text = "Chat-app cleanup for sync noise, media placeholders, and group labels.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            when (state.category) {
+                AppCategory.MESSAGING, AppCategory.SMS -> {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Row(
+                            modifier = Modifier.weight(1f).padding(end = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Surface(
+                                modifier = Modifier.size(32.dp),
+                                shape = RoundedCornerShape(10.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Chat,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                }
+                            }
+                            Column {
+                                Text(
+                                    text = "Messaging polish",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                Text(
+                                    text = "Suppresses sync noise, media placeholders, and duplicate group alerts.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 2,
+                                    lineHeight = 16.sp,
+                                )
+                            }
+                        }
+                        Switch(
+                            checked = effectiveEnabled,
+                            onCheckedChange = { onMessagingPolishEnabledChanged(it) },
                         )
                     }
-                    Switch(
-                        checked = effectiveEnabled,
-                        onCheckedChange = { onMessagingPolishEnabledChanged(it) },
-                    )
                 }
-
-                if (!state.messagingPolish.isInherited) {
-                    TextButton(onClick = { onMessagingPolishEnabledChanged(null) }) {
-                        Text("Use default (On)", style = MaterialTheme.typography.labelSmall)
+                AppCategory.EMAIL -> {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(32.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Email,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Email intelligence",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Text(
+                                text = "Strips 'Re:' and 'Fwd:' prefixes, mobile sign-offs, and confidentiality footers.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 2,
+                                lineHeight = 16.sp,
+                            )
+                        }
                     }
                 }
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-            } else {
-                Text(
-                    text = "App intelligence",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    text = "Silence repetitive noise phrases and map placeholder text to spoken words.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                null -> {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(32.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Rounded.AutoAwesome,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Standard app intelligence",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Text(
+                                text = "Standard universal speech cleaning rules apply.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 2,
+                                lineHeight = 16.sp,
+                            )
+                        }
+                    }
+                }
             }
 
-            Text(
-                text = "Noise phrases",
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                thickness = 0.5.dp,
             )
-            Text(
-                text = "Notifications matching any of these phrases will not be spoken.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.CheckCircle,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(16.dp),
+                )
+                Text(
+                    text = "Universal intelligence active: URLs, currencies, emojis, markdown, and pronunciation.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 11.5.sp,
+                    lineHeight = 15.sp,
+                    maxLines = 2,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PerAppSyncNoiseCard(
+    state: AppSettingsUiState,
+    onSetMessagingNoiseRule: (String?, String, MatchTarget) -> Unit,
+    onRemoveMessagingNoisePhrase: (String) -> Unit,
+    onLoadDefaultNoiseRules: () -> Unit,
+    onHideNoisePhraseMatchesChanged: (Boolean) -> Unit,
+) {
+    val config = state.messagingPolish.effective
+    val rules = config.extraNoiseRules
+    var isSearchVisible by remember(state.packageName) { mutableStateOf(false) }
+    var searchQuery by remember(state.packageName) { mutableStateOf("") }
+    val filteredRules = remember(rules, searchQuery) {
+        if (searchQuery.isBlank()) rules
+        else rules.filter { it.phrase.contains(searchQuery, ignoreCase = true) }
+    }
+
+    var showNoiseRuleDialog by remember(state.packageName) { mutableStateOf(false) }
+    var noisePhraseInput by remember(state.packageName) { mutableStateOf("") }
+    var noiseTargetInput by remember(state.packageName) { mutableStateOf(MatchTarget.BOTH) }
+    var noiseRuleError by remember(state.packageName) { mutableStateOf<String?>(null) }
+    var editingNoiseRule by remember(state.packageName) { mutableStateOf<SyncNoiseRule?>(null) }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Surface(
+                    modifier = Modifier.size(32.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Rounded.NotificationsOff,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Sync noise suppression",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = "Silences background sync and connection alerts before speaking.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        lineHeight = 16.sp,
+                    )
+                }
+            }
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -3552,16 +3872,17 @@ private fun PerAppMessagingPolishCard(
             ) {
                 Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
                     Text(
-                        text = "Keep noise matches in history",
+                        text = "Save sync noise to history",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                     Text(
-                        text = "Save silenced notifications in history.",
+                        text = "Keep silenced sync messages visible in Notification History.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 2,
+                        lineHeight = 16.sp,
                     )
                 }
                 Switch(
@@ -3570,79 +3891,183 @@ private fun PerAppMessagingPolishCard(
                 )
             }
 
-            var showNoisePhraseDialog by remember(state.packageName) { mutableStateOf(false) }
-            var noisePhraseInput by remember(state.packageName) { mutableStateOf("") }
-            var noisePhraseError by remember(state.packageName) { mutableStateOf<String?>(null) }
-            var editingNoisePhrase by remember(state.packageName) { mutableStateOf<String?>(null) }
-
-            FilledTonalButton(
-                onClick = {
-                    editingNoisePhrase = null
-                    noisePhraseInput = ""
-                    noisePhraseError = null
-                    showNoisePhraseDialog = true
-                },
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("Add phrase")
+                TextButton(
+                    onClick = onLoadDefaultNoiseRules,
+                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.RestartAlt,
+                        contentDescription = null,
+                        modifier = Modifier.size(15.dp),
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text("Defaults", style = MaterialTheme.typography.labelSmall)
+                }
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (rules.isNotEmpty()) {
+                        IconButton(
+                            onClick = {
+                                isSearchVisible = !isSearchVisible
+                                if (!isSearchVisible) searchQuery = ""
+                            },
+                            modifier = Modifier.size(32.dp),
+                        ) {
+                            Icon(
+                                imageVector = if (isSearchVisible) Icons.Rounded.Close else Icons.Rounded.Search,
+                                contentDescription = if (isSearchVisible) "Close search" else "Search noise phrases",
+                                tint = if (isSearchVisible) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+                    }
+
+                    FilledTonalButton(
+                        onClick = {
+                            editingNoiseRule = null
+                            noisePhraseInput = ""
+                            noiseTargetInput = MatchTarget.BOTH
+                            noiseRuleError = null
+                            showNoiseRuleDialog = true
+                        },
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                    ) {
+                        Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Add", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
             }
 
-            if (config.extraNoisePhrases.isEmpty()) {
+            if (isSearchVisible) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = { Text("Search noise phrases...") },
+                    leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                    trailingIcon = if (searchQuery.isNotEmpty()) {
+                        {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(Icons.Rounded.Close, contentDescription = "Clear", modifier = Modifier.size(16.dp))
+                            }
+                        }
+                    } else null,
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                )
+            }
+
+            if (rules.isEmpty()) {
                 Text(
-                    text = "No custom noise phrases added yet.",
+                    text = "No sync noise rules configured. Tap 'Load defaults' or 'Add phrase'.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 4.dp),
+                )
+            } else if (filteredRules.isEmpty()) {
+                Text(
+                    text = "No phrases match '$searchQuery'.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 4.dp),
                 )
             } else {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    config.extraNoisePhrases.forEach { phrase ->
-                        key(phrase) {
-                            SwipeableNoisePhraseRow(
-                                phrase = phrase,
-                                onClick = {
-                                    editingNoisePhrase = phrase
-                                    noisePhraseInput = phrase
-                                    noisePhraseError = null
-                                    showNoisePhraseDialog = true
-                                },
-                                onDismiss = {
-                                    onRemoveMessagingNoisePhrase(phrase)
-                                },
-                            )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 280.dp)
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        filteredRules.forEach { rule ->
+                            key(rule.phrase) {
+                                SwipeableNoiseRuleRow(
+                                    rule = rule,
+                                    onClick = {
+                                        editingNoiseRule = rule
+                                        noisePhraseInput = rule.phrase
+                                        noiseTargetInput = rule.target
+                                        noiseRuleError = null
+                                        showNoiseRuleDialog = true
+                                    },
+                                    onDismiss = {
+                                        onRemoveMessagingNoisePhrase(rule.phrase)
+                                    },
+                                )
+                            }
                         }
                     }
                 }
             }
 
-            if (showNoisePhraseDialog) {
+            if (showNoiseRuleDialog) {
                 AlertDialog(
                     onDismissRequest = {
-                        showNoisePhraseDialog = false
-                        noisePhraseError = null
-                        editingNoisePhrase = null
+                        showNoiseRuleDialog = false
+                        noiseRuleError = null
+                        editingNoiseRule = null
                     },
-                    title = { Text(if (editingNoisePhrase != null) "Edit noise phrase" else "Add noise phrase") },
+                    title = { Text(if (editingNoiseRule != null) "Edit sync phrase" else "Add sync phrase") },
                     text = {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             OutlinedTextField(
                                 value = noisePhraseInput,
                                 onValueChange = {
                                     noisePhraseInput = it
-                                    noisePhraseError = null
+                                    noiseRuleError = null
                                 },
                                 modifier = Modifier.fillMaxWidth(),
-                                label = { Text("Phrase") },
                                 placeholder = { Text("e.g. Checking for new messages") },
-                                minLines = 2,
-                                maxLines = 2,
-                                singleLine = false,
-                                isError = noisePhraseError != null,
-                                supportingText = noisePhraseError?.let { err ->
-                                    { Text(err, color = MaterialTheme.colorScheme.error) }
-                                },
+                                singleLine = true,
                                 shape = RoundedCornerShape(14.dp),
                             )
+
+                            Text(
+                                text = "Match location",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+
+                            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                                val targets = listOf(
+                                    MatchTarget.BODY to "Body",
+                                    MatchTarget.SENDER to "Sender",
+                                    MatchTarget.BOTH to "Both",
+                                )
+                                targets.forEachIndexed { index, (target, label) ->
+                                    val isSelected = noiseTargetInput == target
+                                    SegmentedButton(
+                                        selected = isSelected,
+                                        onClick = { noiseTargetInput = target },
+                                        shape = SegmentedButtonDefaults.itemShape(index = index, count = targets.size),
+                                        icon = {},
+                                    ) {
+                                        Text(
+                                            text = label,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        )
+                                    }
+                                }
+                            }
+
+                            if (noiseRuleError != null) {
+                                Text(
+                                    text = noiseRuleError!!,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            }
                         }
                     },
                     confirmButton = {
@@ -3650,33 +4075,33 @@ private fun PerAppMessagingPolishCard(
                             onClick = {
                                 val trimmed = noisePhraseInput.trim()
                                 if (trimmed.isEmpty()) {
-                                    noisePhraseError = "Please enter a phrase."
+                                    noiseRuleError = "Please enter a phrase."
                                     return@TextButton
                                 }
-                                val isDuplicate = config.extraNoisePhrases.any { existing ->
-                                    existing.equals(trimmed, ignoreCase = true) &&
-                                        !existing.equals(editingNoisePhrase, ignoreCase = true)
+                                val isDuplicate = rules.any { existing ->
+                                    existing.phrase.equals(trimmed, ignoreCase = true) &&
+                                        !existing.phrase.equals(editingNoiseRule?.phrase, ignoreCase = true)
                                 }
                                 if (isDuplicate) {
-                                    noisePhraseError = "This phrase is already added."
+                                    noiseRuleError = "This phrase is already added."
                                     return@TextButton
                                 }
-                                onSetMessagingNoisePhrase(editingNoisePhrase, trimmed)
-                                showNoisePhraseDialog = false
-                                editingNoisePhrase = null
+                                onSetMessagingNoiseRule(editingNoiseRule?.phrase, trimmed, noiseTargetInput)
+                                showNoiseRuleDialog = false
+                                editingNoiseRule = null
                                 noisePhraseInput = ""
-                                noisePhraseError = null
+                                noiseRuleError = null
                             },
                         ) {
-                            Text(if (editingNoisePhrase != null) "Save" else "Add")
+                            Text(if (editingNoiseRule != null) "Save" else "Add")
                         }
                     },
                     dismissButton = {
                         TextButton(
                             onClick = {
-                                showNoisePhraseDialog = false
-                                noisePhraseError = null
-                                editingNoisePhrase = null
+                                showNoiseRuleDialog = false
+                                noiseRuleError = null
+                                editingNoiseRule = null
                             },
                         ) {
                             Text("Cancel")
@@ -3684,42 +4109,217 @@ private fun PerAppMessagingPolishCard(
                     },
                 )
             }
+        }
+    }
+}
 
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+@Composable
+private fun PerAppSmartReplacementsCard(
+    state: AppSettingsUiState,
+    onSetMessagingMediaMapping: (String?, String, String, MatchTarget) -> Unit,
+    onRemoveMessagingMediaMapping: (String) -> Unit,
+    onLoadDefaultMediaMappings: () -> Unit,
+    onImportMediaMappings: (List<MediaReplacementRule>) -> Unit,
+) {
+    val config = state.messagingPolish.effective
+    val rules = config.mediaMappings
+    var isSearchVisible by remember(state.packageName) { mutableStateOf(false) }
+    var searchQuery by remember(state.packageName) { mutableStateOf("") }
+    val filteredRules = remember(rules, searchQuery) {
+        if (searchQuery.isBlank()) rules
+        else rules.filter {
+            it.match.contains(searchQuery, ignoreCase = true) ||
+                it.spokenPhrase.contains(searchQuery, ignoreCase = true)
+        }
+    }
 
-            Text(
-                text = "Placeholder mapping",
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Text(
-                text = "When a message is exactly the match text, HearIt speaks the replacement (applies to all apps).",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+    var showAddMappingDialog by remember(state.packageName) { mutableStateOf(false) }
+    var showImportDialog by remember(state.packageName) { mutableStateOf(false) }
+    var mediaMatch by remember(state.packageName) { mutableStateOf("") }
+    var mediaSpoken by remember(state.packageName) { mutableStateOf("") }
+    var mediaTarget by remember(state.packageName) { mutableStateOf(MatchTarget.BODY) }
+    var mappingError by remember(state.packageName) { mutableStateOf<String?>(null) }
+    var editingMapping by remember(state.packageName) { mutableStateOf<MediaReplacementRule?>(null) }
 
-            var showAddMappingDialog by remember(state.packageName) { mutableStateOf(false) }
-            var mediaMatch by remember(state.packageName) { mutableStateOf("") }
-            var mediaSpoken by remember(state.packageName) { mutableStateOf("") }
-            var mediaApplyToSender by remember(state.packageName) { mutableStateOf(false) }
-            var mappingError by remember(state.packageName) { mutableStateOf<String?>(null) }
-            // Non-null while the dialog is editing an existing mapping (holds its original match text).
-            var editingMapping by remember(state.packageName) { mutableStateOf<String?>(null) }
-
-            FilledTonalButton(
-                onClick = {
-                    editingMapping = null
-                    mediaMatch = ""
-                    mediaSpoken = ""
-                    mediaApplyToSender = false
-                    mappingError = null
-                    showAddMappingDialog = true
-                },
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("Add mapping")
+                Surface(
+                    modifier = Modifier.size(32.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Rounded.Tune,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Smart replacements",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = "Replaces shorthand, symbols, or phrases with natural spoken words.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        lineHeight = 16.sp,
+                    )
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    TextButton(
+                        onClick = onLoadDefaultMediaMappings,
+                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.RestartAlt,
+                            contentDescription = null,
+                            modifier = Modifier.size(15.dp),
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text("Defaults", style = MaterialTheme.typography.labelSmall)
+                    }
+
+                    TextButton(
+                        onClick = { showImportDialog = true },
+                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.FileDownload,
+                            contentDescription = null,
+                            modifier = Modifier.size(15.dp),
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text("Presets", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (rules.isNotEmpty()) {
+                        IconButton(
+                            onClick = {
+                                isSearchVisible = !isSearchVisible
+                                if (!isSearchVisible) searchQuery = ""
+                            },
+                            modifier = Modifier.size(32.dp),
+                        ) {
+                            Icon(
+                                imageVector = if (isSearchVisible) Icons.Rounded.Close else Icons.Rounded.Search,
+                                contentDescription = if (isSearchVisible) "Close search" else "Search replacements",
+                                tint = if (isSearchVisible) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+                    }
+
+                    FilledTonalButton(
+                        onClick = {
+                            editingMapping = null
+                            mediaMatch = ""
+                            mediaSpoken = ""
+                            mediaTarget = MatchTarget.BODY
+                            mappingError = null
+                            showAddMappingDialog = true
+                        },
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                    ) {
+                        Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Add", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+            }
+
+            if (isSearchVisible) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = { Text("Search replacements...") },
+                    leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                    trailingIcon = if (searchQuery.isNotEmpty()) {
+                        {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(Icons.Rounded.Close, contentDescription = "Clear", modifier = Modifier.size(16.dp))
+                            }
+                        }
+                    } else null,
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                )
+            }
+
+            if (rules.isEmpty()) {
+                Text(
+                    text = "No replacements configured. Tap 'Load defaults', 'Import preset', or 'Add replacement'.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 4.dp),
+                )
+            } else if (filteredRules.isEmpty()) {
+                Text(
+                    text = "No replacements match '$searchQuery'.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 4.dp),
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 280.dp)
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        filteredRules.forEach { rule ->
+                            key(rule.match) {
+                                SwipeableReplacementRow(
+                                    rule = rule,
+                                    onClick = {
+                                        editingMapping = rule
+                                        mediaMatch = rule.match
+                                        mediaSpoken = rule.spokenPhrase
+                                        mediaTarget = rule.target
+                                        mappingError = null
+                                        showAddMappingDialog = true
+                                    },
+                                    onDismiss = {
+                                        onRemoveMessagingMediaMapping(rule.match)
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
             }
 
             if (showAddMappingDialog) {
@@ -3729,7 +4329,7 @@ private fun PerAppMessagingPolishCard(
                         mappingError = null
                         editingMapping = null
                     },
-                    title = { Text(if (editingMapping != null) "Edit placeholder mapping" else "Add placeholder mapping") },
+                    title = { Text(if (editingMapping != null) "Edit replacement" else "Add replacement") },
                     text = {
                         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             OutlinedTextField(
@@ -3739,7 +4339,8 @@ private fun PerAppMessagingPolishCard(
                                     mappingError = null
                                 },
                                 modifier = Modifier.fillMaxWidth(),
-                                label = { Text("Match text (exact)") },
+                                label = { Text("Match text or symbol") },
+                                placeholder = { Text("e.g. 📊 or IND or Re:") },
                                 singleLine = true,
                                 shape = RoundedCornerShape(14.dp),
                             )
@@ -3750,29 +4351,42 @@ private fun PerAppMessagingPolishCard(
                                     mappingError = null
                                 },
                                 modifier = Modifier.fillMaxWidth(),
-                                label = { Text("Speak as") },
+                                label = { Text("Speak as (leave empty to silence)") },
+                                placeholder = { Text("e.g. Poll or India") },
                                 singleLine = true,
                                 shape = RoundedCornerShape(14.dp),
                             )
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .clickable { mediaApplyToSender = !mediaApplyToSender }
-                                    .padding(vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Checkbox(
-                                    checked = mediaApplyToSender,
-                                    onCheckedChange = { mediaApplyToSender = it },
+
+                            Text(
+                                text = "Match location",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+
+                            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                                val targets = listOf(
+                                    MatchTarget.BODY to "Body",
+                                    MatchTarget.SENDER to "Sender",
+                                    MatchTarget.BOTH to "Both",
                                 )
-                                Spacer(Modifier.width(4.dp))
-                                Text(
-                                    text = "Apply to sender names",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                )
+                                targets.forEachIndexed { index, (target, label) ->
+                                    val isSelected = mediaTarget == target
+                                    SegmentedButton(
+                                        selected = isSelected,
+                                        onClick = { mediaTarget = target },
+                                        shape = SegmentedButtonDefaults.itemShape(index = index, count = targets.size),
+                                        icon = {},
+                                    ) {
+                                        Text(
+                                            text = label,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        )
+                                    }
+                                }
                             }
+
                             if (mappingError != null) {
                                 Text(
                                     text = mappingError!!,
@@ -3787,22 +4401,22 @@ private fun PerAppMessagingPolishCard(
                             onClick = {
                                 val m = mediaMatch.trim()
                                 val sp = mediaSpoken.trim()
-                                if (m.isEmpty() || sp.isEmpty()) {
-                                    mappingError = "Enter both match text and spoken replacement."
+                                if (m.isEmpty()) {
+                                    mappingError = "Enter match text or symbol."
                                     return@TextButton
                                 }
-                                val duplicate = config.mediaMappings.any { existing ->
+                                val duplicate = rules.any { existing ->
                                     existing.match.equals(m, ignoreCase = true) &&
-                                        !existing.match.equals(editingMapping, ignoreCase = true)
+                                        !existing.match.equals(editingMapping?.match, ignoreCase = true)
                                 }
                                 if (duplicate) {
                                     mappingError = "A mapping for this match text already exists."
                                     return@TextButton
                                 }
-                                onSetMessagingMediaMapping(editingMapping, m, sp, mediaApplyToSender)
+                                onSetMessagingMediaMapping(editingMapping?.match, m, sp, mediaTarget)
                                 mediaMatch = ""
                                 mediaSpoken = ""
-                                mediaApplyToSender = false
+                                mediaTarget = MatchTarget.BODY
                                 mappingError = null
                                 editingMapping = null
                                 showAddMappingDialog = false
@@ -3821,69 +4435,78 @@ private fun PerAppMessagingPolishCard(
                 )
             }
 
-            if (config.mediaMappings.isEmpty()) {
-                Text(
-                    text = "No custom placeholder mappings.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            } else {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    config.mediaMappings.forEach { rule ->
-                        key(rule.match) {
-                            SwipeToDeleteContainer(
-                                onDelete = { onRemoveMessagingMediaMapping(rule.match) },
-                                shape = RoundedCornerShape(12.dp),
-                            ) {
+            if (showImportDialog) {
+                AlertDialog(
+                    onDismissRequest = { showImportDialog = false },
+                    title = { Text("Import preset replacements") },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                text = "Choose a preset to import replacements into this app. Existing rules are preserved.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            val presetChoices = listOf(
+                                "WhatsApp (Polls & Media)" to IntelligencePresets.WHATSAPP_REPLACEMENTS,
+                                "Outlook / Gmail (Re/Fwd & Sign-offs)" to IntelligencePresets.OUTLOOK_REPLACEMENTS,
+                                "CREX (Cricket teams, codes, scores)" to IntelligencePresets.CREX_REPLACEMENTS,
+                            )
+                            presetChoices.forEach { (label, presetRules) ->
                                 Surface(
-                                    shape = RoundedCornerShape(12.dp),
+                                    shape = RoundedCornerShape(10.dp),
                                     color = MaterialTheme.colorScheme.surfaceContainerHigh,
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clickable {
-                                            editingMapping = rule.match
-                                            mediaMatch = rule.match
-                                            mediaSpoken = rule.spokenPhrase
-                                            mediaApplyToSender = rule.applyToSender
-                                            mappingError = null
-                                            showAddMappingDialog = true
+                                            onImportMediaMappings(presetRules)
+                                            showImportDialog = false
                                         },
                                 ) {
-                                    Column(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween,
                                     ) {
-                                        Text(
-                                            text = rule.match,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                        )
-                                        Spacer(modifier = Modifier.height(2.dp))
-                                        Text(
-                                            text = "→ ${rule.spokenPhrase}" + if (rule.applyToSender) " · sender" else "",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = label,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                            )
+                                            Text(
+                                                text = "${presetRules.size} rules",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.primary,
+                                            )
+                                        }
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(18.dp),
                                         )
                                     }
                                 }
                             }
                         }
-                    }
-                }
+                    },
+                    confirmButton = {},
+                    dismissButton = {
+                        TextButton(onClick = { showImportDialog = false }) {
+                            Text("Cancel")
+                        }
+                    },
+                )
             }
         }
     }
 }
 
 @Composable
-private fun SwipeableNoisePhraseRow(
-    phrase: String,
+private fun SwipeableNoiseRuleRow(
+    rule: SyncNoiseRule,
     onClick: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -3901,17 +4524,98 @@ private fun SwipeableNoisePhraseRow(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Text(
-                    text = phrase,
-                    modifier = Modifier.weight(1f),
+                    text = rule.phrase,
+                    modifier = Modifier.weight(1f).padding(end = 8.dp),
                     style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 2,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                ) {
+                    Text(
+                        text = when (rule.target) {
+                            MatchTarget.BODY -> "Body"
+                            MatchTarget.SENDER -> "Sender"
+                            MatchTarget.BOTH -> "Both"
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SwipeableReplacementRow(
+    rule: MediaReplacementRule,
+    onClick: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    SwipeToDeleteContainer(
+        onDelete = onDismiss,
+        shape = RoundedCornerShape(12.dp),
+    ) {
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                    Text(
+                        text = rule.match,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = if (rule.spokenPhrase.isEmpty()) "→ [Silenced]" else "→ ${rule.spokenPhrase}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                ) {
+                    Text(
+                        text = when (rule.target) {
+                            MatchTarget.BODY -> "Body"
+                            MatchTarget.SENDER -> "Sender"
+                            MatchTarget.BOTH -> "Both"
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                    )
+                }
             }
         }
     }

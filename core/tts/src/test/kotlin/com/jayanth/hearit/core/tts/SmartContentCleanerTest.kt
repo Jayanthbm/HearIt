@@ -209,6 +209,79 @@ class SmartContentCleanerTest {
     }
 
     @Test
+    fun crexCricket_replacesCodesTeamsAndScoreSlashes() {
+        val pkg = "in.cricketexchange.app.cricketexchange"
+        SmartContentCleaner.replaceMessagingPolishConfigs(
+            mapOf(
+                pkg to com.jayanth.hearit.core.common.model.MessagingPolishConfig(
+                    mediaMappings = IntelligencePresets.CREX_REPLACEMENTS + listOf(
+                        com.jayanth.hearit.core.common.model.MediaReplacementRule("/", " for ", com.jayanth.hearit.core.common.model.MatchTarget.BODY),
+                    ),
+                ),
+            ),
+        )
+
+        val input = "IND 265/6 (40 ov) vs NZ"
+        val cleaned = SmartContentCleaner.cleanMessageText(input, pkg)
+        assertEquals("India 265 for 6 (40 Overs) versus New Zealand", cleaned)
+
+        // Ensure date slashes are not affected
+        val dateText = "Match on 14/11/2026"
+        val cleanedDate = SmartContentCleaner.cleanMessageText(dateText, pkg)
+        assertEquals("Match on 14/11/2026", cleanedDate)
+    }
+
+    @Test
+    fun syncNoise_suppressesSenderAndBodyBasedOnTarget() {
+        val pkg = "com.whatsapp"
+        // WhatsApp default built-in noise: "Checking for new messages" (BODY) and "Backup in progress" (SENDER)
+        val bodyMatch = SmartContentCleaner.cleanMessage("Checking for new messages", pkg, sender = "WhatsApp")
+        assertTrue(bodyMatch.suppress)
+
+        val senderMatch = SmartContentCleaner.cleanMessage("3 files backed up", pkg, sender = "Backup in progress")
+        assertTrue(senderMatch.suppress)
+
+        // Custom noise rule with SENDER only
+        val customPkg = "com.custom.app"
+        SmartContentCleaner.replaceMessagingPolishConfigs(
+            mapOf(
+                customPkg to com.jayanth.hearit.core.common.model.MessagingPolishConfig(
+                    extraNoiseRules = listOf(
+                        com.jayanth.hearit.core.common.model.SyncNoiseRule("Sync Agent", com.jayanth.hearit.core.common.model.MatchTarget.SENDER),
+                        com.jayanth.hearit.core.common.model.SyncNoiseRule("Syncing data", com.jayanth.hearit.core.common.model.MatchTarget.BODY),
+                    ),
+                ),
+            ),
+        )
+
+        // SENDER rule matches sender -> suppress
+        assertTrue(SmartContentCleaner.cleanMessage("Status ok", customPkg, sender = "Sync Agent").suppress)
+        // SENDER rule appearing in body should NOT suppress
+        assertFalse(SmartContentCleaner.cleanMessage("Sync Agent started", customPkg, sender = "Alice").suppress)
+
+        // BODY rule matches body -> suppress
+        assertTrue(SmartContentCleaner.cleanMessage("Syncing data now", customPkg, sender = "Bob").suppress)
+        // BODY rule appearing in sender should NOT suppress
+        assertFalse(SmartContentCleaner.cleanMessage("Normal message", customPkg, sender = "Syncing data").suppress)
+    }
+
+    @Test
+    fun silencedReplacements_silencesTokenWithoutLeavingPlaceholder() {
+        val pkg = "com.microsoft.office.outlook"
+        SmartContentCleaner.replaceMessagingPolishConfigs(
+            mapOf(
+                pkg to com.jayanth.hearit.core.common.model.MessagingPolishConfig(
+                    mediaMappings = IntelligencePresets.OUTLOOK_REPLACEMENTS,
+                ),
+            ),
+        )
+
+        val email = "Please find the report attached.\n\nSent from my iPhone"
+        val cleaned = SmartContentCleaner.cleanMessageText(email, pkg)
+        assertFalse(cleaned.contains("Sent from my iPhone"))
+    }
+
+    @Test
     fun appAlias_resolvesCustomSpokenName() {
         SmartContentCleaner.setAppAlias("com.whatsapp.w4b", "Work Chat")
         assertEquals("Work Chat", SmartContentCleaner.resolveAppName("com.whatsapp.w4b", "WhatsApp Business"))

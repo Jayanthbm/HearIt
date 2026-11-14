@@ -70,6 +70,9 @@ interface HistoryRepository {
     /** Returns recently announced entries recorded since [sinceMillis]. */
     suspend fun recentAnnounced(sinceMillis: Long): List<HistoryEntry>
 
+    /** Returns distinct apps (packageName to appName) recorded in history. */
+    suspend fun distinctApps(): List<Pair<String, String>>
+
     companion object {
         /**
          * How long an identical (app, sender, body) notification reuses its existing row.
@@ -202,4 +205,7 @@ class RoomHistoryRepository(
 
     override suspend fun recentAnnounced(sinceMillis: Long): List<HistoryEntry> =
         dao.recentEntriesByStatus(HistoryStatus.ANNOUNCED.name, sinceMillis).map { it.toDomain() }
+
+    override suspend fun distinctApps(): List<Pair<String, String>> =
+        dao.distinctApps().map { it.packageName to it.appName }
 }

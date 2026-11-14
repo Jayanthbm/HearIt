@@ -24,16 +24,14 @@ enum class AppCategoryChoice {
 
     fun toCategoryOrNull(): AppCategory? = when (this) {
         EMAIL -> AppCategory.EMAIL
-        MESSAGING -> AppCategory.MESSAGING
-        SMS -> AppCategory.SMS
+        MESSAGING, SMS -> AppCategory.MESSAGING
         NONE -> null
     }
 
     companion object {
         fun fromCategory(category: AppCategory?): AppCategoryChoice = when (category) {
             AppCategory.EMAIL -> EMAIL
-            AppCategory.MESSAGING -> MESSAGING
-            AppCategory.SMS -> SMS
+            AppCategory.MESSAGING, AppCategory.SMS -> MESSAGING
             null -> NONE
         }
     }
@@ -85,8 +83,7 @@ object DefaultAppCategories {
 
     fun defaultCategoryFor(packageName: String): AppCategory? = when (packageName) {
         in EMAIL_PACKAGES -> AppCategory.EMAIL
-        in MESSAGING_PACKAGES -> AppCategory.MESSAGING
-        in SMS_PACKAGES -> AppCategory.SMS
+        in MESSAGING_PACKAGES, in SMS_PACKAGES -> AppCategory.MESSAGING
         else -> null
     }
 }
@@ -121,13 +118,51 @@ enum class DigitGroupingStyle {
     CHUNKS_OF_3,
 }
 
-/** One spoken replacement for a matched media placeholder token. */
+/** Field target for intelligent speech rules (matching against notification body, sender/title, or both). */
+enum class MatchTarget {
+    BODY,
+    SENDER,
+    BOTH;
+
+    val label: String
+        get() = when (this) {
+            BODY -> "Body only"
+            SENDER -> "Sender only"
+            BOTH -> "Both (Body & Sender)"
+        }
+
+    companion object {
+        fun fromString(value: String?): MatchTarget = when (value?.uppercase()) {
+            "BODY" -> BODY
+            "SENDER" -> SENDER
+            "FALSE" -> BODY
+            "TRUE" -> BOTH
+            else -> BOTH
+        }
+    }
+}
+
+/** One sync / background noise rule matching against body, sender, or both. */
+data class SyncNoiseRule(
+    val phrase: String,
+    val target: MatchTarget = MatchTarget.BOTH,
+)
+
+/** One spoken replacement for a matched media placeholder or shorthand token. */
 data class MediaReplacementRule(
     val match: String,
     val spokenPhrase: String,
-    /** When true, apply this mapping to sender names in addition to message content. */
-    val applyToSender: Boolean = false,
-)
+    val target: MatchTarget = MatchTarget.BODY,
+) {
+    constructor(match: String, spokenPhrase: String, applyToSender: Boolean) : this(
+        match = match,
+        spokenPhrase = spokenPhrase,
+        target = if (applyToSender) MatchTarget.BOTH else MatchTarget.BODY,
+    )
+
+    /** Backward compatibility: when true, applies to sender names. */
+    val applyToSender: Boolean get() = target == MatchTarget.SENDER || target == MatchTarget.BOTH
+}
 
 /**
  * Per-app messaging/content cleanup configuration.
@@ -136,12 +171,13 @@ data class MediaReplacementRule(
  */
 data class MessagingPolishConfig(
     val enabled: Boolean? = null,
-    val extraNoisePhrases: List<String> = emptyList(),
+    val extraNoiseRules: List<SyncNoiseRule> = emptyList(),
     val mediaMappings: List<MediaReplacementRule> = emptyList(),
     val hideNoisePhraseMatches: Boolean = true,
 ) {
+    val extraNoisePhrases: List<String> get() = extraNoiseRules.map { it.phrase }
     val inheritsEveryValue: Boolean
-        get() = enabled == null && extraNoisePhrases.isEmpty() && mediaMappings.isEmpty() && hideNoisePhraseMatches
+        get() = enabled == null && extraNoiseRules.isEmpty() && mediaMappings.isEmpty() && hideNoisePhraseMatches
 }
 
 /** Built-in starter presets for active intelligence features. */
@@ -183,4 +219,110 @@ object IntelligencePresets {
         "special offer",
         "loan approved",
     )
+
+    val WHATSAPP_SYNC_NOISE: List<SyncNoiseRule> = listOf(
+        SyncNoiseRule(phrase = "Checking for new messages", target = MatchTarget.BOTH),
+        SyncNoiseRule(phrase = "Backup in progress", target = MatchTarget.BOTH),
+        SyncNoiseRule(phrase = "WhatsApp Web is currently active", target = MatchTarget.BOTH),
+        SyncNoiseRule(phrase = "WhatsApp Web", target = MatchTarget.BOTH),
+        SyncNoiseRule(phrase = "Connecting", target = MatchTarget.BOTH),
+    )
+
+    val MESSAGES_SYNC_NOISE: List<SyncNoiseRule> = listOf(
+        SyncNoiseRule(phrase = "Messages is doing work in the background", target = MatchTarget.BOTH),
+        SyncNoiseRule(phrase = "Device pairing", target = MatchTarget.BOTH),
+        SyncNoiseRule(phrase = "Connecting", target = MatchTarget.BOTH),
+    )
+
+    val OUTLOOK_SYNC_NOISE: List<SyncNoiseRule> = listOf(
+        SyncNoiseRule(phrase = "Optimising database...", target = MatchTarget.BODY),
+    )
+
+    val DEFAULT_SYNC_NOISE: List<SyncNoiseRule> = listOf(
+        SyncNoiseRule(phrase = "Checking for new messages", target = MatchTarget.BOTH),
+        SyncNoiseRule(phrase = "Restoring messages", target = MatchTarget.BOTH),
+        SyncNoiseRule(phrase = "Connecting", target = MatchTarget.BOTH),
+    )
+
+    val DEFAULT_SYNC_NOISE_PHRASES: List<String> = DEFAULT_SYNC_NOISE.map { it.phrase }
+
+    val WHATSAPP_REPLACEMENTS: List<MediaReplacementRule> = listOf(
+        MediaReplacementRule(match = "📊", spokenPhrase = "Poll", target = MatchTarget.BODY),
+        MediaReplacementRule(match = "📷", spokenPhrase = "Photo", target = MatchTarget.BODY),
+        MediaReplacementRule(match = "🎤", spokenPhrase = "Voice note", target = MatchTarget.BODY),
+        MediaReplacementRule(match = "🎥", spokenPhrase = "Video", target = MatchTarget.BODY),
+        MediaReplacementRule(match = "📄", spokenPhrase = "Document", target = MatchTarget.BODY),
+        MediaReplacementRule(match = "📍", spokenPhrase = "Location", target = MatchTarget.BODY),
+    )
+
+    val OUTLOOK_REPLACEMENTS: List<MediaReplacementRule> = listOf(
+        MediaReplacementRule(match = "Re:", spokenPhrase = "Reply:", target = MatchTarget.BODY),
+        MediaReplacementRule(match = "Fwd:", spokenPhrase = "Forward:", target = MatchTarget.BODY),
+        MediaReplacementRule(match = "Sent from my iPhone", spokenPhrase = "", target = MatchTarget.BODY),
+        MediaReplacementRule(match = "Sent from Outlook for Android", spokenPhrase = "", target = MatchTarget.BODY),
+        MediaReplacementRule(match = "Get Outlook for iOS", spokenPhrase = "", target = MatchTarget.BODY),
+    )
+
+    val CREX_REPLACEMENTS: List<MediaReplacementRule> = listOf(
+        // Countries
+        MediaReplacementRule(match = "IND", spokenPhrase = "India", target = MatchTarget.BOTH),
+        MediaReplacementRule(match = "NZ", spokenPhrase = "New Zealand", target = MatchTarget.BOTH),
+        MediaReplacementRule(match = "SA", spokenPhrase = "South Africa", target = MatchTarget.BOTH),
+        MediaReplacementRule(match = "PAK", spokenPhrase = "Pakistan", target = MatchTarget.BOTH),
+        MediaReplacementRule(match = "BAN", spokenPhrase = "Bangladesh", target = MatchTarget.BOTH),
+        MediaReplacementRule(match = "AUS", spokenPhrase = "Australia", target = MatchTarget.BOTH),
+        MediaReplacementRule(match = "SL", spokenPhrase = "Sri Lanka", target = MatchTarget.BOTH),
+        MediaReplacementRule(match = "ENG", spokenPhrase = "England", target = MatchTarget.BOTH),
+        MediaReplacementRule(match = "AFG", spokenPhrase = "Afghanistan", target = MatchTarget.BOTH),
+        MediaReplacementRule(match = "ZIM", spokenPhrase = "Zimbabwe", target = MatchTarget.BOTH),
+        MediaReplacementRule(match = "WI", spokenPhrase = "West Indies", target = MatchTarget.BOTH),
+        MediaReplacementRule(match = "SCO", spokenPhrase = "Scotland", target = MatchTarget.BOTH),
+        MediaReplacementRule(match = "CAN", spokenPhrase = "Canada", target = MatchTarget.BOTH),
+        MediaReplacementRule(match = "UAE", spokenPhrase = "U A E", target = MatchTarget.BOTH),
+        MediaReplacementRule(match = "NAM", spokenPhrase = "Namibia", target = MatchTarget.BOTH),
+        MediaReplacementRule(match = "IRE", spokenPhrase = "Ireland", target = MatchTarget.BOTH),
+        MediaReplacementRule(match = "NEP", spokenPhrase = "Nepal", target = MatchTarget.BOTH),
+        MediaReplacementRule(match = "OMA", spokenPhrase = "Oman", target = MatchTarget.BOTH),
+        // Franchises
+        MediaReplacementRule(match = "RCB", spokenPhrase = "R C B", target = MatchTarget.BOTH),
+        MediaReplacementRule(match = "CSK", spokenPhrase = "C S K", target = MatchTarget.BOTH),
+        MediaReplacementRule(match = "GT", spokenPhrase = "G T", target = MatchTarget.BOTH),
+        MediaReplacementRule(match = "SRH", spokenPhrase = "S R H", target = MatchTarget.BOTH),
+        MediaReplacementRule(match = "KKR", spokenPhrase = "K K R", target = MatchTarget.BOTH),
+        MediaReplacementRule(match = "MI", spokenPhrase = "M I", target = MatchTarget.BOTH),
+        MediaReplacementRule(match = "RR", spokenPhrase = "R R", target = MatchTarget.BOTH),
+        MediaReplacementRule(match = "PBKS", spokenPhrase = "P B K S", target = MatchTarget.BOTH),
+        MediaReplacementRule(match = "LSG", spokenPhrase = "L S G", target = MatchTarget.BOTH),
+        MediaReplacementRule(match = "DC", spokenPhrase = "D C", target = MatchTarget.BOTH),
+        MediaReplacementRule(match = "KXIP", spokenPhrase = "K X I P", target = MatchTarget.BOTH),
+        // Match terms
+        MediaReplacementRule(match = "U19", spokenPhrase = "Under 19", target = MatchTarget.BOTH),
+        MediaReplacementRule(match = "ODI", spokenPhrase = "O D I", target = MatchTarget.BOTH),
+        MediaReplacementRule(match = "ov", spokenPhrase = "Overs", target = MatchTarget.BOTH),
+        MediaReplacementRule(match = "vs", spokenPhrase = "versus", target = MatchTarget.BOTH),
+    )
+
+    val DEFAULT_CHAT_REPLACEMENTS: List<MediaReplacementRule> = WHATSAPP_REPLACEMENTS
+    val DEFAULT_EMAIL_REPLACEMENTS: List<MediaReplacementRule> = OUTLOOK_REPLACEMENTS
+
+    fun defaultNoiseRulesFor(packageName: String?): List<SyncNoiseRule> {
+        val pkg = packageName?.lowercase().orEmpty()
+        return when {
+            pkg.contains("whatsapp") -> WHATSAPP_SYNC_NOISE
+            pkg.contains("messaging") || pkg.contains("mms") -> MESSAGES_SYNC_NOISE
+            pkg.contains("outlook") -> OUTLOOK_SYNC_NOISE
+            else -> DEFAULT_SYNC_NOISE
+        }
+    }
+
+    fun defaultReplacementsFor(packageName: String?, category: AppCategory? = null): List<MediaReplacementRule> {
+        val pkg = packageName?.lowercase().orEmpty()
+        return when {
+            pkg.contains("whatsapp") -> WHATSAPP_REPLACEMENTS
+            pkg.contains("cricketexchange") || pkg.contains("crex") || pkg.contains("cricket") -> CREX_REPLACEMENTS
+            pkg.contains("outlook") || category == AppCategory.EMAIL -> OUTLOOK_REPLACEMENTS
+            category == AppCategory.MESSAGING || category == AppCategory.SMS -> WHATSAPP_REPLACEMENTS
+            else -> emptyList()
+        }
+    }
 }

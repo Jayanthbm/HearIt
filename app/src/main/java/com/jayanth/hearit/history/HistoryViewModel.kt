@@ -80,12 +80,27 @@ class HistoryViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             settingsRepository.settings.collect { settings ->
+                val disabledApps = withContext(Dispatchers.IO) {
+                    val pm = context.packageManager
+                    settings.appOverrides
+                        .filter { (_, override) -> override.history.storageMode == HistoryStorageMode.DISABLED }
+                        .map { (packageName, _) ->
+                            val appName = runCatching {
+                                val info = pm.getApplicationInfo(packageName, 0)
+                                pm.getApplicationLabel(info).toString()
+                            }.getOrDefault(packageName)
+                            DisabledHistoryApp(packageName = packageName, appName = appName)
+                        }
+                        .sortedBy { it.appName.lowercase() }
+                }
+
                 _state.update { current ->
                     current.copy(
                         settings = HistorySettingsState(
                             storageMode = settings.history.storageMode,
                             updateHandling = settings.history.updateHandling,
                             retentionDays = settings.history.retentionDays,
+                            disabledApps = disabledApps,
                         ),
                     )
                 }
@@ -180,10 +195,12 @@ class HistoryViewModel @Inject constructor(
                 val query = HistoryQueryMapper.toQuery(state.value.filter, offset)
                 val page = historyRepository.page(query)
                 val newItems = HistoryQueryMapper.toItems(page)
+                val apps = if (reset) historyRepository.distinctApps() else state.value.availableApps
                 _state.update { current ->
                     val merged = if (reset) newItems else current.items + newItems
                     current.copy(
                         items = merged,
+                        availableApps = apps,
                         loaded = true,
                         loading = false,
                         endReached = page.size < HistoryQueryMapper.PAGE_SIZE,
@@ -267,6 +284,32 @@ class HistoryViewModel @Inject constructor(
 
     fun onRetentionChanged(retentionDays: Int?) =
         updateSettings { it.copy(retentionDays = retentionDays) }
+
+    fun onRemoveDisabledHistoryApp(packageName: String) {
+        viewModelScope.launch {
+            safely {
+                settingsRepository.update { current ->
+                    AppSettingsEditor.setHistoryStorageMode(current, packageName, null)
+                }
+            }
+        }
+    }
+
+    fun onClearAllDisabledHistoryApps() {
+        viewModelScope.launch {
+            safely {
+                settingsRepository.update { current ->
+                    var updated = current
+                    current.appOverrides.forEach { (pkg, override) ->
+                        if (override.history.storageMode == HistoryStorageMode.DISABLED) {
+                            updated = AppSettingsEditor.setHistoryStorageMode(updated, pkg, null)
+                        }
+                    }
+                    updated
+                }
+            }
+        }
+    }
 
     fun onPlayEntry(item: HistoryItem) {
         if (_state.value.playingItemId == item.id) {

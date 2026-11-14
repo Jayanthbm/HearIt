@@ -48,6 +48,7 @@ class IntelligentSettingsSync @Inject constructor(
         SmartContentCleaner.isEmailCleanupEnabled = sessionStore.isEmailCleanupEnabled
         SmartContentCleaner.isContactSanitizerEnabled = sessionStore.isContactSanitizerEnabled
         SmartContentCleaner.isSkipEmptyNotificationsEnabled = sessionStore.isSkipEmptyNotificationsEnabled
+        SmartContentCleaner.isSaveEmptyNotificationsToHistory = sessionStore.isSaveEmptyNotificationsToHistory
 
         // "Only allowed earphones" now lives in Devices & Audio as the per-device allow-list, so
         // the old global filter is retired; clear it instead of honouring an unreachable flag.

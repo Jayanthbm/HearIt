@@ -1,8 +1,11 @@
 package com.jayanth.hearit.applications
 
 import com.jayanth.hearit.core.common.model.AppCategoryChoice
+import com.jayanth.hearit.core.common.model.IntelligencePresets
+import com.jayanth.hearit.core.common.model.MatchTarget
 import com.jayanth.hearit.core.common.model.MediaReplacementRule
 import com.jayanth.hearit.core.common.model.MessagingPolishConfig
+import com.jayanth.hearit.core.common.model.SyncNoiseRule
 import com.jayanth.hearit.core.common.model.AppPriority
 import com.jayanth.hearit.core.common.model.AudioFocusPolicy
 import com.jayanth.hearit.core.common.model.HistoryStorageMode
@@ -391,30 +394,40 @@ object AppSettingsEditor {
         settings: HearItSettings,
         packageName: String,
         phrase: String,
-    ): HearItSettings = setMessagingNoisePhrase(settings, packageName, oldPhrase = null, phrase = phrase)
+        target: MatchTarget = MatchTarget.BOTH,
+    ): HearItSettings = setMessagingNoiseRule(settings, packageName, oldPhrase = null, rule = SyncNoiseRule(phrase, target))
 
     fun setMessagingNoisePhrase(
         settings: HearItSettings,
         packageName: String,
         oldPhrase: String?,
         phrase: String,
+        target: MatchTarget = MatchTarget.BOTH,
+    ): HearItSettings = setMessagingNoiseRule(settings, packageName, oldPhrase, SyncNoiseRule(phrase, target))
+
+    fun setMessagingNoiseRule(
+        settings: HearItSettings,
+        packageName: String,
+        oldPhrase: String?,
+        rule: SyncNoiseRule,
     ): HearItSettings {
-        val clean = phrase.trim()
+        val clean = rule.phrase.trim()
         if (clean.isEmpty()) return settings
+        val normalized = rule.copy(phrase = clean)
         return updateOverride(settings, packageName) { override ->
-            val list = override.messagingPolish.extraNoisePhrases.toMutableList()
+            val list = override.messagingPolish.extraNoiseRules.toMutableList()
             if (oldPhrase != null) {
-                val index = list.indexOfFirst { it.equals(oldPhrase, ignoreCase = true) }
+                val index = list.indexOfFirst { it.phrase.equals(oldPhrase, ignoreCase = true) }
                 if (index != -1) {
-                    list[index] = clean
+                    list[index] = normalized
                 } else {
-                    list.add(clean)
+                    list.add(normalized)
                 }
             } else {
-                list.removeAll { it.equals(clean, ignoreCase = true) }
-                list.add(clean)
+                list.removeAll { it.phrase.equals(clean, ignoreCase = true) }
+                list.add(normalized)
             }
-            override.copy(messagingPolish = override.messagingPolish.copy(extraNoisePhrases = list))
+            override.copy(messagingPolish = override.messagingPolish.copy(extraNoiseRules = list))
         }
     }
 
@@ -423,9 +436,19 @@ object AppSettingsEditor {
         packageName: String,
         phrase: String,
     ): HearItSettings = updateOverride(settings, packageName) { override ->
-        val updated = override.messagingPolish.extraNoisePhrases
-            .filterNot { it.equals(phrase, ignoreCase = true) }
-        override.copy(messagingPolish = override.messagingPolish.copy(extraNoisePhrases = updated))
+        val updated = override.messagingPolish.extraNoiseRules
+            .filterNot { it.phrase.equals(phrase, ignoreCase = true) }
+        override.copy(messagingPolish = override.messagingPolish.copy(extraNoiseRules = updated))
+    }
+
+    fun loadDefaultNoiseRules(
+        settings: HearItSettings,
+        packageName: String,
+    ): HearItSettings = updateOverride(settings, packageName) { override ->
+        val defaults = IntelligencePresets.defaultNoiseRulesFor(packageName)
+        val existing = override.messagingPolish.extraNoiseRules
+        val combined = (defaults + existing).distinctBy { it.phrase.lowercase() }
+        override.copy(messagingPolish = override.messagingPolish.copy(extraNoiseRules = combined))
     }
 
     /** Keeps notifications silenced by an extra noise phrase out of history (default: keep). */
@@ -445,8 +468,8 @@ object AppSettingsEditor {
     ): HearItSettings {
         val match = rule.match.trim()
         val spoken = rule.spokenPhrase.trim()
-        if (match.isEmpty() || spoken.isEmpty()) return settings
-        val normalized = MediaReplacementRule(match, spoken, rule.applyToSender)
+        if (match.isEmpty()) return settings
+        val normalized = rule.copy(match = match, spokenPhrase = spoken)
         return updateOverride(settings, packageName) { override ->
             val filtered = override.messagingPolish.mediaMappings.filterNot { existing ->
                 existing.match.equals(oldMatch ?: match, ignoreCase = true) ||
@@ -464,6 +487,25 @@ object AppSettingsEditor {
         val updated = override.messagingPolish.mediaMappings
             .filterNot { it.match.equals(match, ignoreCase = true) }
         override.copy(messagingPolish = override.messagingPolish.copy(mediaMappings = updated))
+    }
+
+    fun loadDefaultMediaMappings(
+        settings: HearItSettings,
+        packageName: String,
+    ): HearItSettings = updateOverride(settings, packageName) { override ->
+        val defaults = IntelligencePresets.defaultReplacementsFor(packageName)
+        override.copy(messagingPolish = override.messagingPolish.copy(mediaMappings = defaults))
+    }
+
+    fun importMediaMappings(
+        settings: HearItSettings,
+        packageName: String,
+        rules: List<MediaReplacementRule>,
+    ): HearItSettings = updateOverride(settings, packageName) { override ->
+        val existingMatches = override.messagingPolish.mediaMappings.map { it.match.lowercase() }.toSet()
+        val toAdd = rules.filterNot { existingMatches.contains(it.match.lowercase()) }
+        val merged = override.messagingPolish.mediaMappings + toAdd
+        override.copy(messagingPolish = override.messagingPolish.copy(mediaMappings = merged))
     }
 
     /**

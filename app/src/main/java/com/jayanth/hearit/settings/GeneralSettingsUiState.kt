@@ -50,6 +50,7 @@ data class GeneralSettingsUiState(
     val isEmailCleanupEnabled: Boolean = true,
     val isContactSanitizerEnabled: Boolean = true,
     val isSkipEmptyNotificationsEnabled: Boolean = false,
+    val isSaveEmptyNotificationsToHistory: Boolean = false,
     val installedApps: List<AppEntry> = emptyList(),
     val appCategories: Map<String, AppCategory?> = emptyMap(),
     // Audio Ducking Level Control (#17) & Maps Navigation Yield

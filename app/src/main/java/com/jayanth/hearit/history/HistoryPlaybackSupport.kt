@@ -105,6 +105,7 @@ internal fun syncCleanerForReplay(settings: HearItSettings, sessionStore: Sessio
     SmartContentCleaner.isEmailCleanupEnabled = sessionStore.isEmailCleanupEnabled
     SmartContentCleaner.isContactSanitizerEnabled = sessionStore.isContactSanitizerEnabled
     SmartContentCleaner.isSkipEmptyNotificationsEnabled = sessionStore.isSkipEmptyNotificationsEnabled
+    SmartContentCleaner.isSaveEmptyNotificationsToHistory = sessionStore.isSaveEmptyNotificationsToHistory
 
     val aliases = settings.appOverrides.mapNotNull { (pkg, override) ->
         override.spokenName?.takeIf { it.isNotBlank() }?.let { pkg to it }

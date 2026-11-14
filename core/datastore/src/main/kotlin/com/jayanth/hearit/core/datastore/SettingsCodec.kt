@@ -8,8 +8,10 @@ import com.jayanth.hearit.core.common.model.AppQueueOverride
 import com.jayanth.hearit.core.common.model.AudioFocusPolicy
 import com.jayanth.hearit.core.common.model.AudioOutputSettings
 import com.jayanth.hearit.core.common.model.EligibilitySettings
+import com.jayanth.hearit.core.common.model.MatchTarget
 import com.jayanth.hearit.core.common.model.MediaReplacementRule
 import com.jayanth.hearit.core.common.model.MessagingPolishConfig
+import com.jayanth.hearit.core.common.model.SyncNoiseRule
 import com.jayanth.hearit.core.common.model.HistorySettings
 import com.jayanth.hearit.core.common.model.HistoryStorageMode
 import com.jayanth.hearit.core.common.model.HistoryUpdateHandling
@@ -321,15 +323,21 @@ object SettingsCodec {
         if (!messaging.hideNoisePhraseMatches) {
             values[prefix + APP_MSG_NOISE_HISTORY] = "false"
         }
-        if (messaging.extraNoisePhrases.isNotEmpty()) {
-            values[prefix + APP_MSG_NOISE] = encodeList(messaging.extraNoisePhrases)
+        if (messaging.extraNoiseRules.isNotEmpty()) {
+            val encoded = messaging.extraNoiseRules.map { rule ->
+                listOf(
+                    rule.phrase.replace(LIST_SEPARATOR, " ").replace(FIELD_SEPARATOR, " "),
+                    rule.target.name,
+                ).joinToString(FIELD_SEPARATOR)
+            }
+            values[prefix + APP_MSG_NOISE] = encoded.joinToString(LIST_SEPARATOR)
         }
         if (messaging.mediaMappings.isNotEmpty()) {
             val encoded = messaging.mediaMappings.map { rule ->
                 listOf(
                     rule.match.replace(LIST_SEPARATOR, " ").replace(FIELD_SEPARATOR, " "),
                     rule.spokenPhrase.replace(LIST_SEPARATOR, " ").replace(FIELD_SEPARATOR, " "),
-                    rule.applyToSender.toString(),
+                    rule.target.name,
                 ).joinToString(FIELD_SEPARATOR)
             }
             values[prefix + APP_MSG_MEDIA] = encoded.joinToString(LIST_SEPARATOR)
@@ -573,14 +581,20 @@ object SettingsCodec {
             messagingPolish = MessagingPolishConfig(
                 enabled = string(APP_MSG_ENABLED)?.toBooleanStrictOrNull(),
                 hideNoisePhraseMatches = string(APP_MSG_NOISE_HISTORY)?.toBooleanStrictOrNull() ?: true,
-                extraNoisePhrases = splitList(string(APP_MSG_NOISE)).map { it.trim() }.filter { it.isNotBlank() },
+                extraNoiseRules = splitList(string(APP_MSG_NOISE)).mapNotNull { entry ->
+                    val parts = entry.split(FIELD_SEPARATOR)
+                    val phrase = parts[0].trim()
+                    if (phrase.isBlank()) return@mapNotNull null
+                    val target = if (parts.size >= 2) MatchTarget.fromString(parts[1]) else MatchTarget.BOTH
+                    SyncNoiseRule(phrase = phrase, target = target)
+                },
                 mediaMappings = splitList(string(APP_MSG_MEDIA)).mapNotNull { entry ->
                     val parts = entry.split(FIELD_SEPARATOR)
                     if (parts.size < 2) return@mapNotNull null
                     val match = parts[0].trim()
                     val spoken = parts[1].trim()
-                    val applyToSender = parts.getOrNull(2)?.toBooleanStrictOrNull() ?: false
-                    if (match.isBlank() || spoken.isBlank()) null else MediaReplacementRule(match, spoken, applyToSender)
+                    val target = if (parts.size >= 3) MatchTarget.fromString(parts[2]) else MatchTarget.BODY
+                    if (match.isBlank()) null else MediaReplacementRule(match = match, spokenPhrase = spoken, target = target)
                 },
             ),
         )

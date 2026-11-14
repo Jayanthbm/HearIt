@@ -14,10 +14,12 @@ import com.jayanth.hearit.core.common.model.AppPriority
 import com.jayanth.hearit.core.common.model.AudioFocusPolicy
 import com.jayanth.hearit.core.common.model.HistoryStorageMode
 import com.jayanth.hearit.core.common.model.HistoryUpdateHandling
+import com.jayanth.hearit.core.common.model.MatchTarget
 import com.jayanth.hearit.core.common.model.MediaReplacementRule
 import com.jayanth.hearit.core.common.model.NotificationSnapshot
 import com.jayanth.hearit.core.common.model.RuntimeState
 import com.jayanth.hearit.core.common.model.SkipReason
+import com.jayanth.hearit.core.common.model.SyncNoiseRule
 import com.jayanth.hearit.core.common.model.KeywordMatchMode
 import com.jayanth.hearit.core.database.HistoryQuery
 import com.jayanth.hearit.core.database.HistoryRepository
@@ -546,9 +548,22 @@ class ApplicationsViewModel @Inject constructor(
         }
     }
 
-    fun onSetMessagingNoisePhrase(oldPhrase: String?, phrase: String) {
+    fun onSetMessagingNoiseRule(oldPhrase: String?, phrase: String, target: MatchTarget = MatchTarget.BOTH) {
         updateSelected { settings, packageName ->
-            AppSettingsEditor.setMessagingNoisePhrase(settings, packageName, oldPhrase, phrase)
+            AppSettingsEditor.setMessagingNoiseRule(settings, packageName, oldPhrase, SyncNoiseRule(phrase, target))
+        }
+    }
+
+    fun onSetMessagingNoisePhrase(oldPhrase: String?, phrase: String) {
+        onSetMessagingNoiseRule(oldPhrase, phrase, MatchTarget.BOTH)
+    }
+
+    fun onLoadDefaultNoiseRules() {
+        updateSelected { settings, packageName ->
+            AppSettingsEditor.loadDefaultNoiseRules(settings, packageName)
+        }
+        viewModelScope.launch {
+            _userMessage.emit("Default noise rules loaded")
         }
     }
 
@@ -557,7 +572,7 @@ class ApplicationsViewModel @Inject constructor(
             AppSettingsEditor.removeMessagingNoisePhrase(settings, packageName, phrase)
         }
         viewModelScope.launch {
-            _userMessage.emit("Noise phrase deleted")
+            _userMessage.emit("Noise rule deleted")
         }
     }
 
@@ -567,14 +582,37 @@ class ApplicationsViewModel @Inject constructor(
         }
     }
 
-    fun onSetMessagingMediaMapping(oldMatch: String?, match: String, spokenPhrase: String, applyToSender: Boolean = false) {
+    fun onSetMessagingMediaMapping(oldMatch: String?, match: String, spokenPhrase: String, target: MatchTarget = MatchTarget.BODY) {
         updateSelected { settings, packageName ->
             AppSettingsEditor.setMessagingMediaMapping(
                 settings,
                 packageName,
                 oldMatch,
-                MediaReplacementRule(match, spokenPhrase, applyToSender),
+                MediaReplacementRule(match, spokenPhrase, target),
             )
+        }
+    }
+
+    fun onSetMessagingMediaMapping(oldMatch: String?, match: String, spokenPhrase: String, applyToSender: Boolean) {
+        val target = if (applyToSender) MatchTarget.BOTH else MatchTarget.BODY
+        onSetMessagingMediaMapping(oldMatch, match, spokenPhrase, target)
+    }
+
+    fun onLoadDefaultMediaMappings() {
+        updateSelected { settings, packageName ->
+            AppSettingsEditor.loadDefaultMediaMappings(settings, packageName)
+        }
+        viewModelScope.launch {
+            _userMessage.emit("Default replacements loaded")
+        }
+    }
+
+    fun onImportMediaMappings(rules: List<MediaReplacementRule>) {
+        updateSelected { settings, packageName ->
+            AppSettingsEditor.importMediaMappings(settings, packageName, rules)
+        }
+        viewModelScope.launch {
+            _userMessage.emit("Imported ${rules.size} replacements")
         }
     }
 
@@ -583,7 +621,7 @@ class ApplicationsViewModel @Inject constructor(
             AppSettingsEditor.removeMessagingMediaMapping(settings, packageName, match)
         }
         viewModelScope.launch {
-            _userMessage.emit("Placeholder mapping deleted")
+            _userMessage.emit("Replacement deleted")
         }
     }
 

@@ -140,4 +140,13 @@ interface HistoryDao {
     /** Deletes all rows for a specific package. */
     @Query("DELETE FROM history_entries WHERE packageName = :packageName")
     suspend fun deleteAllForPackage(packageName: String): Int
+
+    /** Distinct apps that have recorded history entries. */
+    @Query("SELECT DISTINCT packageName, appName FROM history_entries ORDER BY appName COLLATE NOCASE ASC")
+    suspend fun distinctApps(): List<AppIdentifier>
 }
+
+data class AppIdentifier(
+    val packageName: String,
+    val appName: String,
+)
