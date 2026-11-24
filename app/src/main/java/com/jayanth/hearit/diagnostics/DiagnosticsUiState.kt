@@ -26,6 +26,8 @@ data class DiagnosticsUiState(
     val logRetentionDays: Int = 7,
     val logExportSuccessMessage: String? = null,
     val logErrorMessage: String? = null,
+    val rawDebugCount: Long = 0L,
+    val rawDebugBreakdown: Map<String, Long> = emptyMap(),
 ) {
     /** True when all required permissions and service access are granted. */
     val allPermissionsHealthy: Boolean

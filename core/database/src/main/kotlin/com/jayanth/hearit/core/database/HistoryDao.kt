@@ -64,6 +64,19 @@ interface HistoryDao {
         limit: Int = 100,
     ): List<HistoryEntryEntity>
 
+    /**
+     * Recent entries recorded at or after [sinceMillis] across all statuses.
+     */
+    @Query(
+        "SELECT * FROM history_entries " +
+            "WHERE recordedAtMillis >= :sinceMillis " +
+            "ORDER BY recordedAtMillis DESC LIMIT :limit",
+    )
+    suspend fun recentEntries(
+        sinceMillis: Long,
+        limit: Int = 100,
+    ): List<HistoryEntryEntity>
+
     /** Deletes one row. */
     @Query("DELETE FROM history_entries WHERE id = :id")
     suspend fun deleteById(id: Long)

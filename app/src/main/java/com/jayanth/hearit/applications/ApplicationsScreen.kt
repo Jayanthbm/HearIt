@@ -3,6 +3,10 @@ package com.jayanth.hearit.applications
 import android.content.Intent
 import android.provider.Settings
 import android.text.format.DateUtils
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContent
@@ -2815,6 +2819,16 @@ private fun AppHistoryItemCard(
             DateUtils.MINUTE_IN_MILLIS,
         ).toString()
     }
+    val timestamp = if (entry.postTimeMillis > 0L) entry.postTimeMillis else entry.recordedAtMillis
+    val formattedDateTime = remember(timestamp) {
+        val cal = Calendar.getInstance()
+        val currentYear = cal.get(Calendar.YEAR)
+        cal.timeInMillis = timestamp
+        val itemYear = cal.get(Calendar.YEAR)
+        val pattern = if (currentYear == itemYear) "d MMM, h:mm a" else "d MMM yyyy, h:mm a"
+        SimpleDateFormat(pattern, Locale.getDefault()).format(Date(timestamp))
+    }
+    val hasFilterableContent = !entry.messageText.isNullOrBlank() || !entry.sender.isNullOrBlank()
 
     val cardBorder = if (isSelected) {
         BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary)
@@ -2930,41 +2944,40 @@ private fun AppHistoryItemCard(
                 )
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            // Footer Action Row: Filter button (left) + Action Buttons (right)
+            // Footer Action Row: Date & Time (left) + Action Icons: Filter & Play (right)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    if (!isSelectionMode && canFilter) {
-                        FilledTonalButton(
-                            onClick = onFilterThis,
-                            shape = RoundedCornerShape(10.dp),
-                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                            modifier = Modifier.height(30.dp),
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.FilterAlt,
-                                contentDescription = null,
-                                modifier = Modifier.size(14.dp),
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(text = "Filter This", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
+                Text(
+                    text = formattedDateTime,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 11.5.sp,
+                    maxLines = 1,
+                )
 
                 if (!isSelectionMode) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
+                        if (canFilter && hasFilterableContent) {
+                            IconButton(
+                                onClick = onFilterThis,
+                                modifier = Modifier.size(32.dp),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.FilterAlt,
+                                    contentDescription = "Filter notification",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(19.dp),
+                                )
+                            }
+                        }
                         IconButton(
                             onClick = onPlay,
                             modifier = Modifier.size(32.dp),

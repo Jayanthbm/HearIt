@@ -73,6 +73,7 @@ class HearItNotificationListenerService : NotificationListenerService() {
         HearItLogger.debug(LogCategory.NOTIFICATION, "Notification received: pkg=${sbn.packageName}, id=${sbn.id}")
         val raw = StatusBarNotificationMapper.toRaw(sbn, appLabelFor(sbn.packageName))
         val snapshot = extractor.extract(raw, System.currentTimeMillis())
+        NotificationRelay.onRawNotificationPosted?.invoke(sbn, snapshot)
         // Per-instance sink (tests) wins; otherwise the process-wide relay feeds the
         // announcement service registered in P08.
         (sink ?: NotificationRelay).onPosted(snapshot)

@@ -70,6 +70,9 @@ interface HistoryRepository {
     /** Returns recently announced entries recorded since [sinceMillis]. */
     suspend fun recentAnnounced(sinceMillis: Long): List<HistoryEntry>
 
+    /** Returns recent entries across all statuses recorded since [sinceMillis]. */
+    suspend fun recentEntries(sinceMillis: Long): List<HistoryEntry>
+
     /** Returns distinct apps (packageName to appName) recorded in history. */
     suspend fun distinctApps(): List<Pair<String, String>>
 
@@ -107,6 +110,12 @@ class RoomHistoryRepository(
         val existingStatus = existing?.status?.let { raw ->
             runCatching { HistoryStatus.valueOf(raw) }.getOrNull()
         }
+        val resolvedSender = HistoryRecorderPolicy.resolveSender(snapshot)
+        val messageText = snapshot.messageText.takeIf { it.isNotBlank() }
+        val isContentIdentical = existing != null &&
+            existing.messageText == messageText &&
+            existing.sender == resolvedSender
+
         val action = HistoryRecorderPolicy.decide(
             snapshot = snapshot,
             settings = settings,
@@ -116,6 +125,7 @@ class RoomHistoryRepository(
             priority = priority,
             existingEntryForSameKey = existing != null,
             existingEntryStatus = existingStatus,
+            existingEntryContentIdentical = isContentIdentical,
         )
 
         // Content-level duplicate collapsing: an app that re-posts the same body keeps one row
@@ -123,7 +133,7 @@ class RoomHistoryRepository(
         if (action is HistoryRecordAction.Insert && snapshot.messageText.isNotBlank()) {
             val duplicate = dao.latestIdenticalContent(
                 packageName = snapshot.packageName,
-                sender = snapshot.sender,
+                sender = resolvedSender,
                 messageText = snapshot.messageText,
                 sinceMillis = now - HistoryRepository.DUPLICATE_WINDOW_MILLIS,
             )
@@ -205,6 +215,9 @@ class RoomHistoryRepository(
 
     override suspend fun recentAnnounced(sinceMillis: Long): List<HistoryEntry> =
         dao.recentEntriesByStatus(HistoryStatus.ANNOUNCED.name, sinceMillis).map { it.toDomain() }
+
+    override suspend fun recentEntries(sinceMillis: Long): List<HistoryEntry> =
+        dao.recentEntries(sinceMillis).map { it.toDomain() }
 
     override suspend fun distinctApps(): List<Pair<String, String>> =
         dao.distinctApps().map { it.packageName to it.appName }

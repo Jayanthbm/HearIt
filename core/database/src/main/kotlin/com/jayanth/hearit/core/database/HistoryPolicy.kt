@@ -36,6 +36,14 @@ sealed interface HistoryRecordAction {
  */
 object HistoryRecorderPolicy {
 
+    /** Formats the display sender for history and announcements (e.g. "Author in Group" for group chats). */
+    fun resolveSender(snapshot: NotificationSnapshot): String? =
+        if (!snapshot.groupTitle.isNullOrBlank() && snapshot.isGroup && !snapshot.sender.isNullOrBlank()) {
+            "${snapshot.sender} in ${snapshot.groupTitle}"
+        } else {
+            snapshot.sender
+        }
+
     fun decide(
         snapshot: NotificationSnapshot,
         settings: HistorySettings,
@@ -45,16 +53,13 @@ object HistoryRecorderPolicy {
         priority: AppPriority? = null,
         existingEntryForSameKey: Boolean = false,
         existingEntryStatus: HistoryStatus? = null,
+        existingEntryContentIdentical: Boolean = false,
     ): HistoryRecordAction {
         if (settings.storageMode == HistoryStorageMode.DISABLED) {
             return HistoryRecordAction.Discard
         }
 
-        val senderDisplay = if (!snapshot.groupTitle.isNullOrBlank() && snapshot.isGroup && !snapshot.sender.isNullOrBlank()) {
-            "${snapshot.sender} in ${snapshot.groupTitle}"
-        } else {
-            snapshot.sender
-        }
+        val senderDisplay = resolveSender(snapshot)
 
         val entry = HistoryEntry(
             key = snapshot.key,
@@ -78,7 +83,7 @@ object HistoryRecorderPolicy {
         val isQueuedLifecycleTransition = existingEntryStatus == HistoryStatus.QUEUED &&
             (status == HistoryStatus.ANNOUNCED || status == HistoryStatus.INTERRUPTED || status == HistoryStatus.SKIPPED || status == HistoryStatus.QUEUED)
 
-        return if (isQueuedLifecycleTransition) {
+        return if (isQueuedLifecycleTransition || (existingEntryForSameKey && existingEntryContentIdentical)) {
             HistoryRecordAction.ReplaceExisting(entry)
         } else {
             HistoryRecordAction.Insert(entry)

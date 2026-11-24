@@ -31,11 +31,17 @@ class HearItApplication : Application() {
     @Inject
     lateinit var backgroundHistoryRecorder: BackgroundHistoryRecorder
 
+    @Inject
+    lateinit var rawNotificationLogger: com.jayanth.hearit.diagnostics.RawNotificationLogger
+
     override fun onCreate() {
         super.onCreate()
         HearItLogger.registerSink(fileDiagnosticLogger)
         intelligentSettingsSync.start()
         backgroundHistoryRecorder.start()
+        com.jayanth.hearit.core.notifications.NotificationRelay.onRawNotificationPosted = { sbn, snapshot ->
+            rawNotificationLogger.log(sbn, snapshot)
+        }
         com.jayanth.hearit.core.notifications.NotificationRelay.onAnyNotificationPosted = { snapshot ->
             com.jayanth.hearit.wear.WearDataLayerSync.syncNotification(this, snapshot)
             backgroundHistoryRecorder.onNotificationPosted(snapshot)

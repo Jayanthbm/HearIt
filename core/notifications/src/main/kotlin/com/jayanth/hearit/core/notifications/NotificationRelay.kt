@@ -29,6 +29,13 @@ object NotificationRelay : NotificationSink {
     @Volatile
     var onAnyNotificationPosted: ((NotificationSnapshot) -> Unit)? = null
 
+    /**
+     * Diagnostic hook invoked with the raw platform StatusBarNotification and the
+     * extracted snapshot for deep 2-day live notification inspection.
+     */
+    @Volatile
+    var onRawNotificationPosted: ((android.service.notification.StatusBarNotification, NotificationSnapshot) -> Unit)? = null
+
     override fun onPosted(snapshot: NotificationSnapshot) {
         onAnyNotificationPosted?.invoke(snapshot)
         sink?.onPosted(snapshot)

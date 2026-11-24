@@ -83,6 +83,51 @@ class HistoryPolicyTest {
     }
 
     @Test
+    fun decide_existingRowWithSameKeyAndIdenticalContent_replacesExisting() {
+        val settings = HistorySettings()
+
+        val action = HistoryRecorderPolicy.decide(
+            snapshot(isUpdate = true),
+            settings,
+            HistoryStatus.ANNOUNCED,
+            null,
+            recordedAt,
+            existingEntryForSameKey = true,
+            existingEntryContentIdentical = true,
+        )
+
+        assertTrue(action is HistoryRecordAction.ReplaceExisting)
+    }
+
+    @Test
+    fun decide_existingRowWithSameKeyAndDifferentContent_insertsNewEntry() {
+        val settings = HistorySettings()
+
+        val action = HistoryRecorderPolicy.decide(
+            snapshot(isUpdate = true),
+            settings,
+            HistoryStatus.ANNOUNCED,
+            null,
+            recordedAt,
+            existingEntryForSameKey = true,
+            existingEntryContentIdentical = false,
+        )
+
+        assertTrue(action is HistoryRecordAction.Insert)
+    }
+
+    @Test
+    fun resolveSender_groupConversation_formatsAuthorInGroup() {
+        val groupSnap = snapshot().copy(
+            sender = "Hitesh",
+            isGroup = true,
+            groupTitle = "Badminton",
+        )
+        val formatted = HistoryRecorderPolicy.resolveSender(groupSnap)
+        assertEquals("Hitesh in Badminton", formatted)
+    }
+
+    @Test
     fun decide_existingRowWithSameKey_insertsNewEntry() {
         val settings = HistorySettings()
 

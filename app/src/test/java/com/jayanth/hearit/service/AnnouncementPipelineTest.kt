@@ -427,4 +427,27 @@ class AnnouncementPipelineTest {
         assertTrue(processed.decision is EligibilityDecision.Skip)
         assertEquals(SkipReason.DUPLICATE_UPDATE, (processed.decision as EligibilityDecision.Skip).reason)
     }
+
+    @Test
+    fun skippedNotification_recordsSignature_andSuppressesSubsequentRapidRepost() {
+        val clock = TestClock(now = 50_000L)
+        val pipeline = AnnouncementPipeline(
+            queue = AnnouncementQueue(clock = Clock { clock.now }),
+            clock = { clock.now },
+        )
+
+        // First post: Screen is ON -> SKIPPED (SCREEN_ON)
+        val s1 = snapshot(packageName = "in.cricketexchange.app.cricketexchange", key = "crex1", sender = "Score", messageText = "Match Start 🏏")
+        val stateScreenOn = state(screenOn = true, locked = false)
+        val processed1 = pipeline.onNotification(s1, enabled, stateScreenOn)
+        assertTrue(processed1.decision is EligibilityDecision.Skip)
+        assertEquals(SkipReason.SCREEN_ON, (processed1.decision as EligibilityDecision.Skip).reason)
+
+        // Second post 10 seconds later: Same content -> suppressed as DUPLICATE_UPDATE
+        clock.now = 60_000L
+        val s2 = snapshot(packageName = "in.cricketexchange.app.cricketexchange", key = "crex2", sender = "Score", messageText = "Match Start 🏏")
+        val processed2 = pipeline.onNotification(s2, enabled, stateScreenOn)
+        assertTrue(processed2.decision is EligibilityDecision.Skip)
+        assertEquals(SkipReason.DUPLICATE_UPDATE, (processed2.decision as EligibilityDecision.Skip).reason)
+    }
 }

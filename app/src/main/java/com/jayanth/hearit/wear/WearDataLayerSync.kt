@@ -260,7 +260,7 @@ object WearDataLayerSync {
 
                 if (!nodes.isNullOrEmpty()) {
                     val payload = JSONObject().apply {
-                        put("id", snapshot.key)
+                        put("id", if (historyId > 0L) historyId.toString() else snapshot.key)
                         put("historyId", historyId)
                         put("packageName", snapshot.packageName)
                         put("appName", snapshot.appName)
@@ -313,6 +313,87 @@ object WearDataLayerSync {
                     val payload = ByteArray(0)
                     for (node in nodes) {
                         messageClient.sendMessage(node.id, "/notifications/clear_all", payload)
+                    }
+                }
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    /** Notifies connected watch nodes that history for one package has been cleared. */
+    fun notifyPackageNotificationsCleared(context: Context, packageName: String) {
+        val appContext = context.applicationContext
+        scope.launch {
+            try {
+                val nodeClient = Wearable.getNodeClient(appContext)
+                val messageClient = Wearable.getMessageClient(appContext)
+                val nodes = Tasks.await(nodeClient.connectedNodes)
+                if (!nodes.isNullOrEmpty()) {
+                    val payload = JSONObject().apply {
+                        put("packageName", packageName)
+                    }.toString().toByteArray(Charsets.UTF_8)
+                    for (node in nodes) {
+                        messageClient.sendMessage(node.id, "/notifications/clear_app", payload)
+                    }
+                }
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    /**
+     * Syncs recent notifications from phone history for the enabled watch apps.
+     */
+    fun syncRecentHistory(context: Context, historyRepository: com.jayanth.hearit.core.database.HistoryRepository) {
+        val appContext = context.applicationContext
+        scope.launch {
+            try {
+                val sessionStore = SessionStore(appContext)
+                if (!sessionStore.isWatchForwardingEnabled) return@launch
+                val watchApps = sessionStore.watchFilterApps.toSet()
+                if (watchApps.isEmpty()) return@launch
+
+                // Pull last 10 notifications per enabled watch app
+                val perAppEntries = mutableListOf<com.jayanth.hearit.core.database.HistoryEntry>()
+                for (pkg in watchApps) {
+                    val appEntries = historyRepository.page(
+                        com.jayanth.hearit.core.database.HistoryQuery(
+                            packageName = pkg,
+                            limit = 10,
+                            sortBy = com.jayanth.hearit.core.database.HistoryQuery.SortBy.RecentFirst,
+                        ),
+                    ).filter { !it.messageText.isNullOrBlank() || !it.sender.isNullOrBlank() }
+                    perAppEntries.addAll(appEntries)
+                }
+
+                // Sort all gathered entries by timestamp descending (newest first)
+                val sortedEntries = perAppEntries.sortedByDescending {
+                    if (it.postTimeMillis > 0L) it.postTimeMillis else it.recordedAtMillis
+                }
+
+                val nodeClient = Wearable.getNodeClient(appContext)
+                val messageClient = Wearable.getMessageClient(appContext)
+                val nodes = Tasks.await(nodeClient.connectedNodes)
+
+                if (!nodes.isNullOrEmpty() && sortedEntries.isNotEmpty()) {
+                    val array = JSONArray()
+                    sortedEntries.forEach { entry ->
+                        val entryTimestamp = if (entry.postTimeMillis > 0L) entry.postTimeMillis else entry.recordedAtMillis
+                        array.put(
+                            JSONObject().apply {
+                                put("id", entry.id.toString())
+                                put("historyId", entry.id)
+                                put("packageName", entry.packageName)
+                                put("appName", entry.appName)
+                                put("sender", entry.sender.orEmpty())
+                                put("message", entry.messageText.orEmpty())
+                                put("timestamp", entryTimestamp)
+                            },
+                        )
+                    }
+                    val payload = array.toString().toByteArray(Charsets.UTF_8)
+                    for (node in nodes) {
+                        messageClient.sendMessage(node.id, "/notifications/batch", payload)
                     }
                 }
             } catch (_: Exception) {

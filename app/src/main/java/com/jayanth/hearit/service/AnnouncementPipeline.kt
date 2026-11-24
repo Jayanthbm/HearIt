@@ -261,6 +261,7 @@ class AnnouncementPipeline(
             }
             is EligibilityDecision.Queue -> queue.hold(snapshot, priority, decision.reason)
             is EligibilityDecision.Skip -> {
+                recordContentSignature(snapshot, now)
                 // A skip is a history fact too, and keeps the reason it was skipped for.
                 onRecord(HistoryRecord(snapshot, HistoryStatus.SKIPPED, decision.reason, priority))
                 emptyList()

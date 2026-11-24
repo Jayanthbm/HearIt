@@ -25,6 +25,7 @@ import android.os.SystemClock
 import com.jayanth.hearit.core.common.logger.HearItLogger
 import com.jayanth.hearit.core.common.logger.LogCategory
 import com.jayanth.hearit.core.common.model.AppPriority
+import com.jayanth.hearit.core.common.model.AudioFocusPolicy
 import com.jayanth.hearit.core.common.model.AudioOutputKind
 import com.jayanth.hearit.core.common.model.HistoryStatus
 import com.jayanth.hearit.core.common.model.NavigationPriorityDetector
@@ -285,10 +286,17 @@ class AnnouncementService : Service(), NotificationSink {
                     appNames = appNames,
                     includeAppBreakdown = sessionStore.catchUpIncludeAppBreakdown,
                 )
+                handler.post {
+                    requestAudioFocus(settingsSource.settings.eligibility.audioFocus)
+                }
                 engine.speak(built, settingsSource.speech(), object : UtteranceListener {
                     override fun onStart(announcement: BuiltAnnouncement) {}
-                    override fun onComplete(announcement: BuiltAnnouncement) {}
-                    override fun onError(announcement: BuiltAnnouncement, error: TtsError) {}
+                    override fun onComplete(announcement: BuiltAnnouncement) {
+                        handler.post { abandonAudioFocus() }
+                    }
+                    override fun onError(announcement: BuiltAnnouncement, error: TtsError) {
+                        handler.post { abandonAudioFocus(immediate = true) }
+                    }
                 })
             }
         }
@@ -586,9 +594,9 @@ class AnnouncementService : Service(), NotificationSink {
     private fun seedRecentAnnouncementsFromHistory() {
         serviceScope.launch(Dispatchers.IO) {
             val now = System.currentTimeMillis()
-            val window = HistoryRepository.DUPLICATE_WINDOW_MILLIS
+            val window = maxOf(HistoryRepository.DUPLICATE_WINDOW_MILLIS, 120_000L)
             val recent = runCatching {
-                history.recentAnnounced(now - window)
+                history.recentEntries(now - window)
             }.getOrDefault(emptyList())
 
             if (recent.isNotEmpty()) {
@@ -600,14 +608,16 @@ class AnnouncementService : Service(), NotificationSink {
                     } else null
                 }.toMap()
 
-                val keys = recent.associate { it.key to it.recordedAtMillis }
+                val announcedKeys = recent
+                    .filter { it.status == com.jayanth.hearit.core.common.model.HistoryStatus.ANNOUNCED }
+                    .associate { it.key to it.recordedAtMillis }
 
                 handler.post {
                     if (::pipeline.isInitialized) {
                         pipeline.seedSignatures(signatures)
                     }
-                    if (::queue.isInitialized) {
-                        queue.seedAnnounced(keys)
+                    if (::queue.isInitialized && announcedKeys.isNotEmpty()) {
+                        queue.seedAnnounced(announcedKeys)
                     }
                     HearItLogger.info(
                         LogCategory.SERVICE,
@@ -645,8 +655,7 @@ class AnnouncementService : Service(), NotificationSink {
      * setting's promise. A refused request is not fatal: speech still runs, it just no longer
      * pauses or ducks the other app.
      */
-    private fun requestAudioFocus(action: AnnouncementPipeline.Action.Speak) {
-        val policy = settingsSource.forApp(action.selection.packageName).eligibility.audioFocus
+    private fun requestAudioFocus(policy: AudioFocusPolicy = settingsSource.settings.eligibility.audioFocus) {
         val gain = when (AudioFocusPolicyMapping.gainFor(policy)) {
             AudioFocusGain.DUCK_OTHERS -> AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK
             AudioFocusGain.PAUSE_OTHERS -> AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
@@ -832,10 +841,15 @@ class AnnouncementService : Service(), NotificationSink {
                 ),
                 pauseBetweenSectionsMillis = 0L,
             )
+            requestAudioFocus(settingsSource.settings.eligibility.audioFocus)
             engine.speak(warning, settingsSource.speech(), object : UtteranceListener {
                 override fun onStart(announcement: BuiltAnnouncement) {}
-                override fun onComplete(announcement: BuiltAnnouncement) {}
-                override fun onError(announcement: BuiltAnnouncement, error: TtsError) {}
+                override fun onComplete(announcement: BuiltAnnouncement) {
+                    handler.post { abandonAudioFocus() }
+                }
+                override fun onError(announcement: BuiltAnnouncement, error: TtsError) {
+                    handler.post { abandonAudioFocus(immediate = true) }
+                }
             })
         }
 
@@ -1013,10 +1027,17 @@ class AnnouncementService : Service(), NotificationSink {
                 ),
                 pauseBetweenSectionsMillis = 0L,
             )
+            handler.post {
+                requestAudioFocus(settingsSource.settings.eligibility.audioFocus)
+            }
             engine.speak(announcement, settingsSource.speech(), object : UtteranceListener {
                 override fun onStart(announcement: BuiltAnnouncement) {}
-                override fun onComplete(announcement: BuiltAnnouncement) {}
-                override fun onError(announcement: BuiltAnnouncement, error: TtsError) {}
+                override fun onComplete(announcement: BuiltAnnouncement) {
+                    handler.post { abandonAudioFocus() }
+                }
+                override fun onError(announcement: BuiltAnnouncement, error: TtsError) {
+                    handler.post { abandonAudioFocus(immediate = true) }
+                }
             })
         }
     }
@@ -1047,7 +1068,7 @@ class AnnouncementService : Service(), NotificationSink {
         currentAction = action
         lastAction = action
         lastActionSpokenAtMillis = SystemClock.elapsedRealtime()
-        requestAudioFocus(action)
+        requestAudioFocus(settingsSource.forApp(action.selection.packageName).eligibility.audioFocus)
         HearItLogger.info(
             LogCategory.TTS,
             "Starting speech announcement: pkg=${action.selection.packageName}, sectionCount=${action.announcement.sections.size}",

@@ -26,6 +26,7 @@ class PhoneWearableListenerService : WearableListenerService() {
         when (messageEvent.path) {
             "/request/sync" -> {
                 WearDataLayerSync.syncAllNow(this) { _, _ -> }
+                WearDataLayerSync.syncRecentHistory(this, historyRepository)
             }
             "/history/delete" -> {
                 runCatching {

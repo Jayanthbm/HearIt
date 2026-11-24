@@ -523,6 +523,13 @@ class ApplicationsViewModel @Inject constructor(
         val packageName = _state.value.openPackage ?: return
         viewModelScope.launch {
             val deleted = historyRepository.clearPackageHistory(packageName, olderThanDays)
+            if (deleted > 0) {
+                if (olderThanDays == null) {
+                    com.jayanth.hearit.wear.WearDataLayerSync.notifyPackageNotificationsCleared(context, packageName)
+                } else {
+                    com.jayanth.hearit.wear.WearDataLayerSync.syncRecentHistory(context, historyRepository)
+                }
+            }
             val msg = if (deleted == 0) {
                 "No records matched to delete"
             } else if (olderThanDays == null) {

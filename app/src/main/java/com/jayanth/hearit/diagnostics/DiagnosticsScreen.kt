@@ -30,6 +30,7 @@ import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.BatteryChargingFull
 import androidx.compose.material.icons.rounded.Bluetooth
+import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Download
@@ -102,6 +103,15 @@ fun DiagnosticsRoute(
         }
     }
 
+    // SAF CreateDocument Launcher for 2-Day Raw Notification Study Export
+    val rawExportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri ->
+        if (uri != null) {
+            viewModel.onExportRawDebugLogsToUri(context, uri)
+        }
+    }
+
     DiagnosticsScreen(
         state = state,
         onRefresh = viewModel::refresh,
@@ -114,6 +124,12 @@ fun DiagnosticsRoute(
             )
         },
         onClearLogsClicked = viewModel::onClearLogs,
+        onExportRawDebugClicked = {
+            rawExportLauncher.launch(
+                "hearit_raw_debug_${SimpleDateFormat("yyyyMMdd_HHmm", Locale.US).format(Date())}.json",
+            )
+        },
+        onClearRawDebugClicked = viewModel::onClearRawDebugLogs,
         onDismissStatusMessage = viewModel::onClearLogStatusMessage,
         modifier = modifier,
     )
@@ -131,10 +147,13 @@ fun DiagnosticsScreen(
     onTestSpeak: () -> Unit,
     onExportLogsClicked: () -> Unit,
     onClearLogsClicked: () -> Unit,
+    onExportRawDebugClicked: () -> Unit,
+    onClearRawDebugClicked: () -> Unit,
     onDismissStatusMessage: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var showClearDialog by remember { mutableStateOf(false) }
+    var showClearRawDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -261,6 +280,14 @@ fun DiagnosticsScreen(
             onClearClicked = { showClearDialog = true },
         )
 
+        // Section 7: Notification Study (2-Day Deep Diagnostic Log)
+        RawNotificationsDebugCard(
+            totalCount = state.rawDebugCount,
+            breakdown = state.rawDebugBreakdown,
+            onExportClicked = onExportRawDebugClicked,
+            onClearClicked = { showClearRawDialog = true },
+        )
+
         // Refresh Probes Button
         OutlinedButton(
             onClick = onRefresh,
@@ -341,6 +368,44 @@ fun DiagnosticsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showClearDialog = false }) {
+                    Text(text = stringResource(R.string.action_cancel))
+                }
+            },
+        )
+    }
+
+    if (showClearRawDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearRawDialog = false },
+            title = {
+                Text(
+                    text = "Clear Study Records?",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+            },
+            text = {
+                Text(
+                    text = "This will delete all raw notification captures stored for this 2-day study. Normal app history will not be affected.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showClearRawDialog = false
+                        onClearRawDebugClicked()
+                    },
+                ) {
+                    Text(
+                        text = "Clear",
+                        color = MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearRawDialog = false }) {
                     Text(text = stringResource(R.string.action_cancel))
                 }
             },
@@ -1378,6 +1443,137 @@ private fun OngoingNotificationCard() {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 2,
             )
+        }
+    }
+}
+
+@Composable
+private fun RawNotificationsDebugCard(
+    totalCount: Long,
+    breakdown: Map<String, Long>,
+    onExportClicked: () -> Unit,
+    onClearClicked: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    DiagnosticsSectionCard(
+        title = "Notification Study (2-Day Log)",
+        subtitle = "Zero-filter raw captures for WhatsApp, Teams, Messages, CREX & Instagram",
+        icon = Icons.Rounded.BugReport,
+        modifier = modifier,
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            // Stat badges
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.3f)),
+                ) {
+                    Text(
+                        text = "$totalCount Raw Events",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                ) {
+                    Text(
+                        text = "5 Target Apps Active",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    )
+                }
+            }
+
+            // Breakdown Chips / Summary
+            if (breakdown.isNotEmpty()) {
+                val appLabels = mapOf(
+                    "com.whatsapp" to "WhatsApp",
+                    "com.microsoft.teams" to "Teams",
+                    "com.google.android.apps.messaging" to "Messages",
+                    "com.samsung.android.messaging" to "Messages",
+                    "in.cricketexchange.app.cricketexchange" to "CREX",
+                    "com.instagram.android" to "Instagram",
+                    "com.instagram.barcelona" to "Threads",
+                )
+                val summaryText = breakdown.entries.joinToString(" · ") { (pkg, cnt) ->
+                    "${appLabels[pkg] ?: pkg.substringAfterLast('.')}: $cnt"
+                }
+                Text(
+                    text = summaryText,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    lineHeight = 16.sp,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+
+            // Explanatory note
+            Text(
+                text = "Captures raw OS notification bundles without filtering to identify missing messages during the 2-day study.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                lineHeight = 16.sp,
+                overflow = TextOverflow.Ellipsis,
+            )
+
+            // Action buttons
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Button(
+                    onClick = onExportClicked,
+                    enabled = totalCount > 0,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Download,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Export Study Logs (JSON)")
+                }
+
+                FilledTonalButton(
+                    onClick = onClearClicked,
+                    enabled = totalCount > 0,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f),
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.DeleteOutline,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Clear Study Records")
+                }
+            }
         }
     }
 }

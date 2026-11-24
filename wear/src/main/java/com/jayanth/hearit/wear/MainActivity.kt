@@ -3,6 +3,7 @@ package com.jayanth.hearit.wear
 import android.graphics.BitmapFactory
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -22,7 +23,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Notifications
@@ -67,6 +70,7 @@ import com.google.android.gms.wearable.Asset
 import com.google.android.gms.wearable.DataMapItem
 import com.google.android.gms.wearable.Wearable
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
@@ -78,6 +82,7 @@ import org.json.JSONObject
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        WearNotificationStore.init(applicationContext)
         setContent {
             MaterialTheme {
                 WearApp()
@@ -102,6 +107,7 @@ fun WearApp() {
 
     var isPhoneConnected by remember { mutableStateOf(false) }
     var selectedPackageFilter by remember { mutableStateOf<String?>(null) } // null == ALL
+    var selectedNotification by remember { mutableStateOf<WearNotification?>(null) }
 
     suspend fun refreshPhoneAndConfig() {
         withContext(Dispatchers.IO) {
@@ -185,6 +191,26 @@ fun WearApp() {
         }
     }
 
+    if (selectedNotification != null) {
+        val currentNotification = selectedNotification!!
+        val appItem = activeApps.firstOrNull { it.packageName == currentNotification.packageName }
+        val iconBitmap = remember(currentNotification.packageName, appItem?.iconPngBytes) {
+            decodeAppIcon(appItem?.iconPngBytes)
+        }
+        NotificationDetailScreen(
+            notification = currentNotification,
+            iconBitmap = iconBitmap,
+            onDismiss = {
+                dismissWatchNotification(context, currentNotification)
+                selectedNotification = null
+            },
+            onClose = {
+                selectedNotification = null
+            },
+        )
+        return
+    }
+
     Scaffold(
         timeText = { TimeText() },
         positionIndicator = { PositionIndicator(scalingLazyListState = listState) },
@@ -199,38 +225,30 @@ fun WearApp() {
             autoCentering = null,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // Top Header with Phone Connection Green/Offline Dot (#37)
+            // Top Header: Compact Phone Connection status indicator and subtitle
             item(key = "header") {
-                Column(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 2.dp, bottom = 4.dp)
+                        .padding(top = 4.dp, bottom = 6.dp)
                         .clickable { syncTrigger++ },
-                    horizontalAlignment = Alignment.CenterHorizontally,
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    if (isPhoneConnected) Color(0xFF4CAF50)
-                                    else Color(0xFFEF5350),
-                                ),
-                        )
-                        Text(
-                            text = "HearIt",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF64B5F6),
-                        )
-                    }
+                    Box(
+                        modifier = Modifier
+                            .size(7.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (isPhoneConnected) Color(0xFF4CAF50)
+                                else Color(0xFFEF5350),
+                            ),
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = if (isPhoneConnected) "Phone connected" else "Phone offline · Tap to refresh",
-                        fontSize = 10.sp,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
                         color = if (isPhoneConnected) Color(0xFF81C784) else Color(0xFFE57373),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -379,13 +397,21 @@ fun WearApp() {
                 items(filteredNotifications, key = { it.id }) { notif ->
                     NotificationCard(
                         notification = notif,
-                        onDismiss = { dismissWatchNotification(context, notif) },
+                        onClick = { selectedNotification = notif },
                     )
                 }
 
                 item(key = "clear_all") {
                     CompactChip(
                         onClick = { clearAllWatchNotifications(context) },
+                        icon = {
+                            Icon(
+                                imageVector = Icons.Rounded.DeleteOutline,
+                                contentDescription = "Clear All",
+                                modifier = Modifier.size(15.dp),
+                                tint = Color(0xFFFF8A80),
+                            )
+                        },
                         label = {
                             Text(
                                 text = "Clear All",
@@ -394,7 +420,11 @@ fun WearApp() {
                                 color = Color(0xFFFF8A80),
                             )
                         },
-                        modifier = Modifier.padding(top = 4.dp, bottom = 2.dp),
+                        colors = ChipDefaults.chipColors(
+                            backgroundColor = Color(0xFF3D1F1F),
+                            contentColor = Color(0xFFFF8A80),
+                        ),
+                        modifier = Modifier.padding(top = 6.dp, bottom = 4.dp),
                     )
                 }
             }
@@ -461,16 +491,18 @@ private fun decodeAppIcon(bytes: ByteArray?): ImageBitmap? {
 @Composable
 fun NotificationCard(
     notification: WearNotification,
-    onDismiss: () -> Unit,
+    onClick: () -> Unit,
 ) {
-    var isExpanded by remember { mutableStateOf(false) }
-    val timeFormatter = remember { SimpleDateFormat("h:mm a", Locale.getDefault()) }
     val formattedTime = remember(notification.timestamp) {
-        timeFormatter.format(Date(notification.timestamp))
+        val calNow = Calendar.getInstance()
+        val calItem = Calendar.getInstance().apply { timeInMillis = notification.timestamp }
+        val isSameYear = calNow.get(Calendar.YEAR) == calItem.get(Calendar.YEAR)
+        val pattern = if (isSameYear) "d MMM, h:mm a" else "d MMM yyyy, h:mm a"
+        SimpleDateFormat(pattern, Locale.getDefault()).format(Date(notification.timestamp))
     }
 
     AppCard(
-        onClick = { isExpanded = !isExpanded },
+        onClick = onClick,
         appName = {
             Text(
                 text = notification.appName,
@@ -484,18 +516,19 @@ fun NotificationCard(
         time = {
             Text(
                 text = formattedTime,
-                fontSize = 10.sp,
+                fontSize = 9.5.sp,
                 color = Color.LightGray,
+                maxLines = 1,
             )
         },
         title = {
             if (notification.sender.isNotBlank()) {
                 Text(
                     text = notification.sender,
-                    fontSize = 13.sp,
+                    fontSize = 12.5.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
-                    maxLines = if (isExpanded) 3 else 1,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
@@ -506,38 +539,176 @@ fun NotificationCard(
     ) {
         Text(
             text = notification.message,
-            fontSize = 12.sp,
-            lineHeight = 16.sp,
+            fontSize = 11.5.sp,
+            lineHeight = 15.sp,
             color = Color(0xFFE0E0E0),
-            maxLines = if (isExpanded) Int.MAX_VALUE else 3,
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
-        if (isExpanded) {
-            Spacer(modifier = Modifier.height(8.dp))
-            CompactChip(
-                onClick = onDismiss,
-                icon = {
-                    Icon(
-                        imageVector = Icons.Rounded.DeleteOutline,
-                        contentDescription = "Clear",
-                        modifier = Modifier.size(14.dp),
-                        tint = Color(0xFFFF8A80),
-                    )
-                },
-                label = {
+    }
+}
+
+@Composable
+fun NotificationDetailScreen(
+    notification: WearNotification,
+    iconBitmap: ImageBitmap?,
+    onDismiss: () -> Unit,
+    onClose: () -> Unit,
+) {
+    BackHandler(onBack = onClose)
+
+    val detailListState = rememberScalingLazyListState()
+    val fullDateTime = remember(notification.timestamp) {
+        SimpleDateFormat("d MMM yyyy · h:mm a", Locale.getDefault()).format(Date(notification.timestamp))
+    }
+
+    Scaffold(
+        timeText = { TimeText() },
+        positionIndicator = { PositionIndicator(scalingLazyListState = detailListState) },
+    ) {
+        ScalingLazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black),
+            state = detailListState,
+            contentPadding = PaddingValues(top = 54.dp, bottom = 44.dp, start = 12.dp, end = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            autoCentering = null,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            // App Header Pill (Icon + App Name)
+            item(key = "detail_app_header") {
+                Row(
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(Color(0xFF222222))
+                        .padding(horizontal = 10.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    if (iconBitmap != null) {
+                        Image(
+                            bitmap = iconBitmap,
+                            contentDescription = notification.appName,
+                            modifier = Modifier
+                                .size(16.dp)
+                                .clip(CircleShape),
+                        )
+                    }
                     Text(
-                        text = "Clear",
-                        fontSize = 10.5.sp,
+                        text = notification.appName,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFFFF8A80),
+                        color = Color(0xFF81C784),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
-                },
-                colors = ChipDefaults.chipColors(
-                    backgroundColor = Color(0xFF2C1E1E),
-                    contentColor = Color(0xFFFF8A80),
-                ),
-                modifier = Modifier.align(Alignment.End),
-            )
+                }
+            }
+
+            // Date & Time subtitle
+            item(key = "detail_time") {
+                Text(
+                    text = fullDateTime,
+                    fontSize = 10.sp,
+                    color = Color.LightGray,
+                    textAlign = TextAlign.Center,
+                )
+            }
+
+            // Sender (if present)
+            if (notification.sender.isNotBlank()) {
+                item(key = "detail_sender") {
+                    Text(
+                        text = notification.sender,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 6.dp),
+                    )
+                }
+            }
+
+            // Message Container (Full text, unconstrained, comfortable reading)
+            item(key = "detail_message") {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color(0xFF1C1C1C))
+                        .border(1.dp, Color(0xFF2E2E2E), RoundedCornerShape(16.dp))
+                        .padding(14.dp),
+                ) {
+                    Text(
+                        text = notification.message,
+                        fontSize = 12.5.sp,
+                        lineHeight = 17.sp,
+                        color = Color(0xFFEEEEEE),
+                    )
+                }
+            }
+
+            // Action Buttons (Back & Clear)
+            item(key = "detail_actions") {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    CompactChip(
+                        onClick = onClose,
+                        icon = {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                                contentDescription = "Back",
+                                modifier = Modifier.size(15.dp),
+                                tint = Color.White,
+                            )
+                        },
+                        label = {
+                            Text(
+                                text = "Back",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = Color.White,
+                            )
+                        },
+                        colors = ChipDefaults.chipColors(
+                            backgroundColor = Color(0xFF333333),
+                            contentColor = Color.White,
+                        ),
+                    )
+
+                    CompactChip(
+                        onClick = onDismiss,
+                        icon = {
+                            Icon(
+                                imageVector = Icons.Rounded.DeleteOutline,
+                                contentDescription = "Clear",
+                                modifier = Modifier.size(15.dp),
+                                tint = Color(0xFFFF8A80),
+                            )
+                        },
+                        label = {
+                            Text(
+                                text = "Clear",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFFFF8A80),
+                            )
+                        },
+                        colors = ChipDefaults.chipColors(
+                            backgroundColor = Color(0xFF3D1F1F),
+                            contentColor = Color(0xFFFF8A80),
+                        ),
+                    )
+                }
+            }
         }
     }
 }

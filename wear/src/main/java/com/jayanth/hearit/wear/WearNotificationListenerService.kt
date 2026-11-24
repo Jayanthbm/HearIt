@@ -15,9 +15,15 @@ import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.Wearable
 import com.google.android.gms.wearable.WearableListenerService
 import java.util.concurrent.TimeUnit
+import org.json.JSONArray
 import org.json.JSONObject
 
 class WearNotificationListenerService : WearableListenerService() {
+
+    override fun onCreate() {
+        super.onCreate()
+        WearNotificationStore.init(applicationContext)
+    }
 
     override fun onDataChanged(dataEvents: DataEventBuffer) {
         try {
@@ -118,6 +124,29 @@ class WearNotificationListenerService : WearableListenerService() {
                 } catch (_: Exception) {
                 }
             }
+            "/notifications/batch" -> {
+                try {
+                    val jsonString = String(messageEvent.data, Charsets.UTF_8)
+                    val arr = JSONArray(jsonString)
+                    val list = mutableListOf<WearNotification>()
+                    for (i in 0 until arr.length()) {
+                        val obj = arr.getJSONObject(i)
+                        list.add(
+                            WearNotification(
+                                id = obj.optString("id", ""),
+                                packageName = obj.optString("packageName", ""),
+                                appName = obj.optString("appName", "Unknown App"),
+                                sender = obj.optString("sender", ""),
+                                message = obj.optString("message", ""),
+                                timestamp = obj.optLong("timestamp", System.currentTimeMillis()),
+                                historyId = obj.optLong("historyId", 0L),
+                            ),
+                        )
+                    }
+                    WearNotificationStore.setBatchNotifications(list)
+                } catch (_: Exception) {
+                }
+            }
             "/notifications/delete" -> {
                 try {
                     val jsonString = String(messageEvent.data, Charsets.UTF_8)
@@ -135,6 +164,17 @@ class WearNotificationListenerService : WearableListenerService() {
             }
             "/notifications/clear_all" -> {
                 WearNotificationStore.clearAll()
+            }
+            "/notifications/clear_app" -> {
+                try {
+                    val jsonString = String(messageEvent.data, Charsets.UTF_8)
+                    val json = JSONObject(jsonString)
+                    val pkg = json.optString("packageName", "")
+                    if (pkg.isNotBlank()) {
+                        WearNotificationStore.removeByPackage(pkg)
+                    }
+                } catch (_: Exception) {
+                }
             }
             else -> super.onMessageReceived(messageEvent)
         }

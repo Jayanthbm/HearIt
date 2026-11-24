@@ -46,6 +46,7 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DateRange
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.FileDownload
+import androidx.compose.material.icons.rounded.FilterAlt
 import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Info
@@ -107,6 +108,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 import androidx.compose.ui.zIndex
 import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.Lifecycle
@@ -711,6 +716,7 @@ fun HistoryScreen(
                                     selectedIds = if (isSelected) selectedIds - item.id else selectedIds + item.id
                                 },
                                 onPlay = { onPlayEntry(item) },
+                                onFilterThis = { filterItem = item },
                                 onAppClick = { onOpenAppSettings(item.packageName) },
                                 onCardClick = {
                                     if (isSelectionMode) {
@@ -985,6 +991,7 @@ private fun ModernHistoryCard(
     isSelected: Boolean = false,
     onToggleSelect: () -> Unit = {},
     onPlay: () -> Unit,
+    onFilterThis: () -> Unit = {},
     onAppClick: () -> Unit,
     onCardClick: () -> Unit,
     onDelete: () -> Unit,
@@ -996,6 +1003,21 @@ private fun ModernHistoryCard(
             DateUtils.MINUTE_IN_MILLIS,
         ).toString()
     }
+    val timestamp = if (item.postTimeMillis > 0L) item.postTimeMillis else item.recordedAtMillis
+    val formattedDateTime = remember(timestamp) {
+        val cal = Calendar.getInstance()
+        val currentYear = cal.get(Calendar.YEAR)
+        cal.timeInMillis = timestamp
+        val itemYear = cal.get(Calendar.YEAR)
+        val pattern = if (currentYear == itemYear) "d MMM, h:mm a" else "d MMM yyyy, h:mm a"
+        SimpleDateFormat(pattern, Locale.getDefault()).format(Date(timestamp))
+    }
+
+    val isAlreadyFiltered = item.reason == com.jayanth.hearit.core.common.model.SkipReason.KEYWORD_FILTERED ||
+        item.reason == com.jayanth.hearit.core.common.model.SkipReason.PRIVACY_SENSITIVE_KEYWORD ||
+        item.reason == com.jayanth.hearit.core.common.model.SkipReason.SUPPRESSED_INTELLIGENCE ||
+        item.reason == com.jayanth.hearit.core.common.model.SkipReason.PRIVACY_EXCLUDED_APP
+    val canFilter = !isAlreadyFiltered && (!item.messageText.isNullOrBlank() || !item.sender.isNullOrBlank())
 
     Card(
         modifier = Modifier
@@ -1138,22 +1160,50 @@ private fun ModernHistoryCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Footer Action Row: Action Buttons
+            // Footer Action Row: Date & Time (left) + Action Icons: Filter & Play (right)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.End,
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                IconButton(
-                    onClick = onPlay,
-                    modifier = Modifier.size(32.dp),
-                ) {
-                    Icon(
-                        imageVector = if (isPlaying) Icons.Rounded.Stop else Icons.Rounded.PlayArrow,
-                        contentDescription = if (isPlaying) "Stop" else "Listen",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp),
-                    )
+                Text(
+                    text = formattedDateTime,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 11.5.sp,
+                    maxLines = 1,
+                )
+
+                if (!isSelectionMode) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        if (canFilter) {
+                            IconButton(
+                                onClick = onFilterThis,
+                                modifier = Modifier.size(32.dp),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.FilterAlt,
+                                    contentDescription = "Filter notification",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(19.dp),
+                                )
+                            }
+                        }
+                        IconButton(
+                            onClick = onPlay,
+                            modifier = Modifier.size(32.dp),
+                        ) {
+                            Icon(
+                                imageVector = if (isPlaying) Icons.Rounded.Stop else Icons.Rounded.PlayArrow,
+                                contentDescription = if (isPlaying) "Stop" else "Listen",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                    }
                 }
             }
         }

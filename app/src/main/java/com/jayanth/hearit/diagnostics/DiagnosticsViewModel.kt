@@ -47,6 +47,7 @@ class DiagnosticsViewModel @Inject constructor(
     private val historyRepository: HistoryRepository,
     private val setupLauncher: SetupLauncher,
     private val fileDiagnosticLogger: FileDiagnosticLogger,
+    private val rawNotificationLogger: RawNotificationLogger,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(DiagnosticsUiState())
@@ -75,6 +76,8 @@ class DiagnosticsViewModel @Inject constructor(
             val outputs = audioOutputs.connectedOutputs()
             val logFiles = fileDiagnosticLogger.getLogFiles()
             val logBytes = fileDiagnosticLogger.getTotalSizeBytes()
+            val rawCount = rawNotificationLogger.getTotalCount()
+            val rawBreakdown = rawNotificationLogger.getCountsByPackage()
 
             _state.update { current ->
                 current.copy(
@@ -92,6 +95,8 @@ class DiagnosticsViewModel @Inject constructor(
                     totalHistoryCount = historyCount,
                     logFileCount = logFiles.size,
                     totalLogSizeBytes = logBytes,
+                    rawDebugCount = rawCount,
+                    rawDebugBreakdown = rawBreakdown,
                     isRefreshing = false,
                 )
             }
@@ -150,6 +155,45 @@ class DiagnosticsViewModel @Inject constructor(
                     )
                 }
             }
+        }
+    }
+
+    fun onExportRawDebugLogsToUri(context: Context, uri: Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val outputStream = context.contentResolver.openOutputStream(uri)
+                if (outputStream == null) {
+                    _state.update { it.copy(logErrorMessage = "Failed to open destination file for export.") }
+                    return@launch
+                }
+                outputStream.use { stream ->
+                    rawNotificationLogger.exportToJson(stream)
+                }
+                _state.update {
+                    it.copy(
+                        logExportSuccessMessage = "Raw debug notification study logs exported successfully.",
+                        logErrorMessage = null,
+                    )
+                }
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(
+                        logErrorMessage = "Failed to export raw debug logs: ${e.message}",
+                        logExportSuccessMessage = null,
+                    )
+                }
+            }
+        }
+    }
+
+    fun onClearRawDebugLogs() {
+        rawNotificationLogger.clearAll()
+        _state.update {
+            it.copy(
+                rawDebugCount = 0L,
+                rawDebugBreakdown = emptyMap(),
+                logExportSuccessMessage = "Raw debug study records cleared.",
+            )
         }
     }
 
