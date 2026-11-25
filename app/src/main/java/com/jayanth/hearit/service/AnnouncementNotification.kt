@@ -91,6 +91,7 @@ internal object AnnouncementNotification {
         isPriorityAnnounce: Boolean = false,
         isMuted: Boolean = false,
         showRepeatAction: Boolean = false,
+        isMultipointBusy: Boolean = false,
     ): Notification {
         val openApp = PendingIntent.getActivity(
             context,
@@ -117,7 +118,9 @@ internal object AnnouncementNotification {
                 ),
             )
             .setContentText(
-                if (isMuted) {
+                if (isMultipointBusy) {
+                    "Headphone busy (Multipoint) · Notifications queued"
+                } else if (isMuted) {
                     "Announcements temporarily muted"
                 } else if (isPriorityAnnounce) {
                     "Priority Announce active"
@@ -174,11 +177,18 @@ internal object AnnouncementNotification {
             } else {
                 context.getString(R.string.notification_action_mute)
             }
+            val multipointToggle = PendingIntent.getService(
+                context,
+                7,
+                Intent(context, AnnouncementService::class.java).setAction(AnnouncementService.ACTION_MULTIPOINT_BUSY_TOGGLE),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+            val multipointLabel = if (isMultipointBusy) "Resume Speech" else "Queue Speech"
             if (showRepeatAction) {
                 builder.addAction(0, context.getString(R.string.notification_action_repeat), repeatLast)
-                builder.addAction(0, muteLabel, muteToggle)
+                builder.addAction(0, multipointLabel, multipointToggle)
             } else {
-                builder.addAction(0, priorityLabel, priorityToggle)
+                builder.addAction(0, multipointLabel, multipointToggle)
                 builder.addAction(0, muteLabel, muteToggle)
             }
         }

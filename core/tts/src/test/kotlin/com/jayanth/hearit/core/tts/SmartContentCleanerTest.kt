@@ -289,4 +289,29 @@ class SmartContentCleanerTest {
         SmartContentCleaner.setAppAlias("com.whatsapp.w4b", null)
         assertEquals("WhatsApp Business", SmartContentCleaner.resolveAppName("com.whatsapp.w4b", "WhatsApp Business"))
     }
+
+    @Test
+    fun cleanMessage_suppressesSensitiveNotificationContentHiddenUniversally() {
+        val result = SmartContentCleaner.cleanMessage("Sensitive notification content hidden", "com.any.app")
+        assertTrue(result.suppress)
+    }
+
+    @Test
+    fun cleanMessage_suppressesTeamsAndWhatsAppNoise() {
+        val teamsMeeting = SmartContentCleaner.cleanMessage("Tap to return to the meeting", "com.microsoft.teams")
+        assertTrue(teamsMeeting.suppress)
+
+        val teamsMeetingStarted = SmartContentCleaner.cleanMessage("Teams meeting has started", "com.microsoft.teams")
+        assertTrue(teamsMeetingStarted.suppress)
+
+        val waDownloading = SmartContentCleaner.cleanMessage("Downloading Video", "com.whatsapp")
+        assertTrue(waDownloading.suppress)
+
+        val waSelfMsg = SmartContentCleaner.cleanMessage("Test note", "com.whatsapp", sender = "You")
+        assertTrue(waSelfMsg.suppress)
+
+        // Make sure a sender named "Young" or "Bayou" is NOT suppressed
+        val normalSender = SmartContentCleaner.cleanMessage("Hey there", "com.whatsapp", sender = "Young")
+        assertFalse(normalSender.suppress)
+    }
 }

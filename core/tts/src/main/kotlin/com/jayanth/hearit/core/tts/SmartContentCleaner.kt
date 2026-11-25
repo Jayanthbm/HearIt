@@ -231,6 +231,11 @@ object SmartContentCleaner {
         val messagingConfig = messagingPolishConfigFor(packageName)
         val messagingPolishEnabled = isMessagingPolishEnabled(packageName, category)
 
+        // 0. Universal OS lock screen privacy placeholder suppression (OBS-16)
+        if (result.trim().equals("Sensitive notification content hidden", ignoreCase = true)) {
+            return CleanedMessage("", suppress = true, skipHistory = false)
+        }
+
         // 1. Sync/background noise suppression (checking body, sender, or both):
         // - built-in sync noise phrases are messaging-polish (chat-app) behavior
         // - custom extra noise phrases are enabled for all apps
@@ -327,8 +332,22 @@ object SmartContentCleaner {
             if (phrase.isEmpty()) return@any false
             when (rule.target) {
                 MatchTarget.BODY -> textLower.startsWith(phrase) || textLower.contains(phrase)
-                MatchTarget.SENDER -> senderLower.startsWith(phrase) || senderLower.contains(phrase)
-                MatchTarget.BOTH -> textLower.contains(phrase) || senderLower.contains(phrase)
+                MatchTarget.SENDER -> {
+                    if (phrase.length <= 3) {
+                        senderLower == phrase || senderLower.split(" ", ":", "–", "-").contains(phrase)
+                    } else {
+                        senderLower.startsWith(phrase) || senderLower.contains(phrase)
+                    }
+                }
+                MatchTarget.BOTH -> {
+                    val bodyMatches = textLower.contains(phrase)
+                    val senderMatches = if (phrase.length <= 3) {
+                        senderLower == phrase || senderLower.split(" ", ":", "–", "-").contains(phrase)
+                    } else {
+                        senderLower.contains(phrase)
+                    }
+                    bodyMatches || senderMatches
+                }
             }
         }
     }

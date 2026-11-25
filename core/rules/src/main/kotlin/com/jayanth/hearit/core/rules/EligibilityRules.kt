@@ -148,7 +148,7 @@ class EligibilityRules {
         settings: AudioOutputSettings,
         activeOutput: AudioOutput?,
     ): SkipReason? {
-        val output = activeOutput ?: return null // not observed yet → never block speech
+        val output = activeOutput ?: return null // not observed yet -> never block speech
 
         val allowed = when (output.kind) {
             AudioOutputKind.WIRED -> settings.allowWired

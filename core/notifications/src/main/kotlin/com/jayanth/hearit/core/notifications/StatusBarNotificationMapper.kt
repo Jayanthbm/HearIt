@@ -48,11 +48,20 @@ internal object StatusBarNotificationMapper {
                 }
             }
 
-            // 2. Fallback: Check Notification.EXTRA_TEXT_LINES (InboxStyle)
+            // 2. Fallback: Check Notification.EXTRA_TEXT and Notification.EXTRA_TEXT_LINES (InboxStyle)
+            // OBS-14: For sports/live-score apps (like CREX) and modern InboxStyle, EXTRA_TEXT holds
+            // the newest live event (e.g. latest wicket), while lines.firstOrNull() is the newest line
+            // and lines.lastOrNull() holds stale bottom milestones. Prefer non-blank EXTRA_TEXT,
+            // then lines.firstOrNull(), avoiding stale duplicate milestone text.
             if (messagingText == null) {
+                val directText = extras.getCharSequence(Notification.EXTRA_TEXT).asTextOrNull()
                 val lines = extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)
-                if (!lines.isNullOrEmpty()) {
-                    messagingText = lines.lastOrNull { !it.isNullOrBlank() }.asTextOrNull()
+                messagingText = if (!directText.isNullOrBlank()) {
+                    directText
+                } else if (!lines.isNullOrEmpty()) {
+                    lines.firstOrNull { !it.isNullOrBlank() }.asTextOrNull()
+                } else {
+                    null
                 }
             }
         }

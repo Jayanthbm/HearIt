@@ -401,6 +401,23 @@ object WearDataLayerSync {
         }
     }
 
+    fun syncMultipointStatus(context: Context, isBusy: Boolean) {
+        val appContext = context.applicationContext
+        scope.launch {
+            try {
+                val nodeClient = Wearable.getNodeClient(appContext)
+                val messageClient = Wearable.getMessageClient(appContext)
+                val nodes = Tasks.await(nodeClient.connectedNodes)
+                if (!nodes.isNullOrEmpty()) {
+                    val data = if (isBusy) byteArrayOf(1) else byteArrayOf(0)
+                    for (node in nodes) {
+                        messageClient.sendMessage(node.id, "/multipoint/status", data)
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+    }
+
     private fun loadCompressedAppIcon(context: Context, packageName: String): ByteArray? = runCatching {
         val drawable = context.packageManager.getApplicationIcon(packageName)
         val bitmap = if (drawable is BitmapDrawable &&

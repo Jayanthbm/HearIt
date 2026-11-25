@@ -65,6 +65,7 @@ class GeneralSettingsViewModel @Inject constructor(
             isBiometricAvailable = biometricAuthManager.canAuthenticate(),
             isAutoDismissEnabled = sessionStore.isAutoDismissEnabled,
             isShakeToStopEnabled = sessionStore.isShakeToStopEnabled,
+            shakeSensitivity = sessionStore.shakeSensitivity,
             isVolumeKeyToStopEnabled = sessionStore.isVolumeKeyToStopEnabled,
             isMusicPauseHoldEnabled = sessionStore.isMusicPauseHoldEnabled,
             isBluetoothAutoStartEnabled = sessionStore.isBluetoothAutoStartEnabled,
@@ -182,6 +183,11 @@ class GeneralSettingsViewModel @Inject constructor(
     fun onToggleShakeToStop(enabled: Boolean) {
         sessionStore.isShakeToStopEnabled = enabled
         _state.update { it.copy(isShakeToStopEnabled = enabled) }
+    }
+
+    fun onShakeSensitivityChanged(sensitivity: com.jayanth.hearit.service.ShakeSensitivity) {
+        sessionStore.shakeSensitivity = sensitivity
+        _state.update { it.copy(shakeSensitivity = sensitivity) }
     }
 
     fun onToggleVolumeKeyToStop(enabled: Boolean) {

@@ -69,6 +69,10 @@ class NotificationExtractor(
             }
         }
 
+        // OBS-15: Strip unread count suffixes like "(10 messages)" or "(2 messages)" from group titles and senders
+        resolvedGroupTitle = resolvedGroupTitle?.replace(GROUP_MESSAGE_COUNT_REGEX, "")?.trim()?.takeIf { it.isNotEmpty() }
+        resolvedSender = resolvedSender?.replace(GROUP_MESSAGE_COUNT_REGEX, "")?.trim()?.takeIf { it.isNotEmpty() }
+
         val isGroup = raw.isGroupConversation ||
             (resolvedGroupTitle != null && resolvedSender != null && !resolvedGroupTitle.equals(resolvedSender, ignoreCase = true))
 
@@ -114,3 +118,5 @@ class NotificationExtractor(
 
 /** Trim, then treat blank as absent: extraction's one text fallback rule. */
 private fun String?.trimmedOrNull(): String? = this?.trim()?.takeIf { it.isNotEmpty() }
+
+private val GROUP_MESSAGE_COUNT_REGEX = Regex("\\s*\\(\\d+\\s*messages?\\)", RegexOption.IGNORE_CASE)

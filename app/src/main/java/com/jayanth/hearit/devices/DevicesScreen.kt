@@ -6,6 +6,7 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -133,6 +134,7 @@ fun DevicesRoute(viewModel: DevicesViewModel, modifier: Modifier = Modifier) {
         onAmbientNoiseThresholdChanged = viewModel::onAmbientNoiseThresholdChanged,
         onAmbientNoiseBoostPercentChanged = viewModel::onAmbientNoiseBoostPercentChanged,
         onRefreshMicPermission = viewModel::refreshRecordAudioPermission,
+        onDeviceMultipointBusy = viewModel::onToggleDeviceMultipointBusy,
         modifier = modifier,
     )
 }
@@ -151,6 +153,7 @@ fun DevicesScreen(
     onAmbientNoiseThresholdChanged: (Int) -> Unit = {},
     onAmbientNoiseBoostPercentChanged: (Int) -> Unit = {},
     onRefreshMicPermission: () -> Unit = {},
+    onDeviceMultipointBusy: (String, Boolean) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -318,6 +321,9 @@ fun DevicesScreen(
                             } else {
                                 onCategoryAllowed(AudioOutputKind.WIRED, allowed)
                             }
+                        },
+                        onMultipointBusyChanged = { busy ->
+                            onDeviceMultipointBusy(row.id, busy)
                         },
                     )
                 }
@@ -571,6 +577,7 @@ private fun ConnectedDeviceCard(
     row: DeviceRow,
     bluetoothEnabled: Boolean,
     onAllowedChanged: (Boolean) -> Unit,
+    onMultipointBusyChanged: (Boolean) -> Unit = {},
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -687,6 +694,46 @@ private fun ConnectedDeviceCard(
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
                         checkedTrackColor = MaterialTheme.colorScheme.primary,
+                    ),
+                )
+            }
+        }
+        if (row.isBluetooth && row.canToggle) {
+            HorizontalDivider(
+                modifier = Modifier.padding(horizontal = 14.dp),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Multipoint hold",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                    )
+                    Text(
+                        text = "Queue speech when used on another device",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp,
+                        maxLines = 2,
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Switch(
+                    checked = row.isMultipointBusy,
+                    enabled = bluetoothEnabled,
+                    onCheckedChange = onMultipointBusyChanged,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = MaterialTheme.colorScheme.onTertiary,
+                        checkedTrackColor = MaterialTheme.colorScheme.tertiary,
                     ),
                 )
             }

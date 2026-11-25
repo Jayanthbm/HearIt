@@ -24,6 +24,7 @@ data class GeneralSettingsUiState(
     val securityErrorMessage: String? = null,
     val isAutoDismissEnabled: Boolean = true,
     val isShakeToStopEnabled: Boolean = true,
+    val shakeSensitivity: com.jayanth.hearit.service.ShakeSensitivity = com.jayanth.hearit.service.ShakeSensitivity.BALANCED,
     val isVolumeKeyToStopEnabled: Boolean = true,
     val isMusicPauseHoldEnabled: Boolean = true,
     val isBluetoothAutoStartEnabled: Boolean = true,

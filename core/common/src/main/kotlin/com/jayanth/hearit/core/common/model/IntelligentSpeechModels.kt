@@ -223,14 +223,22 @@ object IntelligencePresets {
     val WHATSAPP_SYNC_NOISE: List<SyncNoiseRule> = listOf(
         SyncNoiseRule(phrase = "Checking for new messages", target = MatchTarget.BOTH),
         SyncNoiseRule(phrase = "Backup in progress", target = MatchTarget.BOTH),
+        SyncNoiseRule(phrase = "Couldn't complete backup", target = MatchTarget.BOTH),
         SyncNoiseRule(phrase = "WhatsApp Web is currently active", target = MatchTarget.BOTH),
         SyncNoiseRule(phrase = "WhatsApp Web", target = MatchTarget.BOTH),
         SyncNoiseRule(phrase = "Connecting", target = MatchTarget.BOTH),
+        SyncNoiseRule(phrase = "You", target = MatchTarget.SENDER),
+        SyncNoiseRule(phrase = "Downloading Video", target = MatchTarget.BOTH),
+        SyncNoiseRule(phrase = "Downloading Document", target = MatchTarget.BOTH),
+        SyncNoiseRule(phrase = "Sending video", target = MatchTarget.BOTH),
+        SyncNoiseRule(phrase = "Checking for new calls", target = MatchTarget.BOTH),
+        SyncNoiseRule(phrase = "Ongoing voice call", target = MatchTarget.BOTH),
     )
 
     val MESSAGES_SYNC_NOISE: List<SyncNoiseRule> = listOf(
         SyncNoiseRule(phrase = "Messages is doing work in the background", target = MatchTarget.BOTH),
         SyncNoiseRule(phrase = "Device pairing", target = MatchTarget.BOTH),
+        SyncNoiseRule(phrase = "Your messages are available on the device that you've paired", target = MatchTarget.BOTH),
         SyncNoiseRule(phrase = "Connecting", target = MatchTarget.BOTH),
     )
 
@@ -238,10 +246,17 @@ object IntelligencePresets {
         SyncNoiseRule(phrase = "Optimising database...", target = MatchTarget.BODY),
     )
 
+    val TEAMS_SYNC_NOISE: List<SyncNoiseRule> = listOf(
+        SyncNoiseRule(phrase = "Tap to return to the meeting", target = MatchTarget.BOTH),
+        SyncNoiseRule(phrase = "Tap to return to the call", target = MatchTarget.BOTH),
+        SyncNoiseRule(phrase = "Teams meeting has started", target = MatchTarget.BOTH),
+    )
+
     val DEFAULT_SYNC_NOISE: List<SyncNoiseRule> = listOf(
         SyncNoiseRule(phrase = "Checking for new messages", target = MatchTarget.BOTH),
         SyncNoiseRule(phrase = "Restoring messages", target = MatchTarget.BOTH),
         SyncNoiseRule(phrase = "Connecting", target = MatchTarget.BOTH),
+        SyncNoiseRule(phrase = "Sensitive notification content hidden", target = MatchTarget.BODY),
     )
 
     val DEFAULT_SYNC_NOISE_PHRASES: List<String> = DEFAULT_SYNC_NOISE.map { it.phrase }
@@ -307,12 +322,14 @@ object IntelligencePresets {
 
     fun defaultNoiseRulesFor(packageName: String?): List<SyncNoiseRule> {
         val pkg = packageName?.lowercase().orEmpty()
-        return when {
+        val appSpecific = when {
             pkg.contains("whatsapp") -> WHATSAPP_SYNC_NOISE
             pkg.contains("messaging") || pkg.contains("mms") -> MESSAGES_SYNC_NOISE
             pkg.contains("outlook") -> OUTLOOK_SYNC_NOISE
-            else -> DEFAULT_SYNC_NOISE
+            pkg.contains("teams") -> TEAMS_SYNC_NOISE
+            else -> emptyList()
         }
+        return appSpecific + DEFAULT_SYNC_NOISE
     }
 
     fun defaultReplacementsFor(packageName: String?, category: AppCategory? = null): List<MediaReplacementRule> {

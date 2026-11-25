@@ -1,6 +1,7 @@
 package com.jayanth.hearit.core.rules
 
 import com.jayanth.hearit.core.common.model.AudioOutput
+import com.jayanth.hearit.core.common.model.AudioOutputKind
 import com.jayanth.hearit.core.common.model.EligibilitySettings
 import com.jayanth.hearit.core.common.model.LockCondition
 import com.jayanth.hearit.core.common.model.NotificationSnapshot
@@ -46,7 +47,7 @@ class EligibilityRulesTest {
         priorityAnnounceActive: Boolean = false,
         isCallActive: Boolean = false,
         isDndActive: Boolean = false,
-        activeOutput: AudioOutput? = null,
+        activeOutput: AudioOutput? = AudioOutput(AudioOutputKind.WIRED),
     ) = RuntimeState(
         screenOn = screenOn,
         isLocked = isLocked,

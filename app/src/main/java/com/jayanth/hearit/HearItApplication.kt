@@ -55,7 +55,7 @@ class HearItApplication : Application() {
 }
 
 /** Reads the installed app `versionName` without any build code suffix. */
-fun Context.readAppVersionName(fallback: String = "1.0.1"): String =
+fun Context.readAppVersionName(fallback: String = "1.0.2"): String =
     try {
         packageManager.getPackageInfo(packageName, 0).versionName ?: fallback
     } catch (_: Exception) {

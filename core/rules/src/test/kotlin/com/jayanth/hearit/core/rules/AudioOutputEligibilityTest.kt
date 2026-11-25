@@ -99,7 +99,7 @@ class AudioOutputEligibilityTest {
     }
 
     @Test
-    fun evaluate_activeOutputNotObserved_announces() {
+    fun evaluate_activeOutputNotObserved_neverBlocksSpeech() {
         assertEquals(
             EligibilityDecision.Announce,
             rules.evaluate(snapshot(), settings(), state(activeOutput = null)),

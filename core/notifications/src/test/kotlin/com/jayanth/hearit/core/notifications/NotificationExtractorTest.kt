@@ -251,4 +251,20 @@ class NotificationExtractorTest {
         assertTrue(snapshot.isGroup)
         assertEquals("College Friends", snapshot.groupTitle)
     }
+
+    @Test
+    fun extract_stripsMessageCountSuffixFromGroupTitle() {
+        val raw = raw().copy(
+            title = "Badminton 🏸 (10 messages)",
+            messagingSender = "Deepak",
+            messagingText = "Court booked",
+            isGroupConversation = true,
+        )
+        val snapshot = extractor().extract(raw, nowMillis)
+
+        assertEquals("Deepak", snapshot.sender)
+        assertEquals("Court booked", snapshot.messageText)
+        assertTrue(snapshot.isGroup)
+        assertEquals("Badminton 🏸", snapshot.groupTitle)
+    }
 }

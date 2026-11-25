@@ -10,9 +10,12 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -49,7 +52,9 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -130,6 +135,8 @@ fun DiagnosticsRoute(
             )
         },
         onClearRawDebugClicked = viewModel::onClearRawDebugLogs,
+        onToggleStudyEnabled = viewModel::onToggleStudyEnabled,
+        onToggleStudyPackage = viewModel::onToggleStudyPackage,
         onDismissStatusMessage = viewModel::onClearLogStatusMessage,
         modifier = modifier,
     )
@@ -149,6 +156,8 @@ fun DiagnosticsScreen(
     onClearLogsClicked: () -> Unit,
     onExportRawDebugClicked: () -> Unit,
     onClearRawDebugClicked: () -> Unit,
+    onToggleStudyEnabled: (Boolean) -> Unit = {},
+    onToggleStudyPackage: (String) -> Unit = {},
     onDismissStatusMessage: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -280,10 +289,15 @@ fun DiagnosticsScreen(
             onClearClicked = { showClearDialog = true },
         )
 
-        // Section 7: Notification Study (2-Day Deep Diagnostic Log)
+        // Section 7: Notification Study
         RawNotificationsDebugCard(
             totalCount = state.rawDebugCount,
             breakdown = state.rawDebugBreakdown,
+            isEnabled = state.isNotificationStudyEnabled,
+            selectedPackages = state.notificationStudyPackages,
+            enabledAppPackages = state.enabledAppPackages,
+            onToggleEnabled = onToggleStudyEnabled,
+            onTogglePackage = onToggleStudyPackage,
             onExportClicked = onExportRawDebugClicked,
             onClearClicked = { showClearRawDialog = true },
         )
@@ -386,7 +400,7 @@ fun DiagnosticsScreen(
             },
             text = {
                 Text(
-                    text = "This will delete all raw notification captures stored for this 2-day study. Normal app history will not be affected.",
+                    text = "This will delete all raw notification captures stored for this study. Normal app history will not be affected.",
                     style = MaterialTheme.typography.bodyMedium,
                 )
             },
@@ -1447,21 +1461,194 @@ private fun OngoingNotificationCard() {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun RawNotificationsDebugCard(
     totalCount: Long,
     breakdown: Map<String, Long>,
+    isEnabled: Boolean,
+    selectedPackages: Set<String>,
+    enabledAppPackages: Set<String>,
+    onToggleEnabled: (Boolean) -> Unit,
+    onTogglePackage: (String) -> Unit,
     onExportClicked: () -> Unit,
     onClearClicked: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     DiagnosticsSectionCard(
-        title = "Notification Study (2-Day Log)",
-        subtitle = "Zero-filter raw captures for WhatsApp, Teams, Messages, CREX & Instagram",
+        title = "Notification Study",
+        subtitle = "Captures raw OS notification bundles for selected apps",
         icon = Icons.Rounded.BugReport,
         modifier = modifier,
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = if (isEnabled) "Study recording active" else "Study recording paused",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                    )
+                    Text(
+                        text = "${selectedPackages.size}/6 apps selected",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                    )
+                }
+                Switch(
+                    checked = isEnabled,
+                    onCheckedChange = onToggleEnabled,
+                )
+            }
+
+            val context = androidx.compose.ui.platform.LocalContext.current
+            var showAppPicker by remember { mutableStateOf(false) }
+
+            val installedApps = remember(context) {
+                val pm = context.packageManager
+                val intent = android.content.Intent(android.content.Intent.ACTION_MAIN).apply {
+                    addCategory(android.content.Intent.CATEGORY_LAUNCHER)
+                }
+                pm.queryIntentActivities(intent, 0)
+                    .mapNotNull { info ->
+                        val pkg = info.activityInfo?.packageName ?: return@mapNotNull null
+                        val label = info.loadLabel(pm)?.toString()?.takeIf { it.isNotBlank() } ?: pkg
+                        pkg to label
+                    }
+                    .distinctBy { it.first }
+                    .sortedBy { it.second.lowercase() }
+            }
+            val labelByPkg = remember(installedApps) { installedApps.toMap() }
+
+            if (selectedPackages.isNotEmpty()) {
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    selectedPackages.forEach { pkg ->
+                        FilterChip(
+                            selected = true,
+                            enabled = isEnabled,
+                            onClick = { onTogglePackage(pkg) },
+                            label = {
+                                Text(
+                                    text = labelByPkg[pkg] ?: pkg.substringAfterLast('.'),
+                                    maxLines = 1,
+                                    softWrap = false,
+                                )
+                            },
+                        )
+                    }
+                }
+            }
+
+            OutlinedButton(
+                onClick = { showAppPicker = true },
+                enabled = isEnabled,
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Select Apps (${selectedPackages.size}/6)")
+            }
+
+            if (showAppPicker && isEnabled) {
+                var searchQuery by remember { mutableStateOf("") }
+                var showEnabledOnly by remember { mutableStateOf(false) }
+                val filteredApps = remember(installedApps, searchQuery, showEnabledOnly, enabledAppPackages) {
+                    val q = searchQuery.trim().lowercase()
+                    installedApps.filter { (pkg, label) ->
+                        val matchesFilter = !showEnabledOnly || pkg in enabledAppPackages
+                        val matchesQuery = q.isEmpty() ||
+                            label.lowercase().contains(q) ||
+                            pkg.lowercase().contains(q)
+                        matchesFilter && matchesQuery
+                    }
+                }
+                AlertDialog(
+                    onDismissRequest = { showAppPicker = false },
+                    title = { Text("Select Study Apps (${selectedPackages.size}/6)") },
+                    text = {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            androidx.compose.material3.OutlinedTextField(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                placeholder = { Text("Search apps") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                FilterChip(
+                                    selected = !showEnabledOnly,
+                                    onClick = { showEnabledOnly = false },
+                                    label = { Text("All", maxLines = 1, softWrap = false) },
+                                )
+                                FilterChip(
+                                    selected = showEnabledOnly,
+                                    onClick = { showEnabledOnly = true },
+                                    label = { Text("Enabled (${enabledAppPackages.size})", maxLines = 1, softWrap = false) },
+                                )
+                            }
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(300.dp)
+                                    .verticalScroll(rememberScrollState()),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                filteredApps.forEach { (pkg, label) ->
+                                    val isSelected = pkg in selectedPackages
+                                    val canSelect = isSelected || selectedPackages.size < 6
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable(enabled = canSelect) { onTogglePackage(pkg) }
+                                            .padding(vertical = 6.dp, horizontal = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        androidx.compose.material3.Checkbox(
+                                            checked = isSelected,
+                                            enabled = canSelect,
+                                            onCheckedChange = { onTogglePackage(pkg) },
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = label,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = if (canSelect) {
+                                                MaterialTheme.colorScheme.onSurface
+                                            } else {
+                                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                            },
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { showAppPicker = false }) {
+                            Text("Done")
+                        }
+                    },
+                )
+            }
+
             // Stat badges
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1477,20 +1664,6 @@ private fun RawNotificationsDebugCard(
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onTertiaryContainer,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                    )
-                }
-
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                ) {
-                    Text(
-                        text = "5 Target Apps Active",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                     )
                 }
@@ -1523,7 +1696,7 @@ private fun RawNotificationsDebugCard(
 
             // Explanatory note
             Text(
-                text = "Captures raw OS notification bundles without filtering to identify missing messages during the 2-day study.",
+                text = "Captures raw OS notification bundles without filtering for selected apps.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 2,

@@ -36,6 +36,7 @@ class AndroidTextToSpeechEngine(context: Context) : TextToSpeechEngine {
     private var sessionToken = 0L
     private var loudnessEnhancer: LoudnessEnhancer? = null
     private var currentAudioSessionId: Int = AudioManager.AUDIO_SESSION_ID_GENERATE
+    private var savedSpeechVolumeIndex: Int? = null
 
     private data class Request(
         val announcement: BuiltAnnouncement,
@@ -144,6 +145,8 @@ class AndroidTextToSpeechEngine(context: Context) : TextToSpeechEngine {
         tts.setSpeechRate(effectiveRate)
         tts.setPitch(settings.pitch)
         applyVoice(tts, settings.voiceId)
+
+        applySpeechVolume(settings.volumeLevel)
 
         if (announcement.isCritical) {
             try {
@@ -292,6 +295,34 @@ class AndroidTextToSpeechEngine(context: Context) : TextToSpeechEngine {
         currentAudioSessionId = AudioManager.AUDIO_SESSION_ID_GENERATE
     }
 
+    private fun applySpeechVolume(volumeLevel: Float) {
+        if (audioManager == null || audioManager.isVolumeFixed) return
+        if (volumeLevel >= 0.98f) return
+        runCatching {
+            val currentVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+            if (savedSpeechVolumeIndex == null) {
+                savedSpeechVolumeIndex = currentVol
+            }
+            val minVol = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                audioManager.getStreamMinVolume(AudioManager.STREAM_MUSIC)
+            } else 0
+            val target = kotlin.math.round((currentVol * volumeLevel).toDouble()).toInt().coerceIn(minVol, currentVol)
+            if (target != currentVol) {
+                audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, target, 0)
+            }
+        }
+    }
+
+    private fun restoreSpeechVolume() {
+        val original = savedSpeechVolumeIndex ?: return
+        savedSpeechVolumeIndex = null
+        runCatching {
+            if (audioManager != null && !audioManager.isVolumeFixed) {
+                audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, original, 0)
+            }
+        }
+    }
+
     private fun onSectionStarted(utteranceId: String?) {
         val active = request ?: return
         if (utteranceId != utteranceId(active, active.sectionIndex)) return
@@ -307,6 +338,7 @@ class AndroidTextToSpeechEngine(context: Context) : TextToSpeechEngine {
 
         val nextIndex = active.sectionIndex + 1
         if (nextIndex >= active.announcement.sections.size) {
+            restoreSpeechVolume()
             releaseLoudnessEnhancer()
             request = null
             active.listener.onComplete(active.announcement)
@@ -333,6 +365,7 @@ class AndroidTextToSpeechEngine(context: Context) : TextToSpeechEngine {
     }
 
     private fun finishCurrent(code: TtsErrorCode, notify: Boolean) {
+        restoreSpeechVolume()
         releaseLoudnessEnhancer()
         val active = request ?: return
         request = null

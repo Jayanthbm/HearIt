@@ -28,6 +28,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.NotificationsNone
 import androidx.compose.runtime.Composable
@@ -99,10 +100,11 @@ fun WearApp() {
     val allNotifications by WearNotificationStore.notifications.collectAsState()
     val watchApps by WearNotificationStore.watchApps.collectAsState()
     val forwardingEnabled by WearNotificationStore.forwardingEnabled.collectAsState()
+    val isMultipointBusy by WearNotificationStore.isMultipointBusy.collectAsState()
     val wearVersionName = remember(context) {
         runCatching {
             context.packageManager.getPackageInfo(context.packageName, 0).versionName
-        }.getOrNull() ?: "1.0.1"
+        }.getOrNull() ?: "1.0.2"
     }
 
     var isPhoneConnected by remember { mutableStateOf(false) }
@@ -252,6 +254,35 @@ fun WearApp() {
                         color = if (isPhoneConnected) Color(0xFF81C784) else Color(0xFFE57373),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+
+            if (isMultipointBusy) {
+                item(key = "multipoint_busy_chip") {
+                    CompactChip(
+                        onClick = { toggleMultipointBusy(context) },
+                        icon = {
+                            Icon(
+                                imageVector = Icons.Rounded.Headphones,
+                                contentDescription = null,
+                                modifier = Modifier.size(13.dp),
+                                tint = Color(0xFFFFB74D),
+                            )
+                        },
+                        label = {
+                            Text(
+                                text = "Busy hold · Tap to resume",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFFFFB74D),
+                                maxLines = 1,
+                            )
+                        },
+                        colors = ChipDefaults.chipColors(
+                            backgroundColor = Color(0xFF332011),
+                        ),
+                        modifier = Modifier.padding(bottom = 2.dp),
                     )
                 }
             }
@@ -475,6 +506,22 @@ private fun clearAllWatchNotifications(context: android.content.Context) {
                 val payload = ByteArray(0)
                 for (node in nodes) {
                     messageClient.sendMessage(node.id, "/history/clear_all", payload)
+                }
+            }
+        }
+    }
+}
+
+private fun toggleMultipointBusy(context: android.content.Context) {
+    CoroutineScope(Dispatchers.IO).launch {
+        runCatching {
+            val nodeClient = Wearable.getNodeClient(context)
+            val messageClient = Wearable.getMessageClient(context)
+            val nodes = Tasks.await(nodeClient.connectedNodes)
+            if (!nodes.isNullOrEmpty()) {
+                val payload = ByteArray(0)
+                for (node in nodes) {
+                    messageClient.sendMessage(node.id, "/multipoint/toggle", payload)
                 }
             }
         }

@@ -20,6 +20,7 @@ data class DeviceRow(
     val connected: Boolean,
     val allowed: Boolean,
     val canToggle: Boolean,
+    val isMultipointBusy: Boolean = false,
 )
 
 /**

@@ -84,6 +84,54 @@ class SessionStore(context: Context) {
             prefs.edit().putBoolean(KEY_SHAKE_TO_STOP, value).apply()
         }
 
+    /** Sensitivity preset for shake detection (OBS-08, default BALANCED). */
+    var shakeSensitivity: ShakeSensitivity
+        get() {
+            val name = prefs.getString(KEY_SHAKE_SENSITIVITY, ShakeSensitivity.BALANCED.name)
+            return runCatching { ShakeSensitivity.valueOf(name ?: ShakeSensitivity.BALANCED.name) }
+                .getOrDefault(ShakeSensitivity.BALANCED)
+        }
+        set(value) {
+            prefs.edit().putString(KEY_SHAKE_SENSITIVITY, value.name).apply()
+        }
+
+    /** Bluetooth device IDs where Multipoint busy hold is active, queuing phone announcements (OBS-07). */
+    var multipointBusyDeviceIds: Set<String>
+        get() = prefs.getStringSet(KEY_MULTIPOINT_BUSY_IDS, emptySet())?.toSet() ?: emptySet()
+        set(value) {
+            prefs.edit().putStringSet(KEY_MULTIPOINT_BUSY_IDS, value).apply()
+        }
+
+    fun isMultipointBusyFor(deviceId: String?): Boolean =
+        deviceId != null && deviceId in multipointBusyDeviceIds
+
+    fun setMultipointBusyFor(deviceId: String, busy: Boolean) {
+        val current = multipointBusyDeviceIds.toMutableSet()
+        if (busy) current.add(deviceId) else current.remove(deviceId)
+        multipointBusyDeviceIds = current
+    }
+
+    fun toggleMultipointBusyFor(deviceId: String): Boolean {
+        val next = !isMultipointBusyFor(deviceId)
+        setMultipointBusyFor(deviceId, next)
+        return next
+    }
+
+    /** True if Notification Study raw bundle logging is enabled in Diagnostics (default false). */
+    var isNotificationStudyEnabled: Boolean
+        get() = prefs.getBoolean(KEY_NOTIFICATION_STUDY_ENABLED, false)
+        set(value) {
+            prefs.edit().putBoolean(KEY_NOTIFICATION_STUDY_ENABLED, value).apply()
+        }
+
+    /** Package names selected for Notification Study logging (max 6, default empty). */
+    var notificationStudyPackages: Set<String>
+        get() = prefs.getStringSet(KEY_NOTIFICATION_STUDY_PACKAGES, emptySet())?.toSet()
+            ?: emptySet()
+        set(value) {
+            prefs.edit().putStringSet(KEY_NOTIFICATION_STUDY_PACKAGES, value.take(6).toSet()).apply()
+        }
+
     /** True if physical volume key press should silence current speech (Idea 29, default true). */
     var isVolumeKeyToStopEnabled: Boolean
         get() = prefs.getBoolean(KEY_VOLUME_KEY_TO_STOP, true)
@@ -712,6 +760,16 @@ class SessionStore(context: Context) {
         const val KEY_AUTO_DISMISS = "auto_dismiss"
         const val KEY_BT_AUTO_START = "bt_auto_start"
         const val KEY_SHAKE_TO_STOP = "shake_to_stop"
+        const val KEY_SHAKE_SENSITIVITY = "shake_sensitivity"
+        const val KEY_MULTIPOINT_BUSY_IDS = "multipoint_busy_ids"
+        const val KEY_NOTIFICATION_STUDY_ENABLED = "notification_study_enabled"
+        const val KEY_NOTIFICATION_STUDY_PACKAGES = "notification_study_packages"
+        val DEFAULT_STUDY_PACKAGES = setOf(
+            "com.whatsapp",
+            "com.microsoft.teams",
+            "com.google.android.apps.messaging",
+            "com.crickex.cricket",
+        )
         const val KEY_VOLUME_KEY_TO_STOP = "volume_key_to_stop"
         const val KEY_MUSIC_PAUSE_HOLD = "music_pause_hold"
         const val KEY_PERIODIC_CHECKIN_ENABLED = "periodic_checkin_enabled"

@@ -100,9 +100,12 @@ class RawNotificationLogger @Inject constructor(
         Thread(runnable, "HearIt-RawNotificationLogger").apply { isDaemon = true }
     }
 
-    fun isTarget(packageName: String): Boolean = packageName in TARGET_PACKAGES
+    private val sessionStore by lazy { com.jayanth.hearit.service.SessionStore(context) }
+
+    fun isTarget(packageName: String): Boolean = packageName in sessionStore.notificationStudyPackages
 
     fun log(sbn: StatusBarNotification, snapshot: NotificationSnapshot) {
+        if (!sessionStore.isNotificationStudyEnabled) return
         if (!isTarget(sbn.packageName)) return
 
         val now = System.currentTimeMillis()

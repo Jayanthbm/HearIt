@@ -28,6 +28,12 @@ class PhoneWearableListenerService : WearableListenerService() {
                 WearDataLayerSync.syncAllNow(this) { _, _ -> }
                 WearDataLayerSync.syncRecentHistory(this, historyRepository)
             }
+            "/multipoint/toggle" -> {
+                val serviceIntent = android.content.Intent(this, com.jayanth.hearit.service.AnnouncementService::class.java).apply {
+                    action = com.jayanth.hearit.service.AnnouncementService.ACTION_MULTIPOINT_BUSY_TOGGLE
+                }
+                startService(serviceIntent)
+            }
             "/history/delete" -> {
                 runCatching {
                     val json = JSONObject(String(messageEvent.data, Charsets.UTF_8))

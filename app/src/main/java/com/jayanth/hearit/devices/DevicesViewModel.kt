@@ -1,6 +1,7 @@
 package com.jayanth.hearit.devices
 
 import android.content.Context
+import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jayanth.hearit.core.common.model.AudioOutputKind
@@ -8,6 +9,7 @@ import com.jayanth.hearit.core.common.model.AudioOutputSettings
 import com.jayanth.hearit.core.datastore.HearItSettings
 import com.jayanth.hearit.core.datastore.SettingsRepository
 import com.jayanth.hearit.service.AmbientNoiseSampler
+import com.jayanth.hearit.service.AnnouncementService
 import com.jayanth.hearit.service.SessionStore
 import com.jayanth.hearit.setup.AudioOutputProbe
 import com.jayanth.hearit.setup.DetectedOutput
@@ -193,6 +195,7 @@ class DevicesViewModel @Inject constructor(
                     else -> audio.allowWired
                 },
                 canToggle = id != null && output.isBluetooth,
+                isMultipointBusy = id != null && output.isBluetooth && sessionStore.isMultipointBusyFor(id),
             )
         }
         val uniqueConnectedRows = distinctByLabel(connectedRows)
@@ -214,6 +217,7 @@ class DevicesViewModel @Inject constructor(
                             audio.allowWired
                         },
                         canToggle = device.isBluetooth,
+                        isMultipointBusy = device.isBluetooth && sessionStore.isMultipointBusyFor(device.id),
                     )
                 },
         ).filterNot { normalizedLabel(it.label) in connectedLabels }
@@ -225,6 +229,15 @@ class DevicesViewModel @Inject constructor(
                 connected = uniqueConnectedRows,
                 remembered = rememberedRows,
             )
+        }
+    }
+
+    fun onToggleDeviceMultipointBusy(deviceId: String, busy: Boolean) {
+        sessionStore.setMultipointBusyFor(deviceId, busy)
+        latestSettings?.let { publish(it) }
+        val activeBt = connected.firstOrNull { it.isBluetooth && it.id == deviceId }
+        if (activeBt != null) {
+            com.jayanth.hearit.wear.WearDataLayerSync.syncMultipointStatus(context, busy)
         }
     }
 }

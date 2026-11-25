@@ -39,6 +39,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -2024,10 +2025,10 @@ private fun HeroServiceCard(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             // Apps count shortcut badge & Queued pill row
-            Row(
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Surface(
                     modifier = Modifier.clickable { onSelectDestination(DashboardDestination.APPS) },
@@ -2084,6 +2085,8 @@ private fun HeroServiceCard(
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                maxLines = 1,
+                                softWrap = false,
                             )
                         }
                     }
@@ -2333,7 +2336,7 @@ private fun HeroServiceCard(
                             else -> ""
                         }
                         Text(
-                            text = "$volPct% Volume · $rateStr Speed$extraTag",
+                            text = "$volPct% Vol · $rateStr$extraTag",
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurface,

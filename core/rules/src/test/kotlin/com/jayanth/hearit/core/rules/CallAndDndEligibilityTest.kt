@@ -1,5 +1,8 @@
 package com.jayanth.hearit.core.rules
 
+import com.jayanth.hearit.core.common.model.AudioOutput
+import com.jayanth.hearit.core.common.model.AudioOutputKind
+
 import com.jayanth.hearit.core.common.model.EligibilitySettings
 import com.jayanth.hearit.core.common.model.LockCondition
 import com.jayanth.hearit.core.common.model.NotificationSnapshot
@@ -68,7 +71,7 @@ class CallAndDndEligibilityTest {
         priorityAnnounceActive = priorityAnnounceActive,
         isCallActive = callActive,
         isDndActive = dndActive,
-        activeOutput = null,
+        activeOutput = AudioOutput(AudioOutputKind.WIRED),
     )
 
     // --- Step 3: active call ---------------------------------------------------------------

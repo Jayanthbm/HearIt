@@ -176,6 +176,15 @@ class WearNotificationListenerService : WearableListenerService() {
                 } catch (_: Exception) {
                 }
             }
+            "/multipoint/status" -> {
+                try {
+                    val jsonString = String(messageEvent.data, Charsets.UTF_8)
+                    val json = JSONObject(jsonString)
+                    val isBusy = json.optBoolean("isBusy", false)
+                    WearNotificationStore.setMultipointBusy(isBusy)
+                } catch (_: Exception) {
+                }
+            }
             else -> super.onMessageReceived(messageEvent)
         }
     }

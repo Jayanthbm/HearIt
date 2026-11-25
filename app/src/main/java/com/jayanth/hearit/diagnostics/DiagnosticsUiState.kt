@@ -28,6 +28,9 @@ data class DiagnosticsUiState(
     val logErrorMessage: String? = null,
     val rawDebugCount: Long = 0L,
     val rawDebugBreakdown: Map<String, Long> = emptyMap(),
+    val isNotificationStudyEnabled: Boolean = false,
+    val notificationStudyPackages: Set<String> = emptySet(),
+    val enabledAppPackages: Set<String> = emptySet(),
 ) {
     /** True when all required permissions and service access are granted. */
     val allPermissionsHealthy: Boolean

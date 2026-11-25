@@ -36,6 +36,9 @@ object WearNotificationStore {
     private val _isPremium = MutableStateFlow(true)
     val isPremium: StateFlow<Boolean> = _isPremium.asStateFlow()
 
+    private val _isMultipointBusy = MutableStateFlow(false)
+    val isMultipointBusy: StateFlow<Boolean> = _isMultipointBusy.asStateFlow()
+
     @Volatile
     private var appContext: Context? = null
 
@@ -94,6 +97,10 @@ object WearNotificationStore {
 
     fun setPremiumStatus(active: Boolean) {
         _isPremium.value = active
+    }
+
+    fun setMultipointBusy(busy: Boolean) {
+        _isMultipointBusy.value = busy
     }
 
     fun applyConfigSync(

@@ -48,6 +48,7 @@ class DiagnosticsViewModel @Inject constructor(
     private val setupLauncher: SetupLauncher,
     private val fileDiagnosticLogger: FileDiagnosticLogger,
     private val rawNotificationLogger: RawNotificationLogger,
+    private val sessionStore: com.jayanth.hearit.service.SessionStore,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(DiagnosticsUiState())
@@ -97,6 +98,9 @@ class DiagnosticsViewModel @Inject constructor(
                     totalLogSizeBytes = logBytes,
                     rawDebugCount = rawCount,
                     rawDebugBreakdown = rawBreakdown,
+                    isNotificationStudyEnabled = sessionStore.isNotificationStudyEnabled,
+                    notificationStudyPackages = sessionStore.notificationStudyPackages,
+                    enabledAppPackages = settings.enabledApps,
                     isRefreshing = false,
                 )
             }
@@ -184,6 +188,22 @@ class DiagnosticsViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    fun onToggleStudyEnabled(enabled: Boolean) {
+        sessionStore.isNotificationStudyEnabled = enabled
+        _state.update { it.copy(isNotificationStudyEnabled = enabled) }
+    }
+
+    fun onToggleStudyPackage(packageName: String) {
+        val current = sessionStore.notificationStudyPackages.toMutableSet()
+        if (packageName in current) {
+            current.remove(packageName)
+        } else if (current.size < 6) {
+            current.add(packageName)
+        }
+        sessionStore.notificationStudyPackages = current
+        _state.update { it.copy(notificationStudyPackages = current) }
     }
 
     fun onClearRawDebugLogs() {

@@ -1,5 +1,8 @@
 package com.jayanth.hearit.core.rules
 
+import com.jayanth.hearit.core.common.model.AudioOutput
+import com.jayanth.hearit.core.common.model.AudioOutputKind
+
 import com.jayanth.hearit.core.common.model.EligibilitySettings
 import com.jayanth.hearit.core.common.model.KeywordFilterSettings
 import com.jayanth.hearit.core.common.model.KeywordMatchMode
@@ -46,7 +49,7 @@ class KeywordFilterEligibilityTest {
         priorityAnnounceActive = false,
         isCallActive = false,
         isDndActive = false,
-        activeOutput = null,
+        activeOutput = AudioOutput(AudioOutputKind.WIRED),
     )
 
     @Test

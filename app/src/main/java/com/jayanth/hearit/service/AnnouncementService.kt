@@ -141,6 +141,7 @@ class AnnouncementService : Service(), NotificationSink {
     @Volatile
     private var isNavigationAudioActive: Boolean = false
     private var lastNavigationAudioEndedElapsed: Long = 0L
+    private var consecutiveNavYieldCount: Int = 0
 
     private val resumeAfterNavRunnable = Runnable {
         if (::sessionStore.isInitialized && sessionStore.isStarted) {
@@ -157,9 +158,7 @@ class AnnouncementService : Service(), NotificationSink {
     private val playbackCallback = object : AudioManager.AudioPlaybackCallback() {
         override fun onPlaybackConfigChanged(configs: MutableList<AudioPlaybackConfiguration>?) {
             handler.post {
-                val navPlayingNow = configs.orEmpty().any { cfg ->
-                    cfg.audioAttributes.usage == AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE
-                }
+                val navPlayingNow = configs.orEmpty().any { isNavPlaybackActive(it) }
                 val wasNavPlaying = isNavigationAudioActive
                 isNavigationAudioActive = navPlayingNow
                 if (navPlayingNow && !wasNavPlaying && ::sessionStore.isInitialized && sessionStore.isNavigationYieldEnabled) {
@@ -172,9 +171,10 @@ class AnnouncementService : Service(), NotificationSink {
                     lastNavigationAudioEndedElapsed = SystemClock.elapsedRealtime()
                     if (::sessionStore.isInitialized && sessionStore.isNavigationYieldEnabled) {
                         handler.removeCallbacks(resumeAfterNavRunnable)
+                        val delay = (sessionStore.navigationYieldSettleDelayMs.coerceAtLeast(500L) * (if (consecutiveNavYieldCount > 2) 2L else 1L)).coerceAtMost(3000L)
                         handler.postDelayed(
                             resumeAfterNavRunnable,
-                            sessionStore.navigationYieldSettleDelayMs.coerceAtLeast(500L),
+                            delay,
                         )
                     }
                 }
@@ -204,9 +204,10 @@ class AnnouncementService : Service(), NotificationSink {
                         lastNavigationAudioEndedElapsed = SystemClock.elapsedRealtime()
                         yieldForNavigationAudio()
                         handler.removeCallbacks(resumeAfterNavRunnable)
+                        val delay = (sessionStore.navigationYieldSettleDelayMs.coerceAtLeast(500L) * (if (consecutiveNavYieldCount > 2) 2L else 1L)).coerceAtMost(3000L)
                         handler.postDelayed(
                             resumeAfterNavRunnable,
-                            sessionStore.navigationYieldSettleDelayMs.coerceAtLeast(500L),
+                            delay,
                         )
                     } else if (change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT && currentAction != null) {
                         pendingInterruptionReason = SkipReason.INTERRUPTED_AUDIO_FOCUS
@@ -324,6 +325,7 @@ class AnnouncementService : Service(), NotificationSink {
             type == AudioDeviceInfo.TYPE_USB_HEADSET
 
     private var lastShakeTime = 0L
+    private val shakeDetector = ShakeOscillationDetector()
     private var lastSpeechEndTimeMillis = 0L
     private var wasMusicActive = false
     private var musicPausedAtMillis = 0L
@@ -349,10 +351,13 @@ class AnnouncementService : Service(), NotificationSink {
                 return
             }
 
-            // 2. Shake check: sudden acceleration spike > 15.5 m/s^2
-            val acceleration = kotlin.math.sqrt((x * x + y * y + z * z).toDouble()).toFloat()
+            // 2. Shake check with multi-sample oscillation and dynamic gravity subtraction (OBS-08)
             val now = SystemClock.elapsedRealtime()
-            if (acceleration > 15.5f && now - lastShakeTime > 1_000L) {
+            if (::sessionStore.isInitialized) {
+                shakeDetector.sensitivity = sessionStore.shakeSensitivity
+            }
+            val isShakeDetected = shakeDetector.onSensorChanged(x, y, z, now)
+            if (isShakeDetected && now - lastShakeTime > 1_000L) {
                 lastShakeTime = now
                 if (currentAction != null && sessionStore.isShakeToStopEnabled) {
                     HearItLogger.info(LogCategory.SERVICE, "Shake gesture detected: stopping speech")
@@ -496,6 +501,28 @@ class AnnouncementService : Service(), NotificationSink {
             ACTION_CLEAR_QUEUE -> {
                 pipeline.clearQueue()
                 publishStatus()
+                return START_STICKY
+            }
+
+            ACTION_MULTIPOINT_BUSY_TOGGLE -> {
+                val activeOutput = currentState().activeOutput
+                val btId = if (activeOutput?.kind == com.jayanth.hearit.core.common.model.AudioOutputKind.BLUETOOTH) {
+                    activeOutput.id
+                } else {
+                    null
+                }
+                if (btId != null) {
+                    val newBusy = sessionStore.toggleMultipointBusyFor(btId)
+                    HearItLogger.info(LogCategory.SERVICE, "Multipoint busy mode toggled for $btId: $newBusy")
+                    if (newBusy && currentAction != null) {
+                        pendingInterruptionReason = SkipReason.INTERRUPTED_USER
+                        engine.stop()
+                    } else if (!newBusy) {
+                        tickOnce()
+                    }
+                    com.jayanth.hearit.wear.WearDataLayerSync.syncMultipointStatus(this, newBusy)
+                    publishStatus()
+                }
                 return START_STICKY
             }
 
@@ -752,11 +779,24 @@ class AnnouncementService : Service(), NotificationSink {
         return active.spokenItems.any { NavigationPriorityDetector.isNavigationNotification(it) }
     }
 
+    private fun isNavPlaybackActive(cfg: AudioPlaybackConfiguration): Boolean {
+        if (cfg.audioAttributes.usage != AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE) {
+            return false
+        }
+        return runCatching {
+            val method = cfg.javaClass.getMethod("isActive")
+            method.invoke(cfg) as Boolean
+        }.getOrElse {
+            runCatching {
+                val stateMethod = cfg.javaClass.getMethod("getPlayerState")
+                (stateMethod.invoke(cfg) as Int) == 2 // AudioPlaybackConfiguration.PLAYER_STATE_STARTED
+            }.getOrDefault(true)
+        }
+    }
+
     private fun shouldHoldForNavigationGuidance(): Boolean {
         val activeNavPlayback = runCatching {
-            audioManager.activePlaybackConfigurations.any { cfg ->
-                cfg.audioAttributes.usage == AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE
-            }
+            audioManager.activePlaybackConfigurations.any { isNavPlaybackActive(it) }
         }.getOrDefault(isNavigationAudioActive)
 
         if (activeNavPlayback) {
@@ -788,6 +828,7 @@ class AnnouncementService : Service(), NotificationSink {
         if (active.spokenItems.any { NavigationPriorityDetector.isNavigationNotification(it) }) {
             return
         }
+        consecutiveNavYieldCount++
         if (sessionStore.isReannounceAfterNavigationEnabled) {
             // Clear currentAction before engine.stop() so UtteranceListener.onError -> finishSpeech
             // does not mark the yielded notification INTERRUPTED or drop it from history/queue.
@@ -820,6 +861,10 @@ class AnnouncementService : Service(), NotificationSink {
             state.batteryPercent in 1..eligibility.lowBatteryThresholdPercent ||
                 (state.isPowerSave && eligibility.lowBatteryPauseOnSaverEnabled)
             )
+        val hasAllowedOutputForWarning = isAudioOutputAllowed(
+            state.activeOutput,
+            eligibility.audioOutput,
+        )
         if (!batteryLowNow && state.batteryPercent > eligibility.lowBatteryThresholdPercent + 3) {
             lowBatteryWarningSpoken = false
         } else if (
@@ -829,7 +874,9 @@ class AnnouncementService : Service(), NotificationSink {
             currentAction == null &&
             !state.priorityAnnounceActive &&
             !state.temporaryMuteActive &&
-            !state.isCallActive
+            !state.isCallActive &&
+            (!state.isDndActive || !eligibility.respectDnd) &&
+            hasAllowedOutputForWarning
         ) {
             lowBatteryWarningSpoken = true
             val warning = BuiltAnnouncement(
@@ -891,6 +938,11 @@ class AnnouncementService : Service(), NotificationSink {
         }
 
         if (sessionStore.isNavigationYieldEnabled && shouldHoldForNavigationGuidance()) {
+            publishStatus()
+            return
+        }
+
+        if (isActiveBluetoothMultipointBusy(state)) {
             publishStatus()
             return
         }
@@ -960,19 +1012,7 @@ class AnnouncementService : Service(), NotificationSink {
         // Eligibility guard for check-ins
         if (state.isCallActive || state.temporaryMuteActive || state.isBatteryLowOrSaver) return
         if (state.isDndActive && eligibility.respectDnd) return
-        val audioSettings = eligibility.audioOutput
-        val activeOutput = state.activeOutput
-        val allowedBluetoothIds = audioSettings.allowedBluetoothIds
-        val hasAllowedOutput = when (activeOutput?.kind) {
-            null -> false
-            AudioOutputKind.BLUETOOTH -> audioSettings.allowBluetooth &&
-                (allowedBluetoothIds == null ||
-                    (activeOutput.id != null && activeOutput.id in allowedBluetoothIds))
-            AudioOutputKind.WIRED -> audioSettings.allowWired
-            AudioOutputKind.PHONE_SPEAKER -> audioSettings.allowPhoneSpeaker
-            AudioOutputKind.OTHER -> audioSettings.allowUnidentifiedOutput
-        }
-        if (!hasAllowedOutput) return
+        if (!isAudioOutputAllowed(state.activeOutput, eligibility.audioOutput)) return
 
         lastPeriodicCheckinElapsed = nowElapsed
         val needTime = sessionStore.periodicCheckinAnnounceTime
@@ -1063,7 +1103,33 @@ class AnnouncementService : Service(), NotificationSink {
         }
     }
 
+    private fun isAudioOutputAllowed(
+        activeOutput: com.jayanth.hearit.core.common.model.AudioOutput?,
+        audioSettings: com.jayanth.hearit.core.common.model.AudioOutputSettings,
+    ): Boolean {
+        val allowedBluetoothIds = audioSettings.allowedBluetoothIds
+        return when (activeOutput?.kind) {
+            null -> audioSettings.allowPhoneSpeaker
+            AudioOutputKind.BLUETOOTH -> audioSettings.allowBluetooth &&
+                (allowedBluetoothIds == null ||
+                    (activeOutput.id != null && activeOutput.id in allowedBluetoothIds))
+            AudioOutputKind.WIRED -> audioSettings.allowWired
+            AudioOutputKind.PHONE_SPEAKER -> audioSettings.allowPhoneSpeaker
+            AudioOutputKind.OTHER -> audioSettings.allowUnidentifiedOutput
+        }
+    }
+
     private fun speak(action: AnnouncementPipeline.Action.Speak) {
+        val appSettings = settingsSource.forApp(action.selection.packageName)
+        val state = currentState()
+        if (!isAudioOutputAllowed(state.activeOutput, appSettings.eligibility.audioOutput)) {
+            HearItLogger.info(
+                LogCategory.TTS,
+                "Speech blocked for ${action.selection.packageName}: audio output ${state.activeOutput?.kind ?: "SPEAKER"} not allowed",
+            )
+            finishSpeech(action, spoken = false, reason = SkipReason.OUTPUT_NOT_ALLOWED)
+            return
+        }
         isPausedMidUtterance = false
         currentAction = action
         lastAction = action
@@ -1108,6 +1174,7 @@ class AnnouncementService : Service(), NotificationSink {
         if (currentAction !== action) return
         currentAction = null
         if (spoken) {
+            consecutiveNavYieldCount = 0
             isPausedMidUtterance = false
         }
         val interruptionReason = if (!spoken) (reason ?: pendingInterruptionReason ?: SkipReason.INTERRUPTED_USER) else null
@@ -1192,6 +1259,7 @@ class AnnouncementService : Service(), NotificationSink {
             isPriorityAnnounce = serviceStatus.state.value.isPriorityAnnounceActive,
             isMuted = sessionStore.isTemporaryMuteActive,
             showRepeatAction = sessionStore.isRepeatLastShortcutEnabled && isLastAnnouncementFresh(),
+            isMultipointBusy = isActiveBluetoothMultipointBusy(),
         )
         startForeground(
             AnnouncementNotification.NOTIFICATION_ID,
@@ -1207,9 +1275,18 @@ class AnnouncementService : Service(), NotificationSink {
             isPriorityAnnounce = serviceStatus.state.value.isPriorityAnnounceActive,
             isMuted = sessionStore.isTemporaryMuteActive,
             showRepeatAction = sessionStore.isRepeatLastShortcutEnabled && isLastAnnouncementFresh(),
+            isMultipointBusy = isActiveBluetoothMultipointBusy(),
         )
         val manager = getSystemService(NotificationManager::class.java)
         manager?.notify(AnnouncementNotification.NOTIFICATION_ID, notification)
+    }
+
+    private fun isActiveBluetoothMultipointBusy(
+        state: com.jayanth.hearit.core.common.model.RuntimeState? = null,
+    ): Boolean {
+        val output = (state ?: currentState()).activeOutput
+        return output?.kind == com.jayanth.hearit.core.common.model.AudioOutputKind.BLUETOOTH &&
+            sessionStore.isMultipointBusyFor(output.id)
     }
 
     /** Temporary mute timer callbacks (P16). */
@@ -1256,6 +1333,7 @@ class AnnouncementService : Service(), NotificationSink {
         const val ACTION_SKIP = "com.jayanth.hearit.action.SKIP"
         const val ACTION_REPEAT = "com.jayanth.hearit.action.REPEAT"
         const val ACTION_CLEAR_QUEUE = "com.jayanth.hearit.action.CLEAR_QUEUE"
+        const val ACTION_MULTIPOINT_BUSY_TOGGLE = "com.jayanth.hearit.action.MULTIPOINT_BUSY_TOGGLE"
         const val EXTRA_PRIORITY_DURATION_MILLIS = "com.jayanth.hearit.extra.PRIORITY_DURATION_MILLIS"
 
         /** Tick cadence: fast enough for ADR-011 stop-on-change, cheap enough to stay idle. */

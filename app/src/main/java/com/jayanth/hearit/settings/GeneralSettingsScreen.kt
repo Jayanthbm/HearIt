@@ -138,6 +138,7 @@ fun GeneralSettingsRoute(
         onResetToDefaults = viewModel::onResetToDefaults,
         onToggleAutoDismiss = viewModel::onToggleAutoDismiss,
         onToggleShakeToStop = viewModel::onToggleShakeToStop,
+        onShakeSensitivityChanged = viewModel::onShakeSensitivityChanged,
         onToggleVolumeKeyToStop = viewModel::onToggleVolumeKeyToStop,
         onToggleMusicPauseHold = viewModel::onToggleMusicPauseHold,
         onToggleBluetoothAutoStart = viewModel::onToggleBluetoothAutoStart,
@@ -174,6 +175,7 @@ fun GeneralSettingsScreen(
     onResetToDefaults: () -> Unit,
     onToggleAutoDismiss: (Boolean) -> Unit = {},
     onToggleShakeToStop: (Boolean) -> Unit = {},
+    onShakeSensitivityChanged: (com.jayanth.hearit.service.ShakeSensitivity) -> Unit = {},
     onToggleVolumeKeyToStop: (Boolean) -> Unit = {},
     onToggleMusicPauseHold: (Boolean) -> Unit = {},
     onToggleBluetoothAutoStart: (Boolean) -> Unit = {},
@@ -281,6 +283,7 @@ fun GeneralSettingsScreen(
             isVolumeKeyToStopEnabled = state.isVolumeKeyToStopEnabled,
             onToggleAutoDismiss = onToggleAutoDismiss,
             onToggleShakeToStop = onToggleShakeToStop,
+            onShakeSensitivityChanged = onShakeSensitivityChanged,
             onToggleVolumeKeyToStop = onToggleVolumeKeyToStop,
         )
 
@@ -730,6 +733,7 @@ internal fun GesturesAndControlsCard(
     isVolumeKeyToStopEnabled: Boolean,
     onToggleAutoDismiss: (Boolean) -> Unit,
     onToggleShakeToStop: (Boolean) -> Unit,
+    onShakeSensitivityChanged: (com.jayanth.hearit.service.ShakeSensitivity) -> Unit = {},
     onToggleVolumeKeyToStop: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -837,6 +841,34 @@ internal fun GesturesAndControlsCard(
                     checked = isShakeToStopEnabled,
                     onCheckedChange = onToggleShakeToStop,
                 )
+            }
+            if (isShakeToStopEnabled) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "Shake Sensitivity",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        com.jayanth.hearit.service.ShakeSensitivity.entries.forEach { sensitivity ->
+                            FilterChip(
+                                selected = state.shakeSensitivity == sensitivity,
+                                onClick = { onShakeSensitivityChanged(sensitivity) },
+                                label = {
+                                    val label = when (sensitivity) {
+                                        com.jayanth.hearit.service.ShakeSensitivity.GENTLE -> "Gentle"
+                                        com.jayanth.hearit.service.ShakeSensitivity.BALANCED -> "Balanced"
+                                        com.jayanth.hearit.service.ShakeSensitivity.FIRM -> "Firm"
+                                    }
+                                    Text(label, style = MaterialTheme.typography.labelMedium)
+                                },
+                            )
+                        }
+                    }
+                }
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
